@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+services:
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "4318:4318"
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+    healthcheck:
+      test: ["CMD-SHELL", "wget --spider -q http://localhost:14269/ || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  gateway:
+    build:
+      context: ../../../..
+      dockerfile: examples/distributed/src/Dockerfile
+    command: ["npx", "tsx", "examples/distributed/src/gateway-entry.ts"]
+    ports:
+      - "3000:3000"
+    environment:
+      OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      CUSTOMER_CATALOG_URL: http://customer-catalog:3001
+      INVENTORY_URL: http://inventory:3002
+      PAYMENT_URL: http://payment:3003
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      jaeger:
+        condition: service_healthy
+      customer-catalog:
+        condition: service_healthy
+      inventory:
+        condition: service_healthy
+      payment:
+        condition: service_healthy
+
+  customer-catalog:
+    build:
+      context: ../../../..
+      dockerfile: examples/distributed/src/Dockerfile
+    command: ["npx", "tsx", "examples/distributed/src/customer-catalog-entry.ts"]
+    environment:
+      OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3001/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  inventory:
+    build:
+      context: ../../../..
+      dockerfile: examples/distributed/src/Dockerfile
+    command: ["npx", "tsx", "examples/distributed/src/inventory-entry.ts"]
+    environment:
+      OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3002/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+
+  payment:
+    build:
+      context: ../../../..
+      dockerfile: examples/distributed/src/Dockerfile
+    command: ["npx", "tsx", "examples/distributed/src/payment-entry.ts"]
+    environment:
+      OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+      FRAUD_URL: http://fraud:3004
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3003/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      fraud:
+        condition: service_healthy
+
+  fraud:
+    build:
+      context: ../../../..
+      dockerfile: examples/distributed/src/Dockerfile
+    command: ["npx", "tsx", "examples/distributed/src/fraud-entry.ts"]
+    environment:
+      OTLP_ENDPOINT: http://jaeger:4318/v1/traces
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3004/health').then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 30s

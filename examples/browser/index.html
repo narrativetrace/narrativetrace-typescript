@@ -1,0 +1,53 @@
+<!doctype html>
+<!--
+  NarrativeTrace browser example — served by Vite (`pnpm run example:browser`).
+
+  What happens on this page
+  ─────────────────────────
+  1. `<script type="module" src="/src/app.ts">` (bottom of the page) loads the app.
+     That is a TypeScript file, not JavaScript: the Vite dev server intercepts the request,
+     transpiles it with esbuild on the fly and serves it as an ES module with an inline source
+     map. Comments are stripped from the served JavaScript, so read the original source under
+     DevTools → Sources (the source map points at the .ts files) or in the repository.
+     In a production build (`vite build`) this tag is rewritten to a hashed, bundled
+     `/assets/index-*.js`; nothing else on the page changes.
+  2. `src/app.ts` imports `@narrativetrace/core-web` (registers the Web Crypto id generator —
+     required in the browser; `core-node` is the Node counterpart) and mounts `src/demo.ts`
+     into `<div id="app">`.
+  3. Clicking "Run traced calculation" traces a `Calculator` with `traceObject` and renders the
+     resulting trace tree three ways:
+       • into the page (`renderIndentedText` → the <pre> under the button),
+       • into the DevTools console (`renderToConsole`, uses console.group),
+       • as JSON to `/traces` (`postToCollector`); the Vite dev server answers that route with a
+         tiny dev-only collector middleware (see vite.config.ts). The status line under the trace
+         reports whether the collector accepted, rejected, or could not be reached.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NarrativeTrace Browser Example</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 60rem; }
+      pre { background: #f4f4f4; padding: 1rem; min-height: 4rem; }
+    </style>
+  </head>
+  <body>
+    <h1>NarrativeTrace Browser Example</h1>
+    <p>
+      Click the button: a <code>Calculator</code> is traced with <code>traceObject</code>, the trace is
+      rendered below, mirrored to the DevTools console, and POSTed to the dev server's
+      <code>/traces</code> collector.
+    </p>
+
+    <!-- src/demo.ts appends the button, the trace <pre> and the status line in here. -->
+    <div id="app"></div>
+
+    <!--
+      Entry point. A TypeScript module served (dev) or bundled (build) by Vite — see the comment
+      at the top of this file. `type="module"` makes the browser load it as an ES module, which is
+      what allows the `import` statements inside it.
+    -->
+    <script type="module" src="/src/app.ts"></script>
+  </body>
+</html>

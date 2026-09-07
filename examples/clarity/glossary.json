@@ -1,0 +1,262 @@
+{
+  "schemaVersion": 1,
+  "contexts": {
+    "_unassigned": {
+      "packages": [],
+      "description": "Harvested terms not yet mapped to a context"
+    },
+    "hotel": {
+      "packages": ["examples/clarity/src"],
+      "description": "Domain vocabulary of the clarity example"
+    }
+  },
+  "terms": [
+    {
+      "term": "amount",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "importe",
+        "zh-CN": "金额"
+      },
+      "sources": ["DefaultPaymentGateway.authorizePayment", "PaymentGateway.authorizePayment"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "authorize payment",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "autorizar pago",
+        "zh-CN": "授权支付"
+      },
+      "sources": ["DefaultPaymentGateway.authorizePayment", "PaymentGateway.authorizePayment"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "availability",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "disponibilidad",
+        "zh-CN": "可用性"
+      },
+      "sources": ["AvailabilityChecker"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "availability checker",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "verificador de disponibilidad",
+        "zh-CN": "可用性检查器"
+      },
+      "sources": ["AvailabilityChecker"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "available room",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "habitación disponible",
+        "zh-CN": "可用房间"
+      },
+      "sources": ["AvailabilityChecker.findAvailableRooms"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "category",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "categoría",
+        "zh-CN": "类别"
+      },
+      "sources": ["Room.category"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "check in date",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "fecha de entrada",
+        "zh-CN": "入住日期"
+      },
+      "sources": [
+        "DefaultReservationService.confirmReservation",
+        "ReservationService.confirmReservation"
+      ],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "check out date",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "fecha de salida",
+        "zh-CN": "退房日期"
+      },
+      "sources": [
+        "DefaultReservationService.confirmReservation",
+        "ReservationService.confirmReservation"
+      ],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "confirm reservation",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "confirmar reserva",
+        "zh-CN": "确认预订"
+      },
+      "sources": [
+        "DefaultReservationService.confirmReservation",
+        "ReservationService.confirmReservation"
+      ],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "date range",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "rango de fechas",
+        "zh-CN": "日期范围"
+      },
+      "sources": ["AvailabilityChecker.findAvailableRooms", "DateRange"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "find available room",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "buscar habitación disponible",
+        "zh-CN": "查找可用房间"
+      },
+      "sources": [
+        "AvailabilityChecker.findAvailableRooms",
+        "DefaultAvailabilityChecker.findAvailableRooms"
+      ],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "guest",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "huésped",
+        "zh-CN": "宾客"
+      },
+      "sources": [
+        "DefaultGuestRepository.findGuestById",
+        "DefaultReservationService.confirmReservation",
+        "GuestRepository"
+      ],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "guest id",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "id de huésped",
+        "zh-CN": "宾客编号"
+      },
+      "sources": ["Guest.guestId", "Reservation.guestId"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "payment",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "pago",
+        "zh-CN": "支付"
+      },
+      "sources": ["PaymentGateway", "PaymentGateway.authorizePayment"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "reservation",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "reserva",
+        "zh-CN": "预订"
+      },
+      "sources": ["DefaultReservationService.confirmReservation", "ReservationService"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "reservation id",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "id de reserva",
+        "zh-CN": "预订编号"
+      },
+      "sources": ["Reservation.reservationId"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "room",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "habitación",
+        "zh-CN": "房间"
+      },
+      "sources": ["Room"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "room category",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "categoría de habitación",
+        "zh-CN": "房型"
+      },
+      "sources": [
+        "AvailabilityChecker.findAvailableRooms",
+        "DefaultReservationService.confirmReservation"
+      ],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    },
+    {
+      "term": "room number",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "número de habitación",
+        "zh-CN": "房间号"
+      },
+      "sources": ["Reservation.roomNumber", "Room.roomNumber"],
+      "firstSeen": "2026-08-27",
+      "context": "hotel"
+    }
+  ]
+}

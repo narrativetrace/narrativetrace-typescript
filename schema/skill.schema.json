@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://narrativetrace.io/schema/skill.schema.json",
+  "title": "NarrativeTrace skill frontmatter",
+  "description": "The YAML frontmatter of a SKILL.md in the NarrativeTrace skills catalogue. `name` and `description` are the Agent Skills open standard's own fields; everything NarrativeTrace adds lives under `metadata`, which the standard leaves free-form. Additional top-level properties are allowed because the standard owns that namespace (`license`, `allowed-tools`, fields it may add); `metadata` is closed because NarrativeTrace owns it and an unrecognized key there is a typo, not an extension.",
+  "type": "object",
+  "required": ["name", "description", "metadata"],
+  "properties": {
+    "name": {
+      "description": "Directory name of the skill and the standard's identifier. Lower-case letters, digits and single hyphens; 64 characters is the standard's ceiling.",
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "description": {
+      "description": "What agents match on. Carries the trigger phrases the user actually types, quoted verbatim. 1024 characters is the standard's ceiling.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1024
+    },
+    "metadata": {
+      "description": "NarrativeTrace's additions to the standard's frontmatter.",
+      "type": "object",
+      "required": ["tier", "ports", "verify", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "tier": {
+          "description": "Tier of the capability the skill wires. A `pro` skill reached from a free install states what it delivers, what it needs and where to get it — it never pretends the capability is present.",
+          "enum": ["free", "pro"]
+        },
+        "ports": {
+          "description": "Ports where the capability exists. A skill whose ports exclude the host project's language states so in an Availability section before its first step.",
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+([.-][a-z0-9]+)*$"
+          },
+          "uniqueItems": true
+        },
+        "verify": {
+          "description": "The command the agent runs as its own definition of done. Always the port's own gate for the capability, never a checker written for the skill.",
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "description": "Version of the artifact this catalogue was generated from. A mismatch against the installed library means the catalogue is stale and must be regenerated.",
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+        }
+      }
+    }
+  }
+}

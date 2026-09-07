@@ -1,0 +1,37 @@
+node_modules/
+dist/
+.turbo/
+*.tsbuildinfo
+.biome/
+coverage/
+reports/*
+!reports/benchmarks/
+reports/benchmarks/latest.json
+!reports/parity-review-2026-07-10.md
+!reports/parity-review-2026-07-10/
+**/.stryker-tmp/
+**/reports/mutation/
+stryker.log
+
+# Security-tooling self-installs (gitleaks/osv-scanner/semgrep venv) — downloaded
+# on demand by scripts/gitleaks.sh, scripts/osv-scan.sh, scripts/semgrep-scan.sh;
+# never checked in.
+.tools-cache/
+
+.pnpm-store/
+
+
+# Session hardening progress notes (untracked working records)
+.hardening-progress-*.md
+
+
+# git-secret: the revealed plaintext must never be committed; the encrypted
+# .secret files and everything else under .gitsecret are meant to be tracked.
+.gitsecret/keys/random_seed
+!*.secret
+secret.properties
+
+
+# prepack copies the root LICENSE into the package for the npm tarball;
+# the working-tree copy is a pack artifact, never committed.
+packages/*/LICENSE

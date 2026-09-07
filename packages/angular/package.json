@@ -1,0 +1,58 @@
+{
+  "name": "@narrativetrace/angular",
+  "version": "0.1.0",
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
+    "directory": "packages/angular"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "cp ../../LICENSE LICENSE",
+    "build": "tsup",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "mutate": "stryker run"
+  },
+  "peerDependencies": {
+    "@angular/common": ">=17.0.0",
+    "@angular/core": ">=17.0.0",
+    "@angular/router": ">=17.0.0",
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*"
+  },
+  "devDependencies": {
+    "@angular/common": "^21.2.22",
+    "@angular/compiler": "^21.2.22",
+    "@angular/core": "^21.2.22",
+    "@angular/platform-browser": "^21.2.22",
+    "@angular/platform-browser-dynamic": "^21.2.22",
+    "@angular/router": "^21.2.22",
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-web": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "jsdom": "^26.0.0",
+    "rxjs": "^7.8.0",
+    "zone.js": "^0.15.0"
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "name": "@narrativetrace/example-script-tag",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "start": "tsx src/entry.ts"
+  },
+  "devDependencies": {
+    "@narrativetrace/standalone": "workspace:*",
+    "@types/node": "^22.0.0",
+    "jsdom": "^26.0.0"
+  }
+}

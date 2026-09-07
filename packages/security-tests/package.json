@@ -1,0 +1,25 @@
+{
+  "name": "@narrativetrace/security-tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "echo 'security-tests is test-only; nothing to build'",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "fuzz": "tsx tools/run-fuzz.ts"
+  },
+  "devDependencies": {
+    "@jazzer.js/core": "^4.0.0",
+    "@narrativetrace/clarity": "workspace:*",
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/diagrams": "workspace:*",
+    "@narrativetrace/glossary": "workspace:*",
+    "@narrativetrace/vitest": "workspace:*",
+    "@types/node": "^22.0.0",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1",
+    "yaml": "^2.9.0"
+  }
+}

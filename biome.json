@@ -1,0 +1,55 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.4/schema.json",
+  "files": {
+    "includes": [
+      "**",
+      "!.turbo",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/coverage",
+      "!.stryker-tmp",
+      "!**/.stryker-tmp",
+      "!reports",
+      "!**/reports",
+      "!.pnpm-store",
+      "!**/.pnpm-store",
+      "!.devcontainer",
+      "!.claude",
+      "!.tools-cache",
+      "!**/.tools-cache"
+    ]
+  },
+  "assist": {
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    }
+  },
+  "formatter": {
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "parser": {
+      "unsafeParameterDecoratorsEnabled": true
+    }
+  },
+  "linter": {
+    "enabled": true,
+    "rules": { "recommended": true }
+  },
+  "overrides": [
+    {
+      "includes": ["packages/nestjs/**", "examples/nestjs-react/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "useImportType": "off"
+          }
+        }
+      }
+    }
+  ]
+}

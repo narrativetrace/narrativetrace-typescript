@@ -1,0 +1,94 @@
+{
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "test": "turbo run test && pnpm run test:root",
+    "test:root": "vitest run",
+    "demo": "bash demo.sh",
+    "check": "tsx tools/license-header.ts --check && biome check . && pnpm run build && tsx tools/metrics.ts && pnpm run doc-coverage && pnpm run clarity:gate && pnpm run translation-check && pnpm run legal-check && pnpm run test:root && pnpm run coverage",
+    "check:full": "pnpm run check && pnpm run mutate",
+    "check:container": "bash scripts/gate.sh",
+    "license-check": "tsx tools/license-header.ts --check",
+    "license-fix": "tsx tools/license-header.ts --fix",
+    "legal-check": "bash scripts/legal-check.sh",
+    "metrics": "tsx tools/metrics.ts",
+    "clarity-scan": "tsx tools/clarity-scan.ts",
+    "clarity:gate": "tsx tools/clarity-scan.ts --min-score 0.4 --max-high-issues 15",
+    "glossary-scan": "tsx tools/glossary-scan.ts --source-dir packages",
+    "translate-traces": "tsx tools/translate-traces.ts",
+    "doc-coverage": "tsx tools/doc-coverage.ts",
+    "translation-check": "tsx tools/translation-check.ts",
+    "translation-status": "tsx tools/translation-status.ts",
+    "security:secrets:staged": "sh scripts/gitleaks.sh staged",
+    "security:secrets:full": "sh scripts/gitleaks.sh full",
+    "security:semgrep": "sh scripts/semgrep-scan.sh",
+    "security:osv": "sh scripts/osv-scan.sh",
+    "security:audit": "pnpm audit",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "coverage": "turbo run coverage",
+    "bench": "turbo run bench",
+    "bench:save": "bash scripts/save-bench.sh",
+    "stress": "turbo run stress",
+    "mutate": "turbo run mutate --concurrency=1",
+    "mutate:incremental": "turbo run mutate --concurrency=1 -- --incremental",
+    "mutate:survivors": "tsx tools/mutation-survivors.ts",
+    "example:express": "tsx examples/express/src/entry.ts",
+    "example:hono": "tsx examples/hono/src/entry.ts",
+    "example:ecommerce": "tsx examples/ecommerce/src/demo.ts",
+    "example:minecraft": "tsx examples/minecraft/src/demo.ts",
+    "example:minecraft-generic": "tsx examples/minecraft-generic/src/demo.ts",
+    "example:clarity": "tsx examples/clarity/src/demo.ts",
+    "example:plain-js": "node examples/plain-js/src/demo.mjs",
+    "example:browser": "pnpm --filter @narrativetrace/example-browser run start",
+    "example:all": "pnpm run example:ecommerce && pnpm run example:minecraft && pnpm run example:minecraft-generic && pnpm run example:clarity && pnpm run example:plain-js && pnpm run example:express & pnpm run example:hono & (command -v docker >/dev/null && pnpm run example:distributed || echo 'Skipping distributed example — install Docker to run it')",
+    "example:distributed": "docker compose -f examples/distributed/src/docker-compose.yml up --build",
+    "example:express-angular": "tsx examples/express-angular/server/entry.ts & vite --config examples/express-angular/vite.config.ts",
+    "prepare": "husky",
+    "example:script-tag": "pnpm --filter @narrativetrace/example-script-tag run start"
+  },
+  "lint-staged": {
+    "*.ts": "biome check --write --no-errors-on-unmatched"
+  },
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "linux",
+        "darwin"
+      ],
+      "cpu": [
+        "arm64",
+        "x64"
+      ]
+    },
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@swc/core"
+    ],
+    "ignoredBuiltDependencies": [
+      "@nestjs/core",
+      "@parcel/watcher",
+      "lmdb",
+      "msgpackr-extract"
+    ]
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.0.0",
+    "@stryker-mutator/core": "^9.6.0",
+    "@stryker-mutator/vitest-runner": "^9.6.0",
+    "@vitest/coverage-v8": "^3.2.7",
+    "fast-check": "^4.5.3",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.3.0",
+    "tsarch": "^5.4.1",
+    "tsup": "^8.0.0",
+    "tsx": "^4.21.0",
+    "turbo": "^2.10.12",
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.7"
+  }
+}

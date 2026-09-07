@@ -1,0 +1,175 @@
+{
+  "schemaVersion": 1,
+  "contexts": {
+    "_unassigned": {
+      "packages": [],
+      "description": "Harvested terms not yet mapped to a context"
+    },
+    "library": {
+      "packages": ["examples/plain-js/src"],
+      "description": "Domain vocabulary of the plain-js library example"
+    }
+  },
+  "terms": [
+    {
+      "term": "book",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "libro",
+        "zh-CN": "图书"
+      },
+      "sources": ["CatalogService.findBook", "DefaultLendingService.borrowBook"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "book title",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "título del libro",
+        "zh-CN": "书名"
+      },
+      "sources": ["LoanReceipt.bookTitle"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "borrow book",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "prestar libro",
+        "zh-CN": "借书"
+      },
+      "sources": ["DefaultLendingService.borrowBook", "LendingService.borrowBook"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "card number",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "número de carné",
+        "zh-CN": "借书证号"
+      },
+      "sources": ["InMemoryMemberService.lookupMember", "Member.cardNumber"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "catalog",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "catálogo",
+        "zh-CN": "目录"
+      },
+      "sources": ["CatalogService", "InMemoryCatalogService"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "due date",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "fecha de devolución",
+        "zh-CN": "应还日期"
+      },
+      "sources": ["LoanReceipt.dueDate"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "find book",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "buscar libro",
+        "zh-CN": "查找图书"
+      },
+      "sources": ["CatalogService.findBook", "InMemoryCatalogService.findBook"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "isbn",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "isbn",
+        "zh-CN": "ISBN"
+      },
+      "sources": ["CatalogService.findBook", "DefaultLendingService.borrowBook"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "lending",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "préstamos",
+        "zh-CN": "借阅"
+      },
+      "sources": ["LendingService"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "loan receipt",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "recibo de préstamo",
+        "zh-CN": "借阅凭证"
+      },
+      "sources": ["LoanReceipt"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "lookup member",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "consultar socio",
+        "zh-CN": "查询会员"
+      },
+      "sources": ["InMemoryMemberService.lookupMember", "MemberService.lookupMember"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "member",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "socio",
+        "zh-CN": "会员"
+      },
+      "sources": [
+        "DefaultLendingService.borrowBook",
+        "InMemoryMemberService.lookupMember",
+        "MemberService"
+      ],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    },
+    {
+      "term": "member name",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "nombre del socio",
+        "zh-CN": "会员姓名"
+      },
+      "sources": ["LoanReceipt.memberName"],
+      "firstSeen": "2026-08-27",
+      "context": "library"
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# nosemgrep: package_managers.pnpm.pnpm-missing-minimum-release-age.pnpm-minimum-release-age -- owner tradeoff call, see the comment below; accepted risk, not an oversight
+packages:
+  - "packages/*"
+  - "examples/*"
+
+# Supply-chain hardening (Semgrep `package_managers.pnpm.*`, run once during the
+# security-tooling pass). `minimumReleaseAge` (quarantine every dependency version
+# for N minutes before pnpm will install it — the actual defense against a
+# just-published compromised release, the class event-stream/eslint-config-prettier
+# were) is deliberately NOT set here: it would delay adopting the very security
+# patches this pass exists to pick up, and needs an owner call on the tradeoff
+# against dependency-update velocity — an explicit tradeoff, not an oversight.
+blockExoticSubdeps: true
+trustPolicy: no-downgrade

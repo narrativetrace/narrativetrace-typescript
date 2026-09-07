@@ -1,0 +1,23 @@
+{
+  "name": "@narrativetrace/example-plain-js",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.mjs",
+      "default": "./src/index.mjs"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/diagrams": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*"
+  }
+}

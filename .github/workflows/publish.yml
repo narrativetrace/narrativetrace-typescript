@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# npm artifact publication — owner-triggered, never automatic.
+#
+# Auth is npm trusted publishing (OIDC): each @narrativetrace package's
+# settings on npmjs.com name this repository, this workflow file, and the
+# `release` environment as its trusted publisher, and the run mints a
+# short-lived token per publish. No long-lived npm token exists anywhere
+# once bootstrap is done.
+#
+# Bootstrap exception, first publish only: trusted publishing is configured
+# on an EXISTING package, so the very first publish of each package runs
+# with a granular, publish-only, same-day-revoked token in the NPM_TOKEN
+# secret. After that run: configure the trusted publisher on every package,
+# revoke the token, delete the secret. This workflow supports both modes —
+# it uses NPM_TOKEN when present and OIDC when not.
+#
+# Provenance: publishConfig.provenance is set in every publishable manifest,
+# because `pnpm -r publish --provenance` silently drops the flag in recursive
+# mode (empirically proven, test-pinned in package-metadata.test.ts). Do not
+# "simplify" back to the flag.
+name: Publish
+
+permissions: {}
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # The environment gates the run behind the repository's protection rules
+    # and is part of each package's trusted-publisher identity — renaming it
+    # breaks every configured policy at once.
+    environment: release
+    permissions:
+      contents: read
+      # OIDC token minting for trusted publishing and provenance attestation.
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build
+      # Full gate before anything leaves the runner: artifacts publish only
+      # from a tree that passes the same checks CI enforces.
+      - run: bash scripts/gate.sh
+      - name: Publish all public packages
+        # NODE_AUTH_TOKEN is empty in steady state (OIDC takes over) and holds
+        # the bootstrap token only for each package's first-ever publish.
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: pnpm -r publish --access public --no-git-checks

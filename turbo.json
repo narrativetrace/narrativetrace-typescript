@@ -1,0 +1,36 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["vitest.coverage.shared.ts"],
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "build:site": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/site/**"]
+    },
+    "test": {
+      "dependsOn": ["build"]
+    },
+    "coverage": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"]
+    },
+    "bench": {
+      "dependsOn": ["build"]
+    },
+    "stress": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": [
+        "NARRATIVETRACE_STRESS_BUDGET_SECONDS",
+        "NARRATIVETRACE_STRESS_LONG",
+        "NARRATIVETRACE_STRESS_SEED"
+      ]
+    },
+    "mutate": {
+      "dependsOn": ["build"]
+    }
+  }
+}

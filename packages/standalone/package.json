@@ -1,0 +1,43 @@
+{
+  "name": "@narrativetrace/standalone",
+  "version": "0.1.0",
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
+    "directory": "packages/standalone"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "description": "Single-file NarrativeTrace bundles for plain JavaScript pages: an ES module and a classic <script> global (window.NarrativeTrace).",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/narrativetrace.d.ts",
+      "import": "./dist/narrativetrace.js"
+    },
+    "./dist/*": "./dist/*"
+  },
+  "module": "./dist/narrativetrace.js",
+  "types": "./dist/narrativetrace.d.ts",
+  "unpkg": "./dist/narrativetrace.global.js",
+  "jsdelivr": "./dist/narrativetrace.global.js",
+  "files": [
+    "dist",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "cp ../../LICENSE LICENSE",
+    "build": "tsup",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@narrativetrace/browser": "workspace:*",
+    "@narrativetrace/core-web": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@types/node": "^22.0.0"
+  }
+}

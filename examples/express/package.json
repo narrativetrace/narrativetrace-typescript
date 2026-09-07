@@ -1,0 +1,22 @@
+{
+  "name": "@narrativetrace/example-express",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/express": "workspace:*",
+    "@narrativetrace/example-ecommerce": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@types/node": "^22.0.0",
+    "@types/express": "^5.0.0",
+    "@types/supertest": "^6.0.0",
+    "express": "^4.21.0",
+    "supertest": "^7.0.0"
+  }
+}

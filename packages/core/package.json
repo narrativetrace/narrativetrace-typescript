@@ -1,0 +1,58 @@
+{
+  "name": "@narrativetrace/core",
+  "version": "0.1.0",
+  "description": "Code is the log. Turn running code into readable execution narratives for humans and AI agents.",
+  "license": "BUSL-1.1",
+  "author": "Empower Agile",
+  "homepage": "https://narrativetrace.ai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
+    "directory": "packages/core"
+  },
+  "bugs": "https://github.com/narrativetrace/narrativetrace-typescript/issues",
+  "keywords": [
+    "tracing",
+    "observability",
+    "debugging",
+    "logging",
+    "ai-agents"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "cp ../../LICENSE LICENSE",
+    "build": "tsup",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "mutate": "stryker run",
+    "stress": "tsx tools/run-stress.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

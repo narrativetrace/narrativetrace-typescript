@@ -1,0 +1,33 @@
+{
+  "name": "@narrativetrace/example-distributed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/example-ecommerce": "workspace:*",
+    "@narrativetrace/express": "workspace:*",
+    "@narrativetrace/observability": "workspace:*",
+    "@narrativetrace/opentelemetry": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
+    "@opentelemetry/instrumentation": "^0.57.0",
+    "@opentelemetry/instrumentation-http": "^0.57.0",
+    "@opentelemetry/resources": "^1.25.0",
+    "@opentelemetry/sdk-trace-base": "^1.25.0",
+    "@opentelemetry/sdk-trace-node": "^1.25.0",
+    "@opentelemetry/semantic-conventions": "^1.25.0",
+    "@types/node": "^22.0.0",
+    "@types/express": "^5.0.0",
+    "@types/supertest": "^6.0.0",
+    "express": "^4.21.0",
+    "supertest": "^7.0.0"
+  }
+}

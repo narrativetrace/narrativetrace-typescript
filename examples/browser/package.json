@@ -1,0 +1,22 @@
+{
+  "name": "@narrativetrace/example-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "start": "vite"
+  },
+  "devDependencies": {
+    "@narrativetrace/browser": "workspace:*",
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/core-web": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@types/node": "^22.0.0",
+    "jsdom": "^26.0.0",
+    "vite": "^7.3.6"
+  }
+}

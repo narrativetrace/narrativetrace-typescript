@@ -1,0 +1,27 @@
+# NarrativeTrace
+
+> Code is the log. Auto-generate human-readable execution traces from method names, parameter names, and return values.
+
+NarrativeTrace is a TypeScript library that eliminates manual logging. It wraps objects with ES Proxy to capture every method call and renders the result as Markdown, prose, diagrams, or JSON. It propagates trace identity across fork/join, fire-and-forget and asynchronous-snapshot boundaries — and the work traced across those boundaries comes back into the launching trace — bridges to OpenTelemetry/Winston/Pino, and includes naming clarity analysis that scores code readability and gates builds.
+
+## Docs
+
+- [Complete Reference](llms-full.md): Full API reference, 18-package map, configuration, concurrency, integration guides, architecture decisions, and troubleshooting
+
+## Sections in Complete Reference
+
+- Overview and philosophy
+- Quick start (install and trace)
+- Package map with dependency graph (18 published packages)
+- Core API: NarrativeContext, SyncNarrativeContext, AsyncNarrativeContext, TracingLevel
+- Data model: TraceTree, TraceNode, MethodSignature, ParameterCapture, TraceOutcome
+- Proxy API: traceObject, ProxyOptions, decorators (@traced, @narrated, @onError, @notTraced)
+- Concurrency: ForkJoinGroup (identity propagation, join wait-analysis), FireAndForgetGroup, ContextSnapshot (bidirectional propagation — async work joins the trace that launched it, reported from publication)
+- Vitest API: narrativeTest, createNarrativeTest, writeTraceOutput, ClaritySuiteReporter
+- Diagrams API: renderMermaidSequence, renderPlantUmlSequence
+- Clarity API: analyzeClarity, renderClaritySuiteReport, exportClarityJson, the clarity gate CLI
+- Runtime adapters: express, hono, nestjs, angular, react, react-router
+- Observability: observability enricher, opentelemetry bridge, winston, pino consumers
+- Configuration: NarrativeTraceConfig, TracingLevel, RenderOptions, MarkdownOptions, NARRATIVETRACE_* env
+- Architecture decisions: eager serialization, ALS vs stack-based context, frozen immutable data
+- Troubleshooting: common issues and fixes

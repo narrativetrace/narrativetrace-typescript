@@ -1,0 +1,291 @@
+{
+  "schemaVersion": 1,
+  "contexts": {
+    "_unassigned": {
+      "packages": [],
+      "description": "Harvested terms not yet mapped to a context"
+    },
+    "game": {
+      "packages": ["examples/minecraft/src"],
+      "description": "Domain vocabulary of the minecraft example (the unrefactored half stays untranslated on purpose)"
+    }
+  },
+  "terms": [
+    {
+      "term": "add item",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "añadir objeto",
+        "zh-CN": "添加物品"
+      },
+      "sources": ["DefaultPlayerInventory.addItem", "PlayerInventory.addItem"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "biome",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "bioma",
+        "zh-CN": "生物群系"
+      },
+      "sources": ["Chunk.biome"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "chunk",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "chunk",
+        "zh-CN": "区块"
+      },
+      "sources": ["Chunk", "DefaultWorldGenerator.generateChunk", "WorldGenerator.generateChunk"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "craft",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "fabricar",
+        "zh-CN": "合成"
+      },
+      "sources": ["CraftingTable.craft", "DefaultCraftingTable.craft"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "crafting",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "fabricación",
+        "zh-CN": "合成"
+      },
+      "sources": ["CraftingTable"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "crafting table",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "mesa de trabajo",
+        "zh-CN": "工作台"
+      },
+      "sources": ["CraftingTable"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "creature",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "criatura",
+        "zh-CN": "生物"
+      },
+      "sources": ["Creature", "CreatureSpawner"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "creature spawner",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "generador de criaturas",
+        "zh-CN": "生物生成器"
+      },
+      "sources": ["CreatureSpawner"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "creature type",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "tipo de criatura",
+        "zh-CN": "生物类型"
+      },
+      "sources": ["CreatureType"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "generate chunk",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "generar chunk",
+        "zh-CN": "生成区块"
+      },
+      "sources": ["DefaultWorldGenerator.generateChunk", "WorldGenerator.generateChunk"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "hostile",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "hostil",
+        "zh-CN": "敌对"
+      },
+      "sources": ["CreatureSpawner.spawnHostile", "DefaultCreatureSpawner.spawnHostile"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "item",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "objeto",
+        "zh-CN": "物品"
+      },
+      "sources": ["DefaultPlayerInventory.addItem", "Item", "PlayerInventory.addItem"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "player",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "jugador",
+        "zh-CN": "玩家"
+      },
+      "sources": ["PlayerInventory", "WorldServer.playerJoined"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "player inventory",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "inventario del jugador",
+        "zh-CN": "玩家背包"
+      },
+      "sources": ["PlayerInventory"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "player joined",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "jugador se unió",
+        "zh-CN": "玩家加入"
+      },
+      "sources": ["DefaultWorldServer.playerJoined", "WorldServer.playerJoined"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "player name",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "nombre del jugador",
+        "zh-CN": "玩家名"
+      },
+      "sources": ["DefaultWorldServer.playerJoined", "WorldServer.playerJoined"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "quantity",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "cantidad",
+        "zh-CN": "数量"
+      },
+      "sources": ["DefaultPlayerInventory.addItem", "PlayerInventory.addItem"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "recipe",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "receta",
+        "zh-CN": "配方"
+      },
+      "sources": ["CraftingTable.craft", "DefaultCraftingTable.craft", "Recipe"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "spawn hostile",
+      "kind": "verb-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "generar hostil",
+        "zh-CN": "生成敌对生物"
+      },
+      "sources": ["CreatureSpawner.spawnHostile", "DefaultCreatureSpawner.spawnHostile"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "type",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "tipo",
+        "zh-CN": "类型"
+      },
+      "sources": ["CreatureSpawner.spawnHostile"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "world",
+      "kind": "word",
+      "status": "curated",
+      "translations": {
+        "es": "mundo",
+        "zh-CN": "世界"
+      },
+      "sources": ["WorldGenerator", "WorldServer"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "world generator",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "generador del mundo",
+        "zh-CN": "世界生成器"
+      },
+      "sources": ["WorldGenerator"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    },
+    {
+      "term": "world server",
+      "kind": "noun-phrase",
+      "status": "curated",
+      "translations": {
+        "es": "servidor del mundo",
+        "zh-CN": "世界服务器"
+      },
+      "sources": ["WorldServer"],
+      "firstSeen": "2026-08-27",
+      "context": "game"
+    }
+  ]
+}

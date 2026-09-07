@@ -1,0 +1,20 @@
+# Secrets-scanner config (security-tooling pass, 2026-09-02). Extends
+# gitleaks' own default ruleset rather than hand-rolling detection patterns —
+# consistent with the semgrep config using OSS community rulesets only, no
+# custom rules.
+#
+# Allowlist entries are accepted-risk records, each scoped and reasoned —
+# never a place to pre-guess noise that doesn't exist yet.
+[extend]
+useDefault = true
+
+# First real false positive, 2026-09-06 (caught by the pre-release scan the
+# dotnet v0.1.0 publish run prompted — the fixture landed with the redaction
+# mirror wave, after the clean 2026-09-02 full-history sweep): the redaction
+# test suite proves that JWT-shaped values are redacted, which is only
+# provable with a string that genuinely matches the JWT shape — a synthetic,
+# unsigned vector, valuable to nobody. Scoped to the jwt rule in the one file.
+[[allowlists]]
+description = "synthetic JWT fixture in the redaction tests exists to prove JWT redaction"
+targetRules = ["jwt"]
+paths = ['''packages/core/__tests__/redaction-policy\.test\.ts''']

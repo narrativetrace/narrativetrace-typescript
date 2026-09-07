@@ -1,0 +1,50 @@
+<!doctype html>
+<!--
+  NarrativeTrace in a pure JavaScript page — no TypeScript, no bundler, no modules, no build step.
+
+  How this page works
+  ───────────────────
+  Two classic <script> tags at the bottom, in this order:
+    1. /narrativetrace.global.js — the @narrativetrace/standalone bundle. One minified file
+       containing core-web + proxy + browser. As a classic (non-module) script its top-level
+       `var NarrativeTrace` becomes window.NarrativeTrace. Loading it also registers the browser
+       (Web Crypto) trace-id generator, so there is nothing to configure.
+    2. /app.js — this page's own hand-written JavaScript (ES5 style on purpose: constructor
+       functions, var, an IIFE). It uses only window.NarrativeTrace.
+
+  Clicking the button traces a ShoppingCart through NarrativeTrace.traceObject and renders the
+  trace three ways: into the page, into the DevTools console, and as JSON to POST /traces —
+  a tiny collector built into the demo server (src/server.ts) that logs each trace it receives.
+
+  Any static web server can host this page; the demo server exists only to also answer
+  POST /traces. To use this in your own page: copy narrativetrace.global.js next to it and keep
+  the two script tags in this order.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NarrativeTrace — pure JavaScript</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 2rem; max-width: 60rem; }
+      pre { background: #f4f4f4; padding: 1rem; min-height: 4rem; }
+    </style>
+  </head>
+  <body>
+    <h1>NarrativeTrace in a pure JavaScript page</h1>
+    <p>
+      Everything on this page is plain JavaScript in a classic <code>&lt;script&gt;</code> tag using
+      the <code>window.NarrativeTrace</code> global from one bundled file. Click the button: a
+      <code>ShoppingCart</code> is traced, the trace is rendered below, mirrored to the DevTools
+      console, and POSTed to this server's <code>/traces</code> collector.
+    </p>
+
+    <!-- app.js appends the button, the trace <pre> and the status line in here. -->
+    <div id="app"></div>
+
+    <!-- 1. the library: defines window.NarrativeTrace -->
+    <script src="/narrativetrace.global.js"></script>
+    <!-- 2. the application: plain JS using that global -->
+    <script src="/app.js"></script>
+  </body>
+</html>

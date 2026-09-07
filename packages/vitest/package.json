@@ -1,0 +1,55 @@
+{
+  "name": "@narrativetrace/vitest",
+  "version": "0.1.0",
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
+    "directory": "packages/vitest"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "cp ../../LICENSE LICENSE",
+    "build": "tsup",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "mutate": "stryker run"
+  },
+  "peerDependencies": {
+    "@narrativetrace/clarity": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/diagrams": "workspace:*",
+    "@narrativetrace/glossary": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "vitest": "^3.0.0"
+  },
+  "devDependencies": {
+    "@narrativetrace/clarity": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/diagrams": "workspace:*",
+    "@narrativetrace/glossary": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@types/node": "^25.3.2",
+    "ajv": "^8.18.0",
+    "ajv-formats": "^3.0.1"
+  }
+}

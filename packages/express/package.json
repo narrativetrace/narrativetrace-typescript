@@ -1,0 +1,53 @@
+{
+  "name": "@narrativetrace/express",
+  "version": "0.1.0",
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
+    "directory": "packages/express"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "cp ../../LICENSE LICENSE",
+    "build": "tsup",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "mutate": "stryker run"
+  },
+  "peerDependencies": {
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/observability": "workspace:*",
+    "express": ">=4.17.0"
+  },
+  "devDependencies": {
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/observability": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@types/express": "^5.0.0",
+    "@types/supertest": "^6.0.0",
+    "express": "^4.21.0",
+    "supertest": "^7.0.0"
+  }
+}

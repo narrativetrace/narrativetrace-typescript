@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NarrativeTrace Distributed Demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 0 20px; }
+    label { display: block; margin-top: 12px; font-weight: 600; }
+    select, input { margin-top: 4px; padding: 6px; font-size: 14px; }
+    button { margin-top: 16px; padding: 8px 20px; font-size: 14px; cursor: pointer; }
+    pre { background: #f4f4f4; padding: 12px; border-radius: 4px; overflow-x: auto; max-height: 400px; }
+  </style>
+</head>
+<body>
+  <h1>Distributed Order Demo</h1>
+  <form id="orderForm">
+    <label>Customer
+      <select name="customerId">
+        <option value="C1">C1 — Alice (gold)</option>
+        <option value="C2">C2 — Bob (standard)</option>
+        <option value="C3">C3 — Charlie (platinum)</option>
+      </select>
+    </label>
+    <label>Product
+      <select name="productId">
+        <option value="P1">P1 — $29.99</option>
+        <option value="P2">P2 — $49.99</option>
+        <option value="P3">P3 — $9.99</option>
+      </select>
+    </label>
+    <label>Quantity
+      <input type="number" name="quantity" value="1" min="1" max="100">
+    </label>
+    <button type="submit">Place Order</button>
+  </form>
+  <h2>Result</h2>
+  <pre id="result">Submit an order to see the result.</pre>
+
+  <script>
+    document.getElementById("orderForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      const body = {
+        customerId: form.get("customerId"),
+        productId: form.get("productId"),
+        quantity: Number(form.get("quantity")),
+      };
+      try {
+        const res = await fetch("/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        const data = await res.json();
+        document.getElementById("result").textContent = JSON.stringify(data, null, 2);
+        console.log("Order response:", data);
+      } catch (err) {
+        document.getElementById("result").textContent = `Error: ${err.message}`;
+      }
+    });
+  </script>
+</body>
+</html>
