@@ -18,7 +18,7 @@ import {
 /**
  * Target 4: template parsing and rendering. Mirrors Java's `TemplateRedactionPropertyTest`.
  *
- * @llmNote This port's `resolveTemplate` resolves the whole object (`{obj}`) or a single property
+ * @llmNote This runtime's `resolveTemplate` resolves the whole object (`{obj}`) or a single property
  * level (`{obj.prop}` — the dot after the object name is the *only* dot it ever walks; see
  * `template-parser.ts`'s own doc comment). Java's `RedactedPaths` walks arbitrarily deep paths.
  * A corpus template case whose redacted segment sits two or more levels down (`redacted-mid-path`,

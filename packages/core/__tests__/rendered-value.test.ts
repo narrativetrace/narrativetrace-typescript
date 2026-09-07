@@ -23,7 +23,7 @@ describe("renderStructured", () => {
     expect(renderStructured(Symbol.for("s"))).toEqual({ kind: "other", text: "Symbol(s)" });
   });
 
-  // Cross-port mirror of the Java Number-subclass-toString finding
+  // Cross-runtime mirror of the Java Number-subclass-toString finding
   // (2026-09-03-number-tostring-bypasses-scalar-sanitizing.md): a symbol's description is
   // caller-controlled text reaching the "other" catch-all — the structured-path analog of a
   // hostile Number.toString() — so it must be control-sanitized like every other scalar text this

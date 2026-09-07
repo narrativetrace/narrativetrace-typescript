@@ -175,7 +175,7 @@ function translateAndWrite(options: TranslateOptions, io: TranslateIo, glossaryP
 /**
  * Translates every stored trace of a run into each requested locale.
  *
- * INTENT: the port of the plan's `translateTraces` task — a pure function of stored files, so it
+ * INTENT: the `translateTraces` task — a pure function of stored files, so it
  * re-runs over historical traces and always writes the same bytes. Returns an exit code rather
  * than terminating the process, so every failure path stays reachable from a test.
  *

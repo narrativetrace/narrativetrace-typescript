@@ -207,7 +207,7 @@ describe("FireAndForgetGroup", () => {
 
 // Bug-hunt no-poison contract: a fire-and-forget group hands its launched
 // task's roots to the parent (publishChildrenTo → adopt), but the raw worker events themselves
-// used to live only in the shared pipeline with nothing ever removing them. This port grafts
+// used to live only in the shared pipeline with nothing ever removing them. This runtime grafts
 // adopted work by reference rather than re-emitting a snapshot (the adoption contract), so the events cannot
 // be purged the moment the group settles — the parent's own eventual capture still reads them by
 // reference. What closes the leak is the parent's own reset(): once it fires, the adopted spans are

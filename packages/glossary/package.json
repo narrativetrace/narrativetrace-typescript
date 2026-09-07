@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/glossary",
   "version": "0.1.0",
+  "description": "The domain glossary of a repository: bounded contexts and canonical terms, harvested from traces and curated by hand",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

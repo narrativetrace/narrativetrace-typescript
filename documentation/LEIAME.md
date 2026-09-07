@@ -5,7 +5,7 @@
 O índice das guias de usuário do NarrativeTrace em português. A documentação técnica e de design
 (superfície da API, testes de segurança e de concorrência) permanece somente em inglês — consulte o
 [índice completo](README.md). Consulte as convenções da plataforma de tradução para as regras
-deste port.
+desta implementação.
 
 Comece aqui:
 
@@ -27,7 +27,7 @@ Aprofundando:
 | [Guia de clareza](pt-BR/guia-de-clareza.md) | Modelo de pontuação, componentes de NLP, scanner estático |
 | [Guia de integração de frameworks](pt-BR/guia-de-integracao-de-frameworks.md) | Express, Hono, navegador, AsyncLocalStorage |
 | [Guia de exemplos](pt-BR/guia-de-exemplos.md) | O lançador `pnpm demo` e os exemplos executáveis |
-| [Guia de funcionalidades](pt-BR/guia-de-funcionalidades.md) | Catálogo canônico do que este port distribui, com tier e status |
+| [Guia de funcionalidades](pt-BR/guia-de-funcionalidades.md) | Catálogo canônico do que esta implementação distribui, com tier e status |
 
 Estas traduções estão PENDENTES DE REVISÃO por um falante nativo — cada arquivo registra seu
 status de revisão no cabeçalho da linha 1 (`pnpm run translation-status` imprime a matriz completa).

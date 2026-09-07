@@ -13,7 +13,7 @@ type Segment = (values: Record<string, unknown>) => string;
  * `index.ts`), so its `template` argument is caller-supplied, not limited in practice to the
  * finite set of literal `@narrated`/`@onError` decorator strings a codebase happens to declare —
  * without a bound, a caller (or a future call site) feeding it per-request text would grow the
- * cache for the life of the process (cross-port shape F2, 2026-09-02 audit).
+ * cache for the life of the process (cross-runtime shape F2, 2026-09-02 audit).
  */
 const MAX_CACHED_TEMPLATES = 512;
 

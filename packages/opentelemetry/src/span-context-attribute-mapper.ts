@@ -28,7 +28,7 @@ const MAX_FLATTEN_DEPTH = 3;
  *
  * @remarks className/methodName come straight from a {@link MethodSignature}, a public API that
  * accepts any string — control-escaped here so a hostile one cannot forge a telemetry field
- * (cross-port shape F6, 2026-09-02 audit).
+ * (cross-runtime shape F6, 2026-09-02 audit).
  */
 export function setSpanAttributes(sig: MethodSignature, span: Span): void {
   span.setAttribute("code.namespace", ContextExport.sanitize(sig.className));
@@ -60,7 +60,7 @@ export function setNtSchemaAttributes(sc: SpanContext, span: Span): void {
  *
  * @remarks The http/user fields are request-derived — control-escaped and length-capped via
  * {@link ContextExport.sanitize} so a value set programmatically (bypassing every HTTP filter, the
- * export boundary's own reason to normalize again) cannot forge a telemetry field (cross-port shape
+ * export boundary's own reason to normalize again) cannot forge a telemetry field (cross-runtime shape
  * F6, 2026-09-02 audit).
  */
 export function setTraceLevelAttributes(sc: SpanContext, span: Span): void {

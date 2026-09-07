@@ -37,7 +37,7 @@ export class OrderService {
 ```
 
 No interface to declare — `traceObject()` wraps the concrete object directly
-with an ES `Proxy`, so there is nothing to implement against. (JDK/JVM ports
+with an ES `Proxy`, so there is nothing to implement against. (the JDK/JVM runtimes
 of NarrativeTrace need an interface for their dynamic proxy; this one does
 not.)
 

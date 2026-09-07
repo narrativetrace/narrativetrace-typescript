@@ -5,7 +5,7 @@
  * Every grammatical shape a glossary term may take, in the order the Markdown view renders them.
  *
  * @remarks The literals are the `glossary.json` labels verbatim, so no name mapping exists to
- * drift — the Java reference needs `TermKind.jsonName()` only because its enum constants are
+ * drift — the Java runtime needs `TermKind.jsonName()` only because its enum constants are
  * upper-case.
  */
 export const TERM_KINDS = ["word", "noun-phrase", "verb-phrase", "template"] as const;

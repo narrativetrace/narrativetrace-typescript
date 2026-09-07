@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/vitest",
   "version": "0.1.0",
+  "description": "Auto-traces Vitest tests, writing trace files, failure diagnostics, and clarity reports for each run",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

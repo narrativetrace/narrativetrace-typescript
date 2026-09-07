@@ -1,4 +1,4 @@
-<!-- source: documentation/feature-guide.md blob db50cbef72d2 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/feature-guide.md blob fdb3285d5f27 | translated: 2026-09-07 | reviewed: - -->
 # NarrativeTrace TypeScript — Guia de funcionalidades
 
 [English](../feature-guide.md) | [Español](../es/guia-de-funcionalidades.md) | **Português** | [简体中文](../zh-CN/功能指南.md)
@@ -7,7 +7,7 @@ O que **esta plataforma** entrega, da perspectiva de quem usa. O catálogo
 canônico de funcionalidades para todas as plataformas — cada
 funcionalidade do NarrativeTrace em cada plataforma, com o vocabulário
 de status autoritativo — vive em
-[o guia de funcionalidades do Java flagship](https://github.com/narrativetrace/narrativetrace-java/blob/main/documentation/feature-guide.md).
+[o guia de funcionalidades canônico](https://github.com/narrativetrace/narrativetrace-java/blob/main/documentation/feature-guide.md).
 Este arquivo é deliberadamente enxuto: registra apenas o que os pacotes
 TypeScript entregam, onde eles diferem do catálogo canônico, e o que
 está por vir nesta plataforma — o *porquê* do mecanismo (decoradores +
@@ -114,7 +114,7 @@ Não presente nesta plataforma: um equivalente ao agente Java
 | Agregação de stream de eventos — `@narrativetrace/pro-aggregate` com a fachada `EventAggregator` (árvores agregadas, hotspots, caminhos/taxas de erro, frequências de método/erro) | Pro | Realocado para fora do core gratuito em 2026-07-12 (divisão de tier da Fase 31a, product ADR-010); buffer/retenção permaneceram gratuitos — alimente `pipeline.events()` no `EventAggregator` |
 | Servidor MCP — transporte stdio real (`@modelcontextprotocol/sdk`), 7 ferramentas de análise, conecte Claude Code / Cursor diretamente | Em desenvolvimento (Pro) | Plano enterprise, Fase E5; vai além do módulo apenas-handlers do Java |
 | Resumos de fluxo, diffs de migração, diagramas de grafo de dependência | Planejado (Pro) | Fases E3–E4, veja acima |
-| Port de auditoria e conformidade | Planejado (Pro) | Gated, Java-first — veja a seção de auditoria do guia canônico |
+| Conjunto de auditoria e conformidade | Planejado (Pro) | Gated — veja a seção de auditoria do guia canônico |
 
 ---
 

@@ -114,7 +114,7 @@ function harvestAndWrite(options: ScanOptions, io: ScanIo, classes: ScannedClass
 /**
  * Scans a source tree and merges its vocabulary into the repository's glossary.
  *
- * INTENT: the port of Java's `GlossaryScannerMain.run` — harvesting without running tests, which
+ * INTENT: harvesting without running tests, which
  * is also the only mode that reads `@narrated` / `@onError` templates. Returns an exit code rather
  * than terminating the process, so every failure path stays reachable from a test.
  *

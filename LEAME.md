@@ -1,4 +1,4 @@
-<!-- source: README.md blob bd0c5f3c8111 | translated: 2026-09-06 | reviewed: - -->
+<!-- source: README.md blob 719e7892c30d | translated: 2026-09-07 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -205,6 +205,10 @@ pnpm add @narrativetrace/core-node @narrativetrace/proxy
 pnpm add -D @narrativetrace/vitest
 ```
 
+La publicación en npm está en preparación — hasta que los paquetes estén en el
+registro, constrúyelos desde este repositorio (ver [Compilar desde el código
+fuente](#compilar-desde-el-código-fuente)).
+
 ```ts
 // order-service.test.ts
 import { traceObject } from "@narrativetrace/proxy";
@@ -258,7 +262,7 @@ por camino y el razonamiento detrás del techo de la plataforma:
 
 ## Paquetes
 
-Los 21 paquetes publicados:
+Los 21 paquetes:
 
 | Paquete | La necesitas cuando... |
 |---------|---------------------|
@@ -343,8 +347,8 @@ acto deliberado y revisable en tu propio código fuente, e incluso entonces las 
 de tu código mientras renderiza — un `toString()` personalizado, un método `@narrativeSummary`, y
 rutas de propiedades nombradas en plantillas `@narrated`/`@onError` — así que mantenlas puras, como
 harías para un depurador. Tampoco hay un camino de cero código, "envuelve una app que no escribiste",
-y este port no ha distribuido un artefacto estructural sin valores (algunos otros ports de
-NarrativeTrace sí lo hacen) — consulta las dos páginas de abajo para las versiones precisas, fila por
+y esta implementación no ha distribuido un artefacto estructural sin valores (algunas otras
+implementaciones de NarrativeTrace sí lo hacen) — consulta las dos páginas de abajo para las versiones precisas, fila por
 fila, de ambos.
 
 → [Privacidad y ocultación](documentation/es/privacidad-y-ocultacion.md) para el contrato fila por
@@ -383,7 +387,7 @@ claridad y el glosario de dominio, y cada integración de las tablas de arriba.
 **Pro** es inteligencia *a través de* ejecuciones: agregación de streams de eventos
 (`@narrativetrace/pro-aggregate`, hotspots, rutas/tasas de error, frecuencias de método/error) y un
 servidor MCP que conecta Claude Code / Cursor directamente con tus trazas están en desarrollo;
-resúmenes de flujo, diffs de migración, diagramas de grafo de dependencias, y un port de auditoría y
+resúmenes de flujo, diffs de migración, diagramas de grafo de dependencias, y un conjunto de auditoría y
 cumplimiento están planeados. No todo esto está distribuido hoy — la
 [Guía de Funcionalidades](documentation/es/guia-de-funcionalidades.md) es la tabla de estado
 autorizada: etiqueta cada funcionalidad como Free, Pro, En desarrollo o Planeado, y cita el código
@@ -407,7 +411,7 @@ Yendo más a fondo:
 - [Guía de claridad](documentation/es/guia-de-claridad.md) — modelo de puntuación, componentes de NLP, scanner estático
 - [Guía de integración de frameworks](documentation/es/guia-de-integracion-de-frameworks.md) — Express, Hono, navegador, AsyncLocalStorage
 - [Guía de ejemplos](documentation/es/guia-de-ejemplos.md) — el lanzador `pnpm demo` y los ejemplos ejecutables: ecommerce, clarity, Minecraft, JavaScript plano, Express, Hono, distribuido (Docker + Jaeger), navegador
-- [Guía de funcionalidades](documentation/es/guia-de-funcionalidades.md) — catálogo canónico de lo que distribuye este port, con tier y estado
+- [Guía de funcionalidades](documentation/es/guia-de-funcionalidades.md) — catálogo canónico de lo que distribuye esta implementación, con tier y estado
 
 ## Compilar desde el código fuente
 
@@ -487,8 +491,7 @@ patrón de nombre.
 
 La API y el formato de salida de NarrativeTrace son estándares abiertos (Apache 2.0). Su runtime es
 gratuito y de código fuente disponible (BSL 1.1, convirtiéndose en Apache 2.0 cuatro años después de
-cada release), porque el código que se ejecuta en tu proceso debería ser auditable. Su inteligencia es
-comercial.
+cada release). Pro es comercial.
 
 Lo que eso significa para los paquetes de este repositorio:
 

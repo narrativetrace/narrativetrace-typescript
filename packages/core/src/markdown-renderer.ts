@@ -58,7 +58,7 @@ const YAML_LEADING_INDICATOR = /^[-?:,[\]{}#&*!|>'"%@`]/;
 
 // A plain YAML scalar cannot start with a flow/block indicator, hold ": "/"#"/a quote/a
 // backslash, carry a literal control character, or be empty/have leading-or-trailing whitespace —
-// an allow-list, not the deny-list this used to be (port of Java FrontmatterBuilder's fix).
+// an allow-list, not the deny-list this used to be — the same fix every runtime carries.
 function needsYamlQuoting(value: string): boolean {
   if (value.length === 0 || value !== value.trim()) return true;
   if (YAML_LEADING_INDICATOR.test(value) || /[:#"\\]/.test(value)) return true;
@@ -76,7 +76,7 @@ function yamlEscapeChar(ch: string): string {
 }
 
 // Quotes and escapes a scenario/entry-point value that would otherwise produce malformed or
-// attacker-shaped YAML frontmatter (port of Java FrontmatterBuilder.yamlSafe).
+// attacker-shaped YAML frontmatter.
 function yamlSafe(value: string): string {
   if (!needsYamlQuoting(value)) return value;
   return `"${[...value].map(yamlEscapeChar).join("")}"`;
@@ -84,7 +84,7 @@ function yamlSafe(value: string): string {
 
 // className/methodName are trace metadata, not a captured value — this was the one frontmatter
 // field that bypassed yamlSafe entirely, so a hostile class/method name injected sibling YAML
-// keys (cross-port shape F4, 2026-09-02 audit — the most serious instance Java's own audit found).
+// keys (cross-runtime shape F4, 2026-09-02 audit — the most serious instance Java's own audit found).
 function entryPointLines(tree: TraceTree): string[] {
   const root = tree.roots[0];
   if (!root) return [];
@@ -95,7 +95,7 @@ function entryPointLines(tree: TraceTree): string[] {
   ];
 }
 
-// YAML frontmatter (port of Java FrontmatterBuilder): type/scenario/entry_point/duration_ms/
+// YAML frontmatter: type/scenario/entry_point/duration_ms/
 // trace identity/method_count/error_count. `result` moved to the document header (Java parity).
 function renderFrontmatter(tree: TraceTree, options?: MarkdownOptions): string[] {
   return [
@@ -322,7 +322,7 @@ function paramDisplay(param: ParameterCapture, refs: ValueReferenceIndex): strin
 
 // className/methodName/parameter names are trace metadata, not captured values — MarkdownEscape
 // .code only widens the backtick fence, it does not fold control characters, so a raw newline
-// here would still break out of the code span (cross-port shape F4, 2026-09-02 audit).
+// here would still break out of the code span (cross-runtime shape F4, 2026-09-02 audit).
 function formatCall(node: TraceNode, refs: ValueReferenceIndex): string {
   const { className, methodName, parameters } = node.signature;
   const params = parameters

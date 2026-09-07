@@ -9,7 +9,7 @@ export type TreeWalkStop = "depth-limit" | "cycle";
 
 /**
  * Output marker for a node the walk stopped at (`TreeWalkStop` → display text), matching the Java
- * `TreeWalk` reference wording exactly, for cross-port parity of rendered output.
+ * `TreeWalk` reference wording exactly, for cross-runtime parity of rendered output.
  */
 export const TREE_WALK_MARKER: Record<TreeWalkStop, string> = {
   "depth-limit": "… (depth limit)",

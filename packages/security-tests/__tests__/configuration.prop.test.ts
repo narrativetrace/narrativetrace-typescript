@@ -15,12 +15,12 @@ import { noHandleLeft } from "../src/oracle/oracles.js";
 
 /**
  * Target 6: configuration loading from hostile values. Mirrors Java's `ConfigurationPropertyTest`,
- * adapted to the seam this port actually has.
+ * adapted to the seam this runtime actually has.
  *
  * @llmNote Java's target covers a buffer-capacity knob and a pluggable pipeline-strategy string
- * neither of which this port exposes (`BoundedEventBuffer`'s capacity is a constructor argument,
+ * neither of which this runtime exposes (`BoundedEventBuffer`'s capacity is a constructor argument,
  * never parsed from a string; there is one pipeline shape, `DualPathPipeline`, not a
- * strategy registry) — per the cross-port buffered-consumer defaults contract. What this port reads
+ * strategy registry) — per the cross-runtime buffered-consumer defaults contract. What this runtime reads
  * from untyped external input is `resolveEnvConfig`/`resolveConfig` (env vars, `NARRATIVETRACE_*`)
  * and `parseTracingLevel`, both already lenient-by-contract (never throw, degrade to a fallback).
  *

@@ -142,7 +142,7 @@ describe("renderMarkdown", () => {
 
   // entry_point is derived from className/methodName — trace metadata, not a value the caller
   // configured — and used to bypass yamlSafe entirely, so a hostile class name injected sibling
-  // YAML keys (cross-port shape F4, 2026-09-02 audit — the most serious instance Java's own audit
+  // YAML keys (cross-runtime shape F4, 2026-09-02 audit — the most serious instance Java's own audit
   // found, mirrored here).
   test("escapes a hostile className/methodName in entry_point instead of injecting a YAML key", () => {
     const tree = traceTree([
@@ -496,8 +496,8 @@ describe("renderMarkdown", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-port mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source);
-// closes this port's own 2026-09-04 finding for the Markdown renderer.
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source);
+// closes this runtime's own 2026-09-04 finding for the Markdown renderer.
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot() {
     const self = {

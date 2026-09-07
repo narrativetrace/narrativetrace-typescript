@@ -110,10 +110,10 @@ describe("type declarations", () => {
 
 describe("size budget", () => {
   // ~69 KiB today (raised from 68 KiB, 2026-09-04, for TreeWalk/walkPreOrder — the shared
-  // bounded, cycle-safe walker every recursive renderer/exporter now goes through, cross-port
+  // bounded, cycle-safe walker every recursive renderer/exporter now goes through, cross-runtime
   // mirror of 2026-09-03-unbounded-tree-walks-in-free-renderers.md). Before that, raised from 64
   // KiB, 2026-09-02, for the redaction-defaults widening — twelve more deny-listed names plus
-  // JWT/PAN/Set-Cookie value-shape masking, cross-port shape F3. The budget catches accidental
+  // JWT/PAN/Set-Cookie value-shape masking, cross-runtime shape F3. The budget catches accidental
   // growth (a Node package or a large dependency slipping into `noExternal`) before it reaches a
   // page that loads this on every visit — a few KiB of headroom stays tight enough for that,
   // since a real accidental dependency adds far more.

@@ -1,4 +1,4 @@
-<!-- source: documentation/first-10-minutes.md blob b6cefdd3221c | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/first-10-minutes.md blob ca706c4fd14f | translated: 2026-09-07 | reviewed: - -->
 # Primeiros 10 minutos
 
 [English](../first-10-minutes.md) | [Español](../es/primeros-10-minutos.md) | **Português** | [简体中文](../zh-CN/前10分钟.md)
@@ -41,7 +41,7 @@ export class OrderService {
 
 Nenhuma interface para declarar — `traceObject()` encapsula o objeto
 concreto diretamente com um `Proxy` de ES, então não há nada contra o que
-implementar. (Ports em JDK/JVM do NarrativeTrace precisam de uma interface
+implementar. (As implementações em JDK/JVM do NarrativeTrace precisam de uma interface
 para seu proxy dinâmico; este não precisa.)
 
 ## 3. Adicione um teste de Vitest

@@ -25,8 +25,8 @@ function percent(count: number, total: number): number {
 }
 
 /**
- * Byte-for-byte console formatting of the NarrativeTrace suite report (port of Java
- * output/ConsoleSummaryReporter). Clarity scores bucket at 0.7 (high) / 0.4 (moderate); an empty
+ * Byte-for-byte console formatting of the NarrativeTrace suite report — the same layout every
+ * runtime prints. Clarity scores bucket at 0.7 (high) / 0.4 (moderate); an empty
  * suite reports 0% in every band without dividing by zero.
  */
 export class ConsoleSummaryReporter {

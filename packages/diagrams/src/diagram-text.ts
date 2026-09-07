@@ -30,7 +30,7 @@ export const DiagramText = {
    * into `'` (neither grammar can escape a quote *inside* a quoted name — the character must stop
    * being a quote), collapses Mermaid's `%%` comment opener, caps length, and maps an
    * empty-or-all-control name to `<unnamed>` rather than emitting a bare, malformed statement.
-   * Port of Java `DiagramText.identifier` (cross-port shape F4, 2026-09-02 audit).
+   * Port of Java `DiagramText.identifier` (cross-runtime shape F4, 2026-09-02 audit).
    */
   identifier(text: string): string {
     const folded = DiagramText.message(text).replace(/"/g, "'").replace(/%%/g, "% %");

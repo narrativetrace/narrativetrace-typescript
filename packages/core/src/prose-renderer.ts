@@ -30,7 +30,7 @@ function thirdPerson(verb: string): string {
 
 // className/methodName/parameter names are trace metadata, not captured values — unlike
 // renderedValue (already control-escaped by value-renderer), nothing sanitizes them upstream, so
-// each is escaped here before humanizing (cross-port shape F4, 2026-09-02 audit).
+// each is escaped here before humanizing (cross-runtime shape F4, 2026-09-02 audit).
 function humanizeClassName(name: string): string {
   return splitCamelCase(ControlEscape.sanitize(name));
 }

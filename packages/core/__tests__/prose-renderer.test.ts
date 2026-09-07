@@ -186,7 +186,7 @@ describe("renderProse", () => {
 
   // className/methodName/parameter names are trace metadata: unlike a captured value they are not
   // control-escaped upstream, so a hostile one reaching a renderer raw would inject an extra
-  // sentence break (cross-port shape F4, 2026-09-02 audit).
+  // sentence break (cross-runtime shape F4, 2026-09-02 audit).
   test("a control character in className/methodName/a parameter name does not inject an extra sentence", () => {
     const sig = methodSignature("A\nB", "c\nd", [parameterCapture("e\nf", '"v"', false)]);
     const node = traceNode(sig, returned('"OK"'), []);
@@ -199,7 +199,7 @@ describe("renderProse", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-port mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot() {
     const self = {

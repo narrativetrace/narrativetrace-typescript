@@ -67,7 +67,7 @@ export {
  * An artifact kind one test can emit.
  *
  * @remarks `json` is the nested chapter-tree envelope; `canonical-json` is the flat entry list of
- * `entry.schema.json` — the cross-port conformance fixture format. They describe the same trace
+ * `entry.schema.json` — the cross-runtime conformance fixture format. They describe the same trace
  * for different readers, so a run may write either or both.
  */
 export type TraceFormat = "md" | "mmd" | "json" | "puml" | "clarity-json" | "canonical-json";
@@ -375,13 +375,13 @@ const SHED_MARKER = "⚠️";
  *
  * @remarks The three JSON formats are absent on purpose, not by oversight. `json` is governed by
  * `schema/chapter-tree.schema.json`, which sets `additionalProperties: false` at the root and on
- * `scenario`, so there is nowhere to put a shed field without changing a cross-port format
+ * `scenario`, so there is nowhere to put a shed field without changing a cross-runtime format
  * contract; `canonical-json` and `clarity-json` are the same kind of artifact. Their consumers are
- * schema validators and cross-port fixtures, which read the events, not a footer — the humans who
+ * schema validators and cross-runtime fixtures, which read the events, not a footer — the humans who
  * need the warning read the Markdown and the console.
  *
- * That gap is closing: the chapter-tree schema will gain an optional `nt.shed` object, Java first
- * and ports following, before 0.2.0 freezes the format. When it lands, `json` stops needing a
+ * That gap is closing: the chapter-tree schema will gain an optional `nt.shed` object across the
+ * runtimes before 0.2.0 freezes the format. When it lands, `json` stops needing a
  * footer and starts carrying the count as data.
  */
 const NOTICE_SYNTAX: Partial<Record<TraceFormat, string>> = {

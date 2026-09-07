@@ -21,7 +21,7 @@ import { boundedSize, withinBudget } from "../src/oracle/oracles.js";
  * @llmNote Companion to `output-format.prop.test.ts` (target 3 of the parity document's fuzzing
  * list), scoped to the tree-shape corpus rather than the value corpus: those hostile-corpus
  * strings cases exercise a hostile *value* inside an otherwise ordinary one-node tree; this one
- * exercises a hostile *tree structure* around an ordinary value. Cross-port mirror of the
+ * exercises a hostile *tree structure* around an ordinary value. Cross-runtime mirror of the
  * 2026-09-03 unbounded-tree-walk finding (Java golden source).
  */
 

@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 /**
- * Book-lending domain of the plain-JavaScript example (port of Java's Kotlin `library` example):
+ * Book-lending domain of the plain-JavaScript example:
  * plain ESM, JSDoc types, no decorators, no TypeScript — the API as a JavaScript consumer sees it.
  *
  * @typedef {{ readonly isbn: string, readonly title: string, readonly author: string, readonly available: boolean }} Book

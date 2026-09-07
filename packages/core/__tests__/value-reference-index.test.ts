@@ -9,7 +9,7 @@ import { traceTree } from "../src/trace-tree.js";
 import { ValueReferenceIndex } from "../src/value-reference-index.js";
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-port mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source):
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source):
 // ValueReferenceIndex.build runs before any renderer's own walk, so it is a foundational bound the
 // same way trace-node.ts's hasAnyError/firstSpanContext are.
 describe("ValueReferenceIndex.build", () => {

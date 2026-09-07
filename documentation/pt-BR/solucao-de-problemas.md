@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 8352b1d6d321 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob 87019353e6a8 | translated: 2026-09-07 | reviewed: - -->
 # Solução de problemas
 
 [English](../troubleshooting.md) | [Español](../es/solucion-de-problemas.md) | **Português** | [简体中文](../zh-CN/故障排查.md)
@@ -38,7 +38,7 @@ Decoradores § `@traced`](guia-de-decoradores.md#traced).
 
 **Causa:** quase sempre, o teste usou a fixture sem gravação de arquivos
 (`narrativeTest`) em vez da que grava arquivos (`createNarrativeTest`) —
-este port tem duas fixtures de Vitest de propósito, uma só para asserções e
+esta implementação tem duas fixtures de Vitest de propósito, uma só para asserções e
 outra para artefatos. Menos comumente: a árvore de trace tinha zero raízes
 (nada foi chamado através do objeto traced), e `writeTraceOutput` não grava
 nada para um trace vazio por design, então uma suíte que não capturou
@@ -71,7 +71,7 @@ Decoradores](guia-de-decoradores.md#o-contrato-de-pureza--efeitos-colaterais-dur
 **Causa:** estes são decoradores de método TC39 stage-3, TypeScript 5.0+. A
 opção legada `experimentalDecorators: true` no `tsconfig.json` usa um
 formato de decorador diferente e mais antigo, e não aceita a sintaxe
-stage-3 da forma como este port a emite.
+stage-3 da forma como esta implementação a emite.
 
 **Correção:** atualize para o TypeScript 5.0+ e remova
 `experimentalDecorators` (e `emitDecoratorMetadata`) do `tsconfig.json`, se
@@ -109,7 +109,7 @@ caminho](escolhendo-uma-integracao.md#ressalvas-por-caminho).
 ## `captureTrace()` retorna uma árvore vazia ou parcial de outra tarefa assíncrona
 
 **Causa:** a captura tem escopo na instância do contexto, não em uma
-thread como em um port para JVM — mas um `SyncNarrativeContext` (navegador)
+thread como em uma implementação para JVM — mas um `SyncNarrativeContext` (navegador)
 não tem nenhuma propagação implícita, então duas chamadas sobrepostas e
 não aguardadas no mesmo contexto corrompem os spans uma da outra, em vez
 de simplesmente perder um deles.

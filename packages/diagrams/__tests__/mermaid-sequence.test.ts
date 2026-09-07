@@ -226,7 +226,7 @@ describe("renderMermaidSequence", () => {
 
   // className is trace metadata, not a captured value — unlike a return value or parameter (both
   // already escaped via DiagramText.message), the participant display name and the alias token
-  // derived from it were not (cross-port shape F4, 2026-09-02 audit).
+  // derived from it were not (cross-runtime shape F4, 2026-09-02 audit).
   test("a control character in className does not inject an extra diagram statement", () => {
     const benign = traceTree([
       traceNode(methodSignature("AB", "placeOrder", []), returned('"OK"'), []),
@@ -269,7 +269,7 @@ describe("renderMermaidSequence", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-port mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot(): TraceNode {
     const self = {

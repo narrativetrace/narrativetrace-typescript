@@ -1,16 +1,16 @@
 # Schemas
 
-Two kinds of file live here, and they have different golden sources. The
-**output schemas** below are copied down from Java. `skill.schema.json` is
+Two kinds of file live here, and they have different homes. The **output
+schemas** below have their master copy elsewhere. `skill.schema.json` is
 **authored in this repository** — see the last section.
 
 ## Canonical output schemas
 
-The normative JSON Schemas for NarrativeTrace's machine-readable output, copied
-verbatim from the Java reference
-(`narrativetrace-core/src/test/resources/schema/`), which is the golden source
-for the format. **Do not edit them here** — a change is a cross-port contract
-change and is made in the Java repository first, then copied down.
+The normative JSON Schemas for NarrativeTrace's machine-readable output. Every
+NarrativeTrace runtime keeps a byte-identical mirror; the master copy lives at
+`narrativetrace-core/src/test/resources/schema/`. **Do not edit them here** — a
+change is a cross-runtime contract change, agreed once and copied to every
+mirror.
 
 | File | Validates | Version |
 |---|---|---|
@@ -31,8 +31,8 @@ Two outcome vocabularies coexist, and both are deliberate:
 
 `__tests__/canonical-schema-conformance.test.ts` validates the bytes
 `writeTraceOutput` actually produces against these files, rather than hand-built
-input — the Java reference hid three defects behind a suite that validated only
-what its tests constructed.
+input — a suite that validates only what its own tests construct hides
+defects, and hid three of them here.
 
 These schema files are licensed under the [Apache License, Version 2.0](../LICENSE-APACHE) as
 part of the open output-format specification, unlike the runtime that produces them (see the
@@ -46,8 +46,8 @@ root [`LICENSE`](../LICENSE)).
 
 The skills catalogue is **TypeScript first** (vision v16.3, *One Prompt Per
 Capability*): the vibe-coding platforms it targets live on the TypeScript stack,
-so this port carries the format first and Java, Python and .NET mirror it. That
-inverts the usual direction — edit this file here, then propagate. It is not a
+so this repository carries the format first and the other runtimes mirror it —
+edit this file here, then propagate. It is not a
 copy of anything, and the "do not edit" rule above does not apply to it.
 
 `name` and `description` are the [Agent Skills open

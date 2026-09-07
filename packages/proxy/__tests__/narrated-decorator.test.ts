@@ -72,7 +72,7 @@ describe("@narrated decorator", () => {
     // Same guarantee as the dotted-path test above, but the template names the object itself
     // ({card}, no dot) rather than the property — resolveTemplate routes this through
     // value-renderer's default field-dump (no custom toString here, unlike the core unit tests
-    // that cover the toString-bypass shape), a route this port's one capture path had never
+    // that cover the toString-bypass shape), a route this runtime's one capture path had never
     // exercised end to end.
     class Card {
       static readonly notTraced = ["cvv"];

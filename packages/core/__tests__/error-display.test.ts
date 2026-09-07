@@ -25,7 +25,7 @@ describe("errorTypeName", () => {
 
   // `Function.prototype.name` is writable, not restricted to identifier syntax — a class whose
   // name was reassigned (or a trace re-hydrated from external data) can carry hostile bytes here
-  // just as readily as an exception message can (cross-port shape F4, 2026-09-02 audit).
+  // just as readily as an exception message can (cross-runtime shape F4, 2026-09-02 audit).
   test("control-sanitizes a reported type name, like errorMessage sanitizes the message", () => {
     class HostileError extends Error {}
     Object.defineProperty(HostileError, "name", { value: "A\nB" });

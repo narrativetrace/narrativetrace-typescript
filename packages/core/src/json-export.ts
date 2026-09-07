@@ -194,7 +194,7 @@ function chapterIdentityFields(identity: TraceIdentity): Record<string, string> 
  * all.
  *
  * **Pinned divergence from Java.** `ChapterExporter.outcomeOf` reads the *first root only*, so a
- * failure deeper in the tree reports `success`. This port keeps the deep reading it already had
+ * failure deeper in the tree reports `success`. This runtime keeps the deep reading it already had
  * ({@link hasAnyError}): a chapter containing a thrown call is not a clean success, and the level
  * field beside it has always said so. Only the vocabulary is being corrected here; changing which
  * nodes are consulted would be an unrelated behaviour change.

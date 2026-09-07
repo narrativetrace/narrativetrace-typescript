@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/react-router",
   "version": "0.1.0",
+  "description": "Captures a fresh NarrativeTrace tree on every React Router navigation",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

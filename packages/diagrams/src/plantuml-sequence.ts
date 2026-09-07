@@ -14,7 +14,7 @@ import { DiagramText } from "./diagram-text.js";
 
 // The alias is derived from the sanitized name, not the raw one — an alias token is emitted
 // unquoted on every arrow line, so a hostile character reaching it is a worse injection than one
-// confined to the (quotable) participant display name (cross-port shape F4, 2026-09-02 audit).
+// confined to the (quotable) participant display name (cross-runtime shape F4, 2026-09-02 audit).
 // Bounded and cycle-safe (walkPreOrder) — a hand-built or deserialized tree can hold an ancestor.
 function collectParticipants(nodes: readonly TraceNode[], aliases: Map<string, string>): void {
   walkPreOrder(

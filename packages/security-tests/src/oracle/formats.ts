@@ -15,8 +15,8 @@ import { parse as parseYaml } from "yaml";
  * is the only check that catches an escaper that is merely plausible.
  *
  * @llmNote The canonical schema is read from `schema/` at the repository root — copied verbatim
- * from the Java golden source (see `schema/README.md`) — rather than duplicated here, so this
- * suite validates against the same document every port and every writer-conformance test does.
+ * shared copy (see `schema/README.md`) — rather than duplicated here, so this suite validates
+ * against the same document every runtime and every writer-conformance test does.
  */
 
 const SCHEMA_DIR = fileURLToPath(new URL("../../../../schema/", import.meta.url));

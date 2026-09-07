@@ -9,9 +9,9 @@ import { withinBudget } from "../src/oracle/oracles.js";
 
 /**
  * Target 1: the wire-format reader. Mirrors Java's `TraceparentParsingPropertyTest`, adapted to
- * the seam this port actually has.
+ * the seam this runtime actually has.
  *
- * @llmNote This port's `parseTraceparent` is narrower than Java's `Traceparent.parse`: it returns
+ * @llmNote This runtime's `parseTraceparent` is narrower than Java's `Traceparent.parse`: it returns
  * only the 32-hex trace id (`TraceId | undefined`), not a full record with parent-span-id/flags,
  * and it does not implement the W3C rule that a header with a version above `00` may carry
  * additional trailing fields — it requires an exact four-field match for every version. That makes

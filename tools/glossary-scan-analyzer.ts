@@ -88,7 +88,7 @@ function scanMethod(member: ts.MethodDeclaration, file: ts.SourceFile): ScannedM
 /**
  * Whether a method is part of the vocabulary a reader of this codebase would recognize.
  *
- * @remarks The Java reference skips synthetic, bridge and non-public methods; the platform
+ * @remarks The Java runtime skips synthetic, bridge and non-public methods; the platform
  * equivalents are the two spellings of privacy (`private`/`protected` modifiers and `#name`).
  * A constructor is not a {@link ts.MethodDeclaration} at all, so it never reaches here.
  */
@@ -118,7 +118,7 @@ function scanClass(declaration: ts.ClassDeclaration, file: ts.SourceFile): Scann
  * the module's bounded context.
  *
  * @remarks Two files sharing a base name in different directories collapse to one stand-in and are
- * therefore ambiguous — exactly how the Java reference treats a simple class name seen in two
+ * therefore ambiguous — exactly how the Java runtime treats a simple class name seen in two
  * packages. {@link sourcePathIndex} resolves that case to "unknown".
  */
 function moduleName(sourcePath: string): string {
@@ -143,7 +143,7 @@ function scanModuleFunction(node: ts.Node, file: ts.SourceFile): ScannedMethod |
 /**
  * Scans one source file into the classes and methods worth harvesting vocabulary from.
  *
- * INTENT: the static half of glossary harvesting (ADR-012 Phase 5). The Java reference reflects
+ * INTENT: the static half of glossary harvesting (ADR-012 Phase 5). The Java runtime reflects
  * over compiled classes; TypeScript has no equivalent at runtime, so this reads the syntax tree
  * instead — which is also what lets it see the **raw** `@narrated` / `@onError` template text
  * rather than one with parameter values already interpolated.
@@ -185,7 +185,7 @@ const AMBIGUOUS = Symbol("ambiguous source path");
 /**
  * Builds the class-name → source-path lookup the harvester resolves bounded contexts through.
  *
- * INTENT: the port of Java's `ClassPackageIndex`. A trace node carries only a bare class name, but
+ * INTENT: the class-to-package index. A trace node carries only a bare class name, but
  * contexts are declared as path prefixes, so something has to supply the missing half; a scan of
  * the repository is the one place that knows the real file layout.
  *

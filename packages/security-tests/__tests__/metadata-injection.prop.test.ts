@@ -8,13 +8,13 @@ import { renderers, treeWithHostileMetadata } from "../src/oracle/emitters.js";
 import { sameStructuralShape } from "../src/oracle/oracles.js";
 
 /**
- * Metadata-escaping oracle (cross-port shape F4, 2026-09-02 audit). Every property test in this
+ * Metadata-escaping oracle (cross-runtime shape F4, 2026-09-02 audit). Every property test in this
  * package before this one fuzzes captured *values* — `className`/`methodName`/parameter names are
  * always a fixed, hand-picked, benign string. `renderValue`/`renderStructured` escape a value
  * before any renderer sees it; nothing does the same for metadata, so a renderer that escapes
  * values correctly can still interpolate a trace's own class/method/parameter name (or an
  * exception's reported type name) raw. Mirrors Java's `DiagramMetadataInjectionTest` /
- * `RendererMetadataEscapingTest` / `FrontmatterMetadataInjectionTest`, folded into this port's
+ * `RendererMetadataEscapingTest` / `FrontmatterMetadataInjectionTest`, folded into this runtime's
  * structural-shape oracle rather than three separate suites.
  *
  * @llmNote `methodSignature`/`parameterCapture` are public API (`@narrativetrace/core`'s barrel) —

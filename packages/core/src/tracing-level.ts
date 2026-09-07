@@ -15,7 +15,7 @@ const LEVEL_ORDER: readonly TracingLevel[] = ["off", "errors", "summary", "narra
 /**
  * Lenient, non-throwing parse of a level name (case-insensitive, trimmed). Blank, nullish, or
  * unrecognized input degrades to `fallback` — the single lenient parse point fed from the env
- * channel (port of Java TracingLevel.fromName).
+ * channel.
  */
 export function parseTracingLevel(
   name: string | null | undefined,

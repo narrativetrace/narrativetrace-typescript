@@ -48,7 +48,7 @@ function setTraceIdentityOnce(sc: EnterEvent["spanContext"]): void {
 
 // className/methodName come straight from MethodSignature, a public API that accepts any string —
 // control-escaped once here (before entering the frame map) so a hostile one cannot forge a log
-// line either now or when a child's exit later restores this frame (cross-port shape F6,
+// line either now or when a child's exit later restores this frame (cross-runtime shape F6,
 // 2026-09-02 audit).
 function handleEnter(frames: Map<SpanId, Frame>, event: EnterEvent): void {
   const className = ContextExport.sanitize(event.signature.className);

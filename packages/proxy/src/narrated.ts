@@ -39,7 +39,7 @@ export function narrated(template: string) {
 /**
  * `@onError("template")` is a catch-all; `@onError(SomeError, "template")` applies only when the
  * thrown value is an instance of `SomeError`. Repeatable — stack several to cover distinct types;
- * the one matching the thrown type most specifically wins at throw time (port of Java @OnError).
+ * the one matching the thrown type most specifically wins at throw time.
  */
 export function onError(template: string): ReturnType<typeof onErrorDecorator>;
 /**

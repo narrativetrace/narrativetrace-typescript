@@ -40,7 +40,7 @@ describe("suggestRename", () => {
   });
 
   test("splits an acronym from the word that follows it", () => {
-    // Known limitation, shared with the Java reference: the leading token is always re-cased, so a
+    // Known limitation, shared with the Java runtime: the leading token is always re-cased, so a
     // PascalCase identifier that starts with an acronym loses its capitals. Every other token keeps
     // its spelling, which is why only the first one is affected.
     expect(suggestRename("DTOAccountWithOverdraft", ALIAS, CANONICAL)).toBe("DtoOverdraftAccount");

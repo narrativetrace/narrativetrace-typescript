@@ -313,7 +313,7 @@ describe("harvestStatic", () => {
   });
 
   test("harvests a template from a node whose class name is not an identifier", () => {
-    // Parity with the Java reference: the identifier filter guards the *normalized* vocabulary,
+    // Parity with the Java runtime: the identifier filter guards the *normalized* vocabulary,
     // and a template is never normalized. A synthetic node that carries narration still names a
     // template worth translating, so it is kept even though its class contributes no noun.
     const node = traceNode(
@@ -333,7 +333,7 @@ describe("harvestStatic", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-port mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
 describe("bounded tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot(): TraceNode {
     const self = {

@@ -77,7 +77,7 @@ export type EntryOutcome = "success" | "failure" | "incomplete";
  *
  * `service` is required by `entry.schema.json`, so it must never be absent or blank.
  * This is OpenTelemetry's convention for "nobody said": `unknown_service:` plus the
- * runtime name. Cross-port contract (owner decision, 2026-08-28): every NarrativeTrace
+ * runtime name. Cross-runtime contract (owner decision, 2026-08-28): every NarrativeTrace
  * port emits `unknown_service:<runtime>` with its own fixed suffix — `:java`, `:node`,
  * `:python`, `:dotnet`, `:swift`. The suffix is a literal, not a lookup of the running
  * executable, so the value stays deterministic across restarts and deployments;

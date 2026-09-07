@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/nestjs",
   "version": "0.1.0",
+  "description": "NestJS module that auto-proxies providers to capture every service call, with a per-request trace and completion hook",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

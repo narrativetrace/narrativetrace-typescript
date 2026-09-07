@@ -217,7 +217,7 @@ function stepAppendFrame(
 /**
  * Flattens a captured trace into the canonical entry list `entry.schema.json` describes.
  *
- * INTENT: the per-test `.canonical.json` artifact, and the cross-port conformance fixture format.
+ * INTENT: the per-test `.canonical.json` artifact, and the cross-runtime conformance fixture format.
  * It is derived from the finished tree rather than the live event stream, so a plain unit-test
  * capture with no span context still produces a complete, schema-valid document.
  *
@@ -226,7 +226,7 @@ function stepAppendFrame(
  * order, linked by span id. Nodes without a span context get sequential synthetic *span* ids, so
  * nesting survives the flattening either way; the *trace* id comes from
  * {@link resolveTraceIdentity} and is real and unique, so two independent captures are never
- * mistaken for one. Cross-run and cross-port byte comparison is the conformance normalizer's job:
+ * mistaken for one. Cross-run and cross-runtime byte comparison is the conformance normalizer's job:
  * it folds `trace_id` to a sequence before comparing goldens.
  * @remarks Unlike {@link toCanonicalEntry}, which maps a single event, exit entries here carry the
  * node's real `code.namespace`/`code.function`: the tree still knows its signature, whereas an

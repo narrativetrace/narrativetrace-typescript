@@ -57,7 +57,7 @@ describe("setSpanAttributes", () => {
   });
 
   // className/methodName come straight from MethodSignature, itself a public API that accepts any
-  // string — found while auditing this same export boundary for cross-port shape leaks, the
+  // string — found while auditing this same export boundary for cross-runtime shape leaks, the
   // identical gap as the request-context fields below.
   test("control-escapes a hostile className/methodName", () => {
     const tracer = provider.getTracer("test");
@@ -113,7 +113,7 @@ describe("setTraceLevelAttributes", () => {
 
   // httpRoute/clientIp/enduserId are request-derived — an HTTP route comes straight off the URL —
   // so a raw newline must not forge an extra telemetry field the way it would a log line
-  // (cross-port shape F6, 2026-09-02 audit). This is the second of the two layers the audit calls
+  // (cross-runtime shape F6, 2026-09-02 audit). This is the second of the two layers the audit calls
   // for: request-middleware.test.ts covers the HTTP-filter layer, this covers the export boundary a
   // value set programmatically (bypassing every filter) still has to pass through.
   test("control-escapes a hostile HTTP route reaching the export boundary directly", () => {

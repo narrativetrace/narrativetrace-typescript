@@ -204,6 +204,9 @@ pnpm add @narrativetrace/core-node @narrativetrace/proxy
 pnpm add -D @narrativetrace/vitest
 ```
 
+npm publication is in preparation — until the packages are on the registry,
+build them from this repository (see [Building from source](#building-from-source)).
+
 ```ts
 // order-service.test.ts
 import { traceObject } from "@narrativetrace/proxy";
@@ -256,7 +259,7 @@ decision diagram, caveats per path, and the reasoning behind the platform ceilin
 
 ## Packages
 
-All 21 published packages:
+All 21 packages:
 
 | Package | You need it when... |
 |---------|---------------------|
@@ -339,7 +342,7 @@ own source, and even then the `@notTraced`/`static notTraced` annotations still 
 capture invokes a small fixed set of your code while rendering — a custom `toString()`, a
 `@narrativeSummary` method, and property paths named in `@narrated`/`@onError` templates — so keep
 those pure, as you would for a debugger. There is also no zero-code, "wrap an app you didn't write"
-path, and this port has not shipped a value-free structural artifact (some other NarrativeTrace ports
+path, and this runtime has not shipped a value-free structural artifact (some other NarrativeTrace runtimes
 have) — see the two pages below for the precise, row-by-row versions of both.
 
 → [Privacy and Redaction](documentation/privacy-and-redaction.md) for the row-by-row contract verified
@@ -375,7 +378,7 @@ and every integration in the tables above.
 **Pro** is intelligence *across* runs: event-stream aggregation (`@narrativetrace/pro-aggregate`,
 hotspots, error paths/rates, method/error frequencies) and an MCP server connecting Claude Code /
 Cursor directly to your traces are in development; flow summaries, migration diffs, dependency-graph
-diagrams, and an audit & compliance port are planned. Not all of it ships today — the
+diagrams, and an audit & compliance suite are planned. Not all of it ships today — the
 [Feature Guide](documentation/feature-guide.md) is the authoritative status table: it labels every
 feature Free, Pro, In development, or Planned, and cites the code behind each shipped row.
 
@@ -397,7 +400,7 @@ Going deeper:
 - [Clarity Guide](documentation/clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](documentation/framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](documentation/examples-guide.md) — the `pnpm demo` launcher and the runnable examples: ecommerce, clarity, Minecraft, plain JavaScript, Express, Hono, distributed (Docker + Jaeger), browser
-- [Feature Guide](documentation/feature-guide.md) — canonical catalog of what this port ships, with tier and status
+- [Feature Guide](documentation/feature-guide.md) — canonical catalog of what this runtime ships, with tier and status
 
 ## Building from source
 
@@ -474,8 +477,8 @@ another library's generated classes by name pattern.
 ## License
 
 NarrativeTrace's API and output format are open standards (Apache 2.0). Its runtime is free and
-source-available (BSL 1.1, converting to Apache 2.0 four years after each release), because code
-that runs in your process should be auditable. Its intelligence is commercial.
+source-available (BSL 1.1, converting to Apache 2.0 four years after each release). Pro is
+commercial.
 
 What that means for the packages in this repository:
 

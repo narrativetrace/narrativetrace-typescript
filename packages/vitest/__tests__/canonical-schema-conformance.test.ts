@@ -27,10 +27,10 @@ import { writeTraceOutput } from "../src/index.js";
 
 /**
  * Conformance is asserted against the BYTES {@link writeTraceOutput} puts on disk, never against a
- * hand-built object. The Java reference hid three defects behind a suite that validated only what
+ * hand-built object. A suite that validates only what its own tests construct hid three defects
  * its own tests constructed: what ships is the file, so the file is what gets validated.
  *
- * The schemas in `schema/` are copied verbatim from the Java golden source — see `schema/README.md`.
+ * The schemas in `schema/` are the shared cross-runtime copies — see `schema/README.md`.
  */
 
 const SCHEMA_DIR = join(import.meta.dirname, "..", "..", "..", "schema");

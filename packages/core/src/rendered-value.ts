@@ -6,7 +6,7 @@ import { isThenable } from "./is-thenable.js";
 import { notTracedFields, RedactionPolicy } from "./redaction-policy.js";
 
 /**
- * Typed, depth-capped structured form of a rendered value (port of Java RenderedValue). It
+ * Typed, depth-capped structured form of a rendered value. It
  * preserves the primitive type so exporters can emit typed attributes (number→number,
  * boolean→bool, homogeneous list→array) instead of only a flat string. `other` carries a
  * pre-stringified form for anything without a native attribute type (bigint, symbol, function,

@@ -118,7 +118,7 @@ describe("a redacted component never appears in rendered output, at any containe
   });
 });
 
-// Value-shape masking (cross-port shape F3) is a second, independent redaction axis — it looks at
+// Value-shape masking (cross-runtime shape F3) is a second, independent redaction axis — it looks at
 // what a string *is*, not what its field is named — and must apply on every render path exactly
 // like name-based redaction does above: an unnamed occurrence (a bare scalar, an array item, a Map
 // value, an ordinarily-named object field) still gets caught.

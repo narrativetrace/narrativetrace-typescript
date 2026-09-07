@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/browser",
   "version": "0.1.0",
+  "description": "Browser rendering and export for captured traces: console output, fetch header propagation, and posting to a collector",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

@@ -87,9 +87,9 @@ describe("architecture rules", () => {
 //   core                          — imports no other workspace package
 //   clarity                       — core only
 //   glossary, diagrams            — core + clarity
-//   platform runtime              — core only. core-node/core-web are this
-//     port's split of Java's single core module; proxy sits below the
-//     adapters in Java too (junit5 depends on it); observability is the
+//   platform runtime              — core only. core-node/core-web split what
+//     the Java runtime keeps in one core module; proxy sits below the
+//     adapters there too (junit5 depends on it); observability is the
 //     shared log-field infrastructure the logging/HTTP adapters build on.
 //   integrations (everything else) — core + platform runtime; never each
 //     other, never the analysis layer (clarity/glossary/diagrams).

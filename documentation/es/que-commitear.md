@@ -1,11 +1,11 @@
-<!-- source: documentation/what-to-commit.md blob 3835cb480d69 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/what-to-commit.md blob dbe573cdf91b | translated: 2026-09-07 | reviewed: - -->
 # Qué commitear
 
 [English](../what-to-commit.md) | **Español** | [Português](../pt-BR/o-que-commitar.md) | [简体中文](../zh-CN/应提交的内容.md)
 
 NarrativeTrace escribe ficheros que describen una ejecución de test. Ninguno
 de ellos es un contrato revisado y escrito a mano, como sí lo es una
-baseline de aprobación en otros ports de NarrativeTrace — este port todavía
+baseline de aprobación en otras implementaciones de NarrativeTrace — esta implementación todavía
 no ha lanzado testing estructural/de aprobación (previsto para una futura
 versión). Todo lo de abajo es salida generada, con una excepción.
 
@@ -37,10 +37,10 @@ adiciones, pero commitearlas es la aprobación (consulta la
 
 ## Por qué todavía no hay una fila `.approved.nt` aquí
 
-Algunos ports de NarrativeTrace también incluyen un artefacto estructural
+Algunas implementaciones de NarrativeTrace también incluyen un artefacto estructural
 libre de valores y un flujo de aprobación — una baseline commiteada que
 hace fallar el build cuando cambia la *forma* de un escenario, revisada y
-promovida deliberadamente. Este port todavía no ha construido eso. Hasta
+promovida deliberadamente. Esta implementación todavía no ha construido eso. Hasta
 que lo haga, lo más parecido a un contrato revisado que tienes hoy es una
 aserción normal en tu test, más lo que sea que el gate de claridad exija
 sobre el naming. Si quieres el flujo de trabajo de diff estructural hoy

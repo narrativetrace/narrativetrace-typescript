@@ -14,7 +14,7 @@ import type { TraceEvent } from "./trace-event.js";
  * capture for trace assembly" (the buffered path). Either may be `null`.
  *
  * @remarks Fail-safe posture: both delivery paths are wrapped in try/catch, so a buggy listener or
- * a full buffer can never break the traced business call (port of Java `DualPathPipeline`).
+ * a full buffer can never break the traced business call.
  */
 export class DualPathPipeline implements EventPipeline {
   constructor(
@@ -25,7 +25,7 @@ export class DualPathPipeline implements EventPipeline {
   publish(event: TraceEvent): void {
     // Observability failure must never become an application failure. Both
     // delivery paths are isolated so a buggy listener cannot break the traced
-    // business call (port of Java DualPathPipeline.publish).
+    // business call.
     if (this.syncConsumer !== null) {
       try {
         this.syncConsumer(event);

@@ -7,8 +7,8 @@ import { carriesSecret, type GraphCase } from "./types.js";
 /**
  * Turns a declarative {@link GraphCase} into a live object graph.
  *
- * INTENT: the corpus stays data — `graphs.json` is copied verbatim from the Java golden source and
- * only this builder is per-port code.
+ * INTENT: the corpus stays data — `graphs.json` is copied verbatim from the shared master copy and
+ * only this builder is per-runtime code.
  *
  * @llmNote `layers` is applied innermost-first, so `["optional", "map"]` is a map holding an
  * `optional`-shaped wrapper. Every shape whose case says `payload: "secret-record"` carries a
@@ -355,7 +355,7 @@ export class Wide {
  * object's default `toString()` is inert (it does not echo fields), so this shape has no route to
  * leak on this platform, before or after the fix — see `templates.json`'s
  * `whole-object-redacted-below-the-depth-cap` case and the corpus README for why it is still
- * carried, for corpus parity with the Java golden source.
+ * carried, for corpus parity with the shared master copy.
  */
 export class Link {
   constructor(readonly next: unknown) {}

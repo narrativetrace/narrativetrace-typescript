@@ -4,9 +4,9 @@
 # Copyright (c) 2026 Empower Agile
 #
 # Verifies the legal:* marked regions in README.md and its root translations
-# are well-formed, and — when the sibling golden Java repo (legal.properties'
-# legal.goldenRepo) is checked out next to this one — that those regions and
-# LICENSE still match the golden copies.
+# are well-formed, and — when the sibling repository holding the canonical
+# legal text (legal.properties' legal.goldenRepo) is checked out next to this
+# one — that those regions and LICENSE still match the canonical copies.
 #
 # The marker set is exactly {plain-words, trademark} — never `exclusion`:
 # a marker line inside a GFM table row terminates the table, and the
@@ -24,9 +24,9 @@
 #         (README.md <-> README.md, LEAME.md <-> LEAME.md, ...) and compared
 #         to the local region with whitespace collapsed.
 #       - of those regions, only `plain-words` is a true golden mirror (the
-#         one text every port copies verbatim) and can fail the build.
-#         `trademark` stays each port's own accurate sentence — this port has
-#         one LICENSE file where Java has two, so the wording legitimately
+#         one text every runtime copies verbatim) and can fail the build.
+#         `trademark` stays each runtime's own accurate sentence — this one has
+#         a single LICENSE file where the Java runtime has two, so the wording
 #         differs — its comparison is printed for review but never gates,
 #         not even in strict mode.
 # (c) A mismatch always prints a diff. Default mode WARNs and exits 0 (same
@@ -64,7 +64,7 @@ warn_or_fail() {
 }
 
 # Same message, never gates the build — used where content is expected to
-# legitimately diverge per port (see legal:trademark above).
+# legitimately diverge per runtime (see legal:trademark above).
 warn_info() {
     echo "WARN: $1 (informational — this marker is not a golden mirror)"
 }
@@ -73,7 +73,7 @@ warn_info() {
 # GFM table row terminates the table, and the exclusion clause already lives
 # verbatim inside the plain-words region.
 MARKERS="plain-words trademark"
-# The subset of MARKERS whose content is a true cross-port golden mirror —
+# The subset of MARKERS whose content is a true cross-runtime mirror —
 # the only ones a content mismatch can fail the build over.
 MIRRORED_MARKERS="plain-words"
 FILES="README.md LEAME.md LEIAME.md 自述文件.md"

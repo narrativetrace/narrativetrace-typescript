@@ -11,7 +11,7 @@ import { ControlEscape } from "./control-escape.js";
  * @remarks Control-sanitized like {@link errorMessage}: `Function.prototype.name` is a writable
  * string property, not restricted to identifier syntax, so a class whose `name` was reassigned (or
  * a trace re-hydrated from external data) can carry hostile bytes here just as readily as in a
- * message (cross-port shape F4, 2026-09-02 audit).
+ * message (cross-runtime shape F4, 2026-09-02 audit).
  */
 export function errorTypeName(error: unknown): string {
   return ControlEscape.sanitize(rawErrorTypeName(error));

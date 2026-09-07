@@ -32,7 +32,7 @@ export interface RequestInfo extends UserFields {
  * failed request extractor still emits the same keys as the happy path. Each value is
  * request-derived (ultimately caller-supplied, e.g. a JWT claim), so it is exported through
  * {@link ContextExport.sanitize} — control-escaped and length-capped — before it can reach the
- * MDC-equivalent (cross-port shape F6, 2026-09-02 audit).
+ * MDC-equivalent (cross-runtime shape F6, 2026-09-02 audit).
  */
 export function buildUserLogValues(user: UserFields | undefined): Record<string, string> {
   if (!user) return {};

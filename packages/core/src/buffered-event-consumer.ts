@@ -118,7 +118,7 @@ export class BufferedEventConsumer {
 
   /**
    * Drains **every** buffered event into the store and to subscribers, so query methods observe
-   * them (port of Java `BufferedEventConsumer.flush` → `drainRemaining`).
+   * them.
    *
    * @remarks Deliberately not a drain *cycle*: an explicit flush ignores the chunk size and the
    * adaptive shedding/emergency modes, because the caller is asking for the data rather than

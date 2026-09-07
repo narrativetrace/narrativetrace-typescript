@@ -5,12 +5,12 @@ control: values a traced method returned, headers a stranger sent, templates an
 author wrote, object graphs a third-party DTO produced, and instruction-shaped
 text aimed at whatever reads the narrative afterwards.
 
-**This directory is the cross-port corpus.** Every NarrativeTrace port copies
+**This directory is the cross-runtime corpus.** Every NarrativeTrace runtime copies
 these files verbatim — the way the conformance schemas are copied — so the same
 case hits all five renderers. A newly-understood attack shape is added *here*,
-once, and every port gains it on the next sync. Nothing in these files is
+once, and every runtime gains it on the next sync. Nothing in these files is
 Java-specific: they are data, and the builder that turns a declarative graph
-shape into a live object graph is the only per-port code.
+shape into a live object graph is the only per-runtime code.
 
 Adding a case: append an object to the relevant array, give it a stable
 kebab-case `id` and a `description` that says *what breaks* rather than what the
@@ -70,7 +70,7 @@ output, at any depth, in any format.
 
 ## The oracles these feed
 
-Named here so a port implements the same ones. They are documented for readers
+Named here so every runtime implements the same ones. They are documented for readers
 in `documentation/security-testing.md`.
 
 1. **No uncaught exception** — a hostile input degrades, it does not propagate.

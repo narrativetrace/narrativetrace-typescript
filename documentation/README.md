@@ -23,4 +23,4 @@ Going deeper:
 - [Clarity Guide](clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](examples-guide.md) — the `pnpm demo` launcher and the runnable examples
-- [Feature Guide](feature-guide.md) — canonical catalog of what this port ships, with tier and status
+- [Feature Guide](feature-guide.md) — canonical catalog of what this runtime ships, with tier and status

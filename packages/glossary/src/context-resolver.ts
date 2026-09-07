@@ -18,7 +18,7 @@ export const UNASSIGNED_CONTEXT = "_unassigned";
  *
  * INTENT: the boundary check is what makes prefix matching mean "owns", not "starts with". `/`
  * covers directory and scoped-package paths, `.` covers dotted module paths — the platform
- * equivalent of the Java reference's package separator.
+ * equivalent of the Java runtime's package separator.
  */
 const BOUNDARIES = ["/", "."];
 

@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob a542036fd347 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob fd8d8d3cb23b | translated: 2026-09-07 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)

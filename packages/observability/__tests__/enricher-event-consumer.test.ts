@@ -45,7 +45,7 @@ describe("createEnricherEventConsumer", () => {
 
   // className/methodName come straight from MethodSignature, a public API that accepts any string
   // — control-escaped here so a hostile one cannot forge a log line in whatever sink reads this
-  // MDC-equivalent (cross-port shape F6, 2026-09-02 audit).
+  // MDC-equivalent (cross-runtime shape F6, 2026-09-02 audit).
   test("control-escapes a hostile className/methodName", () => {
     const consumer = createEnricherEventConsumer();
 

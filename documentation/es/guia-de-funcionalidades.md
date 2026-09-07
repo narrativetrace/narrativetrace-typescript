@@ -1,14 +1,14 @@
-<!-- source: documentation/feature-guide.md blob db50cbef72d2 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/feature-guide.md blob fdb3285d5f27 | translated: 2026-09-07 | reviewed: - -->
 
 # NarrativeTrace TypeScript — Guía de funcionalidades
 
 [English](../feature-guide.md) | **Español** | [Português](../pt-BR/guia-de-funcionalidades.md) | [简体中文](../zh-CN/功能指南.md)
 
-Lo que **este port** ofrece, desde la perspectiva de quien lo usa. El
+Lo que **esta implementación** ofrece, desde la perspectiva de quien lo usa. El
 catálogo canónico de funcionalidades para todas las plataformas — cada
 funcionalidad de NarrativeTrace en cada plataforma, con el vocabulario
 de estado autorizado — vive en
-[la guía de funcionalidades del Java flagship](https://github.com/narrativetrace/narrativetrace-java/blob/main/documentation/feature-guide.md).
+[la guía de funcionalidades canónica](https://github.com/narrativetrace/narrativetrace-java/blob/main/documentation/feature-guide.md).
 Este archivo es deliberadamente delgado: registra solo lo que entregan
 los paquetes de TypeScript, en qué difieren del catálogo canónico, y
 qué viene a continuación para esta plataforma — el *por qué* del
@@ -116,7 +116,7 @@ No disponible en esta plataforma: un equivalente al agente Java
 | Agregación de flujo de eventos — `@narrativetrace/pro-aggregate` con la fachada `EventAggregator` (árboles agregados, hotspots, rutas/tasas de error, frecuencias de métodos/errores) | Pro | Reubicado fuera del núcleo gratuito el 2026-07-12 (fase 31a de división por tier, ADR-010 del producto); el buffering/retención se mantuvo gratuito — alimenta `EventAggregator` con `pipeline.events()` |
 | Servidor MCP — transporte stdio real (`@modelcontextprotocol/sdk`), 7 herramientas de análisis, conecta directamente Claude Code / Cursor | En desarrollo (Pro) | Plan Enterprise, fase E5; va más allá del módulo de solo-handlers de Java |
 | Resúmenes de flujo, diferencias de migración, diagramas de grafos de dependencias | Planificada (Pro) | Fases E3–E4, ver más arriba |
-| Port de auditoría y cumplimiento | Planificada (Pro) | Con gate, prioridad Java — ver la sección de auditoría de la guía canónica |
+| Conjunto de auditoría y cumplimiento | Planificada (Pro) | Con gate — ver la sección de auditoría de la guía canónica |
 
 ---
 
@@ -125,11 +125,11 @@ No disponible en esta plataforma: un equivalente al agente Java
 Adaptado de las reglas de la guía canónica para una guía de plataforma
 delgada:
 
-1. Cada funcionalidad visible para el usuario **de este port** aparece
+1. Cada funcionalidad visible para el usuario **de esta implementación** aparece
    aquí, exactamente una vez, con un estado. Las definiciones de
    funcionalidades multiplataforma y el catálogo completo viven
    únicamente en la guía canónica — este archivo nunca repite
-   funcionalidades que este port no ofrece ni planea.
+   funcionalidades que esta implementación no ofrece ni planea.
 2. Una funcionalidad pasa a **Gratis**/**Pro** solo cuando está
    fusionada (merged), probada, y documentada en el repositorio TS
    correspondiente. «En desarrollo» significa que el diseño está
@@ -138,7 +138,7 @@ delgada:
 3. Los cambios que añaden o promueven una funcionalidad en este
    repositorio deben actualizar este archivo en el mismo commit — y,
    cuando la funcionalidad es nueva para el producto (no solo para
-   este port), también la guía canónica.
+   esta implementación), también la guía canónica.
 4. Cuando el comportamiento de TS difiere de la descripción canónica
    (nombres de nivel, nombres de parámetros en tiempo de ejecución,
    sin instrumentación estilo agente), la diferencia se declara aquí,

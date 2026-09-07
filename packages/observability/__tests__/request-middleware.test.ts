@@ -183,7 +183,7 @@ describe("buildRequestLogValues", () => {
 
   // httpRoute/clientIp/enduserId/sessionId/tenantId are all request-derived — an HTTP route comes
   // straight off the URL, a client IP off a (possibly spoofable) header — so a raw newline in any
-  // of them must not forge an extra log line in the MDC-equivalent's own sink (cross-port shape F6,
+  // of them must not forge an extra log line in the MDC-equivalent's own sink (cross-runtime shape F6,
   // 2026-09-02 audit).
   test("control-escapes a hostile HTTP route instead of forging a log line", () => {
     const traceId = "aaaabbbbccccddddeeee111122223333" as TraceId;

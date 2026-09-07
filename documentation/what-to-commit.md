@@ -2,7 +2,7 @@
 
 NarrativeTrace writes files that describe one test run. None of them are a
 reviewed, hand-authored contract the way an approval baseline is on some
-other NarrativeTrace ports — this port has not shipped structural/approval
+other NarrativeTrace runtimes — this runtime has not shipped structural/approval
 testing yet (tracked for a future release). Everything below is generated
 output, with one exception.
 
@@ -33,9 +33,9 @@ approval (see the [Clarity Guide](clarity-guide.md) and
 
 ## Why there is no `.approved.nt` row here yet
 
-Some NarrativeTrace ports also ship a value-free structural artifact and an
+Some NarrativeTrace runtimes also ship a value-free structural artifact and an
 approval workflow — a committed baseline that fails the build when a
-scenario's *shape* changes, reviewed and promoted deliberately. This port
+scenario's *shape* changes, reviewed and promoted deliberately. This runtime
 has not built that yet. Until it does, the closest thing to a reviewed
 contract you have today is a normal assertion in your test, plus whatever
 the clarity gate enforces on naming. If you want the structural-diff

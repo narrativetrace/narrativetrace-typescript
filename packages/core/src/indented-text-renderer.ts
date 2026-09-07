@@ -134,7 +134,7 @@ function sortMembers(members: readonly TraceNode[]): readonly TraceNode[] {
 
 // className/methodName/parameter names are trace metadata, not captured values — unlike
 // renderedValue (already control-escaped by value-renderer), nothing sanitizes them upstream, so
-// each is escaped here (cross-port shape F4, 2026-09-02 audit).
+// each is escaped here (cross-runtime shape F4, 2026-09-02 audit).
 function formatCall(node: TraceNode): string {
   const { className, methodName, parameters } = node.signature;
   const params = parameters

@@ -137,7 +137,7 @@ function isSubclassOf(sub: OnErrorSpec["exception"], sup: OnErrorSpec["exception
  * @remarks JavaScript has no static `void`, so a method that returns nothing yields `undefined` —
  * and rendering that as the *string* `"undefined"` made every renderer hide a value by comparing
  * against it, and put `"returnValue": "undefined"` into artifacts where a value was never
- * produced. `null` is the cross-port void contract (Java's `Returned.renderedValue == null`), and
+ * produced. `null` is the cross-runtime void contract (Java's `Returned.renderedValue == null`), and
  * it is the same answer capture already gives when the return is suppressed.
  *
  * A method that returns the *string* `"undefined"` is unaffected: it renders quoted.

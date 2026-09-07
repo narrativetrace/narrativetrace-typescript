@@ -32,7 +32,7 @@ import { type TraceFormat, writeTraceOutput } from "@narrativetrace/vitest";
  * suite asserts over *this* map, so a new emitter added here is immediately covered by redaction,
  * well-formedness, injection containment and boundedness at once.
  *
- * @llmNote This port has no structural (`.nt`) renderer yet (nothing exists) and
+ * @llmNote This runtime has no structural (`.nt`) renderer yet (nothing exists) and
  * no standalone `FrontmatterBuilder`/`mermaid-aliases` variant (`renderMermaidSequence` always
  * aliases participants, so there is only one Mermaid renderer here, not two). Both are documented
  * absences, not oversights — the shared fuzz-suite convention records why.
@@ -94,7 +94,7 @@ function errorNamed(typeName: string, message: string): Error {
  * all carry `hostile` at once — metadata treated as attacker-controlled input, not just captured
  * values. `renderValue`/`renderStructured` already escape everything captured *values* carry
  * (`treeOf`, `treeThrowing`); this exercises the parallel gap fuzzing values alone cannot reach,
- * since every other tree builder here uses a fixed, hand-picked className/methodName (cross-port
+ * since every other tree builder here uses a fixed, hand-picked className/methodName (cross-runtime
  * shape F4, 2026-09-02 audit).
  */
 export function treeWithHostileMetadata(hostile: string): TraceTree {

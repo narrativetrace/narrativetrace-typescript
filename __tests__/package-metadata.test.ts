@@ -19,6 +19,7 @@ interface Manifest {
   readonly name?: string;
   readonly private?: boolean;
   readonly license?: string;
+  readonly description?: string;
   readonly publishConfig?: { readonly access?: string };
 }
 
@@ -71,6 +72,12 @@ describe("publishable package manifests", () => {
       "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
     );
     expect(manifest.repository?.directory).toMatch(/^packages\//);
+  });
+
+  // description is what npm's search results and package cards render — a
+  // publishable package without one ships a blank card.
+  it.each(publishable)("$dir declares a non-empty description", ({ manifest }) => {
+    expect(manifest.description?.trim()).toBeTruthy();
   });
 });
 

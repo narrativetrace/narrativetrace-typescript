@@ -30,7 +30,7 @@ describe("parseTraceparent", () => {
   });
 
   // Security fuzz suite finding: the version and parent-span-id fields were captured by the
-  // regex but never validated, so a version this port has no meaning for and an all-zero
+  // regex but never validated, so a version this runtime has no meaning for and an all-zero
   // (invalid, per W3C) parent span id both parsed successfully.
   test("returns undefined for the forbidden version ff", () => {
     expect(

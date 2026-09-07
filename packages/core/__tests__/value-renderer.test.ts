@@ -277,7 +277,7 @@ describe("renderValue", () => {
 
     // A symbol's description is the one JDK-numeric-shaped fast path in this renderer that is
     // fully attacker-controlled — unlike number/bigint/boolean, whose string form can never carry
-    // arbitrary text. Cross-port mirror of the Java Number-subclass-toString finding
+    // arbitrary text. Cross-runtime mirror of the Java Number-subclass-toString finding
     // (2026-09-03-number-tostring-bypasses-scalar-sanitizing.md): the analogous TS bypass is a
     // hostile symbol description reaching output unsanitized and untruncated.
     test("a hostile symbol description is control-sanitized and truncated like any other scalar", () => {

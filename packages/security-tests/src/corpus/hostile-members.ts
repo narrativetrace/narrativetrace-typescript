@@ -82,9 +82,9 @@ export class NullReturning {
 }
 
 /**
- * A `Number` subclass whose `toString()` is a forged narrative line — the Java golden source's
- * `number-hostile-to-string` case (a `Number` subclass reaching a fast path that used to skip
- * `ControlEscape`). Ported for cross-port corpus parity, not because it reproduces a bypass here:
+ * A `Number` subclass whose `toString()` is a forged narrative line — the corpus's
+ * `number-hostile-to-string` case (a `Number` subclass reaching a fast path that skipped
+ * escaping). Carried for corpus completeness, not because it reproduces a bypass here:
  * `renderValue`/`renderStructured` dispatch by `typeof`, which is `"object"` for any `Number`
  * subclass instance (never `"number"`), so this always took the object-introspection/custom-
  * `toString` path — sanitized like any other class's `toString()` — even before the symbol fix

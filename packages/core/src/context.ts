@@ -42,7 +42,7 @@ const MAX_ADOPTED_SPANS = 10_000;
  * and a collected child simply contributes nothing and frees its slot against the ceiling.
  *
  * @remarks {@link clear} is the collector's effect made testable — the same `WeakReference.clear()`
- * the Java reference exposes — not a second lifetime mechanism.
+ * the Java runtime exposes — not a second lifetime mechanism.
  */
 export class LiveChildRegistration {
   private ref: WeakRef<SyncNarrativeContext> | null;
@@ -469,7 +469,7 @@ export class SyncNarrativeContext implements NarrativeContext {
     this.requestExtras = {};
     this._storyId = null;
     this._chapterId = null;
-    // Java drops the whole TraceStack here; this port reuses the object, so everything the stack
+    // Java drops the whole TraceStack here; this runtime reuses the object, so everything the stack
     // carried — adoptions, live registrations and their refusal counts — is dropped by hand.
     this.adoptedSpanIds = null;
     this.liveChildren = null;
@@ -552,7 +552,7 @@ export class SyncNarrativeContext implements NarrativeContext {
    * How many times this context has been {@link reset}.
    *
    * @remarks Java drops the whole `TraceStack` on reset, so a snapshot taken before it simply finds
-   * its origin gone. This port reuses the object, so the generation is what tells a snapshot that
+   * its origin gone. This runtime reuses the object, so the generation is what tells a snapshot that
    * the request it belongs to is over — without it a late worker would graft its spans onto whatever
    * request is using the context now.
    */

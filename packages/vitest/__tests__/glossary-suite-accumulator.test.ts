@@ -97,7 +97,7 @@ describe("traceSites", () => {
   });
 
   // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents
-  // it. Cross-port mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+  // it. Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding.
   test("does not crash on a cyclic tree", () => {
     const self = {
       signature: methodSignature("Svc", "op", []),

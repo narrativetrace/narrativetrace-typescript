@@ -7,7 +7,7 @@ import type { NotificationService } from "./notification-service.js";
 
 /**
  * Decorator over a real notification service that starts failing from the `failOnCall`-th call —
- * the "flaky external dependency" of demo scenario 3 (port of Java `FlakyNotificationService`).
+ * the "flaky external dependency" of demo scenario 3.
  */
 export class FlakyNotificationService implements NotificationService {
   private callCount = 0;

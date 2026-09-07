@@ -108,11 +108,11 @@ Full detail and worked examples:
   lookup — declared on the object itself or inherited from its prototype
   chain — is visible to `traceObject()`.
 - **No structural, value-free artifact yet.** Some other NarrativeTrace
-  ports also ship a `.nt`-style artifact with no runtime values at all, for
+  runtimes also ship a `.nt`-style artifact with no runtime values at all, for
   handing to an AI tool with zero prompt-injection surface by construction.
-  This port has not built that yet — see
+  This runtime has not built that yet — see
   [What to Commit](what-to-commit.md#why-there-is-no-approvednt-row-here-yet).
-  Until it exists, every generated artifact in this port carries real
+  Until it exists, every generated artifact in this runtime carries real
   captured values and should be treated accordingly.
 - **No zero-code, "wrap an app you didn't write" path.** There is no
   Java-agent equivalent on this platform, so scoping is always by explicit

@@ -250,7 +250,7 @@ describe("ClarityAnalyzer", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-port mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
 describe("bounded tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot(): TraceNode {
     const self = {

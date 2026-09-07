@@ -9,8 +9,8 @@ import type { CorpusCase, GraphCase, HeaderCase, TemplateCase, TraceShapeCase } 
  * Reader for the shared hostile corpus in `hostile-corpus/`.
  *
  * INTENT: one loader, so every property reads the same fixtures the same way. The corpus is the
- * cross-port artifact — copied verbatim from the Java golden source — so the same case hits every
- * TypeScript renderer; only this reader and the graph builder are per-port code.
+ * cross-runtime artifact — every runtime copies it verbatim — so the same case hits every
+ * TypeScript renderer; only this reader and the graph builder are per-runtime code.
  *
  * @llmNote The fixtures are ASCII: every hostile character is a `\uXXXX` escape that JSON.parse
  * turns back into the real code point here. A case may declare `repeat` instead of `value`, which

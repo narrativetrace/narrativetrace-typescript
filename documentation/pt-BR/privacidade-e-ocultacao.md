@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob a542036fd347 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob fd8d8d3cb23b | translated: 2026-09-07 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -122,12 +122,12 @@ Detalhes completos e exemplos resolvidos:
   lookup de propriedade — declarado no próprio objeto ou herdado de sua
   cadeia de protótipos — é visível para `traceObject()`.
 - **Ainda sem artefato estrutural, livre de valores.** Alguns outros
-  ports do NarrativeTrace também distribuem um artefato no estilo `.nt`
+  implementações do NarrativeTrace também distribuem um artefato no estilo `.nt`
   sem nenhum valor de runtime, para entregar a uma ferramenta de IA com
-  superfície zero para prompt injection por construção. Este port ainda
+  superfície zero para prompt injection por construção. Esta implementação ainda
   não construiu isso — veja
   [O que commitar](o-que-commitar.md#por-que-ainda-não-há-uma-linha-approvednt-aqui).
-  Até que exista, todo artefato gerado neste port carrega valores
+  Até que exista, todo artefato gerado nesta implementação carrega valores
   capturados reais e deve ser tratado de acordo.
 - **Nenhum caminho "zero código", de "envolver um app que você não
   escreveu".** Não existe um equivalente ao Java agent nesta plataforma,

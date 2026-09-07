@@ -809,7 +809,7 @@ describe("writeTraceOutput — shed capture footer", () => {
 
   test("leaves the schema-governed JSON artifacts byte-clean and still parseable", () => {
     // chapter-tree.schema.json sets additionalProperties:false; a footer there would break every
-    // cross-port validator, so the notice deliberately stops at the formats that can carry it.
+    // cross-runtime validator, so the notice deliberately stops at the formats that can carry it.
     write("shed-json", ["json", "canonical-json"], 40);
     const chapter = read("shed-json", "places_order.json");
     expect(chapter).not.toContain("⚠️");

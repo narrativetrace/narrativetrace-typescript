@@ -10,7 +10,7 @@ import { DualPathPipeline } from "../../src/dual-path-pipeline.js";
 // Deliberately NOT scaled by stressScale for the long sweep: each instance allocates a full
 // default 65,536-slot ring (~512 KB, the cost documented in the configuration guide's sizing
 // section), so multiplying this count the way other stress scenarios multiply their volume
-// stresses V8's array allocator, not this port's leak-prevention logic. "Thousands" already
+// stresses V8's array allocator, not this runtime's leak-prevention logic. "Thousands" already
 // exercises the invariant; a fixed 2000 stays representative of the real per-request/per-click
 // shape at both cadences.
 const CONTEXTS = 2000;

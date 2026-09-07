@@ -54,7 +54,7 @@ describe("RedactionPolicy", () => {
   });
 });
 
-// Cross-port shape F2, 2026-09-02 audit: the Java report's own name-list gap, mirrored here —
+// Cross-runtime shape F2, 2026-09-02 audit: the Java report's own name-list gap, mirrored here —
 // cardnumber/jwt/cookie/session/account-number/routing-number were absent from DEFAULT_PATTERNS.
 describe("RedactionPolicy.DEFAULT — the widened name list", () => {
   test("redacts every reported name", () => {

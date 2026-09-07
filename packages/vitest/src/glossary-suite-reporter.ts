@@ -28,7 +28,7 @@ interface TaskLike {
 /**
  * Whether glossary harvesting was switched on for this run.
  *
- * INTENT: harvesting is off by default, exactly as in the Java reference, because it writes
+ * INTENT: harvesting is off by default, exactly as in the Java runtime, because it writes
  * `glossary.json` and `glossary.md` **outside** the build directory — into files a repository
  * commits. Nothing that rewrites tracked files may happen because someone ran the tests.
  *
@@ -62,7 +62,7 @@ export interface GlossarySuiteReporterOptions {
 /**
  * Vitest reporter that harvests the suite's vocabulary into the repository glossary.
  *
- * INTENT: the port of Java's `GlossaryHarvestStep` — the suite-end harvest, beside the clarity
+ * INTENT: the suite-end glossary harvest, beside the clarity
  * report, kept out of the fixture so glossary mechanics stay in one place. Opt-in only, and an
  * empty suite writes nothing.
  *

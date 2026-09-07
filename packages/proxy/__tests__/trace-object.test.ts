@@ -750,7 +750,7 @@ describe("no-poison contract: ordinary object operations are never traced", () =
 });
 
 // Bug-hunt no-poison contract: the supplement found Java poisoned at ERRORS/SUMMARY/
-// NARRATIVE too, not only DETAIL — return-value rendering runs at every active level in this port
+// NARRATIVE too, not only DETAIL — return-value rendering runs at every active level in this runtime
 // too (there is no capture gate below DETAIL for returns, only for parameters), so it must be
 // total at every one of them. This is a pin, not a fix: earlier findings in the same contract
 // already make every rendering/exit path total regardless of level: the full matrix is what proves it.

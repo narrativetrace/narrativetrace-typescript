@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 /**
- * Hotel-reservation domain of the clarity example (port of Java `narrativetrace-examples/clarity`).
+ * Hotel-reservation domain of the clarity example.
  * Dates are ISO `YYYY-MM-DD` strings — the demo is about naming, not calendars.
  */
 export type Room = {

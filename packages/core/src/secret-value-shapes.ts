@@ -6,7 +6,7 @@
  * a second, independent redaction axis: what a string *is*, not what its field is named. Deliberately
  * narrow — three checked shapes, no entropy/"looks random" heuristics — because a value blanked by
  * guesswork is a hole in the narrative the reader cannot see and cannot switch off per-value. Port of
- * the cross-port shape from Java's `SecretValueShapes` (2026-09-02 audit finding F3).
+ * the cross-runtime shape from Java's `SecretValueShapes` (2026-09-02 audit finding F3).
  */
 
 const JWT_PATTERN = /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/;

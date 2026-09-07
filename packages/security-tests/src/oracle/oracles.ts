@@ -16,8 +16,8 @@ import {
  * The assertions every fuzz target shares. A crash alone is not an oracle.
  *
  * INTENT: `documentation/security-testing.md` lists seven oracles; every property test in this
- * package asserts from this shared list rather than inlining its own copy, so "the port implements
- * the same oracles" is checkable by reading this file once.
+ * package asserts from this shared list rather than inlining its own copy, so "this runtime
+ * implements the same oracles" is checkable by reading this file once.
  *
  * @llmNote The redaction oracle looks for a fresh random token per case, not a fixed string. A
  * fixed secret is findable by a renderer that special-cases it and, worse, is findable by a *test*

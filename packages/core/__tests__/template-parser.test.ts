@@ -287,7 +287,7 @@ describe("resolveTemplate — a whole-object placeholder cannot bypass redaction
 // template-string argument is caller-supplied on a public API, not limited in practice to the
 // finite set of literal `@narrated`/`@onError` decorator strings a codebase happens to declare.
 // A process-lifetime cache keyed by that argument grows without bound under a flood of unique
-// templates — the same shape as Java's `TemplateParser` finding (2026-09-02 audit, cross-port
+// templates — the same shape as Java's `TemplateParser` finding (2026-09-02 audit, cross-runtime
 // shape F2).
 describe("resolveTemplate — the template cache is bounded", () => {
   test("a flood of unique templates does not grow the cache without bound", () => {

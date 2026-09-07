@@ -32,7 +32,7 @@ dev-only concern — see [Decorators Guide § `@traced`](decorators-guide.md#tra
 
 **Cause:** almost always, the test used the file-free fixture
 (`narrativeTest`) instead of the file-writing one (`createNarrativeTest`) —
-this port has two Vitest fixtures on purpose, one for assertions only and
+this runtime has two Vitest fixtures on purpose, one for assertions only and
 one for artifacts. Less commonly: the trace tree had zero roots (nothing was
 called through the traced object), and `writeTraceOutput` writes nothing at
 all for an empty trace by design, so a suite that captured no spans leaves
@@ -62,7 +62,7 @@ at render time. See the purity contract in the
 
 **Cause:** these are TC39 stage-3 method decorators, TypeScript 5.0+. Legacy
 `experimentalDecorators: true` in `tsconfig.json` uses a different, older
-decorator shape and does not accept stage-3 syntax the way this port emits
+decorator shape and does not accept stage-3 syntax the way this runtime emits
 it.
 
 **Fix:** upgrade to TypeScript 5.0+ and remove `experimentalDecorators` (and
@@ -97,7 +97,7 @@ graft it by hand with `context.snapshot()` + `snapshot.wrap(fn)`. See
 ## `captureTrace()` returns an empty or partial tree from another async task
 
 **Cause:** capture is scoped to the context instance, not to a thread the
-way a JVM port's is — but a `SyncNarrativeContext` (browser) has no implicit
+way a JVM runtime's is — but a `SyncNarrativeContext` (browser) has no implicit
 propagation at all, so two un-awaited overlapping calls on the same context
 corrupt each other's spans rather than merely missing one.
 

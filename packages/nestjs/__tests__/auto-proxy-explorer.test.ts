@@ -26,7 +26,7 @@ function wrapperOf(metatype: Function): Wrapper {
 
 // Bug-hunt no-poison contract: optional-component discovery/bootstrap failure must
 // degrade to no-narration, never fail application startup. Mirrors Java's PipelineBootstrap
-// finding, translated to this port's own bootstrap seam — AutoProxyExplorer.onApplicationBootstrap
+// finding, translated to this runtime's own bootstrap seam — AutoProxyExplorer.onApplicationBootstrap
 // wraps every discovered provider/controller in one loop, and one hostile class must not stop the
 // rest from being wrapped or throw out of a NestJS lifecycle hook.
 describe("AutoProxyExplorer no-poison contract", () => {

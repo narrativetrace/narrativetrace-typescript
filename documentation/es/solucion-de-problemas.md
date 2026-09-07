@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 8352b1d6d321 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob 87019353e6a8 | translated: 2026-09-07 | reviewed: - -->
 # Solución de problemas
 
 [English](../troubleshooting.md) | **Español** | [Português](../pt-BR/solucao-de-problemas.md) | [简体中文](../zh-CN/故障排查.md)
@@ -38,7 +38,7 @@ así que esto no es solo un problema de desarrollo — consulta
 
 **Causa:** casi siempre, el test usó el fixture que no escribe ficheros
 (`narrativeTest`) en lugar del que sí los escribe (`createNarrativeTest`) —
-este port tiene dos fixtures de Vitest a propósito, uno solo para
+esta implementación tiene dos fixtures de Vitest a propósito, uno solo para
 aserciones y otro para artefactos. Con menos frecuencia: el árbol de traza
 tenía cero raíces (no se llamó a nada a través del objeto trazado), y
 `writeTraceOutput` no escribe absolutamente nada para una traza vacía por
@@ -72,7 +72,7 @@ pureza en la
 **Causa:** estos son decoradores de método TC39 stage-3, TypeScript 5.0+.
 El `experimentalDecorators: true` heredado en `tsconfig.json` usa una forma
 de decorador distinta y más antigua, y no acepta la sintaxis stage-3 tal
-como la emite este port.
+como la emite esta implementación.
 
 **Solución:** actualiza a TypeScript 5.0+ y elimina `experimentalDecorators`
 (y `emitDecoratorMetadata`) de `tsconfig.json` si están presentes. No se
@@ -109,7 +109,7 @@ seguir, porque la llamada que la lanzó ya retornó.
 ## `captureTrace()` devuelve un árbol vacío o parcial desde otra tarea asíncrona
 
 **Causa:** la captura está acotada a la instancia de contexto, no a un hilo
-como en un port de la JVM — pero un `SyncNarrativeContext` (navegador) no
+como en una implementación de la JVM — pero un `SyncNarrativeContext` (navegador) no
 tiene ninguna propagación implícita en absoluto, así que dos llamadas
 solapadas sin esperar (`await`) sobre el mismo contexto corrompen los spans
 de la otra en lugar de simplemente faltar uno.

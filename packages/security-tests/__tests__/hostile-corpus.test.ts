@@ -17,7 +17,7 @@ import { build, templateValues } from "../src/corpus/hostile-graphs.js";
 import { build as buildTraceShape } from "../src/corpus/trace-shapes.js";
 
 /**
- * The corpus is data copied verbatim from the Java golden source, so its shape is a contract in
+ * The corpus is data copied verbatim from the shared master copy, so its shape is a contract in
  * its own right — mirrors Java's `HostileCorpusTest`. A fixture that silently stopped loading
  * would turn every property below it green without testing anything.
  */

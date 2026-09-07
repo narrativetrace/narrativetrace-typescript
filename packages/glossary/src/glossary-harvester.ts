@@ -116,7 +116,7 @@ function observeParameters(
 /**
  * The runtime type name of a thrown value, when it has one.
  *
- * @remarks JavaScript can throw anything, so the class name the Java reference always has is only
+ * @remarks JavaScript can throw anything, so the class name the Java runtime always has is only
  * available for objects — a thrown string or number carries no type vocabulary worth harvesting.
  * A prototype-less object has no constructor either, hence the optional access on the last line.
  */
@@ -201,7 +201,7 @@ function compareObservations(left: Observation, right: Observation): number {
  * @remarks Narration templates are deliberately not harvested here: in a real trace the narration
  * already has parameter values interpolated into it, so harvesting it would write runtime data
  * into a committed file. Template harvesting belongs to the static scan.
- * @remarks Ordering ends on `identifier`, one field beyond the Java reference. Two identifiers can
+ * @remarks Ordering ends on `identifier`, one field beyond the Java runtime. Two identifiers can
  * normalize to the same phrase at the same site (a method and its parameter), and leaving that
  * pair unordered would let harvest output depend on traversal accidents.
  * @example

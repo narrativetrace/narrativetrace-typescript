@@ -69,11 +69,11 @@ function assertScoresAreUsable(identifier: string, label: string): void {
 
 /**
  * Java's ScannerPropertyTest names two shapes that must reject through the declared guard: a blank
- * identifier, and one that tokenizes to no words at all (`__`). This port's actual guard
+ * identifier, and one that tokenizes to no words at all (`__`). This runtime's actual guard
  * (`term-normalizer.ts`'s `normalizedTokens`) is a strict superset of Java's: it rejects not only
  * an empty token list but any token list whose joined text carries no `\p{L}\p{N}` character at
  * all — `"."` tokenizes to a single, non-empty `["."]` token that still names no word, which
- * Java's narrower "list is empty" predicate would (wrongly, for this port) call acceptable.
+ * Java's narrower "list is empty" predicate would (wrongly, for this runtime) call acceptable.
  */
 const WORD_CHARACTER = /[\p{L}\p{N}]/u;
 

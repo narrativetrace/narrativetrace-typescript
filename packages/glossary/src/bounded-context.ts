@@ -11,9 +11,9 @@ import { requireNonBlank } from "./guards.js";
  * the context resolver, so `packages/billing` never claims `packages/billingx`.
  *
  * @remarks The `packages` name is the glossary artifact's own vocabulary, shared with the Java
- * reference where the values are Java package names. In this port the values are module or
+ * reference where the values are Java package names. In this runtime the values are module or
  * directory prefixes (`packages/billing`, `@acme/billing`, `src/billing`) — the platform
- * equivalent. Keeping the name identical keeps `glossary.json` byte-compatible across ports.
+ * equivalent. Keeping the name identical keeps `glossary.json` byte-compatible across runtimes.
  */
 export interface BoundedContext {
   /** Context name, unique within a glossary; never blank. */

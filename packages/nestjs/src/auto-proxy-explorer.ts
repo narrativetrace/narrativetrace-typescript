@@ -25,9 +25,9 @@ export class AutoProxyExplorer implements OnApplicationBootstrap {
     }
   }
 
-  // Best-effort by construction: a class this port cannot wrap (a frozen prototype, an unusual
+  // Best-effort by construction: a class this runtime cannot wrap (a frozen prototype, an unusual
   // shape) must degrade to that one provider running untraced, never fail the whole bootstrap —
-  // no-poison contract, this port's mirror of Java's optional-listener-discovery finding.
+  // no-poison contract, this runtime's mirror of Java's optional-listener-discovery finding.
   private tryWrap(wrapper: { metatype?: unknown }): void {
     const metatype = wrapper.metatype as (Function & { prototype?: object }) | undefined;
     if (!metatype?.prototype) return;

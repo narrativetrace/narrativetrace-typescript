@@ -30,7 +30,7 @@ export class EventStoreConsumer {
    * Removes only the enter/exit events belonging to the given span ids, leaving
    * other traces' events (and group lifecycle events) untouched. Request-scoped
    * cleanup: a finishing request drops its own events without disturbing other
-   * in-flight traces sharing this store (port of Java EventStore.removeSpans).
+   * in-flight traces sharing this store.
    */
   removeSpans(spanIds: ReadonlySet<SpanId>): void {
     if (spanIds.size === 0) return;

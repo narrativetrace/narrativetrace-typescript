@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/react",
   "version": "0.1.0",
+  "description": "React hooks and provider for capturing component and service traces from method and parameter names",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

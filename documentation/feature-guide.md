@@ -1,9 +1,9 @@
 # NarrativeTrace TypeScript — Feature Guide
 
-What **this port** ships, from a user's perspective. The canonical
-all-platform feature catalog — every NarrativeTrace feature on every
+What **NarrativeTrace for TypeScript** ships, from a user's perspective. The
+canonical all-platform feature catalog — every NarrativeTrace feature on every
 platform, with the authoritative status vocabulary — lives in
-[the Java flagship's feature guide](https://github.com/narrativetrace/narrativetrace-java/blob/main/documentation/feature-guide.md).
+[the canonical feature guide](https://github.com/narrativetrace/narrativetrace-java/blob/main/documentation/feature-guide.md).
 This file is deliberately thin: it records only what the TypeScript
 packages deliver, where they differ from the canonical catalog, and
 what is coming to this platform next — mechanism *why* (decorators + ES
@@ -106,7 +106,7 @@ auto-instrumentation) is deliberately **not** offered — see TS-004.
 | Event-stream aggregation — `@narrativetrace/pro-aggregate` with the `EventAggregator` facade (aggregate trees, hotspots, error paths/rates, method/error frequencies) | Pro | Relocated out of the free core 2026-07-12 (Phase 31a tier split, product ADR-010); buffering/retention stayed free — feed `pipeline.events()` into `EventAggregator` |
 | MCP server — real stdio transport (`@modelcontextprotocol/sdk`), 7 analysis tools, connect Claude Code / Cursor directly | In development (Pro) | Enterprise plan Phase E5; goes beyond Java's handlers-only module |
 | Flow summaries, migration diffs, dependency-graph diagrams | Planned (Pro) | Phases E3–E4, see above |
-| Audit & compliance port | Planned (Pro) | Gated, Java-first — see the canonical guide's audit section |
+| Audit & compliance suite | Planned (Pro) | Gated — see the canonical guide's audit section |
 
 ---
 
@@ -114,17 +114,17 @@ auto-instrumentation) is deliberately **not** offered — see TS-004.
 
 Adapted from the canonical guide's rules for a thin platform guide:
 
-1. Every user-visible feature **of this port** appears here, exactly
+1. Every user-visible feature **of this runtime** appears here, exactly
    once, with a status. Cross-platform feature definitions and the
    full catalog live only in the canonical guide — this file never
-   restates features this port does not ship or plan.
+   restates features this runtime does not ship or plan.
 2. A feature moves to **Free**/**Pro** only when it is merged, tested,
    and documented in the relevant TS repository. "In development"
    means the design is settled and work is scheduled; "Planned" means
    specified only.
 3. Changes that add or promote a feature in this repo must update this
    file in the same commit — and, when the feature is new to the
-   product (not just to this port), the canonical guide too.
+   product (not just to this runtime), the canonical guide too.
 4. Where TS behavior differs from the canonical description (level
    names, runtime parameter names, no agent-style instrumentation),
    the difference is stated here, not silently absorbed.

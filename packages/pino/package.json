@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/pino",
   "version": "0.1.0",
+  "description": "Streams NarrativeTrace method-call events into a Pino logger as structured, per-event log lines",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

@@ -1,6 +1,7 @@
 {
   "name": "@narrativetrace/core-web",
   "version": "0.1.0",
+  "description": "Browser runtime for NarrativeTrace: wires Web Crypto ids and re-exports the full core API",
   "license": "BUSL-1.1",
   "repository": {
     "type": "git",

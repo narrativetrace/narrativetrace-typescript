@@ -176,7 +176,7 @@ const UNRESOLVED: SourcePathLookup = () => undefined;
 /**
  * Harvests one suite's sites into the repository glossary and writes every artifact.
  *
- * INTENT: the port of Java's `GlossarySuiteHarvest` file half — the glossary package renders text
+ * INTENT: the file half of glossary suite harvesting — the glossary package renders text
  * and writes nothing, so exactly one place decides which text becomes which file.
  *
  * @param sites everything the suite observed.
