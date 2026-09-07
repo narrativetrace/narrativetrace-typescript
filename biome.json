@@ -16,7 +16,8 @@
       "!.devcontainer",
       "!.claude",
       "!.tools-cache",
-      "!**/.tools-cache"
+      "!**/.tools-cache",
+      "!packages/security-tests/hostile-corpus"
     ]
   },
   "assist": {

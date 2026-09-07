@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/core-node",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Node runtime for NarrativeTrace: AsyncLocalStorage-backed context, env config, and graceful-shutdown auto-flush",
   "license": "BUSL-1.1",
   "repository": {

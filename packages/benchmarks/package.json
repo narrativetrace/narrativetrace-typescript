@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/benchmarks",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Vitest benchmark suite for core, proxy, renderer, and trace-tree hot paths",
   "private": true,
   "type": "module",

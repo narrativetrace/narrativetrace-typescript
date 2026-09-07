@@ -16,13 +16,12 @@ before any public disclosure.
 
 ## Supported Versions
 
-No packages are published to npm yet — there is no numbered release to
-track. This policy covers the current source on `main`; the table below
-will list a version line once the first package ships.
+The `@narrativetrace/*` packages on npm ship one workspace version;
+security fixes land on the newest release of that line.
 
 | Version | Supported |
 | --- | --- |
-| `main` (source) | Yes |
+| 0.1.x | Yes |
 
 ## Scope
 

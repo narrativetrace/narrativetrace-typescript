@@ -1,4 +1,4 @@
-<!-- source: documentation/decorators-guide.md blob ca25e80993ca | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob b7c1a472a12b | translated: 2026-09-07 | reviewed: - -->
 
 # Guía de decoradores de NarrativeTrace para TypeScript
 
@@ -127,8 +127,11 @@ Cómo funciona:
 **El ocultado gana sobre una plantilla que lo nombre.** `@narrated` y `@onError` resuelven
 las rutas `{param.property}` sobre los argumentos crudos, y una ruta que alcanza un miembro oculto
 se resuelve como `[REDACTED]` — ya sea que el miembro esté en la lista de denegación por nombre o
-listado explícitamente en `static notTraced`. Nombrar una ruta nunca debilita las reglas que se
-aplican al valor directamente:
+listado explícitamente en `static notTraced`. Un `{name}` simple que nombra un valor directamente
+obedece las mismas dos reglas: la lista de denegación lee esa clave exactamente como lee un nombre
+de campo, y también se comprueba la forma del propio valor, así que `@narrated("login {password}")`
+y un JWT que llega como `{value}` se renderizan ambos como `[REDACTED]`. Nombrar una ruta, o un
+valor, nunca debilita las reglas que se aplican al valor directamente:
 
 ```ts
 class Card {

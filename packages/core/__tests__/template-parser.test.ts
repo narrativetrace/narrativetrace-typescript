@@ -283,6 +283,68 @@ describe("resolveTemplate — a whole-object placeholder cannot bypass redaction
   });
 });
 
+// The third production of the grammar (2026-09-04, family security fix): {card.cvv} and {card}
+// were both ruled on above; {password} — a bare key naming a scalar — asked nothing at all and
+// printed the value in full, so one line of ordinary decoration out-narrated the policy the trace
+// beside it obeyed. Two independent bypasses on one line: the name axis never saw the key, and the
+// value axis never saw the bytes.
+describe("resolveTemplate — a scalar placeholder obeys both redaction axes", () => {
+  test("a scalar placeholder naming a secret is redacted like a field", () => {
+    const resolved = resolveTemplate("login {password}", { password: "hunter2" });
+
+    expect(resolved).toBe("login [REDACTED]");
+    expect(resolved).not.toContain("hunter2");
+  });
+
+  test("a credential-shaped scalar is redacted whatever the placeholder is called", () => {
+    // The other axis on the same line: the bytes are a credential, whatever the key is called.
+    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZGEifQ.c2lnbmF0dXJl";
+
+    const resolved = resolveTemplate("issued {value}", { value: jwt });
+
+    expect(resolved).toBe("issued [REDACTED]");
+    expect(resolved).not.toContain("eyJhbGciOiJIUzI1NiJ9");
+  });
+
+  test("a text placeholder cannot forge a line with a raw control character", () => {
+    const comment = `ok\n## forged\r${String.fromCodePoint(0)}`;
+
+    const resolved = resolveTemplate("note: {comment}", { comment });
+
+    expect(resolved).not.toContain("\n");
+    expect(resolved).toBe("note: ok\\n## forged\\r\\u0000");
+  });
+
+  test("a text placeholder is capped the way a captured string is", () => {
+    const resolved = resolveTemplate("body {payload}", { payload: "x".repeat(500) });
+
+    expect(resolved).toBe(`body ${"x".repeat(200)}…`);
+  });
+
+  test("a boxed String object is redacted by shape too", () => {
+    // JS has no subclassable string primitive; the boxed wrapper is the one string-like object a
+    // value map can carry, and its bytes are text like any other — it must not slip to the object
+    // path, whose toString() trust knows nothing about value shapes.
+    const jwt = new String("eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZGEifQ.c2lnbmF0dXJl");
+
+    expect(resolveTemplate("issued {value}", { value: jwt })).toBe("issued [REDACTED]");
+  });
+
+  test("a placeholder naming a secret with no value stays literal so the typo warning survives", () => {
+    // Nothing resolves, so nothing can leak — and the unresolved warning must still fire.
+    expect(resolveTemplate("login {password}", {})).toBe("login {password}");
+  });
+
+  test("a scalar placeholder whose key merely contains a secret word is redacted too", () => {
+    // The deny-list reads the key exactly as it reads a field name: substring, case-insensitive.
+    expect(resolveTemplate("using {apiToken}", { apiToken: "tok-9" })).toBe("using [REDACTED]");
+  });
+
+  test("an ordinary scalar placeholder is untouched by either axis", () => {
+    expect(resolveTemplate("order {orderId}", { orderId: "ORD-7" })).toBe("order ORD-7");
+  });
+});
+
 // `resolveTemplate` is exported from the public barrel (packages/core/src/index.ts), so its
 // template-string argument is caller-supplied on a public API, not limited in practice to the
 // finite set of literal `@narrated`/`@onError` decorator strings a codebase happens to declare.

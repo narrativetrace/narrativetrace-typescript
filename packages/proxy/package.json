@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/proxy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "ES Proxy-based tracing: wrap any object to capture its method calls, plus traced/narrated/onError decorators",
   "license": "BUSL-1.1",
   "repository": {

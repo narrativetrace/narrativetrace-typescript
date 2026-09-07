@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Code is the log. Turn running code into readable execution narratives for humans and AI agents.",
   "license": "BUSL-1.1",
   "author": "Empower Agile",

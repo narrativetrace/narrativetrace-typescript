@@ -147,13 +147,46 @@ function truncate(value: string, maxLength: number): string {
   return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value;
 }
 
+/** The shared safe-text tail: control escape, then the string cap. {@link renderString} and
+ * {@link renderNarrationText} must keep reading this same line — a secret must not depend on
+ * whether the value was captured or narrated. */
+function sanitizeAndCap(text: string, maxStringLength: number): string {
+  return truncate(ControlEscape.sanitize(text), maxStringLength);
+}
+
 // Value-shape masking (RedactionPolicy.shouldRedactValue) is a second, independent redaction axis
 // from field-name matching — checked here so every scalar string reaches it regardless of whether
 // it arrived as a top-level value, an array/Set item, an unredacted Map value, or an
 // ordinarily-named object field (every one of those paths dispatches through here).
 function renderString(value: string, opts: Required<RenderOptions>): string {
   if (opts.redactionPolicy.shouldRedactValue(value)) return RedactionPolicy.MARKER;
-  return `"${truncate(ControlEscape.sanitize(value), opts.maxStringLength)}"`;
+  return `"${sanitizeAndCap(value, opts.maxStringLength)}"`;
+}
+
+/**
+ * Renders text that is substituted into prose rather than shown as a value: the same decision
+ * {@link renderValue} makes for a string, without the quotation marks.
+ *
+ * INTENT: `@narrated("issued {token}")` writes its placeholder into a sentence, where a quoted,
+ * escaped value would read as a rendering artifact — but the sentence is an output like any other,
+ * so the value in it must obey the same rules. Both axes apply here: the value-shape axis of
+ * {@link RedactionPolicy.shouldRedactValue} (a JWT is a JWT wherever it is printed), the
+ * control-character escape, and the string cap. Only the quotes are dropped.
+ *
+ * @llmNote The one caller is `template-parser.ts`, which used to answer a text placeholder with
+ * `String(value)` — no redaction, no escaping, no cap — so `@narrated("issued {token}")` printed a
+ * bearer token that the identical value answered `[REDACTED]` for as a captured parameter
+ * (2026-09-04, family security fix). Keep this function and {@link renderString} reading the same
+ * two lines: a secret must not depend on whether the value was narrated or captured.
+ *
+ * @param text any string destined for narration.
+ * @param options truncation and redaction budgets; see {@link RenderOptions} for defaults.
+ * @returns the redaction marker, or the sanitized and capped text, unquoted.
+ */
+export function renderNarrationText(text: string, options?: RenderOptions): string {
+  const opts = { ...DEFAULTS, ...options };
+  if (opts.redactionPolicy.shouldRedactValue(text)) return RedactionPolicy.MARKER;
+  return sanitizeAndCap(text, opts.maxStringLength);
 }
 
 // A symbol's description is caller-supplied text (`Symbol(userInput)`), unlike number/bigint/

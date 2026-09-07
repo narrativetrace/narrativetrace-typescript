@@ -123,7 +123,10 @@ How it works:
 **Redaction wins over a template that names it.** `@narrated` and `@onError` resolve
 `{param.property}` paths against the raw arguments, and a path that reaches a redacted member
 resolves to `[REDACTED]` — whether the member is deny-listed by name or explicitly listed in
-`static notTraced`. Naming a path never weakens the rules that apply to the value directly:
+`static notTraced`. A bare `{name}` naming a value directly obeys the same two rules: the
+deny-list reads that key exactly as it reads a field name, and the value's own shape is checked
+too, so `@narrated("login {password}")` and a JWT arriving as `{value}` both render `[REDACTED]`.
+Naming a path, or a value, never weakens the rules that apply to the value directly:
 
 ```ts
 class Card {

@@ -3,7 +3,14 @@
 // Copyright (c) 2026 Empower Agile
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import type { CorpusCase, GraphCase, HeaderCase, TemplateCase, TraceShapeCase } from "./types.js";
+import type {
+  CorpusCase,
+  GraphCase,
+  HeaderCase,
+  RedactionCase,
+  TemplateCase,
+  TraceShapeCase,
+} from "./types.js";
 
 /**
  * Reader for the shared hostile corpus in `hostile-corpus/`.
@@ -70,6 +77,36 @@ export function hostileInjections(): readonly CorpusCase[] {
 
 function toCorpusCase(node: RawCase): CorpusCase {
   return { id: node.id, description: node.description, value: materialize(node, "value") };
+}
+
+let namesCache: CorpusCase[] | undefined;
+/** Test class and method names feeding the artifact writers that turn a name into a path. */
+export function hostileNames(): readonly CorpusCase[] {
+  if (namesCache === undefined) {
+    namesCache = rawCases("names.json", "cases").map(toCorpusCase);
+  }
+  return namesCache;
+}
+
+let redactionsCache: RedactionCase[] | undefined;
+/** Sensitive field names and national-id value shapes, for the name deny-list and the
+ * value-shape matcher — the visible half carries equal weight (see the corpus README). */
+export function hostileRedactions(): readonly RedactionCase[] {
+  if (redactionsCache === undefined) {
+    redactionsCache = rawCases("redaction.json", "cases").map(toRedactionCase);
+  }
+  return redactionsCache;
+}
+
+function toRedactionCase(node: RawCase): RedactionCase {
+  return {
+    id: node.id,
+    description: node.description,
+    ...(node.name !== undefined && { name: node.name }),
+    ...(node.value !== undefined && { value: materialize(node, "value") }),
+    ...(node.canary !== undefined && { canary: node.canary }),
+    expect: node.expect ?? "",
+  };
 }
 
 let traceparentsCache: HeaderCase[] | undefined;

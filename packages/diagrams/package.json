@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/diagrams",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Renders a captured NarrativeTrace tree as a Mermaid or PlantUML sequence diagram",
   "license": "BUSL-1.1",
   "repository": {

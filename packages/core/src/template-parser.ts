@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { notTracedFields, RedactionPolicy } from "./redaction-policy.js";
-import { renderValue as renderValueSafely } from "./value-renderer.js";
+import { renderNarrationText, renderValue as renderValueSafely } from "./value-renderer.js";
 
 const PLACEHOLDER = /\{([^}]+)\}/g;
 
@@ -99,10 +99,33 @@ function literal(text: string): Segment {
 
 function placeholder(key: string): Segment {
   const dot = key.indexOf(".");
-  if (dot < 0) return (values) => stringifyOrLiteral(values[key], `{${key}}`);
+  if (dot < 0) return (values) => resolveSimple(values[key], key);
   const objectKey = key.slice(0, dot);
   const property = key.slice(dot + 1);
   return (values) => resolveProperty(values[objectKey], property, `{${key}}`);
+}
+
+/**
+ * Resolves a bare `{key}` placeholder naming a value directly — `{password}`, `{token}`, `{card}`.
+ *
+ * INTENT: the key *is* the parameter's name here — the value map is keyed by parameter name, so
+ * `{password}` names the parameter `password`. That makes the deny-list applicable to exactly the
+ * same input {@link isRedactedMember} feeds it for the property form, and it is asked the same
+ * way — {@link RedactionPolicy.isRedacted} — so one rule answers both productions of the grammar.
+ * Before 2026-09-04 (family security fix) this production asked nothing at all, and
+ * `@narrated("login {password}")` printed the password that `{user.password}` beside it answered
+ * `[REDACTED]` for. `explicit` is `false`: a bare key has no owning object whose `static notTraced`
+ * could list it, so only the name-based deny-list applies.
+ *
+ * @remarks The name is asked only once a value exists. A placeholder naming no parameter stays
+ * literal, redacted-sounding or not: nothing can leak through a name that resolves to nothing, and
+ * answering `[REDACTED]` there would swallow the unresolved-placeholder warning that catches the
+ * typo.
+ */
+function resolveSimple(value: unknown, key: string): string {
+  if (value == null) return `{${key}}`;
+  if (RedactionPolicy.DEFAULT.isRedacted(key, false)) return RedactionPolicy.MARKER;
+  return renderValue(value);
 }
 
 /**
@@ -168,8 +191,25 @@ function stringifyOrLiteral(value: unknown, fallback: string): string {
  * already trusts a class's own `toString()` whenever nothing on it is a redaction target (an
  * author's `Money.toString()` still reads `EUR 10.00`), so this delegation costs nothing on the
  * cases that were already safe.
+ *
+ * @llmNote Text is not a fast path. A string carries the one shape the value axis exists for — a
+ * bearer token, a card number, a `Set-Cookie` string arriving under a name nothing suspects — so
+ * it goes to {@link renderNarrationText}, which applies exactly what the renderer applies to a
+ * captured string minus the quotation marks a narration must not carry. It used to take the
+ * `String(value)` shortcut below, which meant a JWT rendered `[REDACTED]` as an argument and in
+ * full through `@narrated("issued {token}")` (2026-09-04, family security fix). A boxed `String`
+ * object is text too — nothing but its wrapper distinguishes its bytes from the primitive's, so it
+ * takes the same route rather than the object path, whose `toString()` trust knows nothing about
+ * value shapes. Numbers, booleans and bigints keep `String(value)`: their string forms cannot
+ * carry a credential or a control character. A symbol's description is caller-supplied text, the
+ * one primitive `value-renderer` already refuses to print raw (see its `renderSymbol`), so it goes
+ * to the safe renderer rather than `String(value)` — captured and narrated agree on it too.
  */
 function renderValue(value: unknown): string {
+  if (typeof value === "string" || value instanceof String) {
+    return renderNarrationText(String(value));
+  }
+  if (typeof value === "symbol") return renderValueSafely(value);
   if (typeof value !== "object" && typeof value !== "function") return String(value);
   return renderValueSafely(value);
 }

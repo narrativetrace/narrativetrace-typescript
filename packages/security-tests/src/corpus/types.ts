@@ -26,8 +26,8 @@ export interface TemplateCase {
   readonly description: string;
   readonly template: string;
   /**
-   * Names the fixture graph it resolves against (`card`, `user`, `order`, `deep`, `unicode`,
-   * `wide`, `chain`).
+   * Names the fixture it resolves against (`card`, `user`, `order`, `deep`, `unicode`, `wide`,
+   * `chain`, or the scalar fixtures `password-scalar`, `jwt-scalar`, `newline-scalar`).
    */
   readonly values: string;
   /** `"redacted"` when the result must carry the redaction marker; `undefined` otherwise. */
@@ -37,6 +37,37 @@ export interface TemplateCase {
 /** Whether a template case pins the redaction invariant rather than only the universal oracles. */
 export function expectsRedaction(templateCase: TemplateCase): boolean {
   return templateCase.expect === "redacted";
+}
+
+/**
+ * One row of `redaction.json`: a sensitive field name, or a sensitive value shape.
+ *
+ * A row names either a field (`name` plus the `canary` planted behind it) or a value (`value`,
+ * which is its own canary because the shape *is* the secret), never both or neither; `expect`
+ * says which way the assertion runs — `"redacted"` cases must reach no output byte, `"visible"`
+ * cases must survive (the false-positive half is the half that keeps the default switched on).
+ */
+export interface RedactionCase {
+  readonly id: string;
+  readonly description: string;
+  /** The field name under test, for a name case; `undefined` for a value case. */
+  readonly name?: string;
+  /** The value under test, for a value case; `undefined` for a name case. */
+  readonly value?: string;
+  /** The token planted behind `name`, which the oracle looks for; name cases only. */
+  readonly canary?: string;
+  /** `"redacted"` or `"visible"`. */
+  readonly expect: string;
+}
+
+/** Whether this row names a field rather than carrying a bare value. */
+export function isNameCase(redactionCase: RedactionCase): boolean {
+  return redactionCase.name !== undefined;
+}
+
+/** The string the oracle looks for: the canary for a name case, the value itself otherwise. */
+export function secretOf(redactionCase: RedactionCase): string {
+  return (isNameCase(redactionCase) ? redactionCase.canary : redactionCase.value) ?? "";
 }
 
 /** One declarative object-graph shape from `graphs.json`. See the corpus README for the table. */

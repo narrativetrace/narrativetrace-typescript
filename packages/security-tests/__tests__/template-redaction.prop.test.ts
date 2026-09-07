@@ -120,6 +120,50 @@ describe("template redaction", () => {
     );
   });
 
+  test("a bare key naming a secret always renders the marker", () => {
+    // The other production of the grammar, and the one the path property above cannot reach: a
+    // bare key naming a value directly (2026-09-04, family security fix). Every generated path
+    // routes through the branch that was already correct, which is why a template printing
+    // {password} in full survived a suite aimed at exactly this class of bug.
+    fc.assert(
+      fc.property(
+        redactedKeyArb(),
+        fc.constantFrom("", " ", "charging ", " for ", "$", "\n", "[", "]", "%s", "0"),
+        (key, surrounding) => {
+          const sentinel = freshSentinel();
+
+          const resolved = resolveTemplate(`${surrounding}{${key}}${surrounding}`, {
+            [key]: sentinel,
+          });
+
+          expect(resolved, `key ${key} leaked`).not.toContain(sentinel);
+          expect(resolved, `key ${key} fell silent instead of redacting`).toContain(
+            RedactionPolicy.MARKER,
+          );
+        },
+      ),
+      { numRuns: 100 },
+    );
+  });
+
+  test("a credential-shaped scalar is refused whatever the key is called", () => {
+    // The second axis on the same production: the bytes are a credential under any name at all.
+    fc.assert(
+      fc.property(fc.constantFrom("value", "data", "header", "payload", "item"), (key) => {
+        const sentinel = freshSentinel();
+        const jwt = `eyJhbGciOiJIUzI1NiJ9.${sentinel}.c2lnbmF0dXJl`;
+
+        const resolved = resolveTemplate(`issued {${key}}`, { [key]: jwt });
+
+        expect(resolved, `key ${key} leaked the token`).not.toContain(sentinel);
+        expect(resolved, `key ${key} fell silent instead of redacting`).toContain(
+          RedactionPolicy.MARKER,
+        );
+      }),
+      { numRuns: 50 },
+    );
+  });
+
   test("resolving never throws whatever the template contains", () => {
     fc.assert(
       fc.property(braceSoupArb(), (template) => {
@@ -153,6 +197,27 @@ describe("template redaction", () => {
     }
   });
 });
+
+/**
+ * Bare parameter names the deny-list knows, across its two matching modes: plain substring
+ * (camelCase included) and whole identifier token (`pan`/`iban`). Java's analogous arbitrary also
+ * samples its multilingual vocabulary (`senha`, `contraseña`, `密码`) — this runtime's
+ * `DEFAULT_PATTERNS` (`redaction-policy.ts`) is English-only, a pre-existing, separate scope gap
+ * from the fix this property targets, tracked in the private backlog — so the sampled keys stay
+ * English-only here.
+ */
+function redactedKeyArb(): fc.Arbitrary<string> {
+  return fc.constantFrom(
+    "password",
+    "apiToken",
+    "cardCvv",
+    "secret",
+    "sessionId",
+    "privateKey",
+    "routingNumber",
+    "accountPan",
+  );
+}
 
 /** Braces, dots and identifier fragments, recombined — the part nobody listed. */
 function braceSoupArb(): fc.Arbitrary<string> {

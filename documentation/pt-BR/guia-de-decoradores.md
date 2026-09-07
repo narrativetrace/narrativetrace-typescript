@@ -1,4 +1,4 @@
-<!-- source: documentation/decorators-guide.md blob ca25e80993ca | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob b7c1a472a12b | translated: 2026-09-07 | reviewed: - -->
 
 # Guia de decoradores do NarrativeTrace TypeScript
 
@@ -127,8 +127,11 @@ Como funciona:
 **A ocultação vence sobre um template que a nomeia.** `@narrated` e `@onError` resolvem
 os caminhos `{param.property}` em relação aos argumentos brutos, e um caminho que alcança um membro oculto
 resolve para `[REDACTED]` — seja porque o membro está na lista de negação por nome, seja porque está
-listado explicitamente em `static notTraced`. Nomear um caminho nunca enfraquece as regras que se
-aplicam diretamente ao valor:
+listado explicitamente em `static notTraced`. Um `{name}` simples que nomeia um valor diretamente
+obedece às mesmas duas regras: a lista de negação lê essa chave exatamente como lê um nome de
+campo, e a forma do próprio valor também é verificada, então `@narrated("login {password}")` e um
+JWT chegando como `{value}` ambos renderizam `[REDACTED]`. Nomear um caminho, ou um valor, nunca
+enfraquece as regras que se aplicam diretamente ao valor:
 
 ```ts
 class Card {

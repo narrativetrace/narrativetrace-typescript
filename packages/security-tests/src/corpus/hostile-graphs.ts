@@ -370,8 +370,31 @@ function chain(sentinel: string): Link {
   return link as Link;
 }
 
+/**
+ * A JWT whose payload segment is the sentinel, so the value axis has a shape to recognise and the
+ * containment oracle still knows which bytes must not appear.
+ *
+ * @llmNote The key holding it (`jwt-scalar` below) is `value`, deliberately a name no deny-list
+ * knows. Under `token` the name axis would answer first and the case would prove nothing about
+ * the shape — which is the entire reason the second axis exists.
+ */
+function jwt(sentinel: string): string {
+  return `eyJhbGciOiJIUzI1NiJ9.${sentinel}.c2lnbmF0dXJl`;
+}
+
 type TemplateFixtureBuilder = (sentinel: string) => Record<string, unknown>;
 
+/**
+ * The last three fixtures are *scalars*, not graphs, and they exist because every fixture above
+ * them is an object: each one makes a template name a property path, which is the placeholder
+ * production that was already correct. The production that leaked — a bare key naming a value
+ * directly — had no fixture to be exercised with at all, which is how `{password}` printing a
+ * password survived a suite pointed straight at it (2026-09-04, family security fix).
+ *
+ * `newline-scalar` is the one fixture here carrying no sentinel: its value is not secret and is
+ * meant to be shown; what must not survive is its raw line break, and a containment oracle cannot
+ * say that. The escaping is pinned by the template-parser's own tests.
+ */
 const TEMPLATE_FIXTURES: Record<string, TemplateFixtureBuilder> = {
   card: (sentinel) => ({ card: new Card("4111", sentinel) }),
   user: (sentinel) => ({ user: new Credentials("ada", sentinel) }),
@@ -380,6 +403,9 @@ const TEMPLATE_FIXTURES: Record<string, TemplateFixtureBuilder> = {
   unicode: (sentinel) => ({ café: new Unicode("plain", sentinel) }),
   wide: (sentinel) => ({ wide: new Wide("1", "2", "3", "4", "5", sentinel) }),
   chain: (sentinel) => ({ chain: chain(sentinel) }),
+  "password-scalar": (sentinel) => ({ password: sentinel }),
+  "jwt-scalar": (sentinel) => ({ value: jwt(sentinel) }),
+  "newline-scalar": () => ({ comment: `note${String.fromCodePoint(0x000a)}## forged` }),
 };
 
 /**

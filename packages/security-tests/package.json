@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/security-tests",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Cross-emitter security and fuzz test suite replaying a shared hostile corpus against every package",
   "private": true,
   "type": "module",

@@ -7,6 +7,8 @@ import { describe, expect, test } from "vitest";
 import {
   hostileGraphCases,
   hostileInjections,
+  hostileNames,
+  hostileRedactions,
   hostileStrings,
   hostileTemplates,
   hostileTraceparents,
@@ -15,6 +17,7 @@ import {
 } from "../src/corpus/hostile-corpus.js";
 import { build, templateValues } from "../src/corpus/hostile-graphs.js";
 import { build as buildTraceShape } from "../src/corpus/trace-shapes.js";
+import { isNameCase, secretOf } from "../src/corpus/types.js";
 
 /**
  * The corpus is data copied verbatim from the shared master copy, so its shape is a contract in
@@ -43,6 +46,8 @@ describe("hostile corpus", () => {
     expect(hostileTracestates().length).toBeGreaterThan(5);
     expect(hostileTemplates().length).toBeGreaterThan(30);
     expect(hostileGraphCases().length).toBeGreaterThan(40);
+    expect(hostileNames().length).toBeGreaterThan(15);
+    expect(hostileRedactions().length).toBeGreaterThan(60);
     expect(hostileTraceShapes().length).toBeGreaterThan(3);
   });
 
@@ -52,12 +57,16 @@ describe("hostile corpus", () => {
     assertUniqueIds(hostileTraceparents().map((c) => c.id));
     assertUniqueIds(hostileTemplates().map((c) => c.id));
     assertUniqueIds(hostileGraphCases().map((c) => c.id));
+    assertUniqueIds(hostileNames().map((c) => c.id));
+    assertUniqueIds(hostileRedactions().map((c) => c.id));
     assertUniqueIds(hostileTraceShapes().map((c) => c.id));
   });
 
   test("every case carries a description saying what breaks", () => {
     for (const c of hostileStrings()) expect(c.description).not.toBe("");
     for (const c of hostileGraphCases()) expect(c.description).not.toBe("");
+    for (const c of hostileNames()) expect(c.description).not.toBe("");
+    for (const c of hostileRedactions()) expect(c.description).not.toBe("");
     for (const c of hostileTraceShapes()) expect(c.description).not.toBe("");
   });
 
@@ -75,6 +84,14 @@ describe("hostile corpus", () => {
     expect(stringCaseValue("unpaired-low-surrogate")).toBe(String.fromCharCode(0xdc00));
     expect(stringCaseValue("zero-width")).toContain(String.fromCodePoint(0x200b));
     expect(stringCaseValue("zero-width")).toContain(String.fromCodePoint(0x2060));
+    expect(stringCaseValue("noncharacter-arabic-block")).toBe(
+      String.fromCodePoint(0xfdd0) + String.fromCodePoint(0xfdef),
+    );
+    // The fixture spells these as UTF-16 surrogate-pair escapes; JSON.parse combines each valid
+    // pair, so the case surfaces as the two astral noncharacters, not four surrogate halves.
+    expect(stringCaseValue("noncharacter-supplementary")).toBe(
+      String.fromCodePoint(0x1fffe) + String.fromCodePoint(0x1ffff),
+    );
   });
 
   test.each([
@@ -83,6 +100,8 @@ describe("hostile corpus", () => {
     "templates.json",
     "graphs.json",
     "injection.json",
+    "names.json",
+    "redaction.json",
     "trace-shapes.json",
   ])("%s stays ASCII on disk", (fileName) => {
     const text = readFileSync(`${CORPUS_DIR}${fileName}`, "utf-8");
@@ -118,5 +137,30 @@ describe("hostile corpus", () => {
   test("the header fixture marks both outcomes", () => {
     expect(hostileTraceparents().some((h) => h.accepted)).toBe(true);
     expect(hostileTraceparents().some((h) => !h.accepted)).toBe(true);
+  });
+
+  // A redaction row that named neither a field nor a value, or carried an unreadable `expect`,
+  // would be replayed as a silently trivial assertion — the same failure mode as a fixture that
+  // stopped loading, one row at a time.
+  test("every redaction case declares exactly one subject and one direction", () => {
+    for (const c of hostileRedactions()) {
+      expect(secretOf(c).trim(), `${c.id} must carry a canary or a value`).not.toBe("");
+      expect(
+        isNameCase(c) === (c.value === undefined),
+        `${c.id} must be a name case or a value case, never both or neither`,
+      ).toBe(true);
+      expect(["redacted", "visible"], `${c.id} must declare which way it goes`).toContain(c.expect);
+    }
+  });
+
+  // A name case whose canary is itself secret-shaped would pass the hidden assertion for the
+  // wrong reason — the value axis would catch it whatever the name said.
+  test("no redaction canary is itself a secret shape", () => {
+    for (const c of hostileRedactions()) {
+      if (!isNameCase(c)) continue;
+      expect(c.canary, `${c.id} must test the name axis, not the value axis`).toMatch(
+        /^canary-[a-z0-9-]+$/,
+      );
+    }
   });
 });
