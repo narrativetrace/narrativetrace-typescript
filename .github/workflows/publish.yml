@@ -9,12 +9,16 @@
 # short-lived token per publish. No long-lived npm token exists anywhere
 # once bootstrap is done.
 #
-# Bootstrap exception, first publish only: trusted publishing is configured
-# on an EXISTING package, so the very first publish of each package runs
-# with a granular, publish-only, same-day-revoked token in the NPM_TOKEN
-# secret. After that run: configure the trusted publisher on every package,
-# revoke the token, delete the secret. This workflow supports both modes —
-# it uses NPM_TOKEN when present and OIDC when not.
+# The upload runs through the npm CLI, not pnpm: OIDC trusted publishing is
+# implemented only in npm >= 11.5.1 (pnpm's support is an open request,
+# pnpm/pnpm#9812) — the 0.1.1 release's first steady-state run proved this
+# the hard way (pnpm publish -> ENEEDAUTH once the bootstrap token was
+# gone). pnpm still packs each tarball, because only pnpm rewrites
+# workspace:* dependency ranges to real versions at pack time.
+#
+# (Historical: each package's very first publish ran with a granular,
+# same-day-revoked NPM_TOKEN, since trusted publishing configures on an
+# existing package. That token and secret are gone; no token mode remains.)
 #
 # Provenance: publishConfig.provenance is set in every publishable manifest,
 # because `pnpm -r publish --provenance` silently drops the flag in recursive
@@ -50,9 +54,29 @@ jobs:
       # Full gate before anything leaves the runner: artifacts publish only
       # from a tree that passes the same checks CI enforces.
       - run: bash scripts/gate.sh
-      - name: Publish all public packages
-        # NODE_AUTH_TOKEN is empty in steady state (OIDC takes over) and holds
-        # the bootstrap token only for each package's first-ever publish.
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: pnpm -r publish --access public --no-git-checks
+      # npm >= 11.5.1 is the OIDC floor; the runner's bundled npm is older.
+      # Pinned exactly — bump deliberately, never @latest in a release job.
+      - run: npm install -g npm@11.5.1
+      - name: Publish all public packages (pnpm pack, npm OIDC publish)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/nt-tarballs
+          for dir in packages/*/; do
+            name="$(node -e "const m=require('./$dir/package.json'); if(!m.private) console.log(m.name)")"
+            [ -n "$name" ] || continue
+            echo ">> packing $name"
+            (cd "$dir" && pnpm pack --out "/tmp/nt-tarballs/%s-%v.tgz" >/dev/null)
+          done
+          fail=0
+          for t in /tmp/nt-tarballs/*.tgz; do
+            echo ">> publishing $t"
+            if out="$(npm publish "$t" --access public --provenance 2>&1)"; then
+              echo "$out" | tail -2
+            elif echo "$out" | grep -qE "cannot publish over|EPUBLISHCONFLICT|previously published"; then
+              echo ">>   already published — skipping (safe re-run)"
+            else
+              echo "$out" | tail -15
+              fail=1
+            fi
+          done
+          exit "$fail"
