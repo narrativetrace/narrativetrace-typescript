@@ -18,7 +18,12 @@ import { existsSync } from "node:fs";
  * Linux **arm64 is not listed**). This container is linux/arm64, verified via
  * `uname -a` → `aarch64`, so this script degrades to a clear, non-failing report instead of
  * attempting an install `pnpm run check` cannot perform anyway (no network-based `pnpm
- * install` inside this container). Real fuzzing runs on the scheduled x86_64 CI job.
+ * install` inside this container). Real fuzzing runs on the repository's own scheduled
+ * fuzz workflow, on a hosted `ubuntu-latest` runner (x86_64) — the addon ships a
+ * `fuzzer-linux-x64.node` prebuild (checked into the npm package, no compile step needed),
+ * so that job runs the real fuzzer, not this degrade. Verified 2026-09-09: no such job
+ * existed anywhere before that date, despite this comment's previous wording claiming one
+ * did — see that workflow's own header comment for the correction and the full account.
  */
 const PER_TARGET_SECONDS = 5 * 60;
 
@@ -49,7 +54,8 @@ function reportUnsupportedPlatform(): void {
       "https://github.com/CodeIntelligenceTesting/jazzer.js#readme).",
       "The regression-replay half of Tier B still runs everywhere: `pnpm run check` replays",
       "every seed under fuzz-seeds/ through both targets via __tests__/fuzz-regression.test.ts.",
-      "Real coverage-guided fuzzing runs on the scheduled x86_64 CI job.",
+      "Real coverage-guided fuzzing runs on .github/workflows/fuzz.yml's scheduled/manual",
+      "job (GitHub's ubuntu-latest runner is x86_64) — see that file for how to watch a run.",
     ].join("\n"),
   );
 }

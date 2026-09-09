@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# Coverage-guided fuzzing (Tier B of packages/security-tests) — budgeted, scheduled/manual only,
+# same cadence tier as mutation.yml's full sweep. Every `pnpm run check` already replays the
+# committed seed corpus (__tests__/fuzz-regression.test.ts, Tier B's regression-replay half, no
+# native addon needed, runs on every platform); this workflow runs the other half — Jazzer.js
+# actually generating and mutating inputs under coverage feedback (tools/run-fuzz.ts) — which
+# needs @jazzer.js/fuzzer's native addon and only ships a prebuild for linux-x64, darwin-x64/
+# arm64, and win32-x64 (verified: packages/security-tests/node_modules/.pnpm/@jazzer.js+fuzzer@
+# */node_modules/@jazzer.js/fuzzer/prebuilds/), never linux-arm64.
+#
+# `ubuntu-latest` is GitHub's own hosted x86_64 (amd64) runner — documented at
+# https://docs.github.com/actions/using-github-hosted-runners/about-github-hosted-runners —
+# so this job runs the addon's actual linux-x64 prebuild, not a degrade. That is the fix for a
+# claim `tools/run-fuzz.ts` used to make: "real coverage-guided fuzzing runs on the scheduled
+# x86_64 CI job" with no such job wired anywhere. This file is that job: self-contained, because
+# GitHub's `schedule:` trigger below needs no external project configuration to fire — some CI
+# providers' schedule triggers instead depend on a separate project setting outside version
+# control, which this repository's public mirror does not rely on.
+name: Fuzz
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      # `fuzz` is not a turbo task (unlike `test`/`bench`/`stress`, which declare `dependsOn:
+      # ["build"]` in turbo.json), so it gets none of turbo's automatic build-before-run
+      # ordering — the fuzz targets import the *built* @narrativetrace/core (see fuzz/*.fuzz.mjs's
+      # own doc comment), so a cold checkout with no dist/ would fail the import, not the fuzzer.
+      - run: pnpm run build
+      - run: pnpm --filter @narrativetrace/security-tests run fuzz
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: fuzz-findings
+          path: |
+            packages/security-tests/fuzz/
+            packages/security-tests/fuzz-seeds/
+          retention-days: 30

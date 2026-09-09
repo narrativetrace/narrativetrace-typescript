@@ -126,6 +126,124 @@ describe("RedactionPolicy.DEFAULT — pan/iban match tokens, never bare substrin
   });
 });
 
+// The default vocabulary is multilingual and always on (family standard, mirroring the Java
+// runtime): Spanish, Portuguese, French and Chinese words beside the English ones, no locale to
+// select. Names and patterns both fold through canonical (lowercase + accent-strip), so the
+// accented and unaccented spellings of a word are one pattern rather than two.
+describe("RedactionPolicy.DEFAULT — the multilingual vocabulary", () => {
+  const p = RedactionPolicy.DEFAULT;
+
+  test("redacts Spanish sensitive names", () => {
+    for (const name of ["contraseña", "tarjeta", "cédula", "rut", "cuit", "dni"]) {
+      expect(p.shouldRedact(name)).toBe(true);
+    }
+  });
+
+  test("redacts Portuguese sensitive names", () => {
+    for (const name of ["senha", "cpf", "cnpj", "cartão"]) {
+      expect(p.shouldRedact(name)).toBe(true);
+    }
+  });
+
+  test("redacts French sensitive names", () => {
+    for (const name of ["motDePasse", "mot_de_passe", "nir"]) {
+      expect(p.shouldRedact(name)).toBe(true);
+    }
+  });
+
+  test("redacts Chinese sensitive names, and the pinyin a non-CJK codebase writes", () => {
+    // 密码 = mima ("password"); 身份证 = shenfenzheng (identity card)
+    for (const name of ["密码", "用户密码", "身份证", "mima", "shenfenzheng"]) {
+      expect(p.shouldRedact(name)).toBe(true);
+    }
+  });
+
+  // The deny-list is written in folded ASCII, so a team that types the accent and a team that
+  // does not get the same protection. Neither spelling is the "correct" one to a field author.
+  test("accented and unaccented spellings are matched alike", () => {
+    expect(p.shouldRedact("contrasena")).toBe(true);
+    expect(p.shouldRedact("CONTRASEÑA")).toBe(true);
+    expect(p.shouldRedact("cedula")).toBe(true);
+    expect(p.shouldRedact("CartãoCredito")).toBe(true);
+    expect(p.shouldRedact("cartaoCredito")).toBe(true);
+    // The decomposed spelling is the same word: n + U+0303 rather than U+00F1.
+    expect(p.shouldRedact("contrasen\u0303a")).toBe(true);
+  });
+
+  test("non-English short names match as identifier tokens in compound names", () => {
+    for (const name of [
+      "rutCliente",
+      "cuitEmpresa",
+      "dniTitular",
+      "senhaUsuario",
+      "cpf_cliente",
+      "CNPJ",
+      "nirAssure",
+      "mimaHash",
+    ]) {
+      expect(p.shouldRedact(name)).toBe(true);
+    }
+  });
+
+  // The `pan` lesson, applied to the non-English short words: every name here contains a
+  // deny-list word as a substring and is an ordinary business field; a security default that
+  // blanks these gets switched off entirely, which leaks everything rather than one field.
+  test("short non-English words do not blank ordinary business fields", () => {
+    for (const name of [
+      "truthValue",
+      "bruteForceAttempts",
+      "scrutinyScore",
+      "circuitBreaker",
+      "biscuitCount",
+      "midnightCutoff",
+      "chosenHash",
+      "frozenHashes",
+      "nirvanaLevel",
+      "semiMajorAxis",
+    ]) {
+      expect(p.shouldRedact(name)).toBe(false);
+    }
+  });
+
+  // clave/carte were narrowed out of the deny-list entirely (family ruling 2026-09-03): a token
+  // match only ever protected them from someone else's compound (enclaveId, cartesianProduct),
+  // never from a codebase's own (clavePrimaria, carteGraphique) — the pattern is a whole token
+  // there too. The specific credential compounds are the unit instead.
+  test("clave and carte stay visible, bare and in ordinary compounds", () => {
+    for (const name of [
+      "enclaveId",
+      "conclaveDate",
+      "cartesianProduct",
+      "descartesPoint",
+      "carteraDigital",
+      "clave",
+      "clavePrimaria",
+      "claveForanea",
+      "llavePrimaria",
+      "carte",
+      "carteGraphique",
+      "carteRoutiere",
+    ]) {
+      expect(p.shouldRedact(name)).toBe(false);
+    }
+  });
+
+  test("the narrowed clave/carte credential compounds are redacted, both spellings", () => {
+    for (const name of [
+      "claveAcceso",
+      "clave_acceso",
+      "claveSecreta",
+      "clave_secreta",
+      "carteBancaire",
+      "carte_bancaire",
+      "numeroCarte",
+      "numero_carte",
+    ]) {
+      expect(p.shouldRedact(name)).toBe(true);
+    }
+  });
+});
+
 // Value-shape masking is a second, independent axis: it looks at what a string *is*, not what its
 // field is named, so an unnamed value (a map value, a list item) still gets caught. Kept narrow —
 // structural checks only, no entropy heuristics — so the false-positive rate stays near zero.

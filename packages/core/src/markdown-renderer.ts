@@ -54,6 +54,20 @@ function containsYamlUnsafeCodePoint(value: string): boolean {
   return false;
 }
 
+// A supplementary character (outside the BMP) is YAML-printable on its own, so it never tripped
+// containsYamlUnsafeCodePoint and used to pass through raw as a well-formed surrogate pair. A raw
+// pair is spec-valid, but a mainstream YAML parser reading fixed-size character chunks can land its
+// buffer boundary between the two halves and crash on valid input — the same crash SnakeYAML's own
+// 1024-char StreamReader chunks hit in the Java golden source. Frontmatter is a machine-readable
+// interoperability contract, so this forces quoting whenever one is present; yamlEscapeChar then
+// emits it BMP-only.
+function containsSupplementaryCodePoint(value: string): boolean {
+  for (const ch of value) {
+    if ((ch.codePointAt(0) ?? 0) > 0xffff) return true;
+  }
+  return false;
+}
+
 const YAML_LEADING_INDICATOR = /^[-?:,[\]{}#&*!|>'"%@`]/;
 
 // A plain YAML scalar cannot start with a flow/block indicator, hold ": "/"#"/a quote/a
@@ -62,9 +76,13 @@ const YAML_LEADING_INDICATOR = /^[-?:,[\]{}#&*!|>'"%@`]/;
 function needsYamlQuoting(value: string): boolean {
   if (value.length === 0 || value !== value.trim()) return true;
   if (YAML_LEADING_INDICATOR.test(value) || /[:#"\\]/.test(value)) return true;
-  return containsYamlUnsafeCodePoint(value);
+  return containsYamlUnsafeCodePoint(value) || containsSupplementaryCodePoint(value);
 }
 
+// A supplementary code point becomes YAML's own 8-digit \U escape (ns-esc-32-bit), never a raw
+// surrogate pair — see containsSupplementaryCodePoint. A conforming parser (SnakeYAML, PyYAML,
+// js-yaml, this suite's own `yaml`) decodes it back to the same code point, and no read-buffer
+// boundary can ever split what is no longer a pair.
 function yamlEscapeChar(ch: string): string {
   const code = ch.codePointAt(0) ?? 0;
   if (ch === "\\") return "\\\\";
@@ -72,6 +90,7 @@ function yamlEscapeChar(ch: string): string {
   if (ch === "\n") return "\\n";
   if (ch === "\t") return "\\t";
   if (ch === "\r") return "\\r";
+  if (code > 0xffff) return `\\U${code.toString(16).padStart(8, "0")}`;
   return isYamlUnsafeCodePoint(code) ? `\\u${code.toString(16).padStart(4, "0")}` : ch;
 }
 
@@ -97,11 +116,18 @@ function entryPointLines(tree: TraceTree): string[] {
 
 // YAML frontmatter: type/scenario/entry_point/duration_ms/
 // trace identity/method_count/error_count. `result` moved to the document header (Java parity).
+//
+// The scenario key is present whenever the caller supplied a scenario at all — testing for
+// `undefined`, never for truthiness, so an explicitly-empty scenario ("" — a corpus/fuzz value,
+// not a hole in the caller's setup) still writes `scenario: ""` rather than silently vanishing
+// from the document, the same contract Java's FrontmatterBuilder keeps (`scenario != null`, never
+// testing the string's content). Found by fuzzing the scenario route (see security-tests'
+// output-format.prop.test.ts).
 function renderFrontmatter(tree: TraceTree, options?: MarkdownOptions): string[] {
   return [
     "---",
     "type: trace",
-    ...(options?.scenarioName ? [`scenario: ${yamlSafe(options.scenarioName)}`] : []),
+    ...(options?.scenarioName !== undefined ? [`scenario: ${yamlSafe(options.scenarioName)}`] : []),
     ...entryPointLines(tree),
     ...traceNameLines(tree),
     `method_count: ${countMethods(tree.roots)}`,
@@ -136,6 +162,14 @@ export function renderMarkdown(tree: TraceTree, options?: MarkdownOptions): stri
   return [...renderFrontmatter(tree, options), "", ...renderBody(tree, options)].join("\n");
 }
 
+// The scenario is caller-supplied text and the frontmatter already escapes it (yamlSafe); this
+// header used to append the same value raw. ControlEscape.sanitize + MarkdownEscape.text is the
+// pairing every other body sink in this file uses (see pushNodeLine's narration line) — a raw
+// newline is document structure here (it can open a heading of its own), so control characters are
+// neutralized first, then `&`/`<`/`>` are HTML-escaped so the value cannot inject active markup.
+// One escaping decision per sink, never a raw append — mirrors a fix from the Java golden source.
+// `metadata.result` stays raw on purpose: it is caller-controlled but drawn from a small
+// enum-like set, never user-supplied text.
 function documentHeader(tree: TraceTree, metadata: MarkdownDocumentMetadata): string[] {
   const root = tree.roots[0];
   if (!root) return [];
@@ -145,7 +179,7 @@ function documentHeader(tree: TraceTree, metadata: MarkdownDocumentMetadata): st
     "",
     `## Trace: ${className}.${methodName}`,
     "",
-    `**Scenario:** ${metadata.scenario}`,
+    `**Scenario:** ${MarkdownEscape.text(ControlEscape.sanitize(metadata.scenario))}`,
     `**Duration:** ${root.durationMs}ms | **Result:** ${metadata.result}`,
     "",
     "### Call Flow",

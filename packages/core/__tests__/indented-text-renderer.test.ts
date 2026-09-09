@@ -243,9 +243,13 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(renderIndentedText(traceTree([cyclicRoot()]))).toContain("… (cycle)");
   });
 
+  // Explicit budget, not vitest's 5s default: walking a 50,000-deep chain takes
+  // ~800ms alone but ~5.2s under coverage instrumentation inside the parallel
+  // gate — a margin measured in one environment and spent in another. The suite
+  // already sets explicit budgets wherever a test is deliberately heavy.
   test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
     expect(renderIndentedText(traceTree([deepChain(50_000)]))).toContain("… (depth limit)");
-  });
+  }, 30_000);
 
   test("an ordinary tree well within the bound renders exactly as before", () => {
     const child = traceNode(methodSignature("Repo", "find", []), returned('"found"'), []);

@@ -1,4 +1,4 @@
-<!-- source: README.md blob 719e7892c30d | translated: 2026-09-07 | reviewed: - -->
+<!-- source: README.md blob 1aa23462ce95 | translated: 2026-09-07 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
@@ -374,15 +374,29 @@ contrato de coexistência completo.
 O tracing faz trabalho e trabalho custa alguma coisa — não vamos afirmar
 "overhead zero". O proxy intercepta chamadas via `Proxy` do ES, captura
 parâmetros, renderiza valores em strings e constrói a árvore de trace.
-Quando o tracing está desativado (`level: 'off'`), uma trava de fast-path
-`isActive` pula todo o trabalho de captura e renderização antes de começar.
+Quando o tracing está desativado, o wrap é trabalho zero por construção:
+envolver `NOOP_CONTEXT` devolve o **próprio objeto original** (sem proxy,
+sem custo algum por chamada), e um contexto vivo em `level: 'off'` mantém o
+proxy (o nível pode mudar em tempo de execução), mas uma chamada não faz
+nenhum trabalho de captura — uma consulta ao cache de wrappers e uma
+verificação de `isActive`, sem alocação, sem renderização.
+
+Medido (2026-09-07, Node 22, o contêiner de desenvolvimento Linux deste
+repositório, `proxy.bench.ts` de `packages/benchmarks`): um método trivial
+de dois argumentos rodou a ~9,8M ops/s puro; a mesma chamada através de um
+wrapper em `level: 'off'` rodou a ~4,3M ops/s — na ordem de 0,1 µs
+adicionados por chamada; o wrap com `NOOP_CONTEXT` foi indistinguível do
+objeto puro, porque ele *é* o objeto puro. Com o tracing totalmente ligado
+(`detail`: renderização de parâmetros + valores de retorno), a mesma
+chamada trivial rodou a ~105K ops/s (~10 µs por chamada) — o custo de
+realmente renderizar a história.
 
 O diretório `packages/benchmarks/` contém benchmarks do Vitest para
 entrada/saída de contexto, overhead do proxy, renderização de valores e
 renderização Markdown/JSON em vários tamanhos de árvore, com baselines
 salvas em `reports/benchmarks/` para que uma regressão continue visível
 entre commits. Execute `pnpm run bench` (ou `pnpm run bench:save` para
-comparar com a baseline salva) para ver os números atuais no seu hardware —
+comparar com a baseline salva) para reproduzir os números acima no seu hardware —
 reportamos isso como medições que você deve reproduzir, não como números de
 manchete, porque a carga do contêiner e da máquina os move de execução em
 execução.
@@ -476,6 +490,12 @@ OrderService.placeOrder(customerId: "C1", productId: "SKU-EBOOK")
 ```
 
 Não é preciso traçar o `if` — a presença de `sendDownloadLink` e a ausência de `shipPhysical` contam a história. Os campos `#private` do ES não podem ser interceptados pelo Proxy (limitação da linguagem JavaScript), mas o benefício arquitetural é o mesmo.
+
+### Por que as auto-chamadas não aninham?
+
+Métodos traçados executam com `this` vinculado ao objeto original, não ao proxy (`Reflect.apply(fn, target, args)` dentro do wrapper do método). Um método que chama um irmão no mesmo objeto (`this.validate(order)`) invoca portanto o método original — a chamada executa corretamente, mas não é capturada, então auto-chamadas nunca aparecem como spans aninhados. É uma troca de design deliberada, não uma lacuna: vincular o objeto original torna o proxy imune às armadilhas clássicas de Proxy — campos `#private` (que lançam através de um receptor proxy), built-ins com slots internos (`Map`, `Date`) e campos de arrow function.
+
+O aninhamento vem de envolver os colaboradores, e essa é a única regra estrutural: **decomponha em serviços colaboradores e envolva cada um onde ele é construído.** Uma raiz de composição que envolve `OrderService`, `InventoryService` e `PaymentService` uma vez cada obtém a narrativa aninhada completa — que também é o formato de código que se lê melhor, com ou sem traces.
 
 ### Como o NarrativeTrace interage com outras bibliotecas que envolvem métodos (AOP, proxies, bibliotecas de contrato)?
 

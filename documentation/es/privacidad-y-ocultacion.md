@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob fd8d8d3cb23b | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 33ca5ffa478b | translated: 2026-09-07 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -53,18 +53,29 @@ renderizado:
    desactivados todos los patrones de nombre y todas las comprobaciones de
    forma del valor.
 3. **La lista de denegación basada en nombre** (`RedactionPolicy.DEFAULT`)
-   — una coincidencia de subcadena sin distinguir mayúsculas/minúsculas
-   contra nombres de campo (`password`, `secret`, `token`, `apikey`, `cvv`,
-   `ssn`, `authorization`, `credential`, `cardnumber`, `jwt`, `cookie`,
-   `sessionid`, `accountnumber`, `routingnumber`, `pan`, `iban`, y sus
-   formas en `snake_case`), más una segunda comprobación independiente
-   sobre la *forma* del propio valor — un JWT (`eyJ…`), un número de
-   tarjeta válido según Luhn, o una cadena con forma de `Set-Cookie` — de
-   modo que un valor sin nombre (un elemento de lista, un valor de mapa) o
-   un token bearer bajo un nombre no reconocido se sigue atrapando.
-   `"companyName"`/`"panelId"` no coinciden con `pan` — los dos patrones
-   más propensos a falsos positivos (`pan`, `iban`) coinciden en los
-   límites de token del identificador, no por subcadena a secas.
+   — una coincidencia de subcadena sin distinguir mayúsculas/minúsculas ni
+   acentos contra nombres de campo (`password`, `secret`, `token`,
+   `apikey`, `cvv`, `ssn`, `authorization`, `credential`, `cardnumber`,
+   `jwt`, `cookie`, `sessionid`, `accountnumber`, `routingnumber`, `pan`,
+   `iban`, y sus formas en `snake_case`), más una segunda comprobación
+   independiente sobre la *forma* del propio valor — un JWT (`eyJ…`), un
+   número de tarjeta válido según Luhn, o una cadena con forma de
+   `Set-Cookie` — de modo que un valor sin nombre (un elemento de lista,
+   un valor de mapa) o un token bearer bajo un nombre no reconocido se
+   sigue atrapando. El vocabulario por defecto es **multilingüe y siempre
+   activo** (el estándar de la familia, compartido con los demás runtimes
+   de NarrativeTrace): el español (`contraseña`, `tarjeta`, `cédula`,
+   `claveAcceso`, `rut`, `cuit`, `dni`), el portugués (`senha`, `cartão`,
+   `cpf`, `cnpj`), el francés (`motDePasse`, `carteBancaire`, `nir`) y el
+   chino (`密码`, `身份证`, más el pinyin `mima`/`shenfenzheng`) están
+   junto a los patrones en inglés, sin ningún locale que seleccionar —
+   las grafías con y sin acento se pliegan a un único patrón.
+   `"companyName"`/`"panelId"` no coinciden con `pan` — los diez patrones
+   más propensos a falsos positivos (`pan`, `iban`, `rut`, `cuit`, `dni`,
+   `senha`, `cpf`, `cnpj`, `nir`, `mima`) coinciden en los límites de
+   token del identificador, no por subcadena a secas, de modo que
+   `truthValue`, `circuitBreaker`, `chosenHash` y `semiMajorAxis` siguen
+   visibles mientras que `rutCliente` y `senhaUsuario` quedan ocultos.
 
 Un **`toString()` cuidado** normalmente se respeta tal como está escrito —
 pero una clase que declara cualquier campo `static notTraced` se

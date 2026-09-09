@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { type DualMethodDecorator, methodDecorator } from "./decorator-dialect.js";
+
 type AnyFn = (...args: never[]) => unknown;
 
 const redactedParams = new WeakMap<AnyFn, Set<number>>();
@@ -15,18 +17,17 @@ const redactedParams = new WeakMap<AnyFn, Set<number>>();
  *
  * @param paramIndices zero-based positions of the parameters to redact; pass several to redact
  * multiple (e.g. `@notTraced(1, 2)`).
+ * @returns a decorator usable from both dialects — standard TC39 decorators and the legacy
+ * `experimentalDecorators` dialect (NestJS, Angular); the dialect is detected at runtime from
+ * the call shape. The non-decorator twin is `methods.<name>.notTraced` on {@link traceObject}.
  *
  * @remarks Redaction is by index, so it survives parameter renaming but must be kept in sync
  * with the method's positional signature.
  */
-export function notTraced(...paramIndices: number[]) {
-  return <T extends (...args: never[]) => unknown>(
-    method: T,
-    _context: ClassMethodDecoratorContext,
-  ): T => {
-    redactedParams.set(method as AnyFn, new Set(paramIndices));
-    return method;
-  };
+export function notTraced(...paramIndices: number[]): DualMethodDecorator {
+  return methodDecorator("notTraced", (method) => {
+    redactedParams.set(method, new Set(paramIndices));
+  });
 }
 
 export function getRedactedParams(method: AnyFn): Set<number> | undefined {

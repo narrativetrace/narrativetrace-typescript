@@ -31,8 +31,9 @@
   "scripts": {
     "prepack": "cp ../../LICENSE LICENSE",
     "build": "tsup",
-    "test": "vitest run",
-    "coverage": "vitest run --coverage",
+    "test": "vitest run && pnpm run test:dialects",
+    "test:dialects": "tsc -p tsconfig.dialect-tc39.json && tsc -p tsconfig.dialect-legacy.json && vitest run --config vitest.legacy.config.ts",
+    "coverage": "vitest run --coverage && pnpm run test:dialects",
     "mutate": "stryker run"
   },
   "peerDependencies": {

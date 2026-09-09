@@ -1,12 +1,47 @@
-<!-- source: documentation/decorators-guide.md blob b7c1a472a12b | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob 3842d177e3d5 | translated: 2026-09-07 | reviewed: - -->
 
 # Guia de decoradores do NarrativeTrace TypeScript
 
 [English](../decorators-guide.md) | [Español](../es/guia-de-decoradores.md) | **Português** | [简体中文](../zh-CN/装饰器指南.md)
 
-Este guia lista todos os decoradores disponíveis no NarrativeTrace TypeScript e explica quando e como usar cada um.
+Este guia cobre os metadados de trace em nível de método — nomes de parâmetros, narração, contexto de erro e ocultação. A **forma padrão de declará-los é a forma de configuração** no `traceObject()`, na raiz de composição; os quatro decoradores são as mesmas declarações com uma sintaxe mais agradável para projetos que já compilam decoradores (NestJS, Angular, qualquer aplicação com TypeScript 5+).
 
-O NarrativeTrace segue a filosofia **O código é o log**: os nomes de métodos, os nomes de parâmetros e os valores de retorno já deveriam comunicar por si só a história da execução. Mantenha a lógica de negócio limpa e expressiva antes de mais nada, e use decoradores de forma excepcional, não por padrão. Adicione decoradores somente quando eles agregarem valor adicional concreto, como narração direcionada, contexto específico de erro, ou ocultação de dados sensíveis.
+O NarrativeTrace segue a filosofia **O código é o log**: os nomes de métodos, os nomes de parâmetros e os valores de retorno já deveriam comunicar por si só a história da execução. Mantenha a lógica de negócio limpa e expressiva antes de mais nada, e adicione metadados de forma excepcional, não por padrão — somente quando agregarem valor adicional concreto, como narração direcionada, contexto específico de erro, ou ocultação de dados sensíveis.
+
+## A forma de configuração — declare tudo onde você envolve
+
+`traceObject()` aceita uma configuração por método que expressa tudo o que os decoradores expressam. Não precisa de compilação de decoradores, funciona sobre objetos simples e JavaScript puro, e mantém os metadados de trace ao lado da fiação:
+
+```ts
+import { traceObject } from "@narrativetrace/proxy";
+
+const payments = traceObject(paymentService, context, {
+  methods: {
+    charge: {
+      params: ["customerId", "amount", "cardToken"],       // gêmeo de @traced
+      narration: "Charging {amount} to {customerId}",      // gêmeo de @narrated
+      onError: [                                           // gêmeo de @onError (empilhado)
+        { template: "Charge failed for {customerId}" },
+        { exception: CardDeclinedError, template: "Card declined for {customerId}" },
+      ],
+      notTraced: [2],                                      // gêmeo de @notTraced — oculta cardToken
+    },
+  },
+});
+```
+
+Cada eixo corresponde um a um a um decorador:
+
+| Eixo de configuração | Decorador gêmeo | Significado |
+|---|---|---|
+| `params: ["a", "b"]` | `@traced("a", "b")` | Nomes posicionais de parâmetros |
+| `narration: "…{a}…"` | `@narrated("…{a}…")` | Template de narração na entrada |
+| `onError: "…"` ou `[{ exception?, template }]` | `@onError("…")` / `@onError(Tipo, "…")` empilhados | Contexto de erro no momento do lançamento; o tipo mais específico vence |
+| `notTraced: [1, 2]` | `@notTraced(1, 2)` | Oculta parâmetros por índice |
+
+Atalhos: um `onError` de string simples é o pega-tudo (gêmeo de `@onError("...")`), e o terceiro argumento continua aceitando o mapa de nomes simples `traceObject(service, context, { placeOrder: ["customerId"] })` quando nomes são tudo de que você precisa.
+
+**Precedência:** um eixo configurado substitui por completo os metadados do decorador correspondente para aquele método; um eixo omitido mantém a declaração do decorador. Configuração e decoradores, portanto, se compõem — uma classe de biblioteca pode carregar decoradores e uma raiz de composição ainda pode substituir um eixo.
 
 ## Inventário de decoradores
 
@@ -17,7 +52,7 @@ O NarrativeTrace segue a filosofia **O código é o log**: os nomes de métodos,
 | `@onError()` | `@narrativetrace/proxy` | Método | Adiciona texto de erro contextual quando um método lança uma exceção. |
 | `@notTraced()` | `@narrativetrace/proxy` | Método | Marca valores de parâmetros como ocultos na saída do trace. |
 
-Todos os decoradores usam a [proposta de decorators TC39 Stage 3](https://github.com/tc39/proposal-decorators) (TypeScript 5.0+). São decoradores de método que usam `ClassMethodDecoratorContext`.
+Os quatro decoradores funcionam em **ambos os dialetos de decoradores**: os [decoradores TC39](https://github.com/tc39/proposal-decorators) padrão que o TypeScript 5+ compila por default, e o dialeto legado `experimentalDecorators` que projetos NestJS e Angular compilam. O dialeto é detectado em tempo de execução pelo formato da chamada — nada a configurar, o mesmo import serve para ambos, e as declarações de tipos publicadas passam na verificação de tipos com qualquer uma das duas opções do compilador. Se o seu ambiente não compila decoradores de forma alguma (JavaScript puro, ou um build que deixa a sintaxe `@` intocada), a chamada do decorador lança um erro nomeando a correção em vez de silenciosamente não registrar nada — a correção é a forma de configuração equivalente no `traceObject()` (mostrada em cada decorador abaixo).
 
 ## `@traced`
 
@@ -51,7 +86,7 @@ const traced = traceObject(orderService, context, {
 });
 ```
 
-Isso é equivalente a `@traced`, mas funciona sem nenhum suporte a decoradores.
+Isso é equivalente a `@traced`, mas funciona sem nenhum suporte a decoradores. Os mesmos nomes podem viver na forma de configuração completa como `methods.placeOrder.params` (veja a seção de configuração acima); quando ambos são fornecidos, `methods.<nome>.params` vence sobre o mapa simples.
 
 ## `@narrated`
 
@@ -76,6 +111,19 @@ Como funciona:
 
 Como os marcadores são resolvidos: `{paramName}` substitui o argumento nomeado; `{param.property}` chama o getter sobre o objeto de argumento bruto. Apenas um único nível de propriedade é resolvido — `{order.card.number}` nunca é resolvido, e o marcador sobrevive literalmente. Um membro oculto alcançado por um caminho de propriedade resolve para `[REDACTED]`, nunca para o valor bruto — veja a nota sobre ocultação em `@notTraced` abaixo.
 
+Gêmeo de configuração — a mesma narração sem o decorador:
+
+```ts
+const traced = traceObject(orderService, context, {
+  methods: {
+    placeOrder: {
+      params: ["customerId", "quantity"],
+      narration: "Placing order of {quantity} units for customer {customerId}",
+    },
+  },
+});
+```
+
 ## `@onError`
 
 Use `@onError` para anexar mensagens específicas de contexto a exceções.
@@ -96,6 +144,23 @@ Como funciona:
 - O template de contexto de erro é armazenado em um `WeakMap` indexado pela função do método.
 - Quando o método lança uma exceção, o contexto de erro é anexado ao campo `MethodSignature.errorContext` do nó do trace.
 - Enriquece traces de erro com contexto específico de domínio, além da simples mensagem da exceção.
+- Empilhe vários — `@onError(NotFoundError, "…")` acima de `@onError("…")` — e, no momento do lançamento, vence a declaração que corresponde ao tipo lançado de forma mais específica.
+
+Gêmeo de configuração — uma string é o pega-tudo, a forma de array carrega declarações tipadas:
+
+```ts
+const traced = traceObject(paymentService, context, {
+  methods: {
+    charge: {
+      params: ["customerId", "amount"],
+      onError: [
+        { template: "Payment declined for customer {customerId}, amount was {amount}" },
+        { exception: InsufficientFundsError, template: "Insufficient funds for {customerId}" },
+      ],
+    },
+  },
+});
+```
 
 ## `@notTraced`
 
@@ -121,8 +186,9 @@ Como funciona:
 - Para **campos de objeto**, declare um campo estático de classe: `static notTraced = ["pan", "secret"]`
   — essas propriedades são renderizadas como `[REDACTED]` durante a introspecção, independentemente da
   lista de negação baseada em nomes do `RedactionPolicy` (que já cobre `password`, `token`, `ssn`,
-  `cvv`, …).
+  `cvv`, … — e é multilíngue por padrão: `contraseña`, `senha`, `motDePasse`, `密码`, …).
 - Casos de uso típicos: senhas, tokens, segredos, dados de cartão.
+- Gêmeo de configuração: `methods.login.notTraced = [1]` no `traceObject()` — os mesmos índices, sem necessidade de decorador.
 
 **A ocultação vence sobre um template que a nomeia.** `@narrated` e `@onError` resolvem
 os caminhos `{param.property}` em relação aos argumentos brutos, e um caminho que alcança um membro oculto
@@ -152,6 +218,28 @@ lista de negação que ele corresponde) — essa remoção é a decisão deliber
 marcador que nomeia uma propriedade que não existe no objeto é um erro de digitação de autoria, não
 uma decisão de ocultação: ele sobrevive literalmente, e o aviso de marcador não resolvido em
 tempo de teste ainda é disparado para ele.
+
+## A troca da vinculação do alvo — auto-chamadas não aninham
+
+Métodos traçados executam com `this` vinculado ao objeto original, não ao proxy (`Reflect.apply(fn, target, args)` dentro do wrapper do método). Um método que chama um irmão no mesmo objeto (`this.validate(order)`) invoca portanto o método original — a chamada executa corretamente, mas não é capturada, então auto-chamadas nunca aparecem como spans aninhados. É uma troca de design deliberada, não uma lacuna: vincular o objeto original torna o proxy imune às armadilhas clássicas de Proxy — campos `#private` (que lançam através de um receptor proxy), built-ins com slots internos (`Map`, `Date`) e campos de arrow function.
+
+O aninhamento vem de envolver os colaboradores, e essa é a única regra estrutural: **decomponha em serviços colaboradores e envolva cada um onde ele é construído.**
+
+```ts
+// Uma classe, auto-chamadas: apenas placeOrder é capturado.
+class OrderService {
+  placeOrder(customerId: string) {
+    this.reserveStock(customerId);   // executa, não é capturado
+    this.charge(customerId);         // executa, não é capturado
+  }
+  // ...
+}
+
+// Colaboradores envolvidos na raiz de composição: a narrativa aninhada completa.
+const inventory = traceObject(new InventoryService(), context);
+const payments = traceObject(new PaymentService(), context);
+const orders = traceObject(new OrderService(inventory, payments), context);
+```
 
 ## O contrato de pureza — efeitos colaterais durante o trace
 

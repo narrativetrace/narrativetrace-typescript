@@ -12,12 +12,26 @@ import {
   asStringArray,
   type JsonObject,
   optionalString,
+  rejectExcessiveNesting,
   rejectUnknownKeys,
   required,
 } from "./json-shape.js";
 import { type SynonymAlias, synonymAlias } from "./synonym-alias.js";
 import { requireTermKind, type TermKind } from "./term-kind.js";
 import { isTermStatus, type TermStatus } from "./term-status.js";
+
+/**
+ * Ceiling on `glossary.json`'s own JSON object/array nesting, checked directly on the value
+ * `JSON.parse` produced — before any field is narrowed to its schema type.
+ *
+ * @remarks The family-wide constant (owner ruling, 2026-09-08): every port converges on 16,
+ * independent of how each one's JSON reader is built. The hand-curated shape this schema actually
+ * uses never legitimately nests past a handful of levels (contexts → terms → translations/synonyms
+ * tops out around 4), so 16 is headroom, not a realistic ceiling — its job is to turn a
+ * pathologically deep document (hostile, or simply corrupted) into one clean, named error instead
+ * of an unbounded validation walk.
+ */
+const MAX_GLOSSARY_NESTING_DEPTH = 16;
 
 const ROOT_KEYS = ["schemaVersion", "contexts", "abbreviations", "terms"] as const;
 const CONTEXT_KEYS = ["packages", "description"] as const;
@@ -133,17 +147,23 @@ function readTerm(element: unknown): GlossaryTerm {
  * @throws {TypeError} on an unknown or missing key, a field of the wrong JSON type, an unknown
  * `kind`/`status` label, or a violated structural invariant (duplicate term identity, undeclared
  * context, alias colliding with a canonical term).
- * @throws {RangeError} if `schemaVersion` is below 1, or a `firstSeen` is not a real calendar date.
+ * @throws {RangeError} if `schemaVersion` is below 1, a `firstSeen` is not a real calendar date, or
+ * the document nests deeper than {@link MAX_GLOSSARY_NESTING_DEPTH} object/array levels.
  * @remarks A schema version above the current one is accepted rather than refused, matching the
  * Java reference; the unknown-key rule is what actually stops a newer file from being misread,
- * since any field added by a later schema fails the load.
+ * since any field added by a later schema fails the load. The nesting check runs first, on the raw
+ * parsed value — before the document is even confirmed to be an object — since `JSON.parse` has
+ * already paid the cost of materializing it however deep it goes; nothing downstream should have
+ * to walk that deep a structure just to reject it.
  * @example
  * ```ts
  * const model = readGlossaryJson(readFileSync("glossary.json", "utf-8"));
  * ```
  */
 export function readGlossaryJson(text: string): Glossary {
-  const root = asObject(parseJson(text), "glossary document root");
+  const parsed = parseJson(text);
+  rejectExcessiveNesting(parsed, MAX_GLOSSARY_NESTING_DEPTH, "glossary document");
+  const root = asObject(parsed, "glossary document root");
   rejectUnknownKeys(root, ROOT_KEYS, "glossary");
   return glossary(
     asInteger(required(root, "schemaVersion", "glossary"), "schemaVersion"),

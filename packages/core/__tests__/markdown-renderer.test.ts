@@ -60,6 +60,30 @@ describe("renderMarkdownDocument", () => {
   });
 });
 
+describe("renderMarkdownDocument body header", () => {
+  // The frontmatter already escapes the scenario via yamlSafe; the body header used to append the
+  // same value raw, so a hostile scenario forged a Markdown heading and injected raw HTML into the
+  // rendered document — mirrors a fix from the Java golden source. One escaping decision per sink
+  // — the body header is a sink like any other, not exempt.
+  test("escapes a scenario that forges a heading and raw HTML in the body header", () => {
+    const root = traceNode(methodSignature("OrderService", "placeOrder", []), returned('"OK"'), []);
+    const doc = renderMarkdownDocument(traceTree([root]), {
+      scenario: "ok\n# forged heading\n<img src=x onerror=alert(1)>",
+      result: "PASSED",
+    });
+    // Frontmatter is a separate sink with its own (already-correct) escaper: a raw `<`/`>` inside
+    // its quoted YAML scalar is intentional, since that block is never rendered as Markdown body.
+    // This assertion is scoped to the body, past the closing frontmatter fence.
+    const body = doc.slice(doc.indexOf("\n## Trace:"));
+
+    expect(body).not.toContain("\n# forged heading");
+    expect(body).not.toContain("<img src=x onerror=alert(1)>");
+    expect(body).toContain(
+      "**Scenario:** ok\\n# forged heading\\n&lt;img src=x onerror=alert(1)&gt;",
+    );
+  });
+});
+
 describe("renderMarkdown", () => {
   test("a redacted param renders the [REDACTED] marker, not the captured value", () => {
     const sig = methodSignature("Auth", "login", [parameterCapture("token", "SECRET", true)]);
@@ -109,6 +133,21 @@ describe("renderMarkdown", () => {
     );
   });
 
+  // renderFrontmatter used to test scenarioName for truthiness, so an explicitly-supplied empty
+  // string was indistinguishable from "no scenario was given at all" and silently dropped the
+  // frontmatter key — found by fuzzing the scenario route with fast-check's empty-string shrink.
+  // Java's FrontmatterBuilder writes the key whenever the caller supplied one at all (`scenario !=
+  // null`), never testing its content.
+  test("still writes the scenario key when the caller supplies an empty string", () => {
+    const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
+    expect(renderMarkdown(tree, { scenarioName: "" })).toContain('scenario: ""');
+  });
+
+  test("omits the scenario key when no scenario was given at all", () => {
+    const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
+    expect(renderMarkdown(tree)).not.toContain("scenario:");
+  });
+
   test("quotes a scenario that starts with a YAML flow/block indicator", () => {
     const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
     expect(renderMarkdown(tree, { scenarioName: "[injected]" })).toContain(
@@ -138,6 +177,20 @@ describe("renderMarkdown", () => {
   test("escapes a lone surrogate, which a real YAML parser also rejects unescaped", () => {
     const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
     expect(renderMarkdown(tree, { scenarioName: "a\uD800b" })).toContain('scenario: "a\\ud800b"');
+  });
+
+  // A well-formed surrogate pair is YAML-printable, so a raw pair used to pass straight through —
+  // spec-valid, but a mainstream YAML parser reading fixed-size character chunks can land its
+  // buffer boundary between the two halves of a pair and crash on valid input — the same crash the
+  // Java golden source's own SnakeYAML consumer hit. Frontmatter is a machine-readable
+  // interoperability contract, so supplementary characters are emitted BMP-only: YAML's own 8-digit
+  // \U escape (ns-esc-32-bit), not a raw pair, so no chunk boundary can ever split what is no
+  // longer a pair.
+  test("escapes a supplementary-plane character in scenario as a YAML \\U escape", () => {
+    const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
+    const out = renderMarkdown(tree, { scenarioName: "a🙈b" });
+    expect(out).toContain('scenario: "a\\U0001f648b"');
+    expect(out).not.toContain("🙈");
   });
 
   // entry_point is derived from className/methodName — trace metadata, not a value the caller

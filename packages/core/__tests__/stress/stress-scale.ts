@@ -3,8 +3,12 @@
 // Copyright (c) 2026 Empower Agile
 /**
  * Scales a stress scenario between the short, seeded subset every `pnpm run check` pays for
- * (fast, fully reproducible) and the long randomized sweep (`pnpm run stress`, scheduled job
- * only — never per commit, same cadence rule as mutation testing and fuzzing).
+ * (fast, fully reproducible) and the long randomized sweep (`pnpm run stress`) — scheduled/
+ * manual only, via the repository's own scheduled stress workflow, never per commit, same
+ * cadence rule as mutation testing and fuzzing. (Corrected 2026-09-09: this comment previously
+ * claimed a "scheduled job" with no CI job anywhere invoking it — unlike fuzzing's Jazzer.js,
+ * this sweep is plain Node/TypeScript with no architecture constraint, so it was wired rather
+ * than merely documented as absent.)
  *
  * INTENT: mirrors packages/security-tests' Tier A/Tier B fuzzing split. A fixed seed and modest
  * volume keep the gate path in the seconds range and any failure reproducible from the seed

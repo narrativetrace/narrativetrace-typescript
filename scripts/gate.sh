@@ -22,7 +22,17 @@ step "license headers"
 npx tsx tools/license-header.ts --check
 
 step "lint"
-npx biome check . >/dev/null
+# Never `npx biome` here: `@biomejs/biome` is a *scoped* package, so once the workspace's own
+# node_modules/.bin/biome shim is gone for any reason (a broken install, a platform-mismatched
+# node_modules mounted from the wrong OS — the exact failure class `.husky/pre-commit`'s own
+# comment already documents for this repo), bare `npx biome` does not error: npx falls through to
+# silently fetching and running an unrelated package that also happens to be published under the
+# unscoped name "biome", and this step passes with exit 0 having linted nothing. Confirmed by
+# hiding the binary and observing the fallback install in this container, 2026-09-09. `pnpm run
+# lint` (this package's own `lint` script) resolves the same way `pnpm run check` always has —
+# node_modules/.bin on PATH, a plain shell "command not found" if it is ever absent again — which
+# is what actually fails loud instead of reading as green.
+pnpm run lint >/dev/null
 
 step "build"
 npx turbo run build --concurrency="$CONCURRENCY" 2>&1 | grep -E "Tasks:|ERROR|error" || true

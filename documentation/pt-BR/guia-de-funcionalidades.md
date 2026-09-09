@@ -1,4 +1,4 @@
-<!-- source: documentation/feature-guide.md blob fdb3285d5f27 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/feature-guide.md blob d1a164f011f4 | translated: 2026-09-07 | reviewed: - -->
 # NarrativeTrace TypeScript — Guia de funcionalidades
 
 [English](../feature-guide.md) | [Español](../es/guia-de-funcionalidades.md) | **Português** | [简体中文](../zh-CN/功能指南.md)
@@ -34,9 +34,9 @@ de engenharia interno, não repetido aqui.
 | Funcionalidade | Status | Notas |
 |---|---|---|
 | Captura automática de narrativa via `Proxy` de ES — classe, método, argumentos, valores de retorno, tempos, erros; zero instruções de log | Gratuito | `traceObject(service, context)` de `@narrativetrace/proxy` |
-| Decoradores — `@traced` (nomes de parâmetros), `@narrated` (narração com templates `{param}`), `@onError` (templates de contexto de erro), `@notTraced` (ocultação) | Gratuito | Decoradores TC39 stage-3, TS 5.0+; [guia-de-decoradores.md](guia-de-decoradores.md) |
-| API programática para JS puro — mapas de nomes `traceObject(service, context, { method: ["paramA", …] })` e a API bruta de enter/exit do `NarrativeContext` | Gratuito | Conjunto completo de funcionalidades sem suporte a decoradores |
-| Ocultação de dados sensíveis — índices `@notTraced`, listas de campos `static notTraced`, lista de negação por padrão de nome `RedactionPolicy` (`password`, `token`, …); valores ocultados não podem vazar através de templates de narração/erro | Gratuito | |
+| Decoradores — `@traced` (nomes de parâmetros), `@narrated` (narração com templates `{param}`), `@onError` (templates de contexto de erro), `@notTraced` (ocultação) | Gratuito | Ambos os dialetos de decoradores (TC39 padrão e `experimentalDecorators` legado), TS 5.0+; [guia-de-decoradores.md](guia-de-decoradores.md) |
+| API programática para JS puro — configuração por método `traceObject(service, context, { methods: { method: { params, narration, onError, notTraced } } })` (gêmeo de configuração de cada decorador), o atalho de mapa de nomes `{ method: ["paramA", …] }` e a API bruta de enter/exit do `NarrativeContext` | Gratuito | Conjunto completo de funcionalidades sem suporte a decoradores |
+| Ocultação de dados sensíveis — índices `@notTraced`, listas de campos `static notTraced`, lista de negação por padrão de nome `RedactionPolicy`, multilíngue e sempre ativa (`password`, `token`, `contraseña`, `senha`, `motDePasse`, `密码`, …); valores ocultados não podem vazar através de templates de narração/erro | Gratuito | |
 | Cinco níveis de captura (`off` → `errors` → `summary` → `narrative` → `detail`), alteráveis em runtime via `config.level`; variável de ambiente `NARRATIVETRACE_LEVEL` no Node | Gratuito | Os nomes dos níveis diferem ligeiramente do Java (`summary` vs `FLOW`); `off` interrompe antes de qualquer trabalho de captura |
 | Níveis com duas comportas — o nível de captura é independente dos níveis do logger (configuração winston/pino) | Gratuito | Product ADR-008 |
 | Serialização antecipada (eager) de valores — valores renderizados em strings no momento da chamada; sem retenção de objetos, seguro contra referências circulares, limites de truncamento | Gratuito | Veja o FAQ do README + o contrato de pureza no guia de decoradores |

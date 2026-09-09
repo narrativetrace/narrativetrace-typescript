@@ -5,9 +5,9 @@ import { spawnSync } from "node:child_process";
 
 /**
  * The long randomized concurrency/lifecycle sweep (`pnpm run stress`), budgeted — the
- * scheduled/overnight job only, distinct from the short seeded subset every `pnpm run check`
- * pays for (the `*.stress.test.ts` files under `__tests__/stress/`, which vitest already picks up
- * on every ordinary `vitest run`).
+ * scheduled/manual job only (the repository's own scheduled stress workflow), distinct from
+ * the short seeded subset every `pnpm run check` pays for (the `*.stress.test.ts` files under
+ * `__tests__/stress/`, which vitest already picks up on every ordinary `vitest run`).
  *
  * INTENT: mirrors `packages/security-tests`' fuzz/regression-replay split and Java's
  * `FuzzBudget.PER_TARGET` — one place the schedule's cost is written down, rather than repeated

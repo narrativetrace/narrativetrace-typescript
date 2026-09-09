@@ -7,6 +7,7 @@ coverage/
 reports/*
 !reports/benchmarks/
 reports/benchmarks/latest.json
+reports/benchmarks/gate-result.json
 !reports/parity-review-2026-07-10.md
 !reports/parity-review-2026-07-10/
 **/.stryker-tmp/

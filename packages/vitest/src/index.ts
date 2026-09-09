@@ -412,19 +412,64 @@ function withNotices(
  * component over 255 bytes; a captured test/suite name can be arbitrarily long (a generated
  * property-test description, a hostile value that ended up in a test title), and sanitizing never
  * shortened it — `mkdirSync`/`writeFileSync` raised `ENAMETOOLONG` instead of writing a truncated
- * but usable artifact. Kept well under the OS limit so it survives every nesting this module adds
- * (`diagrams/`, the longest extension) with room to spare.
+ * but usable artifact. Kept well under the OS limit (the family artifact-path-cap scheme's own
+ * figure, shared by Java's and Swift's `OutputDirectoryResolver`) so it survives every nesting this
+ * module adds (`diagrams/`, the longest extension) with room to spare.
  */
 const MAX_SEGMENT_LENGTH = 100;
+
+/**
+ * `slug`, shortened to fit `maxLength` when it does not already.
+ *
+ * INTENT: truncation alone is a silent overwrite — two long names sharing a prefix past the cut
+ * point would land on one artifact, and one test's approved baseline would then judge another
+ * test's trace. The family scheme every NarrativeTrace runtime converges on (Java's and Swift's
+ * `OutputDirectoryResolver`) truncates to the budget and appends an eight-hex-digit hash of the
+ * whole slug, so two names differing only past the cut still resolve to different artifacts.
+ * Unified onto Java's own formula (owner ruling, 2026-09-08: the family hash is Java's
+ * JLS-stable `String#hashCode`, not each port improvising its own — dotnet hand-reimplements the
+ * identical formula for the same reason `javaStringHashCodeHex` below does) rather than FNV-1a:
+ * not a security boundary, only a cross-port collision-avoidance one, but a *shared* one is only
+ * useful if every port derives the same suffix from the same slug. This runtime ASCII-folds every
+ * segment before length is ever measured (see `sanitizeFileName` below), so a byte cap and a
+ * character cap are the same number here — the family scheme's multibyte/astral
+ * read-buffer-boundary care is structurally moot.
+ */
+function capped(slug: string, maxLength: number): string {
+  if (slug.length <= maxLength) return slug;
+  const suffix = `_${javaStringHashCodeHex(slug)}`;
+  return slug.slice(0, Math.max(0, maxLength - suffix.length)) + suffix;
+}
+
+/**
+ * `value`'s hash under Java's `String#hashCode()` — `s[0]*31^(n-1) + s[1]*31^(n-2) + … + s[n-1]`,
+ * computed over UTF-16 code units with silent 32-bit signed overflow — as eight lowercase hex
+ * digits (the two's-complement bit pattern, matching Java's own `String.format("%08x", hash)` for
+ * a negative result).
+ *
+ * @remarks JS has no built-in equivalent, so this reimplements the formula explicitly:
+ * `Math.imul` gives the exact 32-bit multiply Java's `int * int` performs (plain `*` would drift
+ * once the running hash needs more than 53 bits of precision to stay exact), and `| 0` truncates
+ * the addition to a 32-bit signed integer the same way Java's `int` addition wraps. This is also
+ * the one NarrativeTrace runtime where the port is exact with no adaptation: the formula is
+ * defined over UTF-16 code units, and a JS `string` already *is* a UTF-16 code unit sequence —
+ * `charCodeAt` reads exactly what Java's `charAt`/`String#hashCode` reads, surrogate pairs
+ * included, with no re-encoding step for either side to disagree over.
+ */
+function javaStringHashCodeHex(value: string): string {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = (Math.imul(hash, 31) + value.charCodeAt(i)) | 0;
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
 
 function sanitizeFileName(testName: string): string {
   const safe = testName
     .replace(/[^a-zA-Z0-9\s_-]/g, "")
     .replace(/\s+/g, "_")
-    .replace(/^_+|_+$/g, "")
-    .slice(0, MAX_SEGMENT_LENGTH)
-    .replace(/_+$/g, "");
-  return safe || "unnamed_test";
+    .replace(/^_+|_+$/g, "");
+  return capped(safe || "unnamed_test", MAX_SEGMENT_LENGTH);
 }
 
 /**

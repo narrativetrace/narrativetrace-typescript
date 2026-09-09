@@ -449,6 +449,75 @@ describe("writeTraceOutput", () => {
     expect((files[0] as string).length).toBeLessThan(120);
   });
 
+  // Truncation without disambiguation is a silent overwrite: the family artifact-path-cap scheme
+  // (Java/Swift's OutputDirectoryResolver) exists specifically because two long names sharing a
+  // prefix past the cut point must not resolve to the same artifact — one test's approved baseline
+  // would then judge another test's trace.
+  test("two long test names that differ only past the truncation point still write distinct artifacts", () => {
+    const config = new NarrativeTraceConfig();
+    const ctx = new AsyncNarrativeContext(config);
+    ctx.enterMethod("Svc", "op", []);
+    ctx.exitMethodWithReturn('"ok"');
+    const tree = ctx.captureTrace();
+
+    const subDir = join(tmpDir, "long-name-collision");
+    const commonPrefix = "A".repeat(300);
+    writeTraceOutput(tree, {
+      outputDir: subDir,
+      moduleName: "order-service",
+      testName: `${commonPrefix}-one`,
+      formats: ["md"],
+    });
+    writeTraceOutput(tree, {
+      outputDir: subDir,
+      moduleName: "order-service",
+      testName: `${commonPrefix}-two`,
+      formats: ["md"],
+    });
+
+    const moduleDir = join(subDir, "order-service");
+    const files = readdirSync(moduleDir);
+    expect(files).toHaveLength(2);
+  });
+
+  // Pins the disambiguator to Java's own String#hashCode formula (owner ruling, 2026-09-08:
+  // every port's artifact-path-cap disambiguator unifies on Java's, not each its own algorithm),
+  // not merely to *some* deterministic hash — a silent regression back to FNV-1a would still pass
+  // every other test in this file, since they only assert collision-safety and determinism.
+  test("a truncated name's disambiguator is Java's String#hashCode of the whole slug", () => {
+    // Independent BigInt re-derivation of the JLS formula (s[0]*31^(n-1) + … + s[n-1], 32-bit
+    // signed overflow), so this cross-checks production's Math.imul-based formula against the
+    // spec rather than against a copy of itself.
+    function javaHashCodeSuffix(value: string): string {
+      let hash = 0n;
+      for (let i = 0; i < value.length; i++) {
+        hash = BigInt.asIntN(32, hash * 31n + BigInt(value.charCodeAt(i)));
+      }
+      const unsigned = hash < 0n ? hash + (1n << 32n) : hash;
+      return unsigned.toString(16).padStart(8, "0");
+    }
+
+    const config = new NarrativeTraceConfig();
+    const ctx = new AsyncNarrativeContext(config);
+    ctx.enterMethod("Svc", "op", []);
+    ctx.exitMethodWithReturn('"ok"');
+    const tree = ctx.captureTrace();
+
+    // 101 characters (past the 100 cap by one), entirely ASCII-safe so sanitizing leaves it
+    // untouched — the slug the hash is computed over is exactly this string.
+    const slug = `${"A".repeat(96)}hello`;
+    const subDir = join(tmpDir, "hash-formula-pin");
+    writeTraceOutput(tree, {
+      outputDir: subDir,
+      moduleName: "svc",
+      testName: slug,
+      formats: ["md"],
+    });
+
+    const [file] = readdirSync(join(subDir, "svc"));
+    expect(file).toBe(`${"A".repeat(91)}_${javaHashCodeSuffix(slug)}.md`);
+  });
+
   test("groups a module's traces under its own directory, diagrams in a parallel tree", () => {
     const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig());
     ctx.enterMethod("OrderService", "placeOrder", []);

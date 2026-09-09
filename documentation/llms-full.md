@@ -16,7 +16,7 @@ The core insight: if your method is called `placeOrder(customerId, quantity)` an
 - Express and Hono middleware integration
 - Browser support (console rendering, network export)
 - AsyncLocalStorage-based context for per-request isolation
-- TC39 decorators: `@traced`, `@narrated`, `@onError`, `@notTraced`
+- Decorators (both dialects — standard TC39 and legacy `experimentalDecorators`): `@traced`, `@narrated`, `@onError`, `@notTraced`
 
 **Requirements:** Node.js 20+ (CI runs 22), TypeScript 5.0+ (for decorators)
 
@@ -421,21 +421,36 @@ const traced = traceObject(target, context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
 
-// With options
-const traced = traceObject(target, context, undefined, {
+// Full config form — the config twin of every decorator, per method
+const traced = traceObject(target, context, {
   className: "OrderService",      // override constructor.name
   includeReturnValues: true,      // default: true
+  methods: {
+    charge: {
+      params: ["customerId", "amount", "cardToken"],   // twin of @traced
+      narration: "Charging {amount} to {customerId}",  // twin of @narrated
+      onError: [                                       // twin of (stacked) @onError
+        { template: "Charge failed for {customerId}" },
+        { exception: RangeError, template: "Bad amount for {customerId}" },
+      ],
+      notTraced: [2],                                  // twin of @notTraced
+    },
+  },
 });
 ```
+
+A configured axis overrides the same method's decorator metadata; an absent axis keeps the decorator's declaration. A plain string `onError` is the catch-all shorthand.
 
 **Requirements:**
 - Target must be an object with methods
 - Works with classes, plain objects, and any object with function properties
 - Getter properties are passed through without tracing
 
+**Target-binding trade (by design):** traced methods run with `this` bound to the raw target, not the proxy, so a method calling a sibling on the same object runs correctly but is not captured — self-calls never nest. In exchange the proxy is immune to `#private` fields, internal-slot built-ins (`Map`, `Date`), and arrow-function fields. Nesting comes from wrapping collaborators, and that is the one structural rule: decompose into collaborator services, wrap each where it is constructed.
+
 ### Decorators
 
-All decorators use TC39 Stage 3 method decorators (TypeScript 5.0+).
+All decorators work in both decorator dialects — standard TC39 (the TypeScript 5 default) and legacy `experimentalDecorators` (NestJS, Angular) — detected at runtime from the call shape; the same import serves both. An environment that does not compile decorators at all gets a `TypeError` naming the fix (use the config form on `traceObject()`).
 
 #### @traced(...names)
 

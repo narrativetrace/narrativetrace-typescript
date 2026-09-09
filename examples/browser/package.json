@@ -7,7 +7,7 @@
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "start": "vite"
+    "start": "vite --open"
   },
   "devDependencies": {
     "@narrativetrace/browser": "workspace:*",

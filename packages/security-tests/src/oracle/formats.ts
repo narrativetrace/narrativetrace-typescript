@@ -176,3 +176,14 @@ export function fenceCount(markdown: string): number {
 export function frontmatterFenceCount(markdown: string): number {
   return markdown.split("\n").filter((line) => line.trim() === "---").length;
 }
+
+/**
+ * How many ATX heading lines a Markdown document carries.
+ *
+ * A heading is document structure the renderer alone may write; a value or a scenario that adds
+ * one has forged the document's outline — an unescaped scenario in the Markdown body header used
+ * to do exactly that (see markdown-renderer.ts's documentHeader).
+ */
+export function headingCount(markdown: string): number {
+  return markdown.split("\n").filter((line) => /^#{1,6} .*/.test(line)).length;
+}

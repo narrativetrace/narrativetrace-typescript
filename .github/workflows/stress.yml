@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# Long randomized concurrency/lifecycle stress sweep — budgeted, scheduled/manual only, same
+# cadence tier as mutation.yml and fuzz.yml. Every `pnpm run check` already runs the short,
+# fixed-seed subset (`packages/core/__tests__/stress/*.stress.test.ts`, reproducible, seconds);
+# this workflow runs `pnpm run stress` (`packages/core/tools/run-stress.ts`), which repeats the
+# same suite with `NARRATIVETRACE_STRESS_LONG=1` and a fresh random seed for a fixed time budget
+# (default 5 minutes), exploring interleavings the fixed seed never will.
+#
+# Unlike fuzz.yml, this sweep is plain Node/TypeScript with no native addon and no architecture
+# constraint — it needs no x86_64-specific runner, so `ubuntu-latest` is a plain choice here, not
+# a load-bearing one. This workflow is the fix for `stress-scale.ts`/`run-stress.ts`'s own doc
+# comments, which claimed "the scheduled job only" with no job anywhere invoking them before
+# 2026-09-09.
+name: Stress
+
+on:
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run stress

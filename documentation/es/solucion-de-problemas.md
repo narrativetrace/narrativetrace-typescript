@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 87019353e6a8 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob 90ae6487249f | translated: 2026-09-07 | reviewed: - -->
 # Solución de problemas
 
 [English](../troubleshooting.md) | **Español** | [Português](../pt-BR/solucao-de-problemas.md) | [简体中文](../zh-CN/故障排查.md)
@@ -69,15 +69,20 @@ pureza en la
 
 ## Los decoradores `@traced`/`@notTraced` no se aplican o no compilan
 
-**Causa:** estos son decoradores de método TC39 stage-3, TypeScript 5.0+.
-El `experimentalDecorators: true` heredado en `tsconfig.json` usa una forma
-de decorador distinta y más antigua, y no acepta la sintaxis stage-3 tal
-como la emite esta implementación.
+**Causa:** los decoradores aceptan ambos dialectos — los decoradores TC39
+estándar (el valor por defecto de TypeScript 5) y el dialecto heredado
+`experimentalDecorators` (NestJS, Angular) — detectados en tiempo de
+ejecución por la forma de la llamada. Por tanto, un fallo significa que el
+entorno no compila decoradores en absoluto: TypeScript anterior a 5.0 sin
+`experimentalDecorators`, una transformación que deja la sintaxis `@` sin
+tocar, o JavaScript puro. En ese caso el decorador lanza un `TypeError`
+que nombra esta solución, en lugar de no registrar nada silenciosamente.
 
-**Solución:** actualiza a TypeScript 5.0+ y elimina `experimentalDecorators`
-(y `emitDecoratorMetadata`) de `tsconfig.json` si están presentes. No se
-requiere ningún otro flag del compilador — los decoradores stage-3 son el
-valor por defecto en TypeScript 5.
+**Solución:** habilita la compilación de decoradores (TypeScript 5.0+
+compila el dialecto estándar sin ningún flag; `experimentalDecorators:
+true` también funciona), o prescinde de los decoradores y usa la forma de
+configuración en `traceObject()` — expresa todo lo que expresan los
+decoradores. Consulta la [Guía de decoradores](guia-de-decoradores.md).
 
 ## La puntuación de claridad parece incorrecta
 

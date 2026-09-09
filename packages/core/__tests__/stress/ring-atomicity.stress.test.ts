@@ -9,7 +9,13 @@ import { methodSignature } from "../../src/method-signature.js";
 import { spanContext } from "../../src/span-context.js";
 import type { SpanId, TraceId } from "../../src/span-id-generator.js";
 import type { TraceEvent } from "../../src/trace-event.js";
+import { mulberry32, randomYield } from "./stress-helpers.js";
 import { stressScale } from "./stress-scale.js";
+
+// Generous, fixed regardless of mode — see fork-fanout-capture.stress.test.ts's identical
+// comment: the gate-path run finishes in milliseconds, the long sweep's real macrotask scheduling
+// can land close to vitest's 5s default under load.
+const TEST_TIMEOUT_MS = 60_000;
 
 const traceId = "aaaabbbbccccddddeeee111122223333" as TraceId;
 
@@ -117,4 +123,72 @@ describe("flush()'s post-condition under a burst that exceeds the ring's capacit
       { numRuns: stress.scale(100), seed: stress.seed },
     );
   });
+
+  /**
+   * The same invariant under the heaviest interleaving this single-threaded runtime allows
+   * (2026-09-08 concurrency-parity re-verification against the Java golden spec's
+   * `synchronized flush()` — see that method's `@llmNote` and `BoundedEventBuffer.drain()`'s).
+   * The sequential test above accepts everything, *then* flushes once; this one runs several
+   * async "producer" tasks and a "flusher" task concurrently, interleaved via real microtask and
+   * macrotask yields (`randomYield`), plus a subscriber whose `onEvent` is itself asynchronous —
+   * the async seam most likely to reopen a claim/account window if one ever existed.
+   *
+   * The check is not "eventually everything lands" (a weaker, purely eventual-consistency
+   * property) but the literal barrier: immediately before each `flush()` call — with zero yield
+   * in between, so no producer can sneak an accept() into the gap — the test snapshots how many
+   * `accept()` calls have already returned; immediately after `flush()` returns, delivered +
+   * lost must equal that exact snapshot, not merely be at least that much. A future refactor that
+   * inserts an `await` anywhere in the accept → drain → store chain (the thing both `@llmNote`s
+   * above warn against) would surface here as `after < before`.
+   */
+  test(
+    "flush() is a barrier under concurrent async producers, a concurrent flusher, and an async subscriber",
+    async () => {
+      const { seed, scale } = stressScale(20260904);
+      const rand = mulberry32(seed);
+      const capacity = 64;
+      // A drain interval far longer than the test can run: the only drains in this test are the
+      // explicit flush() calls under test, never a timer tick racing them too.
+      const consumer = new BufferedEventConsumer(capacity, 100_000, capacity);
+      consumer.subscribe({
+        onEvent: () => new Promise<void>((resolve) => setTimeout(resolve, 0)),
+      });
+
+      let accepted = 0;
+      const violations: string[] = [];
+
+      async function producer(id: number, n: number): Promise<void> {
+        for (let i = 0; i < n; i++) {
+          await randomYield(rand);
+          consumer.accept(enter(id * 1_000_000 + i));
+          accepted++; // same synchronous turn as accept() — no yield between claim and count
+        }
+      }
+
+      async function flusher(n: number): Promise<void> {
+        for (let i = 0; i < n; i++) {
+          await randomYield(rand);
+          const before = accepted; // read, then flush(), with zero yield between the two
+          consumer.flush();
+          const after = consumer.events().length + consumer.overflowCount();
+          if (after !== before) violations.push(`flush #${i}: before=${before} after=${after}`);
+        }
+      }
+
+      const PRODUCERS = 6;
+      await Promise.all([
+        ...Array.from({ length: PRODUCERS }, (_, id) => producer(id, scale(40))),
+        flusher(scale(30)),
+      ]);
+
+      expect(violations).toEqual([]);
+
+      // Final drain: everything ever accepted is now accounted for, delivered or lost — nothing
+      // left in the ring, nothing uncounted.
+      consumer.flush();
+      expect(consumer.events().length + consumer.overflowCount()).toBe(accepted);
+      consumer.close();
+    },
+    TEST_TIMEOUT_MS,
+  );
 });

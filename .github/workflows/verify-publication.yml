@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# Nightly consumer-truth canary — part of the released source (a product artifact), like ci.yml,
+# whose action-pinning and least-privilege rules this file follows: third-party actions pinned to
+# full commit SHAs, no job granted a token permission it has not asked for by name.
+#
+# What it proves, every night, from a cold environment: the latest released version of every
+# @narrativetrace/* package still resolves from the REAL npm registry (a fresh cache directory,
+# never a warm one), its provenance attestation is still there and still bound to the exact
+# published bytes, and the exact recipe documentation/first-10-minutes.md teaches still installs
+# and traces what the docs promise. In other words: a first-time adopter's day one still works.
+# tools/verify-publication.ts holds all the logic (package list derived from the workspace
+# manifests, the registry poll, the provenance check, the consumer smoke test); this file only
+# schedules it — the same thin-CI rule ci.yml cites.
+#
+# Nightly rather than release-chained on purpose: registry propagation, while normally fast, is
+# not instant, and a run fired the moment artifacts are submitted risks spending its life polling.
+# A nightly run is at most one night behind a release. This is a canary, not a gate: a red run
+# means "investigate" (usually registry weather or a real regression), never "the build is
+# broken", and no other job waits on it.
+name: Verify publication
+
+permissions: {}
+
+on:
+  schedule:
+    - cron: "17 4 * * *"
+  # Manual runs for the publish checklist: after a release, trigger this with the new version
+  # instead of running the tool from a laptop.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to verify (default: latest v* tag)"
+        required: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          # The version under verification defaults to the latest release tag, and tags need
+          # history to be found.
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Verify the latest release resolves, is provenance-attested, and the recipe traces
+        # The dispatch input reaches the tool through the environment, never by template
+        # interpolation into a script body — no path where outside text becomes code.
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: npx tsx tools/verify-publication.ts "$INPUT_VERSION" --timeout=1800

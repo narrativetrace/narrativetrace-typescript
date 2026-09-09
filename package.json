@@ -23,6 +23,7 @@
     "doc-coverage": "tsx tools/doc-coverage.ts",
     "translation-check": "tsx tools/translation-check.ts",
     "translation-status": "tsx tools/translation-status.ts",
+    "verify:publication": "tsx tools/verify-publication.ts",
     "security:secrets:staged": "sh scripts/gitleaks.sh staged",
     "security:secrets:full": "sh scripts/gitleaks.sh full",
     "security:semgrep": "sh scripts/semgrep-scan.sh",

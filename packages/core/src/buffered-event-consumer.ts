@@ -124,6 +124,21 @@ export class BufferedEventConsumer {
    * adaptive shedding/emergency modes, because the caller is asking for the data rather than
    * relieving pressure. Load-shedding belongs to the timer path alone, and {@link lastDrainMode}
    * is left untouched.
+   *
+   * @llmNote **Barrier contract** (family parity with Java `BufferedEventConsumer.flush()`, whose
+   * `synchronized` drain gives the same guarantee across real OS threads): once this call returns,
+   * every event whose {@link accept} had already returned is either counted in {@link events} or in
+   * {@link overflowCount} — nothing sits in limbo between the ring's claim (the index bookkeeping in
+   * {@link BoundedEventBuffer.drain}) and its account ({@link EventStoreConsumer.accept} /
+   * `overflowCount`/shed-count increment). This holds *structurally*, not by locking: the whole
+   * `accept → BoundedEventBuffer.put/drain → processNormal → store.accept` chain is synchronous
+   * top to bottom with zero `await`/microtask-yield points, so JS's run-to-completion semantics
+   * alone rule out another `accept()`, a concurrent `flush()`, or a timer tick running mid-drain —
+   * there is no OS thread here for Java's lock to exclude. **Never add `await` inside that chain**
+   * (`flush`, {@link drainAll}, `BoundedEventBuffer.drain`, {@link processNormal},
+   * `EventStoreConsumer.accept`) without re-deriving this proof; doing so reopens exactly the
+   * claim-then-write window Java's `synchronized` block exists to close. Pinned by the concurrent
+   * async-producer/flusher interleaving test in `ring-atomicity.stress.test.ts`.
    */
   flush(): void {
     this.drainAll();
@@ -308,7 +323,12 @@ export class BufferedEventConsumer {
     this.stopDrainingIfEmpty();
   }
 
-  /** Unlimited, always-storing drain — the flush/shutdown path (Java `drainRemaining`). */
+  /**
+   * Unlimited, always-storing drain — the flush/shutdown path (Java `drainRemaining`).
+   *
+   * @llmNote The seam {@link flush}'s barrier contract depends on: synchronous, no `limit`, no
+   * `await`. See that doc comment before changing this method's signature or body.
+   */
   private drainAll(): void {
     this.buffer.drain((e) => this.processNormal(e));
   }

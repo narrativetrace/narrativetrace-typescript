@@ -200,11 +200,11 @@ describe("template redaction", () => {
 
 /**
  * Bare parameter names the deny-list knows, across its two matching modes: plain substring
- * (camelCase included) and whole identifier token (`pan`/`iban`). Java's analogous arbitrary also
- * samples its multilingual vocabulary (`senha`, `contraseña`, `密码`) — this runtime's
- * `DEFAULT_PATTERNS` (`redaction-policy.ts`) is English-only, a pre-existing, separate scope gap
- * from the fix this property targets, tracked in the private backlog — so the sampled keys stay
- * English-only here.
+ * (camelCase and accent-folded spellings included) and whole identifier token (`pan`, `senha`,
+ * `dni`, …). Samples the multilingual vocabulary (`DEFAULT_PATTERNS` is multilingual and always
+ * on — the family standard, mirrored from the Java runtime 2026-09-07) exactly as Java's
+ * analogous arbitrary does: Spanish, Portuguese, French and Chinese names beside the English
+ * ones, accented and folded spellings both.
  */
 function redactedKeyArb(): fc.Arbitrary<string> {
   return fc.constantFrom(
@@ -216,6 +216,26 @@ function redactedKeyArb(): fc.Arbitrary<string> {
     "privateKey",
     "routingNumber",
     "accountPan",
+    // Spanish
+    "contraseña",
+    "contrasena",
+    "tarjetaCredito",
+    "claveAcceso",
+    "dniTitular",
+    // Portuguese
+    "senha",
+    "senhaUsuario",
+    "cartão",
+    "cpf_cliente",
+    // French
+    "motDePasse",
+    "carteBancaire",
+    "nirAssure",
+    // Chinese, and the pinyin a non-CJK codebase writes
+    "密码",
+    "身份证",
+    "shenfenzheng",
+    "mimaHash",
   );
 }
 

@@ -112,3 +112,59 @@ export function rejectUnknownKeys(body: JsonObject, known: readonly string[], wh
 export function asStringArray(value: unknown, what: string): string[] {
   return asArray(value, what).map((element) => asString(element, `${what} element`));
 }
+
+/**
+ * The deepest object/array nesting in `value`, never descending past `maxDepth + 1`.
+ *
+ * INTENT: the caller only ever needs to know "does this exceed the limit", never the true depth
+ * of a document that already blew past it — so the moment `depthSoFar` exceeds `maxDepth` this
+ * returns immediately without inspecting `value` at all. That keeps this function's own call
+ * stack bounded by `maxDepth`, regardless of how deep the real input goes: measuring an
+ * adversarial document can never itself become the stack overflow this guards against.
+ *
+ * @returns the exact depth when it is at most `maxDepth + 1`; past that, only a floor — a document
+ * nesting 50,000 levels deep and one nesting 18 both come back as `maxDepth + 1`, because neither
+ * is inspected any further once either is known to violate the limit.
+ */
+function deepestNesting(value: unknown, depthSoFar: number, maxDepth: number): number {
+  if (depthSoFar > maxDepth) return depthSoFar;
+  const children = Array.isArray(value)
+    ? value
+    : typeof value === "object" && value !== null
+      ? Object.values(value)
+      : undefined;
+  if (children === undefined) return depthSoFar;
+
+  const nextDepth = depthSoFar + 1;
+  let deepest = nextDepth;
+  for (const child of children) {
+    deepest = Math.max(deepest, deepestNesting(child, nextDepth, maxDepth));
+    if (deepest > maxDepth) break; // already a violation — no need to measure the remaining siblings
+  }
+  return deepest;
+}
+
+/**
+ * Rejects a parsed JSON value nested deeper than `maxDepth` object/array levels.
+ *
+ * INTENT: by the time any caller sees `value`, `JSON.parse` has already fully materialized it —
+ * this cannot make *parsing* safe against a pathologically deep document, because a native parser
+ * either finishes or overflows its own call stack before this (or any other) code ever runs. What
+ * this bounds is what comes next: a document that parsed fine but nests far deeper than any
+ * legitimate use of it would, which would otherwise sail through field-by-field shape validation
+ * (every narrower above checks a value's *type*, never its nesting) and be accepted whole. A port
+ * whose own JSON parser recurses natively enforces the equivalent limit during parsing; here the
+ * check has to live after parsing instead, on whatever `JSON.parse` already produced.
+ *
+ * @throws {RangeError} naming the limit and a floor on the offending depth — always exactly
+ * `maxDepth + 1`, per {@link deepestNesting}, whether `value` nests one level past the limit or a
+ * million — if `value` nests deeper than `maxDepth`.
+ */
+export function rejectExcessiveNesting(value: unknown, maxDepth: number, what: string): void {
+  const depth = deepestNesting(value, 0, maxDepth);
+  if (depth > maxDepth) {
+    throw new RangeError(
+      `${what} nests at least ${depth} levels deep, past the maximum of ${maxDepth}`,
+    );
+  }
+}

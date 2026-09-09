@@ -89,6 +89,10 @@ describe("output format well-formedness", () => {
       assertWellFormed(captured);
       everyJsonArtifactParses(captured);
       assertWellFormed(renderers(asNarration(hostile)));
+      // The third route: the same hostile text as the scenario, which reaches the YAML
+      // frontmatter and the Markdown body header — mirrors two fixes from the Java golden
+      // source, and is what exercises long-astral-run-1024 against the frontmatter's YAML parser.
+      assertWellFormed(renderers(asCapturedValue(hostile), hostile.value));
     }
   }, 30_000);
 
@@ -135,6 +139,9 @@ describe("output format well-formedness", () => {
         const rendered = renderValue(value);
         assertWellFormed(renderers(treeOf(rendered, rendered)));
         assertWellFormed(renderers(treeNarrating(value, value)));
+        // The scenario route, generated rather than corpus-fixed — see the corpus-driven case
+        // above for why it matters.
+        assertWellFormed(renderers(treeOf(rendered, rendered), value));
       }),
       { numRuns: 80 },
     );

@@ -22,11 +22,14 @@ import { sameStructuralShape } from "../src/oracle/oracles.js";
  * frontmatter key, and every one of those changes the shape while leaving the document well
  * formed — a well-formedness check alone would happily accept a forged field.
  *
- * @llmNote Values enter by three routes production has, and the contract differs. A *captured
+ * @llmNote Values enter by four routes production has, and the contract differs. A *captured
  * value* passes through `renderValue`, so its shape must match the baseline exactly. An
- * *exception message* and a *narration* are text an application/author wrote, and renderers show
- * them as prose — so the oracle there is the structural one only: the text may add lines, but it
- * may never add a field, a statement or a frontmatter key.
+ * *exception message*, a *narration* and a *scenario* are text an application/author wrote, and
+ * renderers show them as prose — so the oracle there is the structural one only: the text may add
+ * lines, but it may never add a field, a statement, a heading or a frontmatter key. The scenario
+ * is caller-supplied text that reaches the YAML frontmatter, the Markdown body header and the
+ * JSON scenario name — the route a body-header escaping gap in the Java golden source came in
+ * through.
  */
 
 const BENIGN = "order-42";
@@ -81,6 +84,19 @@ describe("injection containment", () => {
       const hostile = renderers(treeNarrating(payload.value, payload.value));
 
       expect(() => sameStructuralShape(benign, hostile), payload.id).not.toThrow();
+    }
+  });
+
+  // The scenario is the fourth route production has: caller-supplied text that reaches the YAML
+  // frontmatter, the Markdown body header and the JSON scenario name. Like an exception message or
+  // narration it is prose, so the oracle is the structural one — it may say anything and still add
+  // no field, statement, fence or heading. This route used to lose containment: the body header
+  // appended the scenario raw while the frontmatter escaped it (fixed in markdown-renderer.ts).
+  test("no injection payload in a scenario adds structure", () => {
+    for (const payload of hostileInjections()) {
+      const hostile = renderers(treeOfValue(BENIGN), payload.value);
+
+      expect(() => sameStructuralShape(baseline(), hostile), payload.id).not.toThrow();
     }
   });
 

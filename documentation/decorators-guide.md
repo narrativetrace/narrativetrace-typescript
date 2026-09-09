@@ -1,8 +1,43 @@
 # NarrativeTrace TypeScript Decorators Guide
 
-This guide lists all decorators available in NarrativeTrace TypeScript and explains when and how to use each one.
+This guide covers method-level trace metadata — parameter names, narration, error context, and redaction. The **default way to declare it is the config form** on `traceObject()`, at the composition root; the four decorators are the same declarations as nicer syntax for projects that already compile decorators (NestJS, Angular, any TypeScript 5+ app).
 
-NarrativeTrace follows a **Code is the Log** philosophy: method names, parameter names, and return values should already communicate the runtime story. Keep business logic clean and expressive first, then use decorators exceptionally, not by default. Add decorators only when they provide concrete additional value, such as targeted narration, error-specific context, or sensitive-data redaction.
+NarrativeTrace follows a **Code is the Log** philosophy: method names, parameter names, and return values should already communicate the runtime story. Keep business logic clean and expressive first, then add metadata exceptionally, not by default — only when it provides concrete additional value, such as targeted narration, error-specific context, or sensitive-data redaction.
+
+## The config form — declare everything where you wrap
+
+`traceObject()` accepts a per-method config that expresses everything the decorators express. It needs no decorator compilation, works on plain objects and plain JavaScript, and keeps trace metadata beside the wiring:
+
+```ts
+import { traceObject } from "@narrativetrace/proxy";
+
+const payments = traceObject(paymentService, context, {
+  methods: {
+    charge: {
+      params: ["customerId", "amount", "cardToken"],       // twin of @traced
+      narration: "Charging {amount} to {customerId}",      // twin of @narrated
+      onError: [                                           // twin of (stacked) @onError
+        { template: "Charge failed for {customerId}" },
+        { exception: CardDeclinedError, template: "Card declined for {customerId}" },
+      ],
+      notTraced: [2],                                      // twin of @notTraced — redact cardToken
+    },
+  },
+});
+```
+
+Each axis maps one-to-one to a decorator:
+
+| Config axis | Decorator twin | Meaning |
+|---|---|---|
+| `params: ["a", "b"]` | `@traced("a", "b")` | Positional parameter names |
+| `narration: "…{a}…"` | `@narrated("…{a}…")` | Narration template on entry |
+| `onError: "…"` or `[{ exception?, template }]` | `@onError("…")` / stacked `@onError(Type, "…")` | Error context at throw time; most specific type wins |
+| `notTraced: [1, 2]` | `@notTraced(1, 2)` | Redact parameters by index |
+
+Shorthands: a plain string `onError` is the catch-all (twin of `@onError("...")`), and the third argument still accepts the bare name map `traceObject(service, context, { placeOrder: ["customerId"] })` when names are all you need.
+
+**Precedence:** a configured axis overrides the corresponding decorator metadata for that method, wholesale; an axis you leave out keeps the decorator's declaration. Config and decorators therefore compose — a library class can carry decorators and a composition root can still override one axis.
 
 ## Decorator Inventory
 
@@ -13,7 +48,7 @@ NarrativeTrace follows a **Code is the Log** philosophy: method names, parameter
 | `@onError()` | `@narrativetrace/proxy` | Method | Adds contextual error text when a method throws. |
 | `@notTraced()` | `@narrativetrace/proxy` | Method | Marks parameter values as redacted in trace output. |
 
-All decorators use the [TC39 Stage 3 decorator proposal](https://github.com/tc39/proposal-decorators) (TypeScript 5.0+). They are method decorators that use `ClassMethodDecoratorContext`.
+All four decorators work in **both decorator dialects**: the standard [TC39 decorators](https://github.com/tc39/proposal-decorators) that TypeScript 5+ compiles by default, and the legacy `experimentalDecorators` dialect that NestJS and Angular projects compile. The dialect is detected at runtime from the call shape — nothing to configure, the same import serves both, and the published type declarations type-check under either compiler setting. If your environment does not compile decorators at all (plain JavaScript, or a build that leaves `@` untouched), a decorator call throws an error naming the fix instead of silently recording nothing — the fix being the equivalent config form on `traceObject()` (shown per decorator below).
 
 ## `@traced`
 
@@ -47,7 +82,7 @@ const traced = traceObject(orderService, context, {
 });
 ```
 
-This is equivalent to `@traced` but works without any decorator support.
+This is equivalent to `@traced` but works without any decorator support. The same names can live in the full config form as `methods.placeOrder.params` (see the config section above); when both are given, `methods.<name>.params` wins over the bare map.
 
 ## `@narrated`
 
@@ -72,6 +107,19 @@ How it works:
 
 How placeholders resolve: `{paramName}` substitutes the named argument; `{param.property}` calls the getter on the raw argument object. Only a single property level resolves — `{order.card.number}` never resolves, and the placeholder survives literally. A redacted member reached by a property path resolves to `[REDACTED]`, never the raw value — see the redaction note under `@notTraced` below.
 
+Config twin — the same narration without the decorator:
+
+```ts
+const traced = traceObject(orderService, context, {
+  methods: {
+    placeOrder: {
+      params: ["customerId", "quantity"],
+      narration: "Placing order of {quantity} units for customer {customerId}",
+    },
+  },
+});
+```
+
 ## `@onError`
 
 Use `@onError` to attach context-specific messages for exceptions.
@@ -92,6 +140,23 @@ How it works:
 - The error context template is stored in a `WeakMap` keyed on the method function.
 - When the method throws, the error context is attached to the trace node's `MethodSignature.errorContext` field.
 - Enriches error traces with domain-specific context beyond just the exception message.
+- Stack several — `@onError(NotFoundError, "…")` above `@onError("…")` — and the declaration matching the thrown type most specifically wins at throw time.
+
+Config twin — a string is the catch-all, the array form carries typed declarations:
+
+```ts
+const traced = traceObject(paymentService, context, {
+  methods: {
+    charge: {
+      params: ["customerId", "amount"],
+      onError: [
+        { template: "Payment declined for customer {customerId}, amount was {amount}" },
+        { exception: InsufficientFundsError, template: "Insufficient funds for {customerId}" },
+      ],
+    },
+  },
+});
+```
 
 ## `@notTraced`
 
@@ -117,8 +182,9 @@ How it works:
 - For **object fields**, declare a static class field: `static notTraced = ["pan", "secret"]`
   — those properties render `[REDACTED]` during introspection, independent of the
   name-based `RedactionPolicy` deny-list (which already covers `password`, `token`, `ssn`,
-  `cvv`, …).
+  `cvv`, … — and is multilingual by default: `contraseña`, `senha`, `motDePasse`, `密码`, …).
 - Typical use cases: passwords, tokens, secrets, card data.
+- Config twin: `methods.login.notTraced = [1]` on `traceObject()` — same indices, no decorator needed.
 
 **Redaction wins over a template that names it.** `@narrated` and `@onError` resolve
 `{param.property}` paths against the raw arguments, and a path that reaches a redacted member
@@ -146,6 +212,28 @@ If you need the value in a narrative, remove it from `static notTraced` (or from
 pattern it matches) — that removal is the deliberate, reviewable decision. A placeholder naming a
 property that does not exist on the object is an authoring typo, not a redaction decision: it
 survives literally, and the test-time unresolved-placeholder warning still fires for it.
+
+## The target-binding trade — self-calls do not nest
+
+Traced methods run with `this` bound to the raw target, not the proxy (`Reflect.apply(fn, target, args)` inside the method wrapper). A method calling a sibling on the same object (`this.validate(order)`) therefore invokes the raw method — the call runs correctly, but it is not captured, so self-calls never appear as nested spans. This is a deliberate design trade, not a gap: binding the raw target makes the proxy immune to the classic Proxy landmines — `#private` fields (which throw through a proxy receiver), built-ins with internal slots (`Map`, `Date`), and arrow-function fields.
+
+Nesting comes from wrapping collaborators, and that is the one structural rule: **decompose into collaborator services, wrap each where it is constructed.**
+
+```ts
+// One class, self-calls: only placeOrder is captured.
+class OrderService {
+  placeOrder(customerId: string) {
+    this.reserveStock(customerId);   // runs, not captured
+    this.charge(customerId);         // runs, not captured
+  }
+  // ...
+}
+
+// Collaborators wrapped at the composition root: the full nested narrative.
+const inventory = traceObject(new InventoryService(), context);
+const payments = traceObject(new PaymentService(), context);
+const orders = traceObject(new OrderService(inventory, payments), context);
+```
 
 ## The purity contract — side effects during tracing
 

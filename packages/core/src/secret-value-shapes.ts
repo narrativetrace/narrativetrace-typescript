@@ -54,3 +54,31 @@ function isSetCookieShaped(value: string): boolean {
 export function isSecretShaped(value: string): boolean {
   return isJwtShaped(value) || isPanShaped(value) || isSetCookieShaped(value);
 }
+
+// biome-ignore lint/suspicious/noControlCharactersInRegex: the ASCII range test is the point.
+const NON_ASCII = /[^\x00-\x7f]/;
+const COMBINING_MARKS = /\p{M}+/gu;
+
+/**
+ * Folds a field name or a deny-list pattern to the one spelling both are compared in: lower case,
+ * and without diacritics.
+ *
+ * INTENT: the deny-list carries every language's vocabulary, and a Spanish team writes
+ * `contraseña` while the same team's DTO generator writes `contrasena`. Both are the word
+ * "password" and both must be hidden, so the fold happens on *both* sides rather than the pattern
+ * set listing every spelling. Mirrors Java's `SecretValueShapes.canonical`.
+ *
+ * @llmNote The ASCII test in front is not premature: this runs once per introspected member on
+ * the rendering path, and virtually every real field name is ASCII, where `toLowerCase` alone
+ * already answers. NFD + mark-stripping is only paid for by names that carry a non-ASCII
+ * character.
+ *
+ * @remarks Total on any input — `normalize("NFD")` passes unpaired surrogates, noncharacters and
+ * bidi controls through rather than rejecting them, so a hostile field name folds to something
+ * harmless instead of throwing out of a redaction decision — the one place an exception would
+ * fail open.
+ */
+export function canonical(text: string): string {
+  const lower = text.toLowerCase();
+  return NON_ASCII.test(lower) ? lower.normalize("NFD").replace(COMBINING_MARKS, "") : lower;
+}

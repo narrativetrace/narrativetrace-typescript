@@ -7,6 +7,7 @@ import {
   fenceCount,
   frontmatterFenceCount,
   frontmatterOf,
+  headingCount,
   jsonShape,
   parseJson,
   statementsOf,
@@ -93,12 +94,13 @@ export function idempotent(label: string, render: () => string): void {
 /**
  * The structural-shape oracle: two renderer outputs describe the same document shape — same JSON
  * shape, the same number of Mermaid statements, the same frontmatter keys, the same code/
- * frontmatter fence counts — even though their content differs.
+ * frontmatter fence counts, the same number of Markdown headings — even though their content
+ * differs.
  *
  * INTENT: the AI-consumer/document-structure oracle. An escape that leaked would add a JSON
- * field, a Mermaid statement, a frontmatter key or an unbalanced fence — changing the *shape*
- * while each individual document stays well formed, which is exactly what a well-formedness
- * check alone would miss.
+ * field, a Mermaid statement, a frontmatter key, an unbalanced fence or a forged heading —
+ * changing the *shape* while each individual document stays well formed, which is exactly what a
+ * well-formedness check alone would miss.
  */
 export function sameStructuralShape(
   benign: Readonly<Record<string, string>>,
@@ -129,6 +131,10 @@ function sameMarkdownFenceCounts(
     frontmatterFenceCount(hostile[document] as string),
     "a value must not open or close the frontmatter block",
   ).toBe(frontmatterFenceCount(benign[document] as string));
+  expect(
+    headingCount(hostile[document] as string),
+    "a value must not forge a Markdown heading",
+  ).toBe(headingCount(benign[document] as string));
 }
 
 /**

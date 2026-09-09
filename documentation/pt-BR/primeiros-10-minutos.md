@@ -1,4 +1,4 @@
-<!-- source: documentation/first-10-minutes.md blob ca706c4fd14f | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/first-10-minutes.md blob 8d61acfd864a | translated: 2026-09-07 | reviewed: - -->
 # Primeiros 10 minutos
 
 [English](../first-10-minutes.md) | [Español](../es/primeros-10-minutos.md) | **Português** | [简体中文](../zh-CN/前10分钟.md)
@@ -201,7 +201,12 @@ novamente. O trace:
 ```
 
 O nome do parâmetro ainda aparece — você consegue ver que um token *foi*
-passado — mas o valor dele nunca chega ao disco. Veja
+passado — mas o valor dele nunca chega ao disco. Sem decoradores no seu
+build? A mesma ocultação (e a narração, e o contexto de erro) está
+disponível como configuração no próprio wrap:
+`traceObject(new OrderService(), narrativeContext, { methods: { placeOrder: { params: [...], notTraced: [3] } } })`
+— veja a seção de configuração do
+[Guia de Decoradores](guia-de-decoradores.md). Veja
 [Privacidade e Ocultação](privacidade-e-ocultacao.md) para o que mais a
 ocultação cobre, incluindo a ocultação em nível de campo
 (`static notTraced`) para objetos que você não constrói um parâmetro de

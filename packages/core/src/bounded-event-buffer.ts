@@ -39,6 +39,20 @@ export class BoundedEventBuffer {
     this.writeIndex++;
   }
 
+  /**
+   * Reads `[oldestIndex(), oldestIndex() + count)` through `consumer`, then advances `readIndex`
+   * past exactly what was read — the "claim" half of `BufferedEventConsumer.flush()`'s barrier
+   * contract.
+   *
+   * @llmNote `start`/`count` are computed once, before the loop, from the state at call time — a
+   * `put()` that lands reentrantly *during* `consumer(event)` (a synchronous subscriber tracing
+   * more work) extends `writeIndex` past this call's range and is left for a later drain, never
+   * double-read. This method and every function `consumer` can transitively be (see `flush`'s
+   * `@llmNote`) must stay synchronous, with no `await`: the "claim" (this method) and the "account"
+   * (what `consumer` does with each event, e.g. `store.accept`) must complete as one atomic,
+   * uninterruptible unit of JS execution, or an event can end up counted as read here without yet
+   * being stored/counted by `consumer` — exactly the window a caller's `flush()` must never expose.
+   */
   drain(consumer: (event: TraceEvent) => void, limit?: number): number {
     const start = this.oldestIndex();
     const available = this.writeIndex - start;

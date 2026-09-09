@@ -282,4 +282,43 @@ describe("readGlossaryJson", () => {
       /unknown key '__proto__'/,
     );
   });
+
+  describe("nesting depth guard", () => {
+    /**
+     * A root document at the given total nesting depth (the root object itself, plus `padding`
+     * nested one level short of it). Built by direct string concatenation rather than
+     * `JSON.stringify` on an equivalently deep object graph — `JSON.stringify` itself overflows
+     * the call stack past a few thousand levels in this environment, which would make the *test
+     * fixture* the thing crashing rather than exercising the guard on a document `JSON.parse` (the
+     * function under test actually goes through) handles without issue far past that.
+     */
+    function documentNesting(totalDepth: number): string {
+      let padding = '"leaf"';
+      for (let i = 0; i < totalDepth - 1; i++) padding = `{"nested":${padding}}`;
+      return `{"schemaVersion":1,"contexts":{},"terms":[],"padding":${padding}}`;
+    }
+
+    test("accepts a document nesting exactly to the family limit of 16, reaching schema validation", () => {
+      // Padding an otherwise-minimal document past its own natural depth is the only way to reach
+      // the limit at all — the schema's own shape never legitimately nests past ~4 levels. Once
+      // past the guard, the extra field is exactly what an ordinary unknown-key check rejects next,
+      // which is what proves the guard let a depth-16 document through rather than swallowing it.
+      expect(() => readGlossaryJson(documentNesting(16))).toThrow(/unknown key 'padding'/);
+    });
+
+    test("rejects a document nesting one level past the family limit, naming the limit and depth", () => {
+      expect(() => readGlossaryJson(documentNesting(17))).toThrow(RangeError);
+      expect(() => readGlossaryJson(documentNesting(17))).toThrow(
+        /glossary document nests at least 17 levels deep, past the maximum of 16/,
+      );
+    });
+
+    test("rejects a pathologically deep document cleanly, never a stack overflow", () => {
+      // The guard's own recursion is bounded by the limit, not by the input — this document is
+      // ~3,000x deeper than the boundary case above, and must fail exactly the same clean way.
+      expect(() => readGlossaryJson(documentNesting(50_000))).toThrow(
+        /glossary document nests at least 17 levels deep, past the maximum of 16/,
+      );
+    });
+  });
 });

@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob fd8d8d3cb23b | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 33ca5ffa478b | translated: 2026-09-07 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -51,19 +51,29 @@ Três mecanismos independentes se aplicam a todo valor capturado/renderizado:
    uma anotação explícita oculta mesmo sob uma política que tenha todo
    padrão de nome e toda verificação de forma de valor desligados.
 3. **A lista de negação baseada em nome** (`RedactionPolicy.DEFAULT`) —
-   uma comparação de substring sem diferenciar maiúsculas/minúsculas
-   contra nomes de campos (`password`, `secret`, `token`, `apikey`,
-   `cvv`, `ssn`, `authorization`, `credential`, `cardnumber`, `jwt`,
-   `cookie`, `sessionid`, `accountnumber`, `routingnumber`, `pan`,
+   uma comparação de substring sem diferenciar maiúsculas/minúsculas nem
+   acentos contra nomes de campos (`password`, `secret`, `token`,
+   `apikey`, `cvv`, `ssn`, `authorization`, `credential`, `cardnumber`,
+   `jwt`, `cookie`, `sessionid`, `accountnumber`, `routingnumber`, `pan`,
    `iban`, e suas grafias em `snake_case`), mais uma segunda verificação
    independente sobre a *forma* do próprio valor — um JWT (`eyJ…`), um
    número de cartão válido pelo algoritmo de Luhn, ou uma string com a
    forma de `Set-Cookie` — de modo que um valor sem nome (um item de
    lista, um valor de map) ou um bearer token sob um nome não reconhecido
-   ainda assim é capturado. `"companyName"`/`"panelId"` não combinam com
-   `pan` — os dois padrões mais propensos a falsos positivos (`pan`,
-   `iban`) combinam em limites de token de identificador, não em
-   substring pura.
+   ainda assim é capturado. O vocabulário padrão é **multilíngue e sempre
+   ativo** (o padrão da família, compartilhado com os demais runtimes do
+   NarrativeTrace): o espanhol (`contraseña`, `tarjeta`, `cédula`,
+   `claveAcceso`, `rut`, `cuit`, `dni`), o português (`senha`, `cartão`,
+   `cpf`, `cnpj`), o francês (`motDePasse`, `carteBancaire`, `nir`) e o
+   chinês (`密码`, `身份证`, mais o pinyin `mima`/`shenfenzheng`) ficam ao
+   lado dos padrões em inglês, sem nenhum locale a selecionar — as
+   grafias com e sem acento se dobram em um único padrão.
+   `"companyName"`/`"panelId"` não combinam com `pan` — os dez padrões
+   mais propensos a falsos positivos (`pan`, `iban`, `rut`, `cuit`,
+   `dni`, `senha`, `cpf`, `cnpj`, `nir`, `mima`) combinam em limites de
+   token de identificador, não em substring pura, então `truthValue`,
+   `circuitBreaker`, `chosenHash` e `semiMajorAxis` permanecem visíveis
+   enquanto `rutCliente` e `senhaUsuario` ficam ocultos.
 
 Um **`toString()` cuidadosamente escrito** normalmente é confiado como
 está — mas uma classe que declara qualquer campo `static notTraced` é

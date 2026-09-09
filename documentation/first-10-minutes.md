@@ -193,7 +193,11 @@ again. The trace:
 ```
 
 The parameter name still appears — you can see a token *was* passed — but
-its value never reaches disk. See
+its value never reaches disk. No decorators in your build? The same
+redaction (and narration, and error context) is available as config on the
+wrap itself:
+`traceObject(new OrderService(), narrativeContext, { methods: { placeOrder: { params: [...], notTraced: [3] } } })`
+— see the [Decorators Guide](decorators-guide.md) config section. See
 [Privacy and Redaction](privacy-and-redaction.md) for what else redaction
 covers, including field-level redaction (`static notTraced`) for objects you
 don't construct one parameter at a time.

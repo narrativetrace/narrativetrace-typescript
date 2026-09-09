@@ -113,15 +113,25 @@ export function treeIncomplete(): TraceTree {
   return traceTree([node]);
 }
 
-/** The in-memory renderers, which a library consumer calls directly. */
-export function renderers(tree: TraceTree): Record<string, string> {
-  const metadata = { scenario: SCENARIO };
+/**
+ * The in-memory renderers, which a library consumer calls directly.
+ *
+ * @param scenario the value every scenario-bearing output carries — a route of its own,
+ * caller-supplied text that reaches the YAML frontmatter, the Markdown body header and the JSON
+ * scenario name, each with its own escaping decision. Defaults to {@link SCENARIO} so every
+ * existing caller that fixed the scenario to a benign constant is unaffected; a caller fuzzing the
+ * scenario route passes the hostile value here instead of only through a tree's captured
+ * values/narration — a Markdown body-header escaping gap in the Java golden source was reachable
+ * only through this parameter.
+ */
+export function renderers(tree: TraceTree, scenario: string = SCENARIO): Record<string, string> {
+  const metadata = { scenario };
   return {
     "renderer:prose": renderProse(tree),
     "renderer:indented": renderIndentedText(tree),
-    "renderer:markdown": renderMarkdown(tree, { scenarioName: SCENARIO }),
+    "renderer:markdown": renderMarkdown(tree, { scenarioName: scenario }),
     "renderer:markdown-document": renderMarkdownDocument(tree, {
-      scenario: SCENARIO,
+      scenario,
       result: "success",
     }),
     "renderer:json": exportJson(tree, metadata),
@@ -150,10 +160,27 @@ export function everyOutput(tree: TraceTree): Record<string, string> {
 
 /** Everything the shipped writer puts on disk for one test's trace. */
 export function writtenArtifacts(tree: TraceTree, dir: string): Record<string, string> {
+  return writtenArtifactsNamed(tree, dir, MODULE_NAME, TEST_NAME);
+}
+
+/**
+ * The same, under a caller-supplied module/test name.
+ *
+ * INTENT: the artifact writer's *other* hostile input — not the value, the name. `writeTraceOutput`
+ * is public API whose callers do not all derive a module/test name from a JS identifier; a scenario
+ * name, an HTTP route or a generated property-test description reaches it in real integrations, and
+ * that name becomes a path component.
+ */
+export function writtenArtifactsNamed(
+  tree: TraceTree,
+  dir: string,
+  moduleName: string,
+  testName: string,
+): Record<string, string> {
   writeTraceOutput(tree, {
     outputDir: dir,
-    moduleName: MODULE_NAME,
-    testName: TEST_NAME,
+    moduleName,
+    testName,
     formats: ALL_FORMATS,
   });
   const outputs: Record<string, string> = {};

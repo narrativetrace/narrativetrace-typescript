@@ -66,6 +66,57 @@ describe("traceObject fast paths", () => {
     expect(traceObject(new Svc(), NOOP_CONTEXT).op(arg)).toBe("done");
     expect(state.renders).toBe(0);
   });
+
+  test("NOOP_CONTEXT returns the original object itself — no proxy, no per-call cost", () => {
+    class Svc {
+      op(): string {
+        return "done";
+      }
+    }
+    const target = new Svc();
+    expect(traceObject(target, NOOP_CONTEXT)).toBe(target);
+  });
+
+  test("repeated access returns the same wrapper — no per-call closure allocation", () => {
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("off"));
+    class Svc {
+      op(): string {
+        return "done";
+      }
+    }
+    const traced = traceObject(new Svc(), ctx);
+    expect(traced.op).toBe(traced.op);
+  });
+
+  test("a monkey-patched method is re-wrapped, never served from a stale wrapper", () => {
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig());
+    const service = {
+      op(): string {
+        return "original";
+      },
+    };
+    const traced = traceObject(service, ctx);
+    expect(traced.op()).toBe("original");
+    service.op = () => "patched";
+    expect(traced.op()).toBe("patched");
+  });
+
+  test("a method reference captured while off starts tracing when the level turns on", () => {
+    const config = new NarrativeTraceConfig("off");
+    const ctx = new SyncNarrativeContext(config);
+    class Svc {
+      op(): string {
+        return "done";
+      }
+    }
+    const traced = traceObject(new Svc(), ctx);
+    const captured = traced.op;
+    captured.call(traced);
+    expect(ctx.captureTrace().roots).toHaveLength(0);
+    config.level = "detail";
+    captured.call(traced);
+    expect(ctx.captureTrace().roots).toHaveLength(1);
+  });
 });
 
 describe("traceObject", () => {

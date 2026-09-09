@@ -4,15 +4,52 @@
 import type { NarrativeContext, ParameterCapture, SpanId } from "@narrativetrace/core";
 import {
   isThenable,
+  NOOP_CONTEXT,
   parameterCapture,
   RedactionPolicy,
   renderStructured,
   renderValue,
   resolveTemplate,
 } from "@narrativetrace/core";
-import { getErrorSpecs, getNarration, type OnErrorSpec } from "./narrated.js";
+import { type ErrorClass, getErrorSpecs, getNarration, type OnErrorSpec } from "./narrated.js";
 import { getRedactedParams } from "./not-traced.js";
 import { getTracedParamNames } from "./traced.js";
+
+/**
+ * One error-context declaration in config form: the template, plus the optional error type it
+ * applies to — the non-decorator twin of one `@onError(...)` application. `exception` matches by
+ * `instanceof`; omit it for a catch-all. Several declarations cover distinct types; the one
+ * matching the thrown type most specifically wins at throw time, exactly as stacked `@onError`
+ * decorators do.
+ */
+export type OnErrorTemplate = {
+  readonly exception?: ErrorClass;
+  readonly template: string;
+};
+
+/**
+ * Per-method trace configuration — the config twin of the four decorators, declared at the
+ * composition root instead of on the class.
+ *
+ * INTENT: everything `@traced`/`@narrated`/`@onError`/`@notTraced` express, expressible where
+ * the object is wrapped — for plain JavaScript, for environments that do not compile decorators,
+ * and for teams that prefer trace metadata beside the wiring rather than on the class. Each
+ * axis, when present, takes precedence over the corresponding decorator metadata for that
+ * method; an absent axis leaves the decorator's declaration in force.
+ *
+ * @llmNote A single `onError` string is the catch-all shorthand, twin of `@onError("...")`;
+ * the array form twins stacked `@onError` declarations, most-specific match winning.
+ */
+export type MethodTraceConfig = {
+  /** Positional parameter names — twin of `@traced("a", "b")`. */
+  readonly params?: readonly string[];
+  /** Zero-based indices of parameters to redact — twin of `@notTraced(1, 2)`. */
+  readonly notTraced?: readonly number[];
+  /** Narration template with `{param}` placeholders — twin of `@narrated("...")`. */
+  readonly narration?: string;
+  /** Error-context declarations — twin of (stacked) `@onError`. */
+  readonly onError?: string | readonly OnErrorTemplate[];
+};
 
 /**
  * Tuning knobs for {@link traceObject}.
@@ -41,13 +78,40 @@ export type ProxyOptions = {
    * @defaultValue `true` — set `false` to record only that a method returned, not what.
    */
   readonly includeReturnValues?: boolean;
+  /**
+   * Per-method trace configuration keyed by method name — the config twin of the decorators.
+   * A configured axis (params/notTraced/narration/onError) overrides the corresponding
+   * decorator metadata for that method; anything not configured falls back to the decorators.
+   */
+  readonly methods?: Record<string, MethodTraceConfig>;
 };
 
 type AnyFn = (...args: never[]) => unknown;
 
-function resolveNames(fn: AnyFn, explicitNames: string[] | undefined): string[] | undefined {
+function resolveNames(
+  fn: AnyFn,
+  explicitNames: readonly string[] | undefined,
+): string[] | undefined {
+  if (explicitNames) return [...explicitNames];
   const tracedNames = getTracedParamNames(fn);
-  return explicitNames ?? (tracedNames ? [...tracedNames] : undefined);
+  return tracedNames ? [...tracedNames] : undefined;
+}
+
+// Config-over-decorator precedence, per axis: a configured axis replaces the decorator's
+// declaration for that method wholesale; an absent axis leaves the decorator in force.
+function resolveRedacted(
+  fn: AnyFn,
+  cfg: MethodTraceConfig | undefined,
+): ReadonlySet<number> | undefined {
+  return cfg?.notTraced ? new Set(cfg.notTraced) : getRedactedParams(fn);
+}
+
+function effectiveErrorSpecs(
+  fn: AnyFn,
+  cfg: MethodTraceConfig | undefined,
+): readonly OnErrorSpec[] {
+  if (cfg?.onError === undefined) return getErrorSpecs(fn);
+  return typeof cfg.onError === "string" ? [{ template: cfg.onError }] : cfg.onError;
 }
 
 function paramName(names: string[] | undefined, i: number): string {
@@ -89,20 +153,25 @@ function buildValueMap(
   return values;
 }
 
-function buildMethodOptions(fn: AnyFn, values: Record<string, unknown>) {
-  const rawNarration = getNarration(fn);
+function buildMethodOptions(
+  fn: AnyFn,
+  values: Record<string, unknown>,
+  cfg: MethodTraceConfig | undefined,
+) {
+  const rawNarration = cfg?.narration ?? getNarration(fn);
   if (rawNarration === undefined) return undefined;
   return { narration: resolveTemplate(rawNarration, values) };
 }
 
-// @onError context resolves at throw time against the actual thrown type, choosing the most
-// specific matching declaration (Java resolveErrorContext / findMostSpecificOnError).
+// @onError/config error context resolves at throw time against the actual thrown type, choosing
+// the most specific matching declaration (Java resolveErrorContext / findMostSpecificOnError).
 function resolveErrorContext(
   fn: AnyFn,
+  cfg: MethodTraceConfig | undefined,
   values: Record<string, unknown>,
   error: unknown,
 ): string | null {
-  const match = findMostSpecific(getErrorSpecs(fn), error);
+  const match = findMostSpecific(effectiveErrorSpecs(fn, cfg), error);
   return match ? resolveTemplate(match.template, values) : null;
 }
 
@@ -224,6 +293,7 @@ type TracingConfig = {
   className: string;
   includeReturnValues: boolean;
   paramNames?: Record<string, string[]>;
+  methods?: Record<string, MethodTraceConfig>;
 };
 
 function invokeTarget(fn: AnyFn, obj: object, args: unknown[]): unknown {
@@ -239,8 +309,9 @@ function buildEntryCaptures(
   args: unknown[],
   config: TracingConfig,
 ): EntryCaptures {
-  const names = resolveNames(fn, config.paramNames?.[methodName]);
-  const redacted = getRedactedParams(fn);
+  const cfg = config.methods?.[methodName];
+  const names = resolveNames(fn, cfg?.params ?? config.paramNames?.[methodName]);
+  const redacted = resolveRedacted(fn, cfg);
   const values = buildValueMap(args, names, redacted);
   const captures = buildCaptures(args, names, redacted, config.context.capturesParameterValues);
   return { captures, values };
@@ -256,14 +327,15 @@ function buildEntry(
   config: TracingConfig,
 ): EntryInfo | undefined {
   try {
+    const cfg = config.methods?.[methodName];
     const { captures, values } = buildEntryCaptures(fn, methodName, args, config);
     const handle = config.context.enterMethod(
       config.className,
       methodName,
       captures,
-      buildMethodOptions(fn, values),
+      buildMethodOptions(fn, values, cfg),
     );
-    return { handle, onError: (error) => resolveErrorContext(fn, values, error) };
+    return { handle, onError: (error) => resolveErrorContext(fn, cfg, values, error) };
   } catch {
     return undefined;
   }
@@ -298,6 +370,7 @@ function buildTracingConfig(
     className: options?.className ?? target.constructor.name,
     includeReturnValues: options?.includeReturnValues !== false,
     ...(paramNames !== undefined && { paramNames }),
+    ...(options?.methods !== undefined && { methods: options.methods }),
   };
 }
 
@@ -323,14 +396,25 @@ const ORDINARY_OBJECT_OPS: ReadonlySet<string | symbol> = new Set([
   Symbol.for("nodejs.util.inspect.custom"),
 ]);
 
+type WrapperCacheEntry = { fn: AnyFn; wrapped: AnyFn };
+
+// Wrapper cache, keyed by property and validated against the current method identity: every call
+// site performs one `get` per call, so without a cache each call allocates a fresh closure — a
+// per-call cost that would survive even with tracing off. The cache makes the disabled path
+// allocation-free and gives `traced.method` a stable identity; a monkey-patched method fails the
+// identity check and is re-wrapped, so a stale wrapper can never call a replaced function.
 function createTracingHandler<T extends object>(config: TracingConfig): ProxyHandler<T> {
+  const wrappers = new Map<string | symbol, WrapperCacheEntry>();
   return {
     get(obj, prop, receiver) {
       const value = Reflect.get(obj, prop, receiver);
-      const skip =
-        typeof value !== "function" || isGetterProperty(obj, prop) || ORDINARY_OBJECT_OPS.has(prop);
-      if (skip) return value;
-      return wrapMethod(value as AnyFn, obj, String(prop), config);
+      if (typeof value !== "function") return value;
+      const cached = wrappers.get(prop);
+      if (cached && cached.fn === value) return cached.wrapped;
+      if (isGetterProperty(obj, prop) || ORDINARY_OBJECT_OPS.has(prop)) return value;
+      const wrapped = wrapMethod(value as AnyFn, obj, String(prop), config) as AnyFn;
+      wrappers.set(prop, { fn: value as AnyFn, wrapped });
+      return wrapped;
     },
   };
 }
@@ -345,12 +429,30 @@ function createTracingHandler<T extends object>(config: TracingConfig): ProxyHan
  * `@notTraced` is honoured on the wrapped methods. Getters and non-function properties pass
  * through unwrapped.
  *
+ * @remarks **Target-binding trade (by design):** traced methods run with `this` bound to the
+ * raw target, not the proxy (`invokeTarget` → `Reflect.apply(fn, obj, args)`), so a method
+ * calling a sibling on the same object runs correctly but is not captured — self-calls never
+ * nest. In exchange the proxy is immune to the classic Proxy landmines: `#private` fields,
+ * built-ins with internal slots (`Map`, `Date`), and arrow-function fields. Nesting comes from
+ * wrapping collaborators, not from rebinding `this`: decompose into collaborator services, wrap
+ * each where it is constructed. (Same statement in README.md § FAQ and
+ * documentation/decorators-guide.md.)
+ *
+ * @remarks **Disabled cost:** wrapping `NOOP_CONTEXT` returns `target` itself — zero wrap, zero
+ * per-call cost. For a live context at level `"off"`, the proxy stays (the level can flip at
+ * runtime) but a call does no capture work at all: one cached-wrapper lookup and the `isActive`
+ * check, no allocation, no metadata reads, no rendering — and a method reference captured while
+ * off starts tracing the moment the level turns on, because the check runs per call.
+ *
  * @param target the object to trace; the returned proxy has the same type `T`.
  * @param context sink and gate for spans — when `context.isActive` is false the proxy invokes
  * the target with zero capture work, so an inactive context has no rendering cost.
- * @param paramNames optional per-method override of parameter names (keyed by method name),
- * used when a method has no `@traced` names; falls back to `arg0`, `arg1`, … otherwise.
- * @param options see {@link ProxyOptions} — override the class name or disable return capture.
+ * @param paramNames optional per-method parameter names (keyed by method name), the shorthand
+ * config twin of `@traced`; falls back to `arg0`, `arg1`, … otherwise. The third argument also
+ * accepts {@link ProxyOptions} directly, so the full config form needs no placeholder:
+ * `traceObject(target, context, { methods: { charge: { params, narration, onError, notTraced } } })`.
+ * @param options see {@link ProxyOptions} — per-method trace config ({@link MethodTraceConfig},
+ * the config twin of all four decorators), class-name override, return-capture switch.
  * @returns a proxy of the same shape as `target`; recording failures are swallowed so
  * observability never turns into an application error.
  *
@@ -371,11 +473,52 @@ function createTracingHandler<T extends object>(config: TracingConfig): ProxyHan
 export function traceObject<T extends object>(
   target: T,
   context: NarrativeContext,
+  options?: ProxyOptions,
+): T;
+/**
+ * Shorthand overload: the third argument is a bare per-method parameter-name map (the config
+ * twin of `@traced` alone), with {@link ProxyOptions} still available fourth.
+ */
+export function traceObject<T extends object>(
+  target: T,
+  context: NarrativeContext,
   paramNames?: Record<string, string[]>,
   options?: ProxyOptions,
+): T;
+/**
+ * Implementation signature: the third argument routes to whichever overload shape it carries —
+ * see `splitWrapArguments`.
+ */
+export function traceObject<T extends object>(
+  target: T,
+  context: NarrativeContext,
+  namesOrOptions?: Record<string, string[]> | ProxyOptions,
+  options?: ProxyOptions,
 ): T {
+  // NOOP_CONTEXT is permanently inactive by contract, so wrapping would buy nothing but a proxy
+  // hop on every call — the disabled-cost story for the null context is exact: the same object.
+  if (context === NOOP_CONTEXT) return target;
+  const [paramNames, resolvedOptions] = splitWrapArguments(namesOrOptions, options);
   return new Proxy(
     target,
-    createTracingHandler(buildTracingConfig(target, context, paramNames, options)),
+    createTracingHandler(buildTracingConfig(target, context, paramNames, resolvedOptions)),
   );
+}
+
+const PROXY_OPTION_KEYS = ["className", "includeReturnValues", "methods"] as const;
+
+// A paramNames map's values are always arrays of names; ProxyOptions' distinguishing keys never
+// hold arrays — so a method that happens to be *named* like an option key still routes correctly.
+function isProxyOptions(value: Record<string, string[]> | ProxyOptions): value is ProxyOptions {
+  return PROXY_OPTION_KEYS.some(
+    (key) => key in value && !Array.isArray((value as Record<string, unknown>)[key]),
+  );
+}
+
+function splitWrapArguments(
+  third: Record<string, string[]> | ProxyOptions | undefined,
+  fourth: ProxyOptions | undefined,
+): [Record<string, string[]> | undefined, ProxyOptions | undefined] {
+  if (third !== undefined && isProxyOptions(third)) return [undefined, third];
+  return [third as Record<string, string[]> | undefined, fourth];
 }

@@ -1,4 +1,4 @@
-<!-- source: README.md blob 719e7892c30d | translated: 2026-09-07 | reviewed: - -->
+<!-- source: README.md blob 1aa23462ce95 | translated: 2026-09-07 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -363,14 +363,25 @@ para el contrato de coexistencia completo.
 
 El tracing hace trabajo y el trabajo cuesta algo — no vamos a afirmar "overhead cero". El proxy
 intercepta llamadas vía `Proxy` de ES, captura parámetros, renderiza valores a strings y construye el
-árbol de traza. Cuando el tracing está desactivado (`level: 'off'`), una compuerta de fast-path
-`isActive` se salta todo el trabajo de captura y renderizado antes de que empiece.
+árbol de traza. Cuando el tracing está desactivado, el envoltorio es trabajo cero por construcción:
+envolver `NOOP_CONTEXT` devuelve el **objeto original mismo** (sin proxy, sin coste alguno por
+llamada), y un contexto vivo en `level: 'off'` conserva el proxy (el nivel puede cambiar en tiempo
+de ejecución) pero una llamada no hace ningún trabajo de captura — una búsqueda en la caché de
+envoltorios y una comprobación de `isActive`, sin asignaciones, sin renderizado.
+
+Medido (2026-09-07, Node 22, el contenedor de desarrollo Linux de este repositorio,
+`proxy.bench.ts` de `packages/benchmarks`): un método trivial de dos argumentos corrió a ~9,8M
+ops/s en crudo; la misma llamada a través de un envoltorio en `level: 'off'` corrió a ~4,3M ops/s
+— del orden de 0,1 µs añadidos por llamada; el envoltorio con `NOOP_CONTEXT` fue indistinguible
+del objeto crudo, porque *es* el objeto crudo. Con el tracing totalmente activo (`detail`:
+renderizado de parámetros + valores de retorno), la misma llamada trivial corrió a ~105K ops/s
+(~10 µs por llamada) — el coste de renderizar de verdad la historia.
 
 El directorio `packages/benchmarks/` contiene benchmarks de Vitest para entrada/salida de contexto,
 overhead del proxy, renderizado de valores y renderizado Markdown/JSON a distintos tamaños de árbol,
 con baselines guardadas en `reports/benchmarks/` para que una regresión se mantenga visible entre
 commits. Ejecuta `pnpm run bench` (o `pnpm run bench:save` para comparar contra la baseline guardada)
-para ver los números actuales en tu hardware — reportamos esto como mediciones que deberías
+para reproducir los números de arriba en tu hardware — reportamos esto como mediciones que deberías
 reproducir, no como cifras de titular, porque la carga del contenedor y la máquina las mueve de
 ejecución en ejecución.
 
@@ -460,6 +471,12 @@ OrderService.placeOrder(customerId: "C1", productId: "SKU-EBOOK")
 ```
 
 No hace falta trazar el `if` — la presencia de `sendDownloadLink` y la ausencia de `shipPhysical` cuentan la historia. Los campos `#private` de ES no pueden ser interceptados por Proxy (limitación del lenguaje JavaScript), pero el beneficio arquitectónico es el mismo.
+
+### ¿Por qué las auto-llamadas no se anidan?
+
+Los métodos trazados se ejecutan con `this` vinculado al objeto original, no al proxy (`Reflect.apply(fn, target, args)` dentro del envoltorio del método). Un método que llama a un hermano del mismo objeto (`this.validate(order)`) invoca por tanto el método original — la llamada se ejecuta correctamente, pero no se captura, así que las auto-llamadas nunca aparecen como spans anidados. Es un intercambio de diseño deliberado, no una carencia: vincular el objeto original hace al proxy inmune a las trampas clásicas de Proxy — los campos `#private` (que lanzan a través de un receptor proxy), los built-ins con slots internos (`Map`, `Date`) y los campos de función flecha.
+
+El anidamiento viene de envolver a los colaboradores, y esa es la única regla estructural: **descompón en servicios colaboradores y envuelve cada uno donde se construye.** Una raíz de composición que envuelve `OrderService`, `InventoryService` y `PaymentService` una vez cada uno obtiene la narrativa anidada completa — que además es la forma de código que mejor se lee, con o sin trazas.
 
 ### ¿Cómo interactúa NarrativeTrace con otras bibliotecas que envuelven métodos (AOP, proxies, bibliotecas de contratos)?
 

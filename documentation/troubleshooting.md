@@ -60,14 +60,19 @@ at render time. See the purity contract in the
 
 ## `@traced`/`@notTraced` decorators fail to apply or fail to compile
 
-**Cause:** these are TC39 stage-3 method decorators, TypeScript 5.0+. Legacy
-`experimentalDecorators: true` in `tsconfig.json` uses a different, older
-decorator shape and does not accept stage-3 syntax the way this runtime emits
-it.
+**Cause:** the decorators accept both dialects — standard TC39 decorators
+(the TypeScript 5 default) and legacy `experimentalDecorators` (NestJS,
+Angular) — detected at runtime from the call shape. A failure therefore
+means the environment is not compiling decorators at all: TypeScript below
+5.0 without `experimentalDecorators`, a transform that leaves `@` syntax
+untouched, or plain JavaScript. In that case the decorator throws a
+`TypeError` naming this fix rather than silently recording nothing.
 
-**Fix:** upgrade to TypeScript 5.0+ and remove `experimentalDecorators` (and
-`emitDecoratorMetadata`) from `tsconfig.json` if present. No other compiler
-flag is required — stage-3 decorators are the TypeScript 5 default.
+**Fix:** either enable decorator compilation (TypeScript 5.0+ compiles the
+standard dialect with no flag; `experimentalDecorators: true` also works),
+or skip decorators entirely and use the config form on `traceObject()` —
+it expresses everything the decorators express. See the
+[Decorators Guide](decorators-guide.md).
 
 ## Clarity score seems wrong
 

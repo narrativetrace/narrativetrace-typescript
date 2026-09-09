@@ -1,4 +1,4 @@
-<!-- source: documentation/first-10-minutes.md blob ca706c4fd14f | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/first-10-minutes.md blob 8d61acfd864a | translated: 2026-09-07 | reviewed: - -->
 # Primeros 10 minutos
 
 [English](../first-10-minutes.md) | **Español** | [Português](../pt-BR/primeiros-10-minutos.md) | [简体中文](../zh-CN/前10分钟.md)
@@ -201,7 +201,12 @@ de nuevo. La traza:
 ```
 
 El nombre del parámetro sigue apareciendo — puedes ver que *se pasó* un
-token — pero su valor nunca llega a disco. Consulta
+token — pero su valor nunca llega a disco. ¿Sin decoradores en tu build?
+La misma ocultación (y la narración, y el contexto de error) está
+disponible como configuración en el propio envoltorio:
+`traceObject(new OrderService(), narrativeContext, { methods: { placeOrder: { params: [...], notTraced: [3] } } })`
+— mira la sección de configuración de la
+[Guía de decoradores](guia-de-decoradores.md). Consulta
 [Privacidad y ocultación](privacidad-y-ocultacion.md) para saber qué más
 cubre la ocultación, incluida la ocultación a nivel de campo (`static
 notTraced`) para objetos que no construyes parámetro a parámetro.

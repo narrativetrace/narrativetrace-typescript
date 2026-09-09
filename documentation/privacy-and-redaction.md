@@ -43,17 +43,27 @@ Three independent mechanisms apply to every captured/rendered value:
    then combined as `annotated || nameMatchesDenyList`, so an explicit
    annotation redacts even under a policy that has every name pattern and
    value-shape check turned off.
-3. **The name-based deny-list** (`RedactionPolicy.DEFAULT`) — a
-   case-insensitive substring match against field names (`password`,
+3. **The name-based deny-list** (`RedactionPolicy.DEFAULT`) — a case- and
+   accent-insensitive substring match against field names (`password`,
    `secret`, `token`, `apikey`, `cvv`, `ssn`, `authorization`, `credential`,
    `cardnumber`, `jwt`, `cookie`, `sessionid`, `accountnumber`,
    `routingnumber`, `pan`, `iban`, and their `snake_case` spellings), plus a
    second, independent check on the *shape* of the value itself — a JWT
    (`eyJ…`), a Luhn-valid card number, or a `Set-Cookie`-shaped string — so
    an unnamed value (a list item, a map value) or a bearer token under an
-   unrecognized name is still caught. `"companyName"`/`"panelId"` do not
-   match `pan` — the two patterns most prone to false positives
-   (`pan`, `iban`) match on identifier-token boundaries, not bare substring.
+   unrecognized name is still caught. The default vocabulary is
+   **multilingual and always on** (the family standard, shared with the
+   other NarrativeTrace runtimes): Spanish (`contraseña`, `tarjeta`,
+   `cédula`, `claveAcceso`, `rut`, `cuit`, `dni`), Portuguese (`senha`,
+   `cartão`, `cpf`, `cnpj`), French (`motDePasse`, `carteBancaire`, `nir`)
+   and Chinese (`密码`, `身份证`, plus the pinyin `mima`/`shenfenzheng`) sit
+   beside the English patterns, with no locale to select — accented and
+   unaccented spellings fold to one pattern. `"companyName"`/`"panelId"` do
+   not match `pan` — the ten patterns most prone to false positives (`pan`,
+   `iban`, `rut`, `cuit`, `dni`, `senha`, `cpf`, `cnpj`, `nir`, `mima`)
+   match on identifier-token boundaries, not bare substring, so
+   `truthValue`, `circuitBreaker`, `chosenHash` and `semiMajorAxis` stay
+   visible while `rutCliente` and `senhaUsuario` are hidden.
 
 A **curated `toString()`** is normally trusted as written — but a class that
 declares any `static notTraced` field is introspected field-by-field

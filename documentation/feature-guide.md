@@ -28,9 +28,9 @@ here.
 | Feature | Status | Notes |
 |---|---|---|
 | Automatic narrative capture via ES `Proxy` — class, method, arguments, return values, timing, errors; zero log statements | Free | `traceObject(service, context)` from `@narrativetrace/proxy` |
-| Decorators — `@traced` (parameter names), `@narrated` (narration with `{param}` templates), `@onError` (error context templates), `@notTraced` (redaction) | Free | TC39 stage-3 decorators, TS 5.0+; [decorators-guide.md](decorators-guide.md) |
-| Programmatic API for plain JS — `traceObject(service, context, { method: ["paramA", …] })` name maps and the raw `NarrativeContext` enter/exit API | Free | Full feature set without decorator support |
-| Sensitive data redaction — `@notTraced` indices, `static notTraced` field lists, name-pattern `RedactionPolicy` deny-list (`password`, `token`, …); redacted values cannot leak through narration/error templates | Free | |
+| Decorators — `@traced` (parameter names), `@narrated` (narration with `{param}` templates), `@onError` (error context templates), `@notTraced` (redaction) | Free | Both decorator dialects (standard TC39 and legacy `experimentalDecorators`), TS 5.0+; [decorators-guide.md](decorators-guide.md) |
+| Programmatic API for plain JS — `traceObject(service, context, { methods: { method: { params, narration, onError, notTraced } } })` per-method config (config twin of every decorator), `{ method: ["paramA", …] }` name-map shorthand, and the raw `NarrativeContext` enter/exit API | Free | Full feature set without decorator support |
+| Sensitive data redaction — `@notTraced` indices, `static notTraced` field lists, name-pattern `RedactionPolicy` deny-list, multilingual and always on (`password`, `token`, `contraseña`, `senha`, `motDePasse`, `密码`, …); redacted values cannot leak through narration/error templates | Free | |
 | Five capture levels (`off` → `errors` → `summary` → `narrative` → `detail`), changeable at runtime via `config.level`; `NARRATIVETRACE_LEVEL` env on Node | Free | Level names differ slightly from Java (`summary` vs `FLOW`); `off` short-circuits before any capture work |
 | Two-gate levels — capture level independent of logger levels (winston/pino config) | Free | Product ADR-008 |
 | Eager value serialization — values rendered to strings at call time; no object retention, circular-safe, truncation limits | Free | See README FAQ + purity contract in the decorators guide |

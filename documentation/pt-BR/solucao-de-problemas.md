@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 87019353e6a8 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob 90ae6487249f | translated: 2026-09-07 | reviewed: - -->
 # Solução de problemas
 
 [English](../troubleshooting.md) | [Español](../es/solucion-de-problemas.md) | **Português** | [简体中文](../zh-CN/故障排查.md)
@@ -68,15 +68,21 @@ Decoradores](guia-de-decoradores.md#o-contrato-de-pureza--efeitos-colaterais-dur
 
 ## Os decoradores `@traced`/`@notTraced` falham ao aplicar ou falham ao compilar
 
-**Causa:** estes são decoradores de método TC39 stage-3, TypeScript 5.0+. A
-opção legada `experimentalDecorators: true` no `tsconfig.json` usa um
-formato de decorador diferente e mais antigo, e não aceita a sintaxe
-stage-3 da forma como esta implementação a emite.
+**Causa:** os decoradores aceitam ambos os dialetos — os decoradores TC39
+padrão (o default do TypeScript 5) e o dialeto legado
+`experimentalDecorators` (NestJS, Angular) — detectados em tempo de
+execução pelo formato da chamada. Uma falha significa, portanto, que o
+ambiente não compila decoradores de forma alguma: TypeScript anterior ao
+5.0 sem `experimentalDecorators`, uma transformação que deixa a sintaxe
+`@` intocada, ou JavaScript puro. Nesse caso o decorador lança um
+`TypeError` nomeando esta correção, em vez de silenciosamente não
+registrar nada.
 
-**Correção:** atualize para o TypeScript 5.0+ e remova
-`experimentalDecorators` (e `emitDecoratorMetadata`) do `tsconfig.json`, se
-estiverem presentes. Nenhuma outra flag de compilador é necessária —
-decoradores stage-3 são o padrão do TypeScript 5.
+**Correção:** habilite a compilação de decoradores (o TypeScript 5.0+
+compila o dialeto padrão sem nenhuma flag; `experimentalDecorators: true`
+também funciona), ou dispense os decoradores e use a forma de configuração
+no `traceObject()` — ela expressa tudo o que os decoradores expressam.
+Veja o [Guia de Decoradores](guia-de-decoradores.md).
 
 ## A pontuação de clareza parece errada
 

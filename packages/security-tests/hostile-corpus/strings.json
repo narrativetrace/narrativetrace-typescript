@@ -68,6 +68,7 @@
     { "id": "long-512", "description": "past the renderer's 200-character truncation limit", "repeat": { "unit": "A", "count": 512 } },
     { "id": "long-truncation-boundary", "description": "exactly the truncation limit, where an off-by-one lives", "repeat": { "unit": "B", "count": 200 } },
     { "id": "long-astral", "description": "a truncation limit landing inside a surrogate pair", "repeat": { "unit": "\ud83d\ude48", "count": 150 } },
+    { "id": "long-astral-run-1024", "description": "an astral run long enough to land a surrogate half on a parser's 1024-char read-buffer boundary", "repeat": { "unit": "\ud83d\ude48", "count": 600 } },
     { "id": "long-1mib", "description": "one mebibyte in one value — the bounded-size oracle's worst case", "repeat": { "unit": "x", "count": 1048576 } },
     { "id": "long-newlines", "description": "ten thousand line breaks, one value", "repeat": { "unit": "\n", "count": 10000 } },
     { "id": "long-quotes", "description": "ten thousand quote characters, one value", "repeat": { "unit": "\"", "count": 10000 } }

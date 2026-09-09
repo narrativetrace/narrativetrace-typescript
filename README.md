@@ -356,15 +356,24 @@ the FAQ below for the full coexistence contract.
 
 Tracing does work and work costs something — we will not claim "zero overhead." The proxy
 intercepts calls via ES `Proxy`, captures parameters, renders values to strings, and builds the
-trace tree. When tracing is disabled (`level: 'off'`), an `isActive` fast-path gate skips all
-capture and rendering work before it starts.
+trace tree. When tracing is disabled, the wrap is zero-work by construction: wrapping
+`NOOP_CONTEXT` returns the **original object itself** (no proxy, no per-call cost at all), and a
+live context at `level: 'off'` keeps the proxy (the level can flip at runtime) but a call does no
+capture work — one cached-wrapper lookup and one `isActive` check, no allocation, no rendering.
+
+Measured (2026-09-07, Node 22, this repo's Linux dev container, `packages/benchmarks`
+`proxy.bench.ts`): a trivial two-argument method ran at ~9.8M ops/s raw; the same call through a
+wrapper at `level: 'off'` ran at ~4.3M ops/s — on the order of 0.1 µs added per call; the
+`NOOP_CONTEXT` wrap was indistinguishable from the raw object, because it *is* the raw object.
+With tracing fully on (`detail`: parameter + return-value rendering), the same trivial call ran at
+~105K ops/s (~10 µs per call) — the cost of actually rendering the story.
 
 The `packages/benchmarks/` directory contains Vitest benchmarks for context enter/exit, proxy
 overhead, value rendering, and Markdown/JSON rendering at multiple tree sizes, with saved baselines
 under `reports/benchmarks/` so a regression stays visible across commits. Run `pnpm run bench` (or
-`pnpm run bench:save` to compare against the saved baseline) to see current numbers on your hardware
-— we report these as measurements you should reproduce, not headline figures, because container and
-machine load move them run to run.
+`pnpm run bench:save` to compare against the saved baseline) to reproduce the numbers above on your
+hardware — we report these as measurements you should reproduce, not headline figures, because
+container and machine load move them run to run.
 
 For extremely hot loops, use `level: 'off'` or narrow the traced scope to the boundary that matters.
 
@@ -449,6 +458,12 @@ OrderService.placeOrder(customerId: "C1", productId: "SKU-EBOOK")
 ```
 
 No need to trace the `if` — the presence of `sendDownloadLink` and absence of `shipPhysical` tells the story. ES `#private` fields cannot be intercepted by Proxy (JavaScript language limitation), but the architectural benefit is the same.
+
+### Why don't self-calls nest?
+
+Traced methods run with `this` bound to the raw target, not the proxy (`Reflect.apply(fn, target, args)` inside the method wrapper). A method calling a sibling on the same object (`this.validate(order)`) therefore invokes the raw method — the call runs correctly, but it is not captured, so self-calls never appear as nested spans. This is a deliberate design trade, not a gap: binding the raw target makes the proxy immune to the classic Proxy landmines — `#private` fields (which throw through a proxy receiver), built-ins with internal slots (`Map`, `Date`), and arrow-function fields.
+
+Nesting comes from wrapping collaborators, and that is the one structural rule: **decompose into collaborator services, wrap each where it is constructed.** A composition root that wraps `OrderService`, `InventoryService`, and `PaymentService` once each gets the full nested narrative — which is also the code shape that reads best, traced or not.
 
 ### How does NarrativeTrace interact with other libraries that wrap methods (AOP, proxies, contract libraries)?
 
