@@ -1,0 +1,24 @@
+{
+  "name": "@narrativetrace/example-sixty-seconds",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "start:logger": "node index-with-logger.js",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@narrativetrace/clarity": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/diagrams": "workspace:*",
+    "@narrativetrace/glossary": "workspace:*",
+    "@narrativetrace/observability": "workspace:*",
+    "@narrativetrace/pino": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@narrativetrace/vitest": "workspace:*",
+    "pino": "9.11.0"
+  }
+}

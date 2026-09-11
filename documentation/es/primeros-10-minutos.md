@@ -1,4 +1,4 @@
-<!-- source: documentation/first-10-minutes.md blob c70baa1c9759 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/first-10-minutes.md blob 3a9d18f33b8e | translated: 2026-09-12 | reviewed: - -->
 # Ve una traza en 60 segundos
 
 [English](../first-10-minutes.md) | **Español** | [Português](../pt-BR/primeiros-10-minutos.md) | [简体中文](../zh-CN/前10分钟.md)

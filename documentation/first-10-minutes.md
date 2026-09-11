@@ -25,6 +25,7 @@ statement outside a module`.
 
 ## 2. The program
 
+<!-- snippet: examples/sixty-seconds/index.js -->
 ```js
 // index.js
 import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
@@ -44,6 +45,7 @@ const service = traceObject(new OrderService(), context, {
 service.placeOrder("C1", "P1", 2);
 console.log(renderMarkdownBody(context.captureTrace()));
 ```
+<!-- /snippet -->
 
 `OrderService` is a plain class — no interface, no base class, no decorator required.
 `traceObject()` wraps the concrete instance in an ES `Proxy`; its third argument supplies
@@ -58,9 +60,11 @@ node index.js
 
 Real output, from the run that produced this page:
 
+<!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.5849169999999901ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.3ms
 ```
+<!-- /snippet -->
 
 The trailing `Nms` is wall-clock time — it will be a different number on your machine, and a
 different number the next time you run it. Everything else in the line is deterministic: the

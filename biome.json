@@ -18,7 +18,8 @@
       "!.tools-cache",
       "!**/.tools-cache",
       "!.verify-all-logs",
-      "!packages/security-tests/hostile-corpus"
+      "!packages/security-tests/hostile-corpus",
+      "!**/narrativetrace-output"
     ]
   },
   "assist": {
@@ -49,6 +50,22 @@
         "rules": {
           "style": {
             "useImportType": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": [
+        "examples/sixty-seconds/index.js",
+        "examples/sixty-seconds/index-with-logger.js"
+      ],
+      "formatter": {
+        "enabled": false
+      },
+      "assist": {
+        "actions": {
+          "source": {
+            "organizeImports": "off"
           }
         }
       }

@@ -495,6 +495,36 @@ importers:
         specifier: 9.11.0
         version: 9.11.0
 
+  examples/sixty-seconds:
+    devDependencies:
+      '@narrativetrace/clarity':
+        specifier: workspace:*
+        version: link:../../packages/clarity
+      '@narrativetrace/core-node':
+        specifier: workspace:*
+        version: link:../../packages/core-node
+      '@narrativetrace/diagrams':
+        specifier: workspace:*
+        version: link:../../packages/diagrams
+      '@narrativetrace/glossary':
+        specifier: workspace:*
+        version: link:../../packages/glossary
+      '@narrativetrace/observability':
+        specifier: workspace:*
+        version: link:../../packages/observability
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
+      '@narrativetrace/proxy':
+        specifier: workspace:*
+        version: link:../../packages/proxy
+      '@narrativetrace/vitest':
+        specifier: workspace:*
+        version: link:../../packages/vitest
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
+
   packages/angular:
     devDependencies:
       '@angular/common':

@@ -56,4 +56,7 @@ pnpm run test:root 2>&1 | grep -E "Test Files|Tests " | tail -2
 step "package tests + coverage"
 npx turbo run coverage --concurrency="$CONCURRENCY" 2>&1 | grep -E "Tasks:|Failed:" | tail -2
 
+step "snippet check"
+pnpm run snippet-check
+
 printf '\nGATE GREEN\n'
