@@ -1,4 +1,4 @@
-<!-- source: README.md blob 1aa23462ce95 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: README.md blob 187dee2930bd | translated: 2026-09-10 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
@@ -50,6 +50,33 @@ placeOrder(customerId: string, productId: string, quantity: number): OrderResult
 ```
 
 Lógica de negócio pura. O trace é gerado automaticamente a partir dos nomes dos métodos, dos nomes dos parâmetros e dos valores de retorno — a informação que já estava ali.
+
+## Deriva código-log
+
+As linhas de log são a única parte do código sem verificação do compilador
+e, na prática, sem cobertura de testes — então elas silenciosamente deixam
+de ser verdadeiras conforme o código muda. Uma renomeação deixa a mensagem
+descrevendo o nome antigo; um passo adicionado simplesmente nunca é
+mencionado; uma mudança de unidade (centavos → euros) faz `total` descrever
+um número diferente. Nada detecta isso: o texto do log quase nunca é
+verificado por uma asserção, e quando é, a asserção é frágil e é a primeira
+coisa removida. Um log obsoleto é peor do que nenhum — em um incidente ele é
+lido como evidência do que aconteceu, quando é uma frase que alguém escreveu
+uma vez sobre um código que já mudou.
+
+> **Deriva código-log, eliminada por construção.** Uma linha de log é uma
+> afirmação sobre o código, escrita uma vez e nunca mais verificada. Um trace
+> narrativo é derivado da execução — então não há nada para desviar.
+
+Para ser preciso: um template de narração (`@narrated`) ainda é uma string
+escrita à mão, e um parâmetro renomeado pode quebrar seu marcador — é
+exatamente por isso que ele é a exceção aqui, não o caminho padrão (veja o
+[Guia de decoradores](documentation/pt-BR/guia-de-decoradores.md)). Tudo o
+mais em um trace — as chamadas, os argumentos e os resultados — é derivado,
+nunca escrito, então não há nada ali para ficar obsoleto. E como um trace é
+estrutural, uma mudança real de comportamento se torna algo que um revisor
+pode comparar, não uma frase que silenciosamente parou de descrever o
+código.
 
 ## O que você recebe em vez disso
 
@@ -452,7 +479,42 @@ pnpm run build                                    # compilar todos os pacotes
 pnpm run test                                     # executar todos os testes
 ```
 
+## Verifique tudo
+
+`pnpm run check` é a checagem de cada commit; `pnpm run verify:all` executa *todas* as verificações que este repositório tem, tanto as rápidas quanto as pesadas — testes unitários, cobertura, mutation testing, testes de propriedades e fuzzing, benchmarks, regras de arquitetura, os dois níveis de teste de estresse, conformidade do esquema canônico, e os scanners de secrets/SAST/SCA — de uma só vez, e grava um relatório datado.
+
+```bash
+pnpm run verify:all                               # de longa duração por design — veja abaixo
+```
+
+É **de longa duração por design**: o mutation testing em todo o workspace é a categoria mais lenta (dezenas de minutos em um container modesto). A falha de uma categoria nunca interrompe a execução — cada categoria tem sua vez, e o comando só termina com código de erro ao final. Leia o resultado em `reports/verification/<date>.json` (uma linha por categoria: ferramenta, status, métricas, duração) e a tabela `reports/verification/<date>.md` renderizada diretamente a partir dele.
+
 ## Perguntas frequentes
+
+### Quanto overhead isso adiciona, e o que acontece sob alta concorrência?
+
+Não afirmamos "overhead zero" — veja [Performance](#performance) acima para os números datados que esta resposta resume (2026-09-07, Node 22, o container deste repositório): com o tracing ativo mas em `level: 'off'`, uma chamada custa da ordem de **0,1 µs** a mais que a chamada não traçada; com detalhe completo (parâmetros e valores de retorno renderizados), custa **~10 µs**. O que o NarrativeTrace em si adiciona é a captura — interceptar a chamada, ler os argumentos, construir a árvore de trace. Tudo depois da captura (a escrita em disco, o collector, o salto de rede) é o mesmo custo que seu sistema de logging já paga; o NarrativeTrace não adiciona um segundo destino. Para uma equipe substituindo chamadas manuais a `console.log`/`logger.debug`, o lado do destino fica quase no zero a zero: N escritas de log por método viram uma escrita de trace, e essas instruções deixam de ser escritas, revisadas e mantidas sincronizadas com o código.
+
+Sob concorrência, os dois caminhos do `DualPathPipeline` padrão têm garantias diferentes. Um listener síncrono, se você conectar um (enviando eventos para winston/pino, por exemplo), roda em linha sobre a própria execução de quem chama, então é exatamente tão durável — e custa exatamente o mesmo — quanto sua chamada de logger atual. O caminho com buffer de análise, o que alimenta `captureTrace()`, é um anel de tamanho fixo (65.536 eventos por padrão, dimensionável por contexto — veja [Guia de configuração § 8](documentation/pt-BR/guia-de-configuracao.md#8-buffer-do-pipeline-de-eventos-bufferedeventconsumer)) esvaziado por um timer. Ele nunca bloqueia quem chama: ao atingir a capacidade, sobrescreve o evento não drenado mais antigo e o **conta** em `overflowCount()` em vez de descartá-lo silenciosamente, então uma sobrecarga sustentada fica visível, não é algo a ser adivinhado.
+
+**O limite honesto:** hoje não existe sampling (amostragem) nesta implementação, nem em nenhuma implementação do NarrativeTrace — toda chamada traçada é capturada por completo no nível configurado. Um amostrador por porcentagem ou por taxa está no roadmap, não foi lançado. Se você precisa limitar o volume de captura hoje, restrinja o escopo traçado ao limite que importa ou baixe o caminho quente para `level: 'off'`/`'errors'`.
+
+### Como sei que um parâmetro com PII ou credenciais não vai vazar em um trace?
+
+Quatro camadas independentes, não uma única promessa geral — veja [Privacidade e ocultação](documentation/pt-BR/privacidade-e-ocultacao.md) para o contrato linha a linha verificado contra o código:
+
+1. **`@notTraced(i)` em um parâmetro / `static notTraced = [...]` em uma classe** — ocultação explícita que você controla, por índice ou por nome de campo. Isso sempre vence, mesmo se algo mais no seu stack chamar o renderizador de baixo nível com a ocultação desligada.
+2. **Uma lista de negação por nome, sempre ativa e multilíngue** — todo caminho de captura compara nomes de campos e parâmetros contra padrões como `password`, `secret`, `token`, `ssn`, `cvv`, `apikey`, `cardNumber`, `passphrase`, `bearer`, `taxId`, mais os equivalentes em português (`senha`, `cpf`, `cnpj`), espanhol (`contraseña`, `dni`, `rut`), alemão (`passwort`, `kennwort`) e chinês (`密码`, `身份证`). Está ativa por padrão, não é opcional, e os padrões mais propensos a falsos positivos correspondem nos limites do token identificador — `panelId` e `circuitBreaker` não são capturados por `pan`/`cuit`.
+3. **Correspondência pela forma do valor, independente do nome do campo** — uma string com forma de JWT, um número de cartão válido por Luhn, um valor com forma de `Set-Cookie`, ou um dígito verificador ou regra estrutural de identidade nacional (RUT chileno, CPF/CNPJ brasileiro, DNI/NIE espanhol, NIR francês, carteira de identidade de residente chinesa, ou um número do Social Security dos EUA com hífens — a única exceção sem dígito verificador, em que as faixas de área/grupo/série nunca emitidas pela SSA fazem esse papel) é ocultado mesmo que chegue sob um nome inocente como `data` ou `value`.
+4. **Ainda não há um modo estrutural sem valores nesta implementação.** Algumas implementações do NarrativeTrace distribuem um artefato tipo `.nt` que carrega o grafo de chamadas e as formas, mas zero valores em tempo de execução — a garantia categórica para um contexto onde nenhum valor pode sair do processo, como entregar um trace a uma ferramenta de IA externa. O TypeScript ainda não construiu isso ([por que](documentation/pt-BR/o-que-commitar.md#por-que-ainda-não-há-uma-linha-approvednt-aqui)); até que exista, trate cada artefato que esta implementação gera como portador de valores reais, protegido pelas três camadas acima.
+
+Seja preciso sobre o limite: a correspondência por nome e por forma é heurística e extensível — os padrões são adicionados à medida que lacunas são encontradas, e sempre podem deixar passar uma que ninguém nomeou ainda. Não é a garantia categórica que o modo sem valores é. Se o seu modelo de ameaça exige "nenhum valor pode jamais sair do processo", essa exigência não é atendida por esta implementação hoje.
+
+### Os IDs de trace podem se correlacionar com um ID de correlação padrão entre serviços, ou o tracing é só local?
+
+Podem, pelo mesmo mecanismo que o próprio OpenTelemetry usa: o [`traceparent`](https://www.w3.org/TR/trace-context/) da W3C. `parseTraceparent()` lê um cabeçalho de entrada e continua o trace anterior; `formatTraceparent()` (core) e o `tracedFetch()`/`traceInterceptor` das integrações de navegador/Angular o estampam nas requisições de saída. O ID de trace que o NarrativeTrace gera já nasce no formato W3C (32 caracteres hexadecimais minúsculos), então é o mesmo ID que seu collector OTel ou middleware de ID de correlação já entende — não há nada para reconciliar à parte. A integração [`opentelemetry`](documentation/pt-BR/guia-de-funcionalidades.md) também exporta os spans do NarrativeTrace com atributos tipados `narrative.param.*`, e o exemplo de tracing distribuído do [Guia de exemplos](documentation/examples-guide.md) roda vários serviços compartilhando um único `traceId` de ponta a ponta.
+
+O que fica local: a árvore narrativa em si — as chamadas de método aninhadas, os argumentos, a narração — é capturada por processo e não é enviada a outros serviços; só o ID de trace é. Um serviço downstream produz sua própria árvore narrativa correlacionada com esse mesmo ID, não uma única árvore combinada entre serviços.
 
 ### Como funciona a serialização de valores?
 

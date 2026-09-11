@@ -43,9 +43,11 @@ test("the successful borrow prints tree, prose and Mermaid with named parameters
   expect(first).toContain(
     'LendingService.borrowBook(memberId: "M-001", isbn: "978-0-13-468599-1")',
   );
-  expect(first).toContain(
-    'MemberService.lookupMember(memberId: "M-001", cardNumber: "CARD-VERIFY")',
-  );
+  // cardNumber is redacted by name alone (RedactionPolicy's always-on deny-list matches the
+  // "cardnumber" pattern against the paramNames-supplied name) — no @notTraced decorator
+  // involved, and the raw verification token must never appear in any rendered output.
+  expect(first).toContain('MemberService.lookupMember(memberId: "M-001", cardNumber: [REDACTED])');
+  expect(first).not.toContain("CARD-VERIFY");
   expect(first).toContain("Received: ");
   expect(captured.get("Scenario 1: Successful Book Borrow")?.roots).toHaveLength(1);
 });

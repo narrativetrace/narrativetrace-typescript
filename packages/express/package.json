@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/express",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Express middleware that traces each request into a readable narrative",
   "license": "BUSL-1.1",
   "repository": {

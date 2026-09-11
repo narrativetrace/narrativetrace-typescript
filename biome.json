@@ -17,6 +17,7 @@
       "!.claude",
       "!.tools-cache",
       "!**/.tools-cache",
+      "!.verify-all-logs",
       "!packages/security-tests/hostile-corpus"
     ]
   },

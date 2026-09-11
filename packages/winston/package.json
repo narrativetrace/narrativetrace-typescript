@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/winston",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Streams NarrativeTrace method-call events into a Winston logger as structured, per-event log lines",
   "license": "BUSL-1.1",
   "repository": {

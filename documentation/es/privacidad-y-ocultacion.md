@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 33ca5ffa478b | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 695063750075 | translated: 2026-09-10 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -14,35 +14,64 @@ frente a lo que no promete en absoluto. Verificado línea por línea contra el c
 
 | Superficie | ¿Se puede desactivar la ocultación integrada? |
 |---|---|
-| `traceObject()` (proxy) — la única vía de captura sobre la que se construye cada integración de abajo | No |
+| `traceObject()` (proxy) — la vía de captura sobre la que se construyen `express`, `hono`, `angular` y `react` | No |
+| `AutoProxyModule` (`@narrativetrace/nestjs`) — su propia vía de captura separada, que muta el prototipo, *no* construida sobre `traceObject()` (ver la nota abajo) | No |
 | Fixture de Vitest (`createNarrativeTest`/`narrativeTest`) | No |
-| Middleware de Express / Hono / NestJS | No |
-| Integraciones de Angular / React | No |
 | Una llamada personalizada a `renderValue()`/`renderStructured()` que tu propio código haga directamente | Sí — solo pasando `{ redactionPolicy: RedactionPolicy.DISABLED }` explícitamente, y aun así `@notTraced`/`static notTraced` siguen ocultando (ver más abajo) |
 | `@notTraced` / `static notTraced` | No aplica — es lo que provoca la ocultación, y siempre gana, en todas las superficies, incluso en un renderizador con `RedactionPolicy.DISABLED` |
 
-Verificado contra el código, no inferido: `traceObject()` — la única vía de
-captura sobre la que se construye cada integración distribuida (`express`,
-`hono`, `nestjs`, `angular`, `react`, `vitest`, …) — nunca propaga una
-opción `redactionPolicy` desde el llamador. La opción `redactionPolicy`
-solo existe en las funciones de renderizado de bajo nivel
-(`renderValue`/`renderStructured` en `@narrativetrace/core`), y ninguna de
-las integraciones distribuidas expone una forma de sobrescribirla. La única
-manera de llegar a `RedactionPolicy.DISABLED` es que el código de la
-aplicación llame directamente a esas funciones — un acto deliberado y
-revisable en tu propio código fuente, nunca un flag de configuración ni una
-variable de entorno que un despliegue pueda cambiar.
+Verificado contra el código, no inferido: `traceObject()` es la vía de
+captura sobre la que se construyen `express`, `hono`, `angular` y `react` —
+nunca propaga una opción `redactionPolicy` desde el llamador. El fixture de
+Vitest (`createNarrativeTest`/`narrativeTest`) aparece como su propia fila
+arriba porque es un punto de entrada distinto — un proveedor de
+`NarrativeContext`, no una vía de captura en sí — así que su garantía de
+ocultación es la que aporte el mecanismo de captura con el que envuelvas
+dentro del test (normalmente `traceObject()`, a veces `AutoProxyModule` en
+un test de NestJS), nunca un tercer comportamiento propio.
+**El `AutoProxyModule` de `@narrativetrace/nestjs` es una vía de captura
+separada, hecha a mano (`wrapPrototypeMethods`), no un envoltorio sobre
+`traceObject()`** — muta directamente el prototipo de cada provider
+auto-envuelto en lugar de proxear una instancia, porque NestJS necesita que
+se trace cada instancia que crea su contenedor de DI, no un solo objeto
+envuelto a mano. Las dos vías comparten el almacenamiento del decorador
+`@notTraced` (trasladado a `@narrativetrace/core` justamente por esto) pero
+no los *nombres* de sus parámetros capturados: `wrapPrototypeMethods` no
+tiene metadatos de decorador/reflexión para recuperar el nombre real de un
+parámetro a partir de un método de prototipo crudo, así que ahí todo
+parámetro se representa como `arg0`, `arg1`, …, un nombre que la lista de
+denegación por NOMBRE, siempre activa, nunca puede igualar.
+**Esto es una limitación estructural, no un error que se vaya a corregir
+después:** JavaScript no expone los nombres de los parámetros en tiempo de
+ejecución sin metadatos al estilo `@traced` que la vía de auto-envoltorio
+no tiene. `@notTraced(i)` (ocultación por índice) y la ocultación por forma
+del valor (un JWT, un número de tarjeta válido según Luhn, una cadena
+`Set-Cookie`, o un dígito verificador o regla estructural de identidad
+nacional — independientes del nombre) sí protegen un parámetro
+auto-envuelto de NestJS; el eje basado en el nombre, por sí solo, no puede.
+La opción `redactionPolicy` solo existe en las funciones de renderizado de
+bajo nivel (`renderValue`/`renderStructured` en `@narrativetrace/core`), y
+ninguna de las integraciones distribuidas expone una forma de
+sobrescribirla. La única manera de llegar a `RedactionPolicy.DISABLED` es
+que el código de la aplicación llame directamente a esas funciones — un
+acto deliberado y revisable en tu propio código fuente, nunca un flag de
+configuración ni una variable de entorno que un despliegue pueda cambiar.
 
 ## Qué oculta, y qué prevalece sobre qué
 
 Tres mecanismos independientes se aplican a cada valor capturado o
 renderizado:
 
-1. **`@notTraced(i)`** en un parámetro de método — el *llamador*
-   (el constructor del mapa de valores de `traceObject`) sustituye el
-   marcador `[REDACTED]` antes de que se resuelva cualquier plantilla de
-   narración o de error, de modo que el resolutor de plantillas nunca llega
-   a tener el secreto para esta superficie.
+1. **`@notTraced(i)`** en un parámetro de método, por índice — bajo
+   `traceObject()`, el *llamador* (su constructor del mapa de valores)
+   sustituye el marcador `[REDACTED]` antes de que se resuelva cualquier
+   plantilla de narración o de error, de modo que el resolutor de
+   plantillas nunca llega a tener el secreto para esta superficie. Bajo el
+   `AutoProxyModule` de NestJS no hay ninguna superficie de
+   narración/plantilla que proteger (esa integración no lee
+   `@narrated`/`@onError`), pero el mismo decorador sigue ocultando el
+   propio argumento capturado, leyendo el mismo almacenamiento que lee
+   `traceObject()` (ver la nota de superficie por superficie arriba).
 2. **`static notTraced = [...]`** en una clase — ocultación por nombre de
    campo para la introspección de objetos y para las rutas de plantilla
    `{param.property}`. Esta comprobación es independiente de qué
@@ -54,28 +83,43 @@ renderizado:
    forma del valor.
 3. **La lista de denegación basada en nombre** (`RedactionPolicy.DEFAULT`)
    — una coincidencia de subcadena sin distinguir mayúsculas/minúsculas ni
-   acentos contra nombres de campo (`password`, `secret`, `token`,
-   `apikey`, `cvv`, `ssn`, `authorization`, `credential`, `cardnumber`,
-   `jwt`, `cookie`, `sessionid`, `accountnumber`, `routingnumber`, `pan`,
-   `iban`, y sus formas en `snake_case`), más una segunda comprobación
-   independiente sobre la *forma* del propio valor — un JWT (`eyJ…`), un
-   número de tarjeta válido según Luhn, o una cadena con forma de
-   `Set-Cookie` — de modo que un valor sin nombre (un elemento de lista,
-   un valor de mapa) o un token bearer bajo un nombre no reconocido se
-   sigue atrapando. El vocabulario por defecto es **multilingüe y siempre
-   activo** (el estándar de la familia, compartido con los demás runtimes
-   de NarrativeTrace): el español (`contraseña`, `tarjeta`, `cédula`,
-   `claveAcceso`, `rut`, `cuit`, `dni`), el portugués (`senha`, `cartão`,
-   `cpf`, `cnpj`), el francés (`motDePasse`, `carteBancaire`, `nir`) y el
-   chino (`密码`, `身份证`, más el pinyin `mima`/`shenfenzheng`) están
-   junto a los patrones en inglés, sin ningún locale que seleccionar —
-   las grafías con y sin acento se pliegan a un único patrón.
-   `"companyName"`/`"panelId"` no coinciden con `pan` — los diez patrones
-   más propensos a falsos positivos (`pan`, `iban`, `rut`, `cuit`, `dni`,
-   `senha`, `cpf`, `cnpj`, `nir`, `mima`) coinciden en los límites de
-   token del identificador, no por subcadena a secas, de modo que
-   `truthValue`, `circuitBreaker`, `chosenHash` y `semiMajorAxis` siguen
-   visibles mientras que `rutCliente` y `senhaUsuario` quedan ocultos.
+   acentos contra nombres de campo **y de parámetro** (`password`,
+   `secret`, `token`, `apikey`, `cvv`, `ssn`, `authorization`,
+   `credential`, `cardnumber`, `jwt`, `cookie`, `sessionid`,
+   `accountnumber`, `routingnumber`, `passphrase`, `bearer`, `accesskey`,
+   `socialsecurity`, `taxid`, `pan`, `iban`, y sus formas en `snake_case`),
+   más una segunda comprobación independiente sobre la *forma* del propio
+   valor — un JWT (`eyJ…`), un número de tarjeta válido según Luhn, una
+   cadena con forma de `Set-Cookie`, o un dígito verificador o regla
+   estructural de identidad nacional (RUT chileno, CPF/CNPJ brasileño,
+   DNI/NIE español, NIR francés, cédula de residente china, o un número
+   de la Seguridad Social de EE. UU. con guiones `AAA-GG-SSSS` — la única
+   excepción sin dígito verificador, donde los tramos de área/grupo/serie
+   nunca emitidos por la SSA lo sustituyen) — de modo que un
+   valor sin nombre (un elemento de lista, un valor de mapa) o un token
+   bearer bajo un nombre no
+   reconocido se sigue atrapando. **La mitad de este eje basada en el
+   parámetro solo se aplica bajo `traceObject()`** — un parámetro
+   simplemente *nombrado* como un secreto (`paymentToken`, `password`) se
+   oculta sin ningún decorador, exactamente igual que un nombre de campo.
+   Bajo el `AutoProxyModule` de NestJS todo parámetro se captura como
+   `arg0`, `arg1`, … (ver la nota de superficie por superficie arriba), así
+   que esta mitad del eje no puede alcanzarlo — ahí solo `@notTraced` y la
+   comprobación de forma del valor pueden. El vocabulario por defecto es
+   **multilingüe y siempre activo** (el estándar de la familia, compartido
+   con los demás runtimes de NarrativeTrace): el español (`contraseña`,
+   `tarjeta`, `cédula`, `claveAcceso`, `rut`, `cuit`, `dni`), el portugués
+   (`senha`, `cartão`, `cpf`, `cnpj`), el francés (`motDePasse`,
+   `carteBancaire`, `nir`), el alemán (`passwort`, `kennwort`) y el chino
+   (`密码`, `身份证`, más el pinyin `mima`/`shenfenzheng`) están junto a los
+   patrones en inglés, sin ningún locale que seleccionar — las grafías con
+   y sin acento se pliegan a un único patrón. `"companyName"`/`"panelId"`
+   no coinciden con `pan` — los patrones más propensos a falsos positivos
+   (`pan`, `iban`, `otp`, `rut`, `cuit`, `dni`, `senha`, `cpf`, `cnpj`,
+   `nir`, `mima`) coinciden en los límites de token del identificador, no
+   por subcadena a secas, de modo que `truthValue`, `circuitBreaker`,
+   `chosenHash`, `semiMajorAxis` y `carbonFootprintId` siguen visibles
+   mientras que `rutCliente`, `senhaUsuario` y `otpCode` quedan ocultos.
 
 Un **`toString()` cuidado** normalmente se respeta tal como está escrito —
 pero una clase que declara cualquier campo `static notTraced` se

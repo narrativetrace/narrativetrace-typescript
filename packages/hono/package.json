@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/hono",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Hono middleware that opens a per-request trace and reports on completion, even when the handler throws",
   "license": "BUSL-1.1",
   "repository": {

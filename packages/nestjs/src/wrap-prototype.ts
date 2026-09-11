@@ -2,8 +2,11 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import {
+  getRedactedParams,
   isThenable,
   parameterCapture,
+  RedactionPolicy,
+  renderCapture,
   renderValue,
   type SpanId,
   type SyncNarrativeContext,
@@ -66,18 +69,37 @@ function exitSync(ctx: SyncNarrativeContext, result: unknown, handle: SpanId) {
   return result;
 }
 
+// A secret that is formatted and then discarded still existed as a string — the redaction
+// decision is made before rendering, not after (mirrors proxy's trace-object.ts buildCaptures and
+// Swift's TracedCall.swift). Name-based redaction is NOT attempted here, deliberately: this
+// auto-wrap runs against the raw prototype method with no parameter-name metadata of its own, so
+// every parameter renders as `argN` — a name the always-on NAME deny-list can never match. Only
+// the explicit @notTraced index and this runtime's independent value-shape axis (inside
+// renderCapture/renderValue) can protect a NestJS auto-wrapped parameter — which makes value-shape
+// the ONLY axis that can ever flag a capture built here; see documentation/privacy-and-redaction.md
+// for the user-facing statement of that limitation.
+function buildCaptures(original: Function, args: unknown[]) {
+  const redacted = getRedactedParams(original);
+  return args.map((a, i) => {
+    const nameAxisRedacted = redacted?.has(i) ?? false;
+    if (nameAxisRedacted) return parameterCapture(`arg${i}`, RedactionPolicy.MARKER, true);
+    const { rendered, shapeRedacted } = renderCapture(a);
+    return parameterCapture(`arg${i}`, rendered, shapeRedacted);
+  });
+}
+
 // Best-effort by construction: any failure while rendering parameters or entering the span
 // (including a custom NarrativeContext.enterMethod) must degrade to an untraced call, never block
 // the business method from running at all (no-poison contract).
 function buildEntry(
   ctx: SyncNarrativeContext,
+  original: Function,
   args: unknown[],
   className: string,
   methodName: string,
 ): SpanId | undefined {
   try {
-    const captures = args.map((a, i) => parameterCapture(`arg${i}`, renderValue(a), false));
-    return ctx.enterMethod(className, methodName, captures);
+    return ctx.enterMethod(className, methodName, buildCaptures(original, args));
   } catch {
     return undefined;
   }
@@ -91,7 +113,7 @@ function tracedCall(
   className: string,
   methodName: string,
 ) {
-  const handle = buildEntry(ctx, args, className, methodName);
+  const handle = buildEntry(ctx, original, args, className, methodName);
   if (handle === undefined) return Reflect.apply(original, self, args);
   try {
     const result = ctx.runScoped(handle, () => Reflect.apply(original, self, args));

@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 6eb6ea48f177 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 81f0dafd3c08 | translated: 2026-09-10 | reviewed: - -->
 # Guia de Integração de Frameworks do NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | [Español](../es/guia-de-integracion-de-frameworks.md) | **Português** | [简体中文](../zh-CN/框架集成指南.md)
@@ -354,7 +354,7 @@ export class LegacyService {}
 
 ### Como funciona
 
-- `AutoProxyModule` é um módulo global: ele encapsula os providers registrados em proxies `traceObject()` e abre um novo contexto por requisição.
+- `AutoProxyModule` é um módulo global: ele abre um novo contexto por requisição e encapsula os métodos do prototype de cada provider registrado com seu próprio caminho de captura (`wrapPrototypeMethods`) — uma implementação separada, que muta o prototype, distinta do `traceObject()` do `@narrativetrace/proxy`, não um wrapper leve sobre ele. Todo parâmetro capturado aqui é renderizado como `arg0`, `arg1`, …: esse caminho não tem metadados de decorator/reflexão para recuperar os nomes reais dos parâmetros, então a lista de negação por NOME (sempre ativa, que compara *nomes*) não consegue proteger um parâmetro auto-encapsulado. `@notTraced(i)` (do `@narrativetrace/proxy`) continua funcionando, e a correspondência pela forma do valor (um JWT, um número de cartão, um dígito verificador de identidade nacional, uma string `Set-Cookie`) continua se aplicando independente do nome — veja [Privacidade e ocultação § superfície por superfície](privacidade-e-ocultacao.md) para a declaração completa dessa limitação.
 - Ele exporta `NarrativeStorage`, o mantenedor do contexto por requisição — injete-o onde você precisar de acesso direto ao contexto atual.
 - `@NoAutoProxy()` marca um provider individual para ser ignorado pela passagem de auto-proxy.
 - Após cada requisição, `onRequestComplete(ctx, { statusCode, durationMs, tree })` dispara com a `tree` capturada, permitindo que você renderize, exporte ou encaminhe a narrativa. Uma requisição capturada produz uma única árvore de trace abrangendo todas as chamadas de serviço proxeadas feitas durante o tratamento dessa requisição.

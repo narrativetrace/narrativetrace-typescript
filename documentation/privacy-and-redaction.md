@@ -10,32 +10,58 @@ at all. Verified line-by-line against the code on 2026-09-02, not inferred from 
 
 | Surface | Can disable built-in redaction? |
 |---|---|
-| `traceObject()` (proxy) — the one capture path every integration below is built on | No |
+| `traceObject()` (proxy) — the capture path `express`, `hono`, `angular` and `react` are built on | No |
+| `AutoProxyModule` (`@narrativetrace/nestjs`) — its own separate, prototype-mutating capture path, *not* built on `traceObject()` (see note below) | No |
 | Vitest fixture (`createNarrativeTest`/`narrativeTest`) | No |
-| Express / Hono / NestJS middleware | No |
-| Angular / React integrations | No |
 | A custom call to `renderValue()`/`renderStructured()` your own code makes directly | Yes — only by passing `{ redactionPolicy: RedactionPolicy.DISABLED }` explicitly, and even then `@notTraced`/`static notTraced` still redact (see below) |
 | `@notTraced` / `static notTraced` | Not applicable — it is the thing doing the redacting, and it always wins, on every surface, including a `RedactionPolicy.DISABLED` renderer |
 
-Verified against the code, not inferred: `traceObject()` — the single
-capture path every shipped integration (`express`, `hono`, `nestjs`,
-`angular`, `react`, `vitest`, …) is built on — never threads a
-`redactionPolicy` option through from the caller. The `redactionPolicy`
-option exists only on the low-level rendering functions
-(`renderValue`/`renderStructured` in `@narrativetrace/core`), which none of
-the shipped integrations expose a way to override. The only way to reach
-`RedactionPolicy.DISABLED` is application code calling those functions
-directly — a deliberate, reviewable act in your own source, never a
-configuration flag or environment variable a deploy can flip.
+Verified against the code, not inferred: `traceObject()` is the capture
+path `express`, `hono`, `angular` and `react` are built on — it never
+threads a `redactionPolicy` option through from the caller. The Vitest
+fixture (`createNarrativeTest`/`narrativeTest`) is listed as its own row
+above because it is a distinct entry point — a `NarrativeContext` provider,
+not a capture path in its own right — so its redaction guarantee is
+whichever capture mechanism the test wraps with inside it (typically
+`traceObject()`, sometimes `AutoProxyModule` in a NestJS test), never a
+third behavior of its own. **`@narrativetrace/nestjs`'s `AutoProxyModule` is
+a separate,
+hand-rolled capture path (`wrapPrototypeMethods`), not a wrapper over
+`traceObject()`** — it mutates each auto-wrapped provider's prototype
+directly rather than proxying an instance, because NestJS needs every
+instance a DI container creates traced, not one object wrapped by hand. The
+two paths share the `@notTraced` decorator's storage (moved into
+`@narrativetrace/core` for exactly this reason) but not its captured
+parameter *names*: `wrapPrototypeMethods` has no decorator/reflection
+metadata to recover a real parameter name from a raw prototype method, so
+every parameter renders as `arg0`, `arg1`, … there, a name the always-on
+NAME deny-list can never match. **This is a structural limitation, not a
+bug to be fixed later:** JavaScript does not expose parameter names at
+runtime without `@traced`-style metadata the auto-wrap path does not have.
+`@notTraced(i)` (redaction by index) and value-shape masking (a JWT, a
+Luhn-valid card number, a national-ID checksum or structural rule, a
+`Set-Cookie` string — independent of name) still protect a NestJS
+auto-wrapped parameter; the name-based axis alone cannot.
+The `redactionPolicy` option exists only on the low-level rendering
+functions (`renderValue`/`renderStructured` in `@narrativetrace/core`),
+which none of the shipped integrations expose a way to override. The only
+way to reach `RedactionPolicy.DISABLED` is application code calling those
+functions directly — a deliberate, reviewable act in your own source, never
+a configuration flag or environment variable a deploy can flip.
 
 ## What redacts, and what outranks what
 
 Three independent mechanisms apply to every captured/rendered value:
 
-1. **`@notTraced(i)`** on a method parameter — the *caller*
-   (`traceObject`'s value-map builder) substitutes the `[REDACTED]` marker
-   before a narration/error template ever resolves, so the template
-   resolver never holds the secret for this surface.
+1. **`@notTraced(i)`** on a method parameter, by index — under
+   `traceObject()`, the *caller* (its value-map builder) substitutes the
+   `[REDACTED]` marker before a narration/error template ever resolves, so
+   the template resolver never holds the secret for this surface. Under
+   NestJS's `AutoProxyModule` there is no narration/template surface to
+   protect (that integration does not read `@narrated`/`@onError`), but the
+   same decorator still redacts the captured argument itself, reading the
+   same storage `traceObject()` reads (see the surface-by-surface note
+   above).
 2. **`static notTraced = [...]`** on a class — field-name redaction for
    object introspection and for `{param.property}` template paths. This
    check is independent of which `RedactionPolicy` is active: the "was this
@@ -44,26 +70,40 @@ Three independent mechanisms apply to every captured/rendered value:
    annotation redacts even under a policy that has every name pattern and
    value-shape check turned off.
 3. **The name-based deny-list** (`RedactionPolicy.DEFAULT`) — a case- and
-   accent-insensitive substring match against field names (`password`,
-   `secret`, `token`, `apikey`, `cvv`, `ssn`, `authorization`, `credential`,
-   `cardnumber`, `jwt`, `cookie`, `sessionid`, `accountnumber`,
-   `routingnumber`, `pan`, `iban`, and their `snake_case` spellings), plus a
-   second, independent check on the *shape* of the value itself — a JWT
-   (`eyJ…`), a Luhn-valid card number, or a `Set-Cookie`-shaped string — so
-   an unnamed value (a list item, a map value) or a bearer token under an
-   unrecognized name is still caught. The default vocabulary is
-   **multilingual and always on** (the family standard, shared with the
-   other NarrativeTrace runtimes): Spanish (`contraseña`, `tarjeta`,
-   `cédula`, `claveAcceso`, `rut`, `cuit`, `dni`), Portuguese (`senha`,
-   `cartão`, `cpf`, `cnpj`), French (`motDePasse`, `carteBancaire`, `nir`)
-   and Chinese (`密码`, `身份证`, plus the pinyin `mima`/`shenfenzheng`) sit
-   beside the English patterns, with no locale to select — accented and
-   unaccented spellings fold to one pattern. `"companyName"`/`"panelId"` do
-   not match `pan` — the ten patterns most prone to false positives (`pan`,
-   `iban`, `rut`, `cuit`, `dni`, `senha`, `cpf`, `cnpj`, `nir`, `mima`)
-   match on identifier-token boundaries, not bare substring, so
-   `truthValue`, `circuitBreaker`, `chosenHash` and `semiMajorAxis` stay
-   visible while `rutCliente` and `senhaUsuario` are hidden.
+   accent-insensitive substring match against field **and parameter**
+   names (`password`, `secret`, `token`, `apikey`, `cvv`, `ssn`,
+   `authorization`, `credential`, `cardnumber`, `jwt`, `cookie`,
+   `sessionid`, `accountnumber`, `routingnumber`, `passphrase`, `bearer`,
+   `accesskey`, `socialsecurity`, `taxid`, `pan`, `iban`, and their
+   `snake_case` spellings), plus a second, independent check on the *shape*
+   of the value itself — a JWT (`eyJ…`), a Luhn-valid card number, a
+   `Set-Cookie`-shaped string, or a national-ID checksum or structural
+   rule (Chilean RUT, Brazilian CPF/CNPJ, Spanish DNI/NIE, French NIR,
+   Chinese resident id, or a dashed US Social Security number
+   `AAA-GG-SSSS` — the one scheme with no checksum, so the SSA's own
+   never-issued area/group/serial ranges stand in for one) — so an
+   unnamed value (a list item, a map value) or a bearer token under an
+   unrecognized name is still caught.
+   **The parameter half of this axis applies under `traceObject()` only**
+   — a parameter merely *named* like a secret (`paymentToken`, `password`)
+   is redacted with no decorator anywhere, exactly like a field name is.
+   Under NestJS's `AutoProxyModule` every parameter is captured as `arg0`,
+   `arg1`, … (see the surface-by-surface note above), so this half of the
+   axis cannot reach it — only `@notTraced` and the value-shape check can,
+   there. The default vocabulary is **multilingual and always on** (the
+   family standard, shared with the other NarrativeTrace runtimes): Spanish
+   (`contraseña`, `tarjeta`, `cédula`, `claveAcceso`, `rut`, `cuit`, `dni`),
+   Portuguese (`senha`, `cartão`, `cpf`, `cnpj`), French (`motDePasse`,
+   `carteBancaire`, `nir`), German (`passwort`, `kennwort`) and Chinese
+   (`密码`, `身份证`, plus the pinyin `mima`/`shenfenzheng`) sit beside the
+   English patterns, with no locale to select — accented and unaccented
+   spellings fold to one pattern. `"companyName"`/`"panelId"` do not match
+   `pan` — the patterns most prone to false positives (`pan`, `iban`, `otp`,
+   `rut`, `cuit`, `dni`, `senha`, `cpf`, `cnpj`, `nir`, `mima`) match on
+   identifier-token boundaries, not bare substring, so `truthValue`,
+   `circuitBreaker`, `chosenHash`, `semiMajorAxis` and `carbonFootprintId`
+   stay visible while `rutCliente`, `senhaUsuario` and `otpCode` are
+   hidden.
 
 A **curated `toString()`** is normally trusted as written — but a class that
 declares any `static notTraced` field is introspected field-by-field

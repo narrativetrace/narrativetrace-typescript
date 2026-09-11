@@ -1,4 +1,4 @@
-<!-- source: documentation/decorators-guide.md blob 3842d177e3d5 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob 306e8a1c91e4 | translated: 2026-09-10 | reviewed: - -->
 
 # Guía de decoradores de NarrativeTrace para TypeScript
 
@@ -90,7 +90,15 @@ Esto es equivalente a `@traced`, pero funciona sin ningún soporte de decoradore
 
 ## `@narrated`
 
-Usa `@narrated` en los métodos cuando quieras una frase explícita en la traza en lugar de depender solo del nombre del método + los parámetros.
+`@narrated` es una válvula de escape, no la forma estándar de añadir
+narración — el camino por defecto se deriva enteramente del propio nombre
+del método, sus parámetros y su resultado. Recurrir a una plantilla es una
+señal, la misma que la puntuación de claridad existe para detectar: significa
+que el código no está diciendo por sí mismo lo que hace. Antes de escribir
+una, pregúntate si el nombre del método es el problema real — un nombre
+mejor arregla cada traza que pase por ese método, no solo esta línea.
+
+Úsalo, deliberadamente, en los métodos cuando quieras una frase explícita en la traza en lugar de depender solo del nombre del método + los parámetros.
 
 ```ts
 import { narrated } from "@narrativetrace/proxy";
@@ -183,6 +191,17 @@ Cómo funciona:
 - El proxy renderiza los parámetros ocultos como `[REDACTED]` en la salida de la traza.
 - `ParameterCapture.redacted` se establece en `true` para los parámetros ocultos.
 - Se pueden ocultar varios índices: `@notTraced(1, 2)`.
+- **`@notTraced` no es la única forma en que un parámetro se oculta.** El propio *nombre* de cada
+  parámetro capturado también se compara contra la lista de denegación por nombre de
+  `RedactionPolicy` bajo `traceObject()`, exactamente igual que un nombre de campo de objeto —
+  `pay(policyId, paymentToken)` oculta `paymentToken` sin ningún decorador, porque `token` está en
+  la lista de denegación. `@notTraced` sigue siendo importante para un parámetro cuyo nombre no da
+  ninguna pista (`pay(id, value)` donde `value` es un secreto). Esta mitad basada en el nombre del
+  eje es específica de `traceObject()` (proxy); el auto-envoltorio `AutoProxyModule` de NestJS no
+  tiene forma de recuperar el nombre real de un parámetro (todo parámetro se representa como
+  `arg0`, `arg1`, …), así que ahí solo `@notTraced` y la ocultación por forma del valor protegen un
+  parámetro — consulta [Privacidad y ocultación](privacidad-y-ocultacion.md) para la declaración
+  completa.
 - Para **campos de objeto**, declara un campo estático de la clase: `static notTraced = ["pan", "secret"]`
   — esas propiedades se renderizan como `[REDACTED]` durante la introspección, independientemente de la
   lista de denegación basada en nombres de `RedactionPolicy` (que ya cubre `password`, `token`, `ssn`,

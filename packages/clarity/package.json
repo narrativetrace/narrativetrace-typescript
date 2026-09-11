@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/clarity",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Scores the naming quality of a captured trace, since trace quality is code quality",
   "license": "BUSL-1.1",
   "repository": {

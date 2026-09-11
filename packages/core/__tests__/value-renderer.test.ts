@@ -4,7 +4,7 @@
 import * as fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { RedactionPolicy } from "../src/redaction-policy.js";
-import { renderValue } from "../src/value-renderer.js";
+import { renderCapture, renderValue } from "../src/value-renderer.js";
 
 describe("renderValue", () => {
   describe("happy path", () => {
@@ -484,5 +484,47 @@ describe("renderValue", () => {
       expect(() => renderValue(new Hostile())).not.toThrow();
       expect(renderValue(new Hostile())).toBe("{}");
     });
+  });
+});
+
+// The capture-oriented seam both `traceObject()` (packages/proxy) and `wrapPrototypeMethods`
+// (packages/nestjs) call to decide `ParameterCapture.redacted` for the value-shape axis, without
+// inferring it by comparing the rendered string to the marker (family-wide ruling 2026-09-10 —
+// see ParameterCapture.redacted's own doc comment for the full contract).
+describe("renderCapture", () => {
+  const jwt =
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+
+  test("a JWT-shaped top-level string sets shapeRedacted and renders the marker", () => {
+    const result = renderCapture(jwt);
+    expect(result.shapeRedacted).toBe(true);
+    expect(result.rendered).toBe(RedactionPolicy.MARKER);
+  });
+
+  test("an ordinary top-level string does not set shapeRedacted", () => {
+    const result = renderCapture("hello");
+    expect(result.shapeRedacted).toBe(false);
+    expect(result.rendered).toBe('"hello"');
+  });
+
+  // The documented boundary: a shape match on a NESTED leaf masks that leaf in text exactly as a
+  // top-level match would, but the parameter as a whole still carries other, unredacted content —
+  // so the flag stays false. The flag is per-parameter; shape matches are per-leaf.
+  test("an object containing a nested JWT does NOT set shapeRedacted (nested-leaf boundary)", () => {
+    const result = renderCapture({ token: jwt, note: "ok" });
+    expect(result.shapeRedacted).toBe(false);
+    expect(result.rendered).toBe(`{"token": ${RedactionPolicy.MARKER}, "note": "ok"}`);
+  });
+
+  test("a non-string top-level value (number, object, array) never sets shapeRedacted", () => {
+    expect(renderCapture(42).shapeRedacted).toBe(false);
+    expect(renderCapture([jwt]).shapeRedacted).toBe(false);
+    expect(renderCapture({ password: "hunter2" }).shapeRedacted).toBe(false);
+  });
+
+  test("rendered output is identical to renderValue's for every case above (no behavior drift)", () => {
+    for (const value of [jwt, "hello", { token: jwt, note: "ok" }, 42, [jwt]]) {
+      expect(renderCapture(value).rendered).toBe(renderValue(value));
+    }
   });
 });

@@ -86,7 +86,14 @@ This is equivalent to `@traced` but works without any decorator support. The sam
 
 ## `@narrated`
 
-Use `@narrated` on methods when you want an explicit sentence in the trace instead of relying only on method name + parameters.
+`@narrated` is an escape hatch, not the standard way to add narration — the
+default path is entirely derived from the method's own name, parameters, and
+outcome. Reaching for a template is a signal, the same kind clarity scoring
+exists to flag: it means the code is not saying what it does on its own.
+Before writing one, consider whether the method name is the real problem —
+a better name fixes every trace through that method, not just this one.
+
+Use it, deliberately, on methods when you want an explicit sentence in the trace instead of relying only on method name + parameters.
 
 ```ts
 import { narrated } from "@narrativetrace/proxy";
@@ -179,6 +186,15 @@ How it works:
 - The proxy renders redacted parameters as `[REDACTED]` in trace output.
 - `ParameterCapture.redacted` is set to `true` for redacted parameters.
 - Multiple indices can be redacted: `@notTraced(1, 2)`.
+- **`@notTraced` is not the only way a parameter gets redacted.** Every captured parameter's own
+  *name* is also checked against the name-based `RedactionPolicy` deny-list under
+  `traceObject()`, exactly like an object field name is — `pay(policyId, paymentToken)` redacts
+  `paymentToken` with no decorator anywhere, because `token` is deny-listed. `@notTraced` still
+  matters for a parameter whose name gives no hint (`pay(id, value)` where `value` is a secret).
+  This name-based half of the axis is specific to `traceObject()` (proxy); NestJS's
+  `AutoProxyModule` auto-wrap has no way to recover a real parameter name at all (every parameter
+  renders as `arg0`, `arg1`, …), so only `@notTraced` and value-shape masking protect a parameter
+  there — see [Privacy and Redaction](privacy-and-redaction.md) for the full statement.
 - For **object fields**, declare a static class field: `static notTraced = ["pan", "secret"]`
   — those properties render `[REDACTED]` during introspection, independent of the
   name-based `RedactionPolicy` deny-list (which already covers `password`, `token`, `ssn`,

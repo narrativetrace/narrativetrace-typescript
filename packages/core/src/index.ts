@@ -63,6 +63,7 @@ export { NOOP_CONTEXT } from "./noop-context.js";
 export { type ParameterCapture, parameterCapture } from "./parameter-capture.js";
 export { PerishableMap } from "./perishable-map.js";
 export { renderProse } from "./prose-renderer.js";
+export { getRedactedParams, registerRedactedParams } from "./redacted-params-registry.js";
 export { RedactionPolicy } from "./redaction-policy.js";
 export {
   type RenderedFields,
@@ -115,4 +116,4 @@ export { type TraceTree, traceTree } from "./trace-tree.js";
 export { formatTraceparent, parseTraceparent } from "./traceparent.js";
 export { isActiveLevel, isEnabled, parseTracingLevel, type TracingLevel } from "./tracing-level.js";
 export { TREE_WALK_MARKER, TreeWalk, type TreeWalkStop, walkPreOrder } from "./tree-walk.js";
-export { type RenderOptions, renderValue } from "./value-renderer.js";
+export { type RenderOptions, renderCapture, renderValue } from "./value-renderer.js";

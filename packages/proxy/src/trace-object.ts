@@ -7,6 +7,7 @@ import {
   NOOP_CONTEXT,
   parameterCapture,
   RedactionPolicy,
+  renderCapture,
   renderStructured,
   renderValue,
   resolveTemplate,
@@ -118,25 +119,55 @@ function paramName(names: string[] | undefined, i: number): string {
   return names?.[i] ?? `arg${i}`;
 }
 
+// The single redaction decision per parameter — an explicit @notTraced index always redacts,
+// and otherwise the same always-on NAME deny-list that already guards object field names decides
+// (RedactionPolicy.isRedacted). Computed once here and threaded into both buildCaptures and
+// buildValueMap so the two can never drift: a parameter named like a secret (`paymentToken`) must
+// be redacted in the capture AND in any @narrated/@onError template that names it, with no
+// decorator required — the two surfaces sharing one decision is the same rule
+// RedactionPolicy.isRedacted's own doc comment states for field introspection.
+function resolveRedactedFlags(
+  args: unknown[],
+  names: string[] | undefined,
+  annotatedIndices: ReadonlySet<number> | undefined,
+): boolean[] {
+  return args.map((_, i) => {
+    const annotated = annotatedIndices?.has(i) ?? false;
+    return RedactionPolicy.DEFAULT.isRedacted(paramName(names, i), annotated);
+  });
+}
+
 function buildCaptures(
   args: unknown[],
   names: string[] | undefined,
-  redacted: ReadonlySet<number> | undefined,
+  redactedFlags: readonly boolean[],
   captureValues: boolean,
 ): ParameterCapture[] {
   return args.map((arg, i) => {
-    const isRedacted = redacted?.has(i) ?? false;
-    const value = renderCaptureValue(arg, isRedacted, captureValues);
+    const nameAxisRedacted = redactedFlags[i] ?? false;
+    const { value, shapeRedacted } = renderCaptureValue(arg, nameAxisRedacted, captureValues);
+    const isRedacted = nameAxisRedacted || shapeRedacted;
     const structured = captureValues && !isRedacted ? renderStructured(arg) : undefined;
     return parameterCapture(paramName(names, i), value, isRedacted, structured);
   });
 }
 
-// Skip value rendering entirely when the context won't retain it (OFF/SUMMARY/NARRATIVE),
-// rather than rendering and discarding post-hoc (Java capturesParameterValues hint).
-function renderCaptureValue(arg: unknown, isRedacted: boolean, captureValues: boolean): string {
-  if (!captureValues) return "";
-  return isRedacted ? RedactionPolicy.MARKER : renderValue(arg);
+// Skip value rendering entirely when the context won't retain it (OFF/SUMMARY/NARRATIVE), rather
+// than rendering and discarding post-hoc (Java capturesParameterValues hint). The name axis, when
+// it fires, short-circuits before the value is ever rendered — RedactionPolicy.MARKER substitutes
+// directly, never renderCapture(arg) — the same promise every @notTraced/deny-listed parameter
+// already makes: the raw value never reaches a renderer. `shapeRedacted` flags a value-shape match
+// that consumed the ENTIRE top-level rendering (see renderCapture's doc comment for the nested-leaf
+// boundary); the caller ORs it with the name axis into ParameterCapture.redacted.
+function renderCaptureValue(
+  arg: unknown,
+  nameAxisRedacted: boolean,
+  captureValues: boolean,
+): { value: string; shapeRedacted: boolean } {
+  if (!captureValues) return { value: "", shapeRedacted: false };
+  if (nameAxisRedacted) return { value: RedactionPolicy.MARKER, shapeRedacted: false };
+  const { rendered, shapeRedacted } = renderCapture(arg);
+  return { value: rendered, shapeRedacted };
 }
 
 // Values for template substitution: a redacted parameter resolves to the marker so a secret
@@ -144,11 +175,11 @@ function renderCaptureValue(arg: unknown, isRedacted: boolean, captureValues: bo
 function buildValueMap(
   args: unknown[],
   names: string[] | undefined,
-  redacted: ReadonlySet<number> | undefined,
+  redactedFlags: readonly boolean[],
 ): Record<string, unknown> {
   const values: Record<string, unknown> = {};
   args.forEach((arg, i) => {
-    values[paramName(names, i)] = redacted?.has(i) ? RedactionPolicy.MARKER : arg;
+    values[paramName(names, i)] = redactedFlags[i] ? RedactionPolicy.MARKER : arg;
   });
   return values;
 }
@@ -311,9 +342,15 @@ function buildEntryCaptures(
 ): EntryCaptures {
   const cfg = config.methods?.[methodName];
   const names = resolveNames(fn, cfg?.params ?? config.paramNames?.[methodName]);
-  const redacted = resolveRedacted(fn, cfg);
-  const values = buildValueMap(args, names, redacted);
-  const captures = buildCaptures(args, names, redacted, config.context.capturesParameterValues);
+  const annotatedIndices = resolveRedacted(fn, cfg);
+  const redactedFlags = resolveRedactedFlags(args, names, annotatedIndices);
+  const values = buildValueMap(args, names, redactedFlags);
+  const captures = buildCaptures(
+    args,
+    names,
+    redactedFlags,
+    config.context.capturesParameterValues,
+  );
   return { captures, values };
 }
 

@@ -50,6 +50,14 @@ placeOrder(customerId: string, productId: string, quantity: number): OrderResult
 
 Pure business logic. The trace is generated automatically from the method names, parameter names, and return values — the information that was already there.
 
+## Code–log drift
+
+Log statements are the one part of a codebase with no compiler check and, in practice, no test coverage — so they silently stop being true as the code changes. A rename leaves the message describing the old name; an added step is simply never mentioned; a unit change (cents → euros) leaves `total` describing a different number. Nothing catches it: log text is rarely asserted, and where it is, the assertion is brittle and gets deleted first. A stale log is worse than none — in an incident it is read as evidence of what happened, when it is a sentence someone wrote once about code that has since changed.
+
+> **Code–log drift, eliminated by construction.** A log line is a claim about code, written once and never checked again. A narrative trace is derived from the run — so there is nothing to drift.
+
+To be precise: a narration template (`@narrated`) is still a hand-written string, and a renamed parameter can break its placeholder — which is exactly why it is the exception here, not the standard path (see the [Decorators Guide](documentation/decorators-guide.md)). Everything else in a trace — the calls, arguments, and outcomes — is derived, never written, so there is nothing there to go stale. And because a trace is structural, a genuine behavior change becomes something a reviewer can diff, not a sentence that silently stopped matching the code.
+
 ## What you get instead
 
 Run your code and get execution traces like this:
@@ -420,7 +428,42 @@ pnpm run build                                    # build all packages
 pnpm run test                                     # run all tests
 ```
 
+## Verify everything
+
+`pnpm run check` is the per-commit gate; `pnpm run verify:all` runs *every* verification this repository has, gate and heavy alike — unit tests, coverage, mutation testing, property and fuzz tests, benchmarks, architecture rules, both stress tiers, canonical-schema conformance, and the secrets/SAST/SCA scanners — in one sitting, and writes a dated report.
+
+```bash
+pnpm run verify:all                               # long-running by design — see below
+```
+
+It is **long-running by design**: mutation testing across the whole workspace is the slowest category (tens of minutes on a modest container). A category's failure never aborts the run — every category gets its turn, and the command only exits non-zero at the end. Read the result at `reports/verification/<date>.json` (one row per category: tool, status, metrics, duration) and the `reports/verification/<date>.md` table rendered straight from it.
+
 ## FAQ
+
+### How much overhead does this add, and what happens under high concurrency?
+
+We do not claim "zero overhead" — see [Performance](#performance) above for the dated numbers this answer summarizes (2026-09-07, Node 22, this repo's container): with tracing on but `level: 'off'`, a call costs on the order of **0.1 µs** more than the untraced call; at full detail (parameters and return values rendered), it costs **~10 µs**. What NarrativeTrace itself adds is capture — intercepting the call, reading arguments, building the trace tree. Everything after capture (the write to disk, the collector, the network hop) is the same cost your existing logging sink already pays; NarrativeTrace does not add a second sink. For a team replacing hand-written `console.log`/`logger.debug` calls, the sink side is close to a wash: N log writes per method become one trace write, and the log statements themselves stop being written, reviewed, and kept in sync with the code.
+
+Under concurrency, the two paths of the default `DualPathPipeline` have different guarantees. A synchronous listener, if you attach one (piping events to winston/pino, for example), runs inline on the caller's own execution, so it is exactly as durable — and costs exactly what — your existing logger call already does. The buffered analysis path, the one that feeds `captureTrace()`, is a fixed-size ring (default 65,536 events, sized per context — see [Event Pipeline Buffering](documentation/configuration-guide.md#8-event-pipeline-buffering-bufferedeventconsumer)) drained off a timer. It never blocks the caller: at capacity it overwrites the oldest undrained event and **counts** it in `overflowCount()` rather than dropping it silently, so sustained overload under load is visible rather than guessed at.
+
+**The honest gap:** there is no sampling in this runtime, or any NarrativeTrace runtime, today — every traced call is captured in full at its configured level. A percentage- or rate-based sampler is on the roadmap, not shipped. If you need to cap capture volume today, narrow the traced scope to the boundary that matters or drop the hot path to `level: 'off'`/`'errors'`.
+
+### How do I know a parameter with PII or credentials won't leak into a trace?
+
+Four independent layers, not one blanket promise — see [Privacy and Redaction](documentation/privacy-and-redaction.md) for the row-by-row contract verified against the code:
+
+1. **`@notTraced(i)` on a parameter / `static notTraced = [...]` on a class** — explicit redaction you control, by index or by field name. This always wins, even if something else in your stack calls the low-level renderer with redaction turned off.
+2. **An always-on, multilingual name deny-list** — every capture path matches field and parameter names against patterns like `password`, `secret`, `token`, `ssn`, `cvv`, `apikey`, `cardNumber`, `passphrase`, `bearer`, `taxId`, plus Spanish (`contraseña`, `tarjeta`, `dni`, `rut`…), Portuguese (`senha`, `cpf`, `cnpj`), French (`motDePasse`, `carteBancaire`, `nir`), German (`passwort`, `kennwort`) and Chinese (`密码`, `身份证`) equivalents. It is on by default, not opt-in, and the patterns most prone to false positives match on identifier-token boundaries — `panelId` and `circuitBreaker` are not caught by `pan`/`cuit`.
+3. **Value-shape matching, independent of the field name** — a JWT-shaped string, a Luhn-valid card number, a `Set-Cookie`-shaped value, or a national-ID checksum or structural rule (Chilean RUT, Brazilian CPF/CNPJ, Spanish DNI/NIE, French NIR, Chinese resident ID, or a dashed US Social Security number — the one exception with no checksum, so the SSA's own never-issued area/group/serial ranges stand in for one) is redacted even when it arrives under an innocuous name like `data` or `value`.
+4. **No structural, value-free mode yet in this runtime.** Some NarrativeTrace runtimes ship a `.nt`-style artifact carrying the call graph and shapes but zero runtime values — the categorical guarantee for a context where no value may ever leave the process, such as handing a trace to an external AI tool. TypeScript has not built that yet ([why](documentation/what-to-commit.md#why-there-is-no-approvednt-row-here-yet)); until it does, treat every artifact this runtime generates as carrying real values, protected by the three layers above rather than by construction.
+
+Be precise about the boundary: name and shape matching are heuristic and extensible — patterns get added as gaps are found, and can always miss one nobody has named yet. They are not the categorical guarantee the value-free mode is. If your threat model requires "no value can possibly leave the process," that requirement is not met by this runtime today.
+
+### Can trace IDs correlate with a standard correlation ID across services, or is tracing local only?
+
+They can, through the mechanism OpenTelemetry itself uses: W3C [`traceparent`](https://www.w3.org/TR/trace-context/). `parseTraceparent()` reads an inbound header and continues the upstream trace id; `formatTraceparent()` (core) and the browser/Angular integrations' `tracedFetch()`/`traceInterceptor` stamp it on outbound requests. The trace id NarrativeTrace generates is W3C-shaped from the start (32 lowercase hex characters), so it is the same id your OTel collector or correlation-id middleware already understands — there is nothing separate to reconcile. The [`opentelemetry`](documentation/feature-guide.md) integration additionally exports NarrativeTrace spans with typed `narrative.param.*` attributes, and the distributed-tracing example in [Examples Guide](documentation/examples-guide.md) runs several services sharing one `traceId` end to end.
+
+What stays local: the narrative tree itself — the nested method calls, arguments, narration — is captured per process and is not shipped to other services; only the trace id is. A downstream service produces its own narrative tree correlated to that same id, not a single merged cross-service tree.
 
 ### How does value serialization work?
 

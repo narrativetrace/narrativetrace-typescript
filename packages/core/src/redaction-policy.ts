@@ -36,8 +36,18 @@ const DEFAULT_PATTERNS = [
   "account_number",
   "routingnumber",
   "routing_number",
-  // ("pan"/"iban" live in TOKEN_BOUNDARY_PATTERNS below, not here — see that set's note for why
-  // they, and the eight non-English words beside them, match as whole identifier tokens.)
+  // Family-wide audit (2026-09): absent from every runtime, this one included.
+  "passphrase",
+  "bearer",
+  "accesskey",
+  "access_key",
+  "socialsecurity",
+  "social_security",
+  "socialsecuritynumber",
+  "taxid",
+  "tax_id",
+  // ("pan"/"iban"/"otp" live in TOKEN_BOUNDARY_PATTERNS below, not here — see that set's note for
+  // why they, and the non-English words beside them, match as whole identifier tokens.)
   // Spanish: contraseña, tarjeta, cédula — written folded, matched either way via canonical
   "contrasena",
   "tarjeta",
@@ -62,6 +72,10 @@ const DEFAULT_PATTERNS = [
   "carte_bancaire",
   "numerocarte",
   "numero_carte",
+  // German: Passwort/Kennwort ("password"/"passcode") — folded, so accented and unaccented
+  // spellings (irrelevant here, ASCII already) share the one pattern like every other language.
+  "passwort",
+  "kennwort",
   // Chinese: 密码 (mima, "password") and 身份证 (identity card), plus the pinyin a codebase
   // without CJK identifiers writes instead
   "密码",
@@ -83,15 +97,21 @@ const DEFAULT_PATTERNS = [
  * `cuit` inside `circuit` and `biscuit`; `dni` inside `midnight`; `nir` inside `nirvana`; `mima`
  * inside `semiMajorAxis` once the case boundary is lower-cased away. `senha` is the subtle one —
  * no English word contains it, but `chosenHash` and `frozenHash` do, across the camelCase seam.
- * `cpf` and `cnpj` are here for length alone. (`clave` and `carte` do NOT belong here even
- * though both are short — a token match only protects a short word from *someone else's*
- * compound; it cannot protect a codebase's own `clavePrimaria` or `carteGraphique` from a
- * pattern that *is* their prefix. Both live in the substring list as the specific credential
- * compounds instead.)
+ * `cpf` and `cnpj` are here for length alone. `otp` (2026-09 family-wide audit addition) is here
+ * for the identical reason `pan`/`iban` are: `"footprint".includes("otp")`,
+ * `"hotplate".includes("otp")`, `"hotpot".includes("otp")` and `"footpath".includes("otp")` are
+ * all true, and every one is an ordinary field a codebase can plausibly carry (`carbonFootprintId`
+ * not least). A camelCase/snake_case/all-caps OTP field (`otpCode`, `userOtp`, `OTP_SECRET`) still
+ * yields its own `otp` token, so nothing real is lost by matching it here instead of as a bare
+ * substring. (`clave` and `carte` do NOT belong here even though both are short — a token match
+ * only protects a short word from *someone else's* compound; it cannot protect a codebase's own
+ * `clavePrimaria` or `carteGraphique` from a pattern that *is* their prefix. Both live in the
+ * substring list as the specific credential compounds instead.)
  */
 const TOKEN_BOUNDARY_PATTERNS: ReadonlySet<string> = new Set([
   "pan",
   "iban",
+  "otp",
   "rut",
   "cuit",
   "dni",
@@ -161,7 +181,7 @@ export class RedactionPolicy {
   /**
    * Whether a value should be redacted based on its field name. Every pattern is a case- and
    * accent-insensitive substring test except the {@link TOKEN_BOUNDARY_PATTERNS} (`pan`, `iban`,
-   * and eight non-English words), which match only a whole identifier token (`card_pan`,
+   * `otp`, and eight non-English words), which match only a whole identifier token (`card_pan`,
    * `rutCliente`) or the whole field name (catching a run-together `IbAn` that token-splitting
    * alone would see as `ib` + `an`).
    */

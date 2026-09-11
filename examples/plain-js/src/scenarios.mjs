@@ -77,8 +77,9 @@ const successfulBorrow = {
   wiring:
     "Wiring: plain JavaScript, no decorators — traceObject(impl, context, paramNames, { className })\n" +
     "around CatalogService, MemberService and LendingService; the paramNames map is what names\n" +
-    "isbn and memberId in the trace. cardNumber is a fixed verification token here: redaction is\n" +
-    "the @notTraced decorator's job, which this JavaScript consumer does not use.",
+    "isbn and memberId in the trace. cardNumber is a fixed verification token named by the same\n" +
+    'map, redacted by RedactionPolicy\'s always-on NAME deny-list matching "cardNumber" — no\n' +
+    "@notTraced decorator needed, and none is available to this JavaScript consumer.",
   run: async (ctx) => {
     const receipt = createTracedLendingService(ctx.context).borrowBook(
       "M-001",

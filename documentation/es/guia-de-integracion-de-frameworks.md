@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 6eb6ea48f177 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 81f0dafd3c08 | translated: 2026-09-10 | reviewed: - -->
 # Guía de integración de frameworks de NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | **Español** | [Português](../pt-BR/guia-de-integracao-de-frameworks.md) | [简体中文](../zh-CN/框架集成指南.md)
@@ -357,7 +357,7 @@ export class LegacyService {}
 
 ### Cómo funciona
 
-- `AutoProxyModule` es un módulo global: envuelve los providers registrados en proxies de `traceObject()` y abre un contexto nuevo por cada petición.
+- `AutoProxyModule` es un módulo global: abre un contexto nuevo por cada petición y envuelve los métodos del prototipo de cada provider registrado con su propio camino de captura (`wrapPrototypeMethods`) — una implementación separada, que muta el prototipo, distinta del `traceObject()` de `@narrativetrace/proxy`, no un envoltorio ligero sobre él. Aquí todo parámetro capturado se representa como `arg0`, `arg1`, …: este camino no tiene metadatos de decorador/reflexión para recuperar los nombres reales de los parámetros, así que la lista de denegación por NOMBRE (siempre activa, que compara *nombres*) no puede proteger un parámetro auto-envuelto. `@notTraced(i)` (de `@narrativetrace/proxy`) sigue funcionando, y la coincidencia por forma del valor (un JWT, un número de tarjeta, un dígito verificador de identidad nacional, un string `Set-Cookie`) sigue aplicándose sin importar el nombre — consulta [Privacidad y ocultación § superficie por superficie](privacidad-y-ocultacion.md) para la declaración completa de esta limitación.
 - Exporta `NarrativeStorage`, el contenedor del contexto por petición — inyéctalo donde necesites acceso directo al contexto actual.
 - `@NoAutoProxy()` marca un provider individual para que el paso de auto-proxy lo omita.
 - Después de cada petición, `onRequestComplete(ctx, { statusCode, durationMs, tree })` se dispara con el `tree` capturado, permitiéndote renderizar, exportar o reenviar la narrativa. Una petición capturada produce un único árbol de traza que abarca todas las llamadas a servicios proxeados realizadas mientras se manejaba esa petición.

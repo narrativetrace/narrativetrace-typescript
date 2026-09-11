@@ -14,6 +14,18 @@ import type { RenderedValue } from "./rendered-value.js";
 export interface ParameterCapture {
   readonly name: string;
   readonly renderedValue: string;
+  /**
+   * `true` iff the parameter's WHOLE value was withheld — by name (the deny-list or an explicit
+   * `@notTraced`/`static notTraced`/config `notTraced` index), or because the TOP-LEVEL value's
+   * own shape matched (JWT, Luhn PAN, `Set-Cookie`, a national-id checksum) and the entire
+   * rendering is the `[REDACTED]` marker. A shape match on a NESTED leaf — a JWT inside an
+   * object's field, a PAN inside an array item — masks that leaf in the rendered text
+   * ({@link renderValue}) exactly the same way, but does NOT set this flag: the flag is
+   * per-parameter, shape matches are per-leaf, and a parameter carrying one redacted field among
+   * several visible ones has not had its whole value withheld. (Family-wide ruling, 2026-09-10 —
+   * see `renderCapture` in `value-renderer.ts`, the seam both capture paths use to learn the
+   * top-level decision without inferring it from the rendered string.)
+   */
   readonly redacted: boolean;
   /** Optional typed structured form, for exporters that emit typed attributes (TW8 OTel). */
   readonly structured?: RenderedValue;

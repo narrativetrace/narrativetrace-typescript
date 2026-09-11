@@ -1,4 +1,4 @@
-<!-- source: README.md blob 1aa23462ce95 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: README.md blob 187dee2930bd | translated: 2026-09-10 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -50,6 +50,34 @@ placeOrder(customerId: string, productId: string, quantity: number): OrderResult
 ```
 
 Lógica de negocio pura. La traza se genera automáticamente a partir de los nombres de los métodos, los nombres de los parámetros y los valores de retorno — la información que ya estaba ahí.
+
+## Deriva código-log
+
+Las líneas de log son la única parte del código sin verificación del
+compilador y, en la práctica, sin cobertura de pruebas — así que dejan de ser
+ciertas en silencio a medida que el código cambia. Un renombrado deja el
+mensaje describiendo el nombre antiguo; un paso añadido simplemente nunca se
+menciona; un cambio de unidad (céntimos → euros) deja que `total` describa
+un número distinto. Nada lo detecta: el texto de los logs casi nunca se
+verifica con una aserción y, cuando se verifica, la aserción es frágil y es
+lo primero que se elimina. Un log obsoleto es peor que ninguno — en un
+incidente se lee como evidencia de lo que pasó, cuando es una frase que
+alguien escribió una vez sobre un código que ya cambió.
+
+> **Deriva código-log, eliminada por construcción.** Una línea de log es una
+> afirmación sobre el código, escrita una vez y nunca vuelta a comprobar. Una
+> traza narrativa se deriva de la ejecución — así que no hay nada que pueda
+> desviarse.
+
+Para ser precisos: una plantilla de narración (`@narrated`) sigue siendo una
+cadena escrita a mano, y un parámetro renombrado puede romper su marcador de
+posición — justo por eso es la excepción aquí, no el camino estándar (ver la
+[Guía de decoradores](documentation/es/guia-de-decoradores.md)). Todo lo
+demás en una traza — las llamadas, los argumentos y los resultados — se
+deriva, nunca se escribe, así que no hay nada ahí que pueda quedar obsoleto.
+Y como una traza es estructural, un cambio real de comportamiento se
+convierte en algo que un revisor puede comparar, no en una frase que dejó de
+describir el código en silencio.
 
 ## Lo que obtienes en su lugar
 
@@ -433,7 +461,42 @@ pnpm run build                                    # compilar todos los paquetes
 pnpm run test                                     # ejecutar todos los tests
 ```
 
+## Verifícalo todo
+
+`pnpm run check` es la comprobación por cada commit; `pnpm run verify:all` ejecuta *todas* las verificaciones que tiene este repositorio, tanto las rápidas como las pesadas — tests unitarios, cobertura, mutation testing, tests de propiedades y fuzzing, benchmarks, reglas de arquitectura, ambos niveles de pruebas de estrés, conformidad del esquema canónico, y los escáneres de secretos/SAST/SCA — de una sola vez, y escribe un informe fechado.
+
+```bash
+pnpm run verify:all                               # de larga duración por diseño — ver más abajo
+```
+
+Es **de larga duración por diseño**: el mutation testing sobre todo el workspace es la categoría más lenta (decenas de minutos en un contenedor modesto). Un fallo en una categoría nunca interrumpe la ejecución — cada categoría tiene su turno, y el comando solo termina con código de error al final. Lee el resultado en `reports/verification/<date>.json` (una fila por categoría: herramienta, estado, métricas, duración) y la tabla `reports/verification/<date>.md` renderizada directamente a partir de él.
+
 ## Preguntas frecuentes
+
+### ¿Cuánto overhead añade esto, y qué pasa con alta concurrencia?
+
+No afirmamos "overhead cero" — consulta [Rendimiento](#rendimiento) más arriba para los números fechados que resume esta respuesta (2026-09-07, Node 22, el contenedor de este repositorio): con el tracing activo pero en `level: 'off'`, una llamada cuesta del orden de **0,1 µs** más que la llamada sin trazar; con detalle completo (parámetros y valores de retorno renderizados), cuesta **~10 µs**. Lo que NarrativeTrace añade por sí mismo es la captura — interceptar la llamada, leer los argumentos, construir el árbol de traza. Todo lo que viene después de la captura (la escritura a disco, el collector, el salto de red) es el mismo coste que tu sistema de logging ya paga; NarrativeTrace no añade un segundo destino. Para un equipo que reemplaza llamadas manuales a `console.log`/`logger.debug`, el lado del destino queda casi en tablas: N escrituras de log por método se convierten en una escritura de traza, y esas sentencias dejan de escribirse, revisarse y mantenerse sincronizadas con el código.
+
+Bajo concurrencia, los dos caminos del `DualPathPipeline` por defecto tienen garantías distintas. Un listener síncrono, si conectas uno (enviando eventos a winston/pino, por ejemplo), corre en línea sobre la propia ejecución de quien llama, así que es exactamente tan duradero — y cuesta exactamente lo mismo — que tu llamada de logger actual. El camino con buffer de análisis, el que alimenta `captureTrace()`, es un anillo de tamaño fijo (65.536 eventos por defecto, dimensionable por contexto — ver [Guía de configuración § 8](documentation/es/guia-de-configuracion.md#8-almacenamiento-en-búfer-del-pipeline-de-eventos-bufferedeventconsumer)) que se vacía con un temporizador. Nunca bloquea a quien llama: al llegar al límite sobrescribe el evento no vaciado más antiguo y lo **cuenta** en `overflowCount()` en lugar de descartarlo en silencio, así que una sobrecarga sostenida es visible, no algo que haya que adivinar.
+
+**El límite honesto:** hoy no existe muestreo (sampling) en esta implementación, ni en ninguna implementación de NarrativeTrace — toda llamada trazada se captura por completo en su nivel configurado. Un muestreador por porcentaje o por tasa está en la hoja de ruta, no distribuido. Si necesitas acotar el volumen de captura hoy, acota el scope trazado al límite que importa o baja la ruta caliente a `level: 'off'`/`'errors'`.
+
+### ¿Cómo sé que un parámetro con PII o credenciales no se filtrará en una traza?
+
+Cuatro capas independientes, no una sola promesa general — consulta [Privacidad y ocultación](documentation/es/privacidad-y-ocultacion.md) para el contrato fila por fila verificado contra el código:
+
+1. **`@notTraced(i)` en un parámetro / `static notTraced = [...]` en una clase** — ocultación explícita que tú controlas, por índice o por nombre de campo. Esto siempre gana, incluso si algo más en tu stack llama al renderizador de bajo nivel con la ocultación desactivada.
+2. **Una lista de denegación por nombre, siempre activa y multilingüe** — cada camino de captura compara nombres de campos y parámetros contra patrones como `password`, `secret`, `token`, `ssn`, `cvv`, `apikey`, `cardNumber`, `passphrase`, `bearer`, `taxId`, más los equivalentes en español (`contraseña`, `tarjeta`, `dni`, `rut`…), portugués (`senha`, `cpf`, `cnpj`), alemán (`passwort`, `kennwort`) y chino (`密码`, `身份证`). Está activa por defecto, no es opcional, y los patrones más propensos a falsos positivos coinciden en los límites del token identificador — `panelId` y `circuitBreaker` no los captura `pan`/`cuit`.
+3. **Coincidencia por la forma del valor, independiente del nombre del campo** — un string con forma de JWT, un número de tarjeta válido por Luhn, un valor con forma de `Set-Cookie`, o un dígito verificador o regla estructural de identidad nacional (RUT chileno, CPF/CNPJ brasileño, DNI/NIE español, NIR francés, cédula de residente china, o un número de la Seguridad Social de EE. UU. con guiones — la única excepción sin dígito verificador, donde los tramos de área/grupo/serie nunca emitidos por la SSA lo sustituyen) se oculta aunque llegue bajo un nombre inocuo como `data` o `value`.
+4. **Todavía no hay un modo estructural sin valores en esta implementación.** Algunas implementaciones de NarrativeTrace distribuyen un artefacto tipo `.nt` que lleva el grafo de llamadas y las formas pero cero valores en tiempo de ejecución — la garantía categórica para un contexto donde ningún valor puede salir jamás del proceso, como entregar una traza a una herramienta de IA externa. TypeScript todavía no lo ha construido ([por qué](documentation/es/que-commitear.md#por-qué-todavía-no-hay-una-fila-approvednt-aquí)); hasta que exista, trata cada artefacto que genera esta implementación como portador de valores reales, protegido por las tres capas anteriores.
+
+Sé preciso sobre el límite: la coincidencia por nombre y por forma es heurística y extensible — los patrones se añaden a medida que se encuentran huecos, y siempre pueden pasar por alto uno que todavía nadie ha nombrado. No es la garantía categórica que sí es el modo sin valores. Si tu modelo de amenaza exige "ningún valor puede salir jamás del proceso", esa exigencia no la cumple hoy esta implementación.
+
+### ¿Pueden los IDs de traza correlacionarse con un ID de correlación estándar entre servicios, o el tracing es solo local?
+
+Sí, mediante el mismo mecanismo que usa OpenTelemetry: el [`traceparent`](https://www.w3.org/TR/trace-context/) de W3C. `parseTraceparent()` lee una cabecera entrante y continúa la traza previa; `formatTraceparent()` (core) y `tracedFetch()`/`traceInterceptor` de las integraciones de navegador/Angular la estampan en las peticiones salientes. El ID de traza que genera NarrativeTrace tiene la forma W3C desde el principio (32 caracteres hexadecimales en minúscula), así que es el mismo ID que ya entiende tu collector de OTel o tu middleware de ID de correlación — no hay nada que reconciliar por separado. La integración [`opentelemetry`](documentation/es/guia-de-funcionalidades.md) además exporta los spans de NarrativeTrace con atributos tipados `narrative.param.*`, y el ejemplo de tracing distribuido de la [Guía de ejemplos](documentation/examples-guide.md) ejecuta varios servicios compartiendo un mismo `traceId` de extremo a extremo.
+
+Lo que queda local: el árbol narrativo en sí — las llamadas a métodos anidadas, los argumentos, la narración — se captura por proceso y no se envía a otros servicios; solo el ID de traza sí. Un servicio downstream produce su propio árbol narrativo correlacionado con ese mismo ID, no un único árbol combinado entre servicios.
 
 ### ¿Cómo funciona la serialización de valores?
 

@@ -1,11 +1,13 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import {
+  getRedactedParams as getRegisteredRedactedParams,
+  registerRedactedParams,
+} from "@narrativetrace/core";
 import { type DualMethodDecorator, methodDecorator } from "./decorator-dialect.js";
 
 type AnyFn = (...args: never[]) => unknown;
-
-const redactedParams = new WeakMap<AnyFn, Set<number>>();
 
 /**
  * Method decorator that redacts sensitive parameter values from the trace by position.
@@ -22,14 +24,18 @@ const redactedParams = new WeakMap<AnyFn, Set<number>>();
  * the call shape. The non-decorator twin is `methods.<name>.notTraced` on {@link traceObject}.
  *
  * @remarks Redaction is by index, so it survives parameter renaming but must be kept in sync
- * with the method's positional signature.
+ * with the method's positional signature. The underlying storage lives in
+ * `@narrativetrace/core`'s `redacted-params-registry.js` (not here) so `@narrativetrace/nestjs`'s
+ * prototype-mutating auto-wrap — which does not depend on this package — can honour the same
+ * decorator without a new cross-package dependency; this module keeps the public decorator and
+ * re-exports the read side so every existing call site here is unaffected by that move.
  */
 export function notTraced(...paramIndices: number[]): DualMethodDecorator {
   return methodDecorator("notTraced", (method) => {
-    redactedParams.set(method, new Set(paramIndices));
+    registerRedactedParams(method, paramIndices);
   });
 }
 
-export function getRedactedParams(method: AnyFn): Set<number> | undefined {
-  return redactedParams.get(method);
+export function getRedactedParams(method: AnyFn): ReadonlySet<number> | undefined {
+  return getRegisteredRedactedParams(method);
 }

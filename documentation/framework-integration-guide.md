@@ -347,7 +347,7 @@ export class LegacyService {}
 
 ### How it works
 
-- `AutoProxyModule` is a global module: it wraps registered providers in `traceObject()` proxies and opens a fresh per-request context.
+- `AutoProxyModule` is a global module: it opens a fresh per-request context and wraps each registered provider's prototype methods with its own capture path (`wrapPrototypeMethods`) — a separate, prototype-mutating implementation from `@narrativetrace/proxy`'s `traceObject()`, not a thin wrapper over it. Every captured parameter renders as `arg0`, `arg1`, … here: this path has no decorator/reflection metadata to recover real parameter names, so the always-on NAME deny-list (which matches on *names*) cannot protect an auto-wrapped parameter. `@notTraced(i)` (from `@narrativetrace/proxy`) still works, and value-shape masking (a JWT, a card number, a national-ID checksum, a `Set-Cookie` string) still applies regardless of name — see [Privacy and Redaction § surface by surface](privacy-and-redaction.md) for the full statement of this limitation.
 - It exports `NarrativeStorage`, the per-request context holder — inject it where you need direct access to the current context.
 - `@NoAutoProxy()` marks an individual provider to be skipped by the auto-proxy pass.
 - After each request, `onRequestComplete(ctx, { statusCode, durationMs, tree })` fires with the captured `tree`, letting you render, export, or forward the narrative. A captured request produces one trace tree spanning every proxied service call made while handling that request.

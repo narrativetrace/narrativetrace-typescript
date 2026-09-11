@@ -123,6 +123,35 @@ export function renderValue(value: unknown, options?: RenderOptions): string {
   return render(value, opts, new RenderWalk());
 }
 
+/**
+ * Capture-oriented twin of {@link renderValue} that also reports whether the TOP-LEVEL value's
+ * shape (not a nested leaf's) was the reason its entire rendering is the redaction marker.
+ *
+ * INTENT: a capture site needs to flip its `ParameterCapture.redacted` boolean when the
+ * value-shape axis alone (no field name involved) redacted the whole parameter — see
+ * `RedactionPolicy.shouldRedactValue` and the family-wide ruling that `redacted === true` iff the
+ * parameter's WHOLE value was withheld. Only a top-level scalar string can make that true: a JWT
+ * nested inside an object's field is masked in the rendered text by the same
+ * `shouldRedactValue` check ({@link renderString}), but the parameter still carries other,
+ * unredacted content, so `shapeRedacted` stays `false` for it — the flag is per-parameter, shape
+ * matches are per-leaf. `renderValue` itself is left untouched for every other caller: this reuses
+ * the identical shape check exactly once, so the seam costs nothing beyond the boolean already
+ * being computed.
+ *
+ * @param value the top-level argument or return value being captured.
+ * @param options same truncation/redaction budgets as {@link renderValue}.
+ * @returns `rendered`, identical to what `renderValue(value, options)` would produce, and
+ * `shapeRedacted`, true only when `value` is itself a string whose shape matched.
+ */
+export function renderCapture(
+  value: unknown,
+  options?: RenderOptions,
+): { readonly rendered: string; readonly shapeRedacted: boolean } {
+  const opts = { ...DEFAULTS, ...options };
+  if (typeof value === "string") return renderStringResult(value, opts);
+  return { rendered: render(value, opts, new RenderWalk()), shapeRedacted: false };
+}
+
 type TypeRenderer = (value: any, opts: Required<RenderOptions>, walk: RenderWalk) => string;
 
 const TYPE_RENDERERS: Record<string, TypeRenderer> = {
@@ -157,10 +186,22 @@ function sanitizeAndCap(text: string, maxStringLength: number): string {
 // Value-shape masking (RedactionPolicy.shouldRedactValue) is a second, independent redaction axis
 // from field-name matching — checked here so every scalar string reaches it regardless of whether
 // it arrived as a top-level value, an array/Set item, an unredacted Map value, or an
-// ordinarily-named object field (every one of those paths dispatches through here).
+// ordinarily-named object field (every one of those paths dispatches through here). Returns
+// `shapeRedacted` alongside the rendered form so {@link renderCapture} can expose the same
+// decision at the top level without a second `shouldRedactValue` call; `renderString` below is the
+// existing narrower view every other caller (nested leaves included) keeps using.
+function renderStringResult(
+  value: string,
+  opts: Required<RenderOptions>,
+): { readonly rendered: string; readonly shapeRedacted: boolean } {
+  if (opts.redactionPolicy.shouldRedactValue(value)) {
+    return { rendered: RedactionPolicy.MARKER, shapeRedacted: true };
+  }
+  return { rendered: `"${sanitizeAndCap(value, opts.maxStringLength)}"`, shapeRedacted: false };
+}
+
 function renderString(value: string, opts: Required<RenderOptions>): string {
-  if (opts.redactionPolicy.shouldRedactValue(value)) return RedactionPolicy.MARKER;
-  return `"${sanitizeAndCap(value, opts.maxStringLength)}"`;
+  return renderStringResult(value, opts).rendered;
 }
 
 /**

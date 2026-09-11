@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/nestjs",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "NestJS module that auto-proxies providers to capture every service call, with a per-request trace and completion hook",
   "license": "BUSL-1.1",
   "repository": {
@@ -48,6 +48,7 @@
     "@narrativetrace/core": "workspace:*",
     "@narrativetrace/core-node": "workspace:*",
     "@narrativetrace/observability": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
     "@nestjs/common": "^11.2.3",
     "@nestjs/core": "^11.2.3",
     "@nestjs/platform-express": "^11.0.0",

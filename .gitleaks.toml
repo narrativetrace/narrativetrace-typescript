@@ -13,8 +13,20 @@ useDefault = true
 # mirror wave, after the clean 2026-09-02 full-history sweep): the redaction
 # test suite proves that JWT-shaped values are redacted, which is only
 # provable with a string that genuinely matches the JWT shape — a synthetic,
-# unsigned vector, valuable to nobody. Scoped to the jwt rule in the one file.
+# unsigned vector, valuable to nobody. Scoped to the jwt rule, in every file
+# that carries this same synthetic fixture for the same reason (2026-09-10:
+# the nestjs auto-wrap monotonicity test reuses the identical vector to prove
+# the value-shape axis still redacts there too; the value-shape-flag fix's own
+# focused unit/integration tests — value-renderer.test.ts's renderCapture
+# suite and parameter-name-redaction.test.ts's new describe block — reuse it
+# a third and fourth time to prove the captured `redacted` flag, not just the
+# rendered text, flips on the same vector).
 [[allowlists]]
-description = "synthetic JWT fixture in the redaction tests exists to prove JWT redaction"
+description = "synthetic JWT fixture in redaction tests exists to prove JWT redaction"
 targetRules = ["jwt"]
-paths = ['''packages/core/__tests__/redaction-policy\.test\.ts''']
+paths = [
+  '''packages/core/__tests__/redaction-policy\.test\.ts''',
+  '''packages/core/__tests__/value-renderer\.test\.ts''',
+  '''packages/nestjs/__tests__/parameter-redaction\.test\.ts''',
+  '''packages/proxy/__tests__/parameter-name-redaction\.test\.ts''',
+]

@@ -3,11 +3,18 @@
 // Copyright (c) 2026 Empower Agile
 /**
  * Structural (not name-based) secret detection for {@link RedactionPolicy.shouldRedactValue} —
- * a second, independent redaction axis: what a string *is*, not what its field is named. Deliberately
- * narrow — three checked shapes, no entropy/"looks random" heuristics — because a value blanked by
- * guesswork is a hole in the narrative the reader cannot see and cannot switch off per-value. Port of
- * the cross-runtime shape from Java's `SecretValueShapes` (2026-09-02 audit finding F3).
+ * a second, independent redaction axis: what a string *is*, not what its field is named.
+ * Deliberately narrow — no entropy/"looks random" heuristics — because a value blanked by
+ * guesswork is a hole in the narrative the reader cannot see and cannot switch off per-value. Port
+ * of the cross-runtime shape from Java's `SecretValueShapes` (2026-09-02 audit finding F3).
+ *
+ * @remarks The fourth axis, national identity numbers (Chilean RUT, Brazilian CPF/CNPJ, Spanish
+ * DNI/NIE, French NIR, Chinese resident id, and the US SSN's structural-rule exception), lives in
+ * its own sibling module, {@link isNationalIdShaped}, because it is several checksums rather than
+ * one matcher — see that module's doc comment.
  */
+
+import { isNationalIdShaped } from "./national-id-shapes.js";
 
 const JWT_PATTERN = /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/;
 
@@ -50,9 +57,15 @@ function isSetCookieShaped(value: string): boolean {
   return COOKIE_PAIR.test(value) && COOKIE_ATTRIBUTE.test(value);
 }
 
-/** Whether `value` structurally matches one of the checked secret shapes (JWT, PAN, `Set-Cookie`). */
+/** Whether `value` structurally matches one of the checked secret shapes: a JWT, a Luhn-valid PAN,
+ * a `Set-Cookie` string, or a national identity number (see {@link isNationalIdShaped}). */
 export function isSecretShaped(value: string): boolean {
-  return isJwtShaped(value) || isPanShaped(value) || isSetCookieShaped(value);
+  return (
+    isJwtShaped(value) ||
+    isPanShaped(value) ||
+    isNationalIdShaped(value) ||
+    isSetCookieShaped(value)
+  );
 }
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the ASCII range test is the point.

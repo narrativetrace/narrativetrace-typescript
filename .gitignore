@@ -6,10 +6,14 @@ dist/
 coverage/
 reports/*
 !reports/benchmarks/
+# The nightly quality run commits its own report here so the night's result is
+# visible in this repo's morning diff; reports/ is stripped from public snapshots.
+!reports/nightly/
 reports/benchmarks/latest.json
 reports/benchmarks/gate-result.json
 !reports/parity-review-2026-07-10.md
 !reports/parity-review-2026-07-10/
+!reports/verification/
 **/.stryker-tmp/
 **/reports/mutation/
 stryker.log
@@ -18,6 +22,11 @@ stryker.log
 # on demand by scripts/gitleaks.sh, scripts/osv-scan.sh, scripts/semgrep-scan.sh;
 # never checked in.
 .tools-cache/
+
+# verify:all's per-category raw command logs (tools/verify-all.ts) — the summary lives in
+# reports/verification/<date>.md; this is where the full output goes when a row isn't a clean
+# pass, mirroring the Java golden repo's gitignored build/verifyAll-logs/.
+.verify-all-logs/
 
 .pnpm-store/
 

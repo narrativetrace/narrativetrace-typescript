@@ -21,7 +21,14 @@ const errorSpecs = new WeakMap<AnyFn, OnErrorSpec[]>();
  * Method decorator that attaches a human-readable narration line to a traced method's entry span.
  *
  * INTENT: use this to give a method a business-meaningful sentence in the trace instead of a bare
- * signature. The template is resolved at entry against the method's named parameters (see
+ * signature.
+ *
+ * This is an escape hatch, not the default. The standard path is entirely derived — the method's
+ * own name, parameters and outcome already tell the story. Reaching for this decorator is a
+ * signal, the same one clarity scoring exists to flag: consider fixing the name before writing a
+ * sentence.
+ *
+ * The template is resolved at entry against the method's named parameters (see
  * {@link traced}) — `{customerId}` and property paths like `{order.total}` are substituted; a
  * redacted parameter (see `@notTraced`) resolves to the redaction marker, and an unresolvable
  * placeholder falls back to its literal `{placeholder}` text.

@@ -109,19 +109,22 @@ describe("type declarations", () => {
 });
 
 describe("size budget", () => {
-  // ~72 KiB today (raised from 70 KiB, 2026-09-07, for the §20 launch-readiness wave: the
-  // dual-dialect decorator dispatch, the per-method config twin on traceObject, and the
-  // multilingual redaction vocabulary — the family-standard deny-list, Spanish/Portuguese/
-  // French/Chinese beside English, plus the canonical accent fold). Raised from 68 KiB,
-  // 2026-09-04, for TreeWalk/walkPreOrder — the shared bounded, cycle-safe walker every
-  // recursive renderer/exporter now goes through, cross-runtime mirror of
-  // 2026-09-03-unbounded-tree-walks-in-free-renderers.md. Before that, raised from 64 KiB,
-  // 2026-09-02, for the redaction-defaults widening — twelve more deny-listed names plus
-  // JWT/PAN/Set-Cookie value-shape masking, cross-runtime shape F3. The budget catches
-  // accidental growth (a Node package or a large dependency slipping into `noExternal`) before
-  // it reaches a page that loads this on every visit — a few KiB of headroom stays tight enough
-  // for that, since a real accidental dependency adds far more.
-  const BUDGET_BYTES = 73 * 1024;
+  // ~74 KiB today (raised from 73 KiB, 2026-09-10, for the six national-ID value-shape
+  // checksums — Chilean RUT, Brazilian CPF/CNPJ, Spanish DNI/NIE, French NIR, Chinese resident
+  // id — landed as secret-value-shapes.ts's new national-id-shapes.ts sibling, cross-runtime
+  // shape parity with Java/.NET/Swift/Python's own national-ID modules). Raised from 70 KiB,
+  // 2026-09-07, for the §20 launch-readiness wave: the dual-dialect decorator dispatch, the
+  // per-method config twin on traceObject, and the multilingual redaction vocabulary — the
+  // family-standard deny-list, Spanish/Portuguese/French/Chinese beside English, plus the
+  // canonical accent fold. Raised from 68 KiB, 2026-09-04, for TreeWalk/walkPreOrder — the
+  // shared bounded, cycle-safe walker every recursive renderer/exporter now goes through,
+  // cross-runtime mirror of 2026-09-03-unbounded-tree-walks-in-free-renderers.md. Before that,
+  // raised from 64 KiB, 2026-09-02, for the redaction-defaults widening — twelve more
+  // deny-listed names plus JWT/PAN/Set-Cookie value-shape masking, cross-runtime shape F3. The
+  // budget catches accidental growth (a Node package or a large dependency slipping into
+  // `noExternal`) before it reaches a page that loads this on every visit — a few KiB of
+  // headroom stays tight enough for that, since a real accidental dependency adds far more.
+  const BUDGET_BYTES = 76 * 1024;
 
   test.each([
     ["ES module", ESM_BUNDLE],
