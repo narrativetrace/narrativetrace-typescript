@@ -54,6 +54,9 @@ narrativeTest("my test", ({ narrativeContext }) => {
 
 ### With file output
 
+`createNarrativeTest` writes artifacts on its own — the artifact is the point of
+using it, so there is no flag to turn on:
+
 ```ts
 import { createNarrativeTest } from "@narrativetrace/vitest";
 
@@ -62,6 +65,11 @@ const test = createNarrativeTest({
   formats: ["md", "json", "mmd", "puml"],  // default: ["md", "json", "mmd"]
 });
 ```
+
+Turn it off for a run that wants the console narrative and clarity/glossary
+metadata but not the files — `NARRATIVETRACE_OUTPUT=false` (or `outputEnabled:
+false` in code, or `"output": "false"` in the project config file). Any other
+value, including the variable being unset, keeps writing.
 
 ### Output layout
 
@@ -147,8 +155,10 @@ Put **one** of these in your project root — whichever your team prefers:
 ```
 
 Keys mirror the environment variables without the `NARRATIVETRACE_`
-prefix: `level`, `output`, `outputDir`, `format`. Unknown keys and
-wrongly-typed values are ignored, so a stray setting never breaks a run.
+prefix: `level`, `output`, `outputDir`, `format`. `output` is the file-write
+opt-out for `createNarrativeTest` — `"false"` disables it, any other string
+(including `"true"`) leaves it on. Unknown keys and wrongly-typed values are
+ignored, so a stray setting never breaks a run.
 
 ### Two config files is an error, not a coin flip
 

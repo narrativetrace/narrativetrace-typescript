@@ -51,6 +51,10 @@
     { "id": "future-cancelled", "description": "a cancelled future", "kind": "future", "state": "cancelled" },
     { "id": "exception-with-message", "description": "an exception carrying prose - what a message may legitimately show, so the oracle here is well-formedness, not containment", "kind": "throwable", "payload": "plain-text" },
     { "id": "exception-cause-chain", "description": "a fifty-deep cause chain", "kind": "throwable", "n": 50, "payload": "plain-text" },
-    { "id": "suppressed-exception", "description": "a suppressed exception, which no cause-chain walk reaches", "kind": "throwable", "state": "suppressed", "payload": "plain-text" }
+    { "id": "suppressed-exception", "description": "a suppressed exception, which no cause-chain walk reaches", "kind": "throwable", "state": "suppressed", "payload": "plain-text" },
+    { "id": "curated-tostring-top-level", "description": "a deny-listed field whose native toString interpolates it", "kind": "curatedToString", "payload": "secret-record" },
+    { "id": "curated-tostring-nested", "description": "nothing of its own to hide, but its toString interpolates a nested composite that carries the deny-listed field", "kind": "curatedToStringNested", "payload": "secret-record" },
+    { "id": "sensitive-map-key", "description": "a deny-listed field used as a Map key rather than a value", "kind": "mapKey", "payload": "secret-record" },
+    { "id": "throwing-summary", "description": "a narrativeSummary() that throws, the secret reachable only through the exception message it must never surface", "kind": "throwingSummary", "payload": "secret-record" }
   ]
 }

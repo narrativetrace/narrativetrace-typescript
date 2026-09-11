@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 43c0a3a8178b | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob a96501237d61 | translated: 2026-09-11 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -58,6 +58,9 @@ narrativeTest("my test", ({ narrativeContext }) => {
 
 ### Con salida a archivo
 
+`createNarrativeTest` escribe los artefactos por su cuenta — el artefacto es
+la razón de usarlo, así que no hay que activar nada:
+
 ```ts
 import { createNarrativeTest } from "@narrativetrace/vitest";
 
@@ -66,6 +69,12 @@ const test = createNarrativeTest({
   formats: ["md", "json", "mmd", "puml"],  // por defecto: ["md", "json", "mmd"]
 });
 ```
+
+Desactívalo para una ejecución que quiera la narrativa en consola y los
+metadatos de claridad/glosario pero no los archivos —
+`NARRATIVETRACE_OUTPUT=false` (o `outputEnabled: false` en código, o
+`"output": "false"` en el archivo de configuración del proyecto). Cualquier
+otro valor, incluida la variable sin definir, mantiene la escritura activa.
 
 ### Estructura de la salida
 
@@ -151,7 +160,9 @@ Coloca **uno** de estos en la raíz de tu proyecto — el que prefiera tu equipo
 ```
 
 Las claves reflejan las variables de entorno sin el prefijo `NARRATIVETRACE_`: `level`, `output`,
-`outputDir`, `format`. Las claves desconocidas y los valores con tipo incorrecto se ignoran, de
+`outputDir`, `format`. `output` es la exclusión voluntaria de escritura de archivos para
+`createNarrativeTest` — `"false"` la desactiva, cualquier otra cadena (incluida `"true"`) la deja
+activa. Las claves desconocidas y los valores con tipo incorrecto se ignoran, de
 modo que un ajuste suelto nunca rompe una ejecución.
 
 ### Dos archivos de configuración son un error, no una tirada de moneda

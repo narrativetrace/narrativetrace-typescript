@@ -1,4 +1,4 @@
-<!-- source: documentation/feature-guide.md blob d1a164f011f4 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/feature-guide.md blob f1b69ff55f06 | translated: 2026-09-11 | reviewed: - -->
 
 # NarrativeTrace TypeScript — Guía de funcionalidades
 
@@ -90,7 +90,7 @@ No disponible en esta plataforma: un equivalente al agente Java
 
 | Funcionalidad | Estado | Notas |
 |---|---|---|
-| Renderers de texto indentado, Markdown y prosa | Gratis | |
+| Renderers de texto indentado, Markdown y prosa | Gratis | Las duraciones se imprimen como `— 3ms` (un entero en cuanto la magnitud llega a 1ms, hasta dos decimales por debajo — el float fraccionario crudo de `performance.now()` nunca se muestra); un miembro que lanza una excepción mientras se renderiza (`@narrativeSummary`, el `toString()` de una hoja, un getter de campo) muestra `<error: NombreDelConstructor>` para esa única parte, nunca el mensaje de la excepción. Consulta [Privacidad y ocultación § Errores durante el renderizado](privacidad-y-ocultacion.md#errores-durante-el-renderizado) |
 | Referencias de valor de traza — deduplicación por contenido de valores capturados repetidos, con etiquetas legibles (`‹Hotel›=completo` en la primera emisión, `‹Hotel›` después) | Gratis | Las etiquetas provienen del campo de identidad del valor estructurado (name/id/description/…), nunca de uno ocultado; la igualdad de bytes certifica la coincidencia; la contención dentro de otros valores capturados cuenta y se reemplaza. Solo en Markdown |
 | Deltas de valor dentro de la traza — una recaptura de la misma entidad, cambiada, se renderiza como una diferencia respecto de la referencia (`‹Dinner›′{amount: 100→92, currency: "USD"→"EUR"}`) | Gratis | «La misma entidad» es el mismo nombre de tipo estructurado más un campo de identidad igual; solo los campos escalares cambiados (cadena, número, booleano y el tipo `other` pre-convertido a cadena), nunca reconstruido a partir del árbol estructurado. Un objeto o lista anidada cambiada, un conjunto de campos distinto, o un valor sin campo de identidad se renderiza completo exactamente como antes. Una variante cambiada que a su vez se repite se define COMO la diferencia (`‹Dinner·2›=‹Dinner›′{…}`). Solo en Markdown |
 | Exportación a JSON canónico — sobre versionado (`version`, `scenario`, `trace`, `events[]`) con campos `storyId`/`chapterId` | Gratis | `exportJson(tree, { scenario })` |

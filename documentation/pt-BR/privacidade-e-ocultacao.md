@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 695063750075 | translated: 2026-09-10 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 324f03029bab | translated: 2026-09-11 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -121,16 +121,61 @@ Três mecanismos independentes se aplicam a todo valor capturado/renderizado:
    `carbonFootprintId` permanecem visíveis enquanto `rutCliente`,
    `senhaUsuario` e `otpCode` ficam ocultos.
 
-Um **`toString()` cuidadosamente escrito** normalmente é confiado como
-está — mas uma classe que declara qualquer campo `static notTraced` é
-introspectada campo a campo em vez disso, então a anotação é respeitada
-em vez do que aquele `toString()` teria impresso. A resolução de template
-também não tem um atalho para contornar isso: ela foi auditada para
-garantir que nunca recorre ao `toString()` bruto de um valor quando a
-renderização segura tiver omitido o marcador por um motivo não
-relacionado (truncamento no limite de campo/profundidade) — todo valor
+**Um `toString()` personalizado só é confiado para uma folha** — um objeto
+sem nenhum campo próprio, de modo que não há mais nada que a introspecção de
+campos poderia mostrar em vez disso (invariante da família, 2026-09-11; o
+design deste port já coincidia com o do .NET). No momento em que um objeto
+tem ao menos um campo próprio, ele é *sempre* introspectado campo a campo,
+não importa o que seu `toString()` teria impresso — não apenas quando esse
+campo é, por si só, anotado ou pertence à lista de negação. Isso é mais
+restritivo do que parece necessário, e é deliberado: a regra anterior, mais
+estreita ("confiar no `toString()` a menos que um dos campos *próprios deste
+objeto* seja um alvo de ocultação"), deixava passar a forma que uma correção
+de segurança de 2026-09-11 fecha — um `toString()` que interpola o texto
+cuidadosamente escrito de um objeto **aninhado** (`Order.toString()`
+imprimindo `this.customer`, que por sua vez é um `Customer` que oculta um
+campo) nunca coloca o nome ou a anotação do campo ocultado no próprio
+`Order`, então a checagem de campo próprio não encontrava nada para pegar e
+o segredo aninhado era impresso por completo. Confiar no `toString()` apenas
+para folhas fecha essa classe inteira de brecha de uma vez, em qualquer
+profundidade de aninhamento, em vez de perseguir cada nova forma de
+interpolação como um bug à parte. A mesma regra vale para uma **chave** de
+`Map`: uma chave que é ela própria um objeto passa pela mesma renderização
+consciente de ocultação que um valor, nunca por um `toString()` bruto e
+incondicional.
+
+`narrativeSummary()` é texto cuidadosamente escrito pelo autor
+especificamente para o trace, e continua a prevalecer tanto sobre a
+confiança no `toString()` quanto sobre a introspecção de campos — mas não
+está isento da varredura de forma do valor (uma forma JWT/PAN/SSN/
+identificação-nacional/`Set-Cookie` é ocultada mesmo dentro de texto
+cuidadosamente escrito), e um `narrativeSummary()` que lança exceção não
+recai mais sobre `toString()`/introspecção de campos: o valor inteiro
+degrada para o marcador de erro tipado em vez disso (veja abaixo), porque
+essa recaída era exatamente como um summary escrito para ocultar um segredo
+poderia reintroduzi-lo através dos campos comuns da classe no momento em
+que o próprio summary falhasse.
+
+A resolução de template também não tem um atalho para contornar nada disso:
+ela foi auditada para garantir que nunca recorre ao `toString()` bruto de um
+valor quando a renderização segura tiver omitido o marcador por um motivo
+não relacionado (truncamento no limite de campo/profundidade) — todo valor
 de placeholder não escalar passa pelo mesmo renderer que oculta campos
 usado pelo resto do trace, incondicionalmente.
+
+## Erros durante a renderização
+
+Um membro que esta biblioteca invoca ao renderizar um valor —
+`narrativeSummary()`, o `toString()` de uma folha, ou um getter de campo —
+pode lançar uma exceção, ou (somente `toString()`) retornar `null`. Uma
+exceção degrada para o marcador de erro tipado só naquela parte,
+`<error: NomeDoConstrutor>` (ex.: `<error: TypeError>`; um valor lançado que
+não é um `Error` mostra seu `typeof`, ex.: `<error: string>`) — **nunca o
+`message` da exceção**, que pode carregar o valor exato que o membro se
+recusava a renderizar. Um getter de campo que lança exceção degrada só
+aquele campo; os campos irmãos continuam sendo renderizados normalmente. Um
+`toString()` que retorna `null` (sem lançar exceção) mostra em vez disso o
+marcador simples `<NomeDoConstrutor>`, já que nada falhou.
 
 A ocultação também **sobrevive ao aninhamento** — um membro ocultado
 dentro de um array, um `Set`, um `Map`, um objeto simples, várias dessas

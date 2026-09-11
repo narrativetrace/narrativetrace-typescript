@@ -1,13 +1,23 @@
-<!-- source: README.md blob 187dee2930bd | translated: 2026-09-10 | reviewed: - -->
+<!-- source: README.md blob dd87ca2709f1 | translated: 2026-09-11 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
 
-> O código é o log.
+## Comece aqui
+
+[Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md) — um script simples, uma execução, e o trace aparece no seu terminal.
+
+## Demo
+
+Clone o repositório e execute `./demo.sh`.
+
+## Exemplos
+
+Veja [os exemplos](documentation/pt-BR/guia-de-exemplos.md) — NarrativeTrace em aplicações reais.
+
+## O código é o log
 
 Logging sem código: usa os nomes dos seus métodos e parâmetros como o log. Se o trace estiver ilegível, seu código precisa de refatoração — não de mais instruções de log.
-
-Com pressa: [experimente localmente](#experimente-localmente) → [adicione a um teste](#adicione-a-um-teste) → [escolha sua integração](#escolha-sua-integração).
 
 ## O problema
 
@@ -157,7 +167,7 @@ Overall: 0.92 (high)
 | processData | 0.30  | Generic verb + generic noun |
 ```
 
-Nomes genéricos como `processData`, `handleRequest`, `result` pontuam baixo. Nomes específicos de domínio como `reserveInventory`, `customerId` pontuam alto. O relatório de clareza é gerado automaticamente assim que você o escreve em uma execução do Vitest — veja [Primeiros 10 minutos](documentation/pt-BR/primeiros-10-minutos.md#6-renomeie-placeorder-para-process-e-veja-a-clareza-cair) para um antes/depois real.
+Nomes genéricos como `processData`, `handleRequest`, `result` pontuam baixo. Nomes específicos de domínio como `reserveInventory`, `customerId` pontuam alto. O relatório de clareza é gerado automaticamente assim que você o escreve em uma execução do Vitest — veja o [Guia de clareza](documentation/pt-BR/guia-de-clareza.md#saída-do-relatório) para um antes/depois real.
 
 A pontuação de clareza ainda é experimental.
 
@@ -209,35 +219,22 @@ Essa linha desaparece; a própria chamada do método já carrega a informação.
 
 Conecte o `@narrativetrace/pino` ou o `@narrativetrace/winston` e o NarrativeTrace se torna um emissor ao vivo: `createPinoEventConsumer`/`createWinstonEventConsumer` chamam diretamente sua própria instância de `Logger` (`logger.trace()`/`logger.warn()`, configurável por evento), então cada transporte, formatador e destino de envio que você já configurou continua funcionando, intocado — o NarrativeTrace é só mais um chamador do seu logger, não um substituto dele. O logging manual que você continua escrevendo de propósito — uma linha de auditoria, uma métrica de negócio, qualquer coisa que não seja apenas narrar o fluxo de controle — roda no mesmo logger, intercalado com as próprias linhas do NarrativeTrace. Quer correlação sem gerar nenhuma linha? O `createLogEnricher` do `@narrativetrace/observability` carimba os campos `trace_id`/`nt.*` nas chamadas de logger que você ainda escreve à mão; ele nunca emite nada por conta própria.
 
-## Experimente localmente
-
-Sem projeto, sem fiação — o repositório traz um lançador de demo que executa as aplicações de exemplo e as narra ao vivo (a primeira execução precisa de um build):
-
-```bash
-pnpm install                                   # uma vez
-pnpm run build && pnpm demo                    # seletor interativo: ecommerce, clarity, minecraft, plain-js
-pnpm demo -- --example ecommerce               # seis cenários, stream ao vivo → ← !!, um ponto de parada por cenário
-pnpm demo -- --example ecommerce --classic     # a mesma execução como logs com timestamp através da ponte do winston
-pnpm demo -- --example ecommerce --lang es     # a mesma execução renderizada de novo através do glossary.json do exemplo
-```
-
-Cada cenário começa com uma nota sobre como o trace dele está conectado —
-decorators, `traceObject`, fork/join — e cada renderização (árvore, prosa,
-Mermaid, PlantUML) é anunciada como sua própria seção. Detalhes no
-[Guia de exemplos](documentation/pt-BR/guia-de-exemplos.md#lançador-da-demo).
-
 ## Adicione a um teste
 
-O caminho mais curto de "biblioteca interessante" a "vi um trace útil do meu próprio código" é o fixture do Vitest. Node 20+ (o CI roda a versão 22), TypeScript 5.0+ se você usar os decorators abaixo.
+O caminho mais curto até um trace dentro da sua suíte de testes já existente é o fixture do
+Vitest — para o caminho mais curto de todos, um script simples sem framework de testes, veja
+[Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md). Node 20+ (o CI roda a
+versão 22), TypeScript 5.0+ se você usar os decorators abaixo.
 
 ```bash
 pnpm add @narrativetrace/core-node @narrativetrace/proxy
 pnpm add -D @narrativetrace/vitest
 ```
 
-A publicação no npm está em preparação — até que os pacotes estejam no
-registro, compile-os a partir deste repositório (veja [Compilando a partir do
-código-fonte](#compilando-a-partir-do-código-fonte)).
+Estes são os pacotes publicados — `npm view @narrativetrace/core version` mostra a versão atual
+(0.1.1 no momento em que isto foi escrito; veja [Compilando a partir do
+código-fonte](#compilando-a-partir-do-código-fonte) se precisar de uma mudança ainda não
+publicada).
 
 ```ts
 // order-service.test.ts
@@ -260,9 +257,11 @@ Execute `npx vitest run` e abra `narrativetrace-output/order-service/customer_pl
 o nome do teste virou o nome do cenário, sem necessidade de interface ou plugin de
 build (`traceObject` envolve o objeto concreto diretamente).
 
-Quer continuar — renomear o método e ver a pontuação de clareza cair, adicionar
-`@notTraced` e ver um valor ocultado? → [Primeiros 10 minutos](documentation/pt-BR/primeiros-10-minutos.md)
-percorre os sete passos com saída real, executada de verdade.
+Quer ver a pontuação de clareza cair ao renomear um método, ou um valor ocultado com
+`@notTraced`? O [Guia de clareza](documentation/pt-BR/guia-de-clareza.md) e
+[Privacidade e ocultação](documentation/pt-BR/privacidade-e-ocultacao.md) percorrem os dois, com
+saída real, executada de verdade. Prefere o caminho mais curto possível primeiro? →
+[Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md).
 
 ## Escolha sua integração
 
@@ -454,7 +453,7 @@ distribuída.
 
 Comece aqui:
 
-- [Primeiros 10 minutos](documentation/pt-BR/primeiros-10-minutos.md) — um serviço minúsculo, um teste Vitest, sete passos até um trace real, com saída real
+- [Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md) — um script simples envolve um serviço, uma execução, o trace no seu terminal
 - [Guia de instalação](documentation/pt-BR/guia-de-instalacao.md) — dependências, cada caminho de integração, configuração da saída de trace
 - [Escolhendo uma integração](documentation/pt-BR/escolhendo-uma-integracao.md) — de qual pacote você precisa, como diagrama de decisão
 - [Guia de configuração](documentation/pt-BR/guia-de-configuracao.md) — níveis de tracing, config do Vitest, opções de renderização

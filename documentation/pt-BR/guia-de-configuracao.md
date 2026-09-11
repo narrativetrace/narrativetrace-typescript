@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 43c0a3a8178b | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob a96501237d61 | translated: 2026-09-11 | reviewed: - -->
 # Guia de Configuração do NarrativeTrace TypeScript
 
 [English](../configuration-guide.md) | [Español](../es/guia-de-configuracion.md) | **Português** | [简体中文](../zh-CN/配置指南.md)
@@ -57,6 +57,9 @@ narrativeTest("my test", ({ narrativeContext }) => {
 
 ### Com saída em arquivo
 
+O `createNarrativeTest` escreve os artefatos por conta própria — o artefato é
+o motivo de usá-lo, então não há nada para ativar:
+
 ```ts
 import { createNarrativeTest } from "@narrativetrace/vitest";
 
@@ -65,6 +68,12 @@ const test = createNarrativeTest({
   formats: ["md", "json", "mmd", "puml"],  // padrão: ["md", "json", "mmd"]
 });
 ```
+
+Desligue para uma execução que quer a narrativa no console e os metadados de
+clareza/glossário, mas não os arquivos — `NARRATIVETRACE_OUTPUT=false` (ou
+`outputEnabled: false` no código, ou `"output": "false"` no arquivo de
+configuração do projeto). Qualquer outro valor, inclusive a variável não
+definida, mantém a escrita ativada.
 
 ### Layout de saída
 
@@ -153,9 +162,11 @@ Coloque **um** destes na raiz do seu projeto — o que a sua equipe preferir:
 ```
 
 As chaves espelham as variáveis de ambiente sem o prefixo
-`NARRATIVETRACE_`: `level`, `output`, `outputDir`, `format`. Chaves
-desconhecidas e valores com tipo errado são ignorados, então uma
-configuração perdida nunca quebra uma execução.
+`NARRATIVETRACE_`: `level`, `output`, `outputDir`, `format`. `output` é a
+exclusão voluntária da escrita de arquivos do `createNarrativeTest` —
+`"false"` a desativa, qualquer outra string (inclusive `"true"`) a mantém
+ativa. Chaves desconhecidas e valores com tipo errado são ignorados, então
+uma configuração perdida nunca quebra uma execução.
 
 ### Dois arquivos de configuração são um erro, não um cara ou coroa
 

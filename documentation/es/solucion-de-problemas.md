@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 90ae6487249f | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob 0ea75cc288c5 | translated: 2026-09-11 | reviewed: - -->
 # Solución de problemas
 
 [English](../troubleshooting.md) | **Español** | [Português](../pt-BR/solucao-de-problemas.md) | [简体中文](../zh-CN/故障排查.md)
@@ -45,8 +45,8 @@ tenía cero raíces (no se llamó a nada a través del objeto trazado), y
 diseño, así que una suite que no capturó ningún span no deja ningún
 directorio atrás.
 
-**Solución:** usa `createNarrativeTest` (consulta
-[Primeros 10 minutos](primeros-10-minutos.md#3-añade-un-test-de-vitest)), y
+**Solución:** usa `createNarrativeTest` (consulta la
+[Guía de instalación § Opción B: plugin de Vitest](guia-de-instalacion.md#opción-b-plugin-de-vitest-contexto-automático--salida-de-trazas)), y
 comprueba que la llamada bajo test realmente pasó por el wrapper trazado —
 una llamada hecha sobre la instancia sin envolver, en lugar de sobre el
 objeto que devolvió `traceObject()`, no registra nada.
@@ -95,9 +95,7 @@ puntúan bajo sin importar el contexto.
 esté conectado) y sustituye el nombre señalado por uno específico del
 dominio (`getData()` → `fetchOrderHistory()`). Consulta la
 [Guía de claridad](guia-de-claridad.md) para el modelo de puntuación
-completo — renombrar `placeOrder` a `process` en
-[Primeros 10 minutos § 6](primeros-10-minutos.md#6-renombra-placeorder-a-process-y-observa-cómo-cae-la-claridad)
-reproduce exactamente esta caída.
+completo y ejemplos trabajados de esta misma caída.
 
 ## Falta la traza asíncrona, o una tarea en segundo plano nunca aparece
 

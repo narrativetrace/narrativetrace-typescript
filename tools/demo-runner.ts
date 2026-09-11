@@ -19,6 +19,7 @@ import {
   type ExampleName,
   formatExampleList,
   isExampleName,
+  type LiveListener,
   type LoadedExample,
   loadExample,
   type Scenario,
@@ -53,6 +54,13 @@ export interface DemoIo {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly readFile: (path: string) => string;
   readonly createClassic: () => ClassicSink;
+  /**
+   * A real logger listener for the pipeline's inline path (the pino bridge in `demo.ts`) —
+   * documentation/framework-integration-guide.md § 9 (Winston & Pino). Composed onto every mode's
+   * listener below so the example's own trace always reaches a configured logger, without
+   * disturbing the styled/classic/translated console output it also produces.
+   */
+  readonly createLogger: () => LiveListener;
 }
 
 const USAGE_EXIT = 2;
@@ -180,6 +188,15 @@ interface Recorded {
   readonly captured: readonly CapturedTrace[];
 }
 
+/** Fans one event to both listeners — used to attach the demo's logger without displacing the
+ * mode's own listener (the styled stream, the classic winston bridge, or the translated recorder). */
+function combine(a: LiveListener, b: LiveListener): LiveListener {
+  return (event) => {
+    a(event);
+    b(event);
+  };
+}
+
 /** Runs one scenario with every line — live stream and sections — collected in order. */
 async function runScenario(
   context: ExampleContext,
@@ -197,10 +214,11 @@ async function runScenario(
 }
 
 /** Records the whole run first: a reader waiting for a human must never inflate the timings. */
-async function record(example: LoadedExample): Promise<Recorded[]> {
+async function record(example: LoadedExample, demoLogger: LiveListener): Promise<Recorded[]> {
   const recorded: Recorded[] = [];
   let lines: string[] = [];
-  const context = example.createDemoContext(createLiveStreamConsumer((text) => lines.push(text)));
+  const stream = createLiveStreamConsumer((text) => lines.push(text));
+  const context = example.createDemoContext(combine(stream, demoLogger));
   for (const scenario of example.scenarios) {
     lines = [];
     const captured = await runScenario(context, scenario, (text) => lines.push(text));
@@ -248,25 +266,24 @@ async function walk(session: Session, recorded: readonly Recorded[]): Promise<vo
   await stop(session, "[Enter] finish");
 }
 
-async function streamLive(session: Session): Promise<void> {
+async function streamLive(session: Session, demoLogger: LiveListener): Promise<void> {
   const state: StreamState = { depth: 0, renderersExplained: false };
   const { example } = session;
-  const context = example.createDemoContext(
-    createLiveStreamConsumer((text) => styledBlock(session, text, state)),
-  );
+  const stream = createLiveStreamConsumer((text) => styledBlock(session, text, state));
+  const context = example.createDemoContext(combine(stream, demoLogger));
   for (const scenario of example.scenarios) {
     header(session, scenario, state);
     await runScenario(context, scenario, (text) => styledBlock(session, text, state));
   }
 }
 
-async function runStyled(session: Session): Promise<number> {
+async function runStyled(session: Session, demoLogger: LiveListener): Promise<number> {
   const { io, example } = session;
   io.write(legend(session.p));
   if (session.pause) {
     line(io, `Running ${example.name} (recorded in full, so the timings stay honest)...`);
-    await walk(session, await record(example));
-  } else await streamLive(session);
+    await walk(session, await record(example, demoLogger));
+  } else await streamLive(session, demoLogger);
   line(io);
   line(
     io,
@@ -274,17 +291,25 @@ async function runStyled(session: Session): Promise<number> {
   );
   if (session.pause)
     line(io, `     pnpm demo -- --example ${example.name} --no-pause plays it straight through.`);
+  line(
+    io,
+    `     The same trace also reached a real logger: see documentation/framework-integration-guide.md § 9.`,
+  );
   return 0;
 }
 
-async function runClassic(io: DemoIo, example: LoadedExample): Promise<number> {
+async function runClassic(
+  io: DemoIo,
+  example: LoadedExample,
+  demoLogger: LiveListener,
+): Promise<number> {
   line(
     io,
     "Classic log format: same run through the winston bridge — timestamp, level, logger, message.",
   );
   line(io);
   const classic = io.createClassic();
-  const context = example.createDemoContext(classic.consumer);
+  const context = example.createDemoContext(combine(classic.consumer, demoLogger));
   for (const scenario of example.scenarios) {
     classic.log(`=== ${scenario.title} ===`);
     await runScenario(context, scenario, (text) => {
@@ -308,11 +333,12 @@ async function runTranslated(
   session: Session,
   lang: string,
   glossaryJson: string,
+  demoLogger: LiveListener,
 ): Promise<number> {
   const { io, p, example } = session;
   const chrome = CHROME[lang] ?? CHROME.es;
   if (chrome === undefined) return usageError(io, `no launcher prose for ${lang}`);
-  const captured = (await record(example)).flatMap((entry) => entry.captured);
+  const captured = (await record(example, demoLogger)).flatMap((entry) => entry.captured);
   const files = translateCaptured(glossaryJson, example.sourcePrefix, lang, captured);
   line(io);
   for (const text of chrome.intro) line(io, `${p.dim}${text}${p.reset}`);
@@ -371,7 +397,8 @@ export async function runDemo(
   const { example, lang, glossaryJson } = selection;
   const p = palette(colorMode(io.env, io.stdoutIsTTY));
   const session: Session = { io, p, example, pause: resolvePause(args, io) };
-  if (args.classic) return runClassic(io, example);
-  if (lang !== SOURCE_LOCALE) return runTranslated(session, lang, glossaryJson);
-  return runStyled(session);
+  const demoLogger = io.createLogger();
+  if (args.classic) return runClassic(io, example, demoLogger);
+  if (lang !== SOURCE_LOCALE) return runTranslated(session, lang, glossaryJson, demoLogger);
+  return runStyled(session, demoLogger);
 }

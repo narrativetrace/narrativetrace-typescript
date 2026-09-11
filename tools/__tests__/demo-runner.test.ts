@@ -14,6 +14,7 @@ interface Fake {
   readonly prompts: string[];
   readonly classic: string[];
   readonly events: number[];
+  readonly logged: number[];
 }
 
 interface FakeOptions {
@@ -41,11 +42,12 @@ function fakeIo(bins: Bins, answers: (string | null)[], options: FakeOptions): D
       log: (text) => bins.classic.push(text),
       consumer: () => bins.events.push(1),
     }),
+    createLogger: () => () => bins.logged.push(1),
   };
 }
 
 function fake(options: FakeOptions = {}): Fake {
-  const bins: Bins = { out: [], err: [], prompts: [], classic: [], events: [] };
+  const bins: Bins = { out: [], err: [], prompts: [], classic: [], events: [], logged: [] };
   return { ...bins, io: fakeIo(bins, [...(options.answers ?? [])], options) };
 }
 

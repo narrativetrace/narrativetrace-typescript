@@ -1,4 +1,4 @@
-<!-- source: documentation/examples-guide.md blob 8891c8628175 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/examples-guide.md blob f3ca6de1fcee | translated: 2026-09-11 | reviewed: - -->
 
 # Guía de ejemplos
 
@@ -58,13 +58,24 @@ renderizado. No hay un renderer por defecto ni nada que configurar: la captura p
 absoluto: eso es un `EventConsumer` en la ruta en línea del `DualPathPipeline` del ejemplo
 (`tools/demo-stream.ts`, el gemelo del `Slf4jTraceEventListener` de Java) — la única vista que no
 cuesta código de renderizado. La configuración selecciona un renderer en exactamente un lugar, los
-archivos de traza escritos desde las pruebas: `NARRATIVETRACE_OUTPUT=true` más
-`NARRATIVETRACE_FORMAT=md|mmd|json|puml`.
+archivos de traza escritos desde las pruebas: `createNarrativeTest` los escribe por su cuenta —
+sin necesidad de ningún flag — y `NARRATIVETRACE_FORMAT=md|mmd|json|puml` elige cuáles. Define
+`NARRATIVETRACE_OUTPUT=false` para desactivar la escritura de archivos.
 
 **La salida de log clásica es un modo de primera clase.** `--classic` envía la misma ejecución a
 través de `@narrativetrace/winston` con un formato tradicional `yyyy-MM-dd HH:mm:ss.SSS LEVEL
 [thread] [logger] - message` — la idea es que la narración son líneas de log ordinarias que
 cualquier herramienta de logging ingiere.
+
+**Cada ejecución también llega a un logger real, en todos los modos.** Independientemente de
+`--classic`, el lanzador compone un consumidor de `@narrativetrace/pino` sobre el listener que el
+modo ya esté usando y escribe líneas estructuradas por evento en `demo-trace.log`, en la raíz del
+repositorio (`createDemoLogger()` de `tools/demo.ts` — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino)).
+Las vistas de consola coloreada, clásica y traducida no cambian; `tail -f demo-trace.log` muestra
+la misma traza aterrizando en un logger configurado a medida que corre la demo. El punto de
+entrada propio de cada ejemplo (`pnpm run example:<name>`, sin el lanzador de por medio) conecta
+el mismo puente directamente a stdout — consulta "Logger" debajo de cada ejemplo.
 
 **Las trazas traducidas también son un modo de primera clase.** Cada ejemplo del lanzador incluye
 un glosario de dominio (`examples/<name>/glossary.json` — un contexto delimitado con términos
@@ -117,6 +128,11 @@ pnpm demo -- --example ecommerce
 - `examples/ecommerce/src/order-service.ts` — orquestador que llama a todos los demás servicios
 - `examples/ecommerce/glossary.json` — el contexto delimitado a través del cual traduce `--lang`
 
+**Logger:** `src/demo.ts` envía la misma traza a un logger real de
+[Pino](https://github.com/pinojs/pino) (`@narrativetrace/pino`), intercalada con la narración en
+consola de arriba — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
+
 ## Clarity
 
 El `ClarityDemoExample` de Java: un dominio de reservas de hotel en cuatro niveles de calidad de
@@ -143,6 +159,10 @@ pnpm demo -- --example clarity
   árboles que capturaron los primeros cuatro
 - `examples/clarity/src/reservation-service.ts` — el nivel bien nombrado
 
+**Logger:** `src/demo.ts` envía la misma traza a un logger real de Pino (`@narrativetrace/pino`),
+intercalada con la narración en consola de arriba — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
+
 ## Express
 
 Un servidor HTTP de Express que envuelve los servicios de ecommerce con el middleware
@@ -159,6 +179,11 @@ JSON incluye tanto el resultado del pedido como el árbol de traza completo.
 **Archivos clave:**
 - `examples/express/src/app.ts` — app de Express con el middleware `narrativeTrace(ctx)`
 
+**Logger:** `src/app.ts` construye el contexto con `createExpressNarrativeContext(config, {
+pipeline })`, conectando un logger real de Pino (`@narrativetrace/pino`) a la ruta síncrona del
+pipeline, junto al `BufferedEventConsumer` que `ctx.captureTrace()` sigue necesitando — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
+
 ## Hono
 
 Igual que el ejemplo de Express, pero usando el framework Hono.
@@ -171,6 +196,9 @@ Abre `http://localhost:3001`. El mismo formulario de pedido, la misma traza en l
 
 **Archivos clave:**
 - `examples/hono/src/app.ts` — app de Hono con el middleware `narrativeTrace(ctx)`
+
+**Logger:** `src/app.ts` construye el contexto con `createHonoNarrativeContext(config, { pipeline
+})`, con el mismo cableado que el puente de Pino del ejemplo [Express](#express).
 
 ## Distributed
 
@@ -242,6 +270,12 @@ docker compose -f examples/distributed/src/docker-compose.yml down
 - `examples/distributed/src/traced-service-factory.ts` — crea contextos de traza integrados con OTel
 - `examples/distributed/src/docker-compose.yml` — definiciones de contenedores
 
+**Logger:** el `buildPipeline` de `src/traced-service-factory.ts` transmite la traza de cada
+servicio a un logger real de Pino (`@narrativetrace/pino`) por stdout — el destino nativo del
+contenedor — junto a los spans de OTel y al consumidor enriquecedor que ya tenía cableado; una
+única fábrica compartida cubre los 5 servicios — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
+
 ## Minecraft
 
 Un dominio inspirado en Minecraft (generador de mundo, inventario del jugador, mesa de crafteo,
@@ -262,6 +296,10 @@ WorldServer.playerJoined(playerName: "Steve")
 -> "Steve joined the world in plains biome"
 ```
 
+**Logger:** `src/demo.ts` envía la misma traza a un logger real de Pino (`@narrativetrace/pino`),
+intercalada con la salida en consola de arriba — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
+
 ## Minecraft-Generic
 
 La misma lógica exacta que el ejemplo de minecraft, pero con nombres genéricos y opacos
@@ -278,6 +316,10 @@ pnpm demo -- --example minecraft     # ambas mitades, refactorizada primero, com
 Ambas mitades están cableadas exactamente de la misma manera, byte a byte — `traceObject(impl,
 context, paramNames, { className })`, sin decoradores — así que el mapa `paramNames` es lo que
 nombra a los parámetros.
+
+**Logger:** `src/demo.ts` envía la misma traza a un logger real de Pino (`@narrativetrace/pino`),
+intercalada con la salida en consola de arriba — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
 
 ## Plain-JS
 
@@ -296,6 +338,10 @@ pnpm demo -- --example plain-js
 - `examples/plain-js/src/scenarios.mjs` — el registro, `createTracedLendingService(context)`
 - `examples/plain-js/src/lending-service.mjs` — recibe un reloj inyectable para que las pruebas sean
   reproducibles
+
+**Logger:** `src/demo.mjs` envía la misma traza a un logger real de Pino (`@narrativetrace/pino`),
+intercalada con la narración en consola de arriba — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
 
 ## Navegador
 
@@ -326,6 +372,11 @@ los tipos y produce un bundle de producción con `vite build`.
 - `examples/browser/src/calculator.ts` — la clase trazada
 - `examples/browser/vite.config.ts` — servidor de desarrollo + middleware colector de `/traces`
 
+**Logger:** no aplica — este ejemplo se ejecuta enteramente en el navegador, donde
+`renderToConsole()` (la consola de DevTools) ya es el destino realista; `@narrativetrace/pino` y
+`@narrativetrace/winston` son puentes exclusivos de Node, sin ningún stream de TraceEvent al que
+conectarse aquí.
+
 ## Etiqueta script
 
 La contraparte en navegador de [plain-js](#plain-js): JavaScript puro en una página web sin **TypeScript, sin bundler y sin módulos ES**. `public/index.html` carga dos scripts clásicos en orden: `/narrativetrace.global.js` — el bundle de [`@narrativetrace/standalone`](../../packages/standalone/README.md), que define `window.NarrativeTrace` y registra el generador de id para navegador — y `/app.js`, JavaScript escrito a mano al estilo ES5 (función constructora + métodos de prototipo; a `traceObject` no le importa cómo se construyeron los objetos). Al hacer clic en **Run traced checkout** se traza un `ShoppingCart`, incluyendo un `checkout("EXPIRED")` capturado para que se vea un resultado `✗`, luego renderiza la traza en la página, la refleja en la consola de DevTools y la envía por POST a `/traces`.
@@ -342,6 +393,11 @@ Pruebas: el servidor contra un puerto efímero (rutas, tipos de contenido, colec
 - `examples/script-tag/public/index.html` — la página; se explica a sí misma mediante comentarios HTML
 - `examples/script-tag/public/app.js` — la aplicación en JavaScript puro
 - `examples/script-tag/src/server.ts` — rutas estáticas + colector de `/traces`; `src/entry.ts` lo arranca
+
+**Logger:** la traza en sí se produce en el navegador (`public/app.js`), así que no hay ningún
+stream local de TraceEvent al que un puente de Node pueda conectarse; el colector de
+`src/server.ts` registra el documento de traza recibido a través de un logger real de Pino,
+estructurado, junto a su línea de consola existente.
 
 ## Angular + Express
 
@@ -382,6 +438,9 @@ Realiza un pedido y observa:
   la traza
 - `examples/express-angular/server/app.ts` — backend de Express con CORS + middleware
   `narrativeTrace(ctx)`
+
+**Logger:** `server/app.ts` usa el mismo cableado de `createExpressNarrativeContext(config, {
+pipeline })` que el puente de Pino del ejemplo [Express](#express).
 
 ## NestJS + React
 
@@ -437,6 +496,12 @@ pnpm --filter @narrativetrace/example-nestjs-react test
   `PaymentService`)
 - `examples/nestjs-react/client/order-form.tsx` — `useTraced` / `useTracedFetch` /
   `useTraceCapture` + visualización de la traza
+
+**Logger:** `server/app.module.ts` pasa un `pipeline` explícito (un logger real de Pino más un
+`BufferedEventConsumer`) a `AutoProxyModule.forRoot()` — sin él, los spans capturados van a parar a
+un consumidor desechable que nadie drena (el propio vacío TS-DI-1, ya documentado, de
+`AutoProxyOptions.pipeline`) — consulta la
+[Guía de integración de frameworks § Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
 
 ## Ejecutar todos los ejemplos
 

@@ -2,8 +2,21 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { ControlEscape } from "./control-escape.js";
+import { errorTypeName } from "./error-display.js";
 import { isThenable } from "./is-thenable.js";
 import { notTracedFields, RedactionPolicy } from "./redaction-policy.js";
+
+/**
+ * The typed error marker: a member that throws while `renderValue`/`renderStructured` reads it
+ * (`narrativeSummary()`, a leaf's `toString()`, a field getter) never shows past the thrower's
+ * TYPE name — never {@link Error.message}, which can carry the exact value the member was
+ * refusing to render (owner ruling, 2026-09-11). {@link errorTypeName} already resolves the
+ * cross-runtime name (constructor name for an `Error`/object, `typeof` for a thrown primitive)
+ * and sanitizes it, so this is the one place every throwing hazard in the renderer converges on.
+ */
+function errorMarker(thrown: unknown): string {
+  return `<error: ${errorTypeName(thrown)}>`;
+}
 
 /**
  * Truncation and redaction budgets for {@link renderValue}. Omitted fields fall back to conservative
@@ -109,8 +122,9 @@ class RenderWalk {
  * @param value any argument or return value, including `null`/`undefined` (rendered literally) and
  * cyclic structures.
  * @param options truncation and redaction budgets; see {@link RenderOptions} for defaults.
- * @returns the rendered string; thenables render as `<pending>` (never awaited) and objects whose
- * rendering throws fall back to `<TypeName>`.
+ * @returns the rendered string; thenables render as `<pending>` (never awaited) and a member that
+ * throws while being rendered (`narrativeSummary()`, a leaf's `toString()`, a field getter)
+ * degrades to the typed error marker `<error: TypeName>` for that part alone.
  * @llmNote Rendering may invoke members on `value` — a custom `toString()`, a `@narrativeSummary`
  * method, or a property path named in a `@narrated`/`@onError` template — so those members must be
  * side-effect free (no lazy loading, counters, caches, or I/O). Every invocation is bounded and
@@ -247,15 +261,23 @@ function typeName(value: object): string {
 }
 
 // A `narrativeSummary()` method (no args) supplies a curated one-line summary that is preferred
-// over field introspection / toString (Java @NarrativeSummary). A throwing summary is ignored so
-// rendering falls through to the normal path. Returns undefined when no summary applies.
+// over field introspection / toString (Java @NarrativeSummary), and — like every other member
+// this renderer invokes — is scanned for a value shape (JWT/PAN/SSN/…) as defense-in-depth: the
+// method is the author's own curated text, but curated text can still accidentally interpolate a
+// secret-shaped value the same way a hostile toString does. A throwing summary is NOT ignored:
+// the owner ruling is that the whole rendering degrades to the typed error marker rather than
+// silently falling through to toString/field introspection, which could reintroduce exactly the
+// leak a summary method was written to prevent. Returns undefined only when there is no
+// `narrativeSummary` method at all, so dispatch can fall through to the next rule.
 function renderSummary(value: object, opts: Required<RenderOptions>): string | undefined {
   const fn = (value as { narrativeSummary?: unknown }).narrativeSummary;
   if (typeof fn !== "function") return undefined;
   try {
-    return truncate(ControlEscape.sanitize(String(fn.call(value))), opts.maxStringLength);
-  } catch {
-    return undefined;
+    const text = String(fn.call(value));
+    if (opts.redactionPolicy.shouldRedactValue(text)) return RedactionPolicy.MARKER;
+    return truncate(ControlEscape.sanitize(text), opts.maxStringLength);
+  } catch (err) {
+    return errorMarker(err);
   }
 }
 
@@ -264,16 +286,38 @@ function hasCustomToString(value: object): boolean {
   return typeof fn === "function" && fn !== Object.prototype.toString;
 }
 
+/**
+ * Whether `value` is a leaf: no own enumerable key, so it has nothing field introspection could
+ * ever walk (the renderer never reaches a prototype getter — see the `RenderOptions` remarks).
+ *
+ * @remarks This is the line the family invariant of 2026-09-11 draws: a custom `toString()` is
+ * trusted ONLY for a leaf. An object with own fields is ALWAYS introspected instead, whatever its
+ * `toString()` would have printed — not merely when one of ITS OWN fields happens to be a
+ * redaction target. The narrower, field-name-based predecessor of this check
+ * (`hasRedactedOwnField`) missed the shape the family security fix of 2026-09-11 exists for: a
+ * `toString()` that interpolates a NESTED object's own curated text (`Order.toString()` printing
+ * `this.customer`, itself a `Holder` with a redacted field) never puts the redacted field's name
+ * or annotation on `Order` itself, so the own-field check saw nothing to catch — the leak lived a
+ * level down, past where the check ever looked. Trusting `toString()` for leaves only closes that
+ * whole class at once, at every depth, rather than chasing each new interpolation shape as its
+ * own bug.
+ */
+function isLeaf(value: object): boolean {
+  return Object.keys(value).length === 0;
+}
+
 // An object with its own toString() renders that string (sanitized + truncated) rather than a
-// field dump; a null-returning or throwing toString falls back to <TypeName> (Java
-// renderWithToString). Plain objects (Object.prototype.toString) still introspect.
+// field dump; a null-returning toString falls back to <TypeName>, a throwing one to the typed
+// error marker (Java renderWithToString). Plain objects (Object.prototype.toString) still
+// introspect. Only ever called for a leaf (see dispatchObject) — an object with fields never
+// reaches here at all.
 function renderWithToString(value: object, opts: Required<RenderOptions>): string {
   try {
     const raw = (value as { toString(): unknown }).toString();
     if (raw == null) return `<${typeName(value)}>`;
     return truncate(ControlEscape.sanitize(String(raw)), opts.maxStringLength);
-  } catch {
-    return `<${typeName(value)}>`;
+  } catch (err) {
+    return errorMarker(err);
   }
 }
 
@@ -284,40 +328,25 @@ function renderObject(value: object, opts: Required<RenderOptions>, walk: Render
   walk.add(value);
   try {
     return dispatchObject(value, opts, walk);
-  } catch {
-    return "<Object>";
+  } catch (err) {
+    return errorMarker(err);
   } finally {
     walk.ascend();
     walk.remove(value);
   }
 }
 
-/**
- * Whether any own field of `value` is a redaction target — explicitly annotated or deny-listed by
- * name.
- *
- * @remarks A custom `toString()` is trusted as a curated summary only when it cannot be hiding a
- * redacted field. Java draws this line with `Class.isRecord()` — a language-level guarantee that a
- * record's components are always introspected, toString or not; JS classes carry no such
- * distinction, so this checks the one thing that actually matters: does *this* object have a field
- * the redaction rules would otherwise catch. When it does, field introspection runs instead of
- * `toString()`, so a class that adds `static notTraced` or a deny-listed field name later cannot
- * silently start leaking through a `toString()` nobody revisited.
- */
-function hasRedactedOwnField(value: object, opts: Required<RenderOptions>): boolean {
-  const explicit = notTracedFields(value);
-  return Object.keys(value).some((key) => opts.redactionPolicy.isRedacted(key, explicit.has(key)));
-}
-
 // Render order mirrors Java ValueRenderer: Array, Set, Map, @narrativeSummary, custom toString
-// (unless a field it could be hiding is a redaction target), then field introspection.
+// (leaves only — see isLeaf), then field introspection. A custom toString() on an object that
+// HAS fields is never trusted, regardless of whether any of those fields is itself a redaction
+// target — see isLeaf's doc for the nested-interpolation leak this closes.
 function dispatchObject(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
   if (Array.isArray(value)) return renderArray(value, opts, walk);
   if (value instanceof Set) return renderSet(value, opts, walk);
   if (value instanceof Map) return renderMap(value, opts, walk);
   const summary = renderSummary(value, opts);
   if (summary !== undefined) return summary;
-  if (hasCustomToString(value) && !hasRedactedOwnField(value, opts)) {
+  if (hasCustomToString(value) && isLeaf(value)) {
     return renderWithToString(value, opts);
   }
   return renderPlainObject(value, opts, walk);
@@ -345,17 +374,35 @@ function renderMap(
   return entries.length > opts.maxCollectionItems ? `{${joined}, …}` : `{${joined}}`;
 }
 
+// A Map key can be an arbitrary object — including one carrying a redacted field, or one whose
+// own toString() is the exact nested-interpolation hazard `isLeaf` guards against — so the key is
+// rendered through the same total, redaction-aware `render()` every value goes through, never via
+// a raw `String(key)` (2026-09-11 family security fix: `String(key)` on an object silently calls
+// its toString() unconditionally, bypassing dispatch entirely). The "does this key's NAME look
+// like a secret" check that decides whether to redact the associated VALUE stays scoped to
+// string keys only — the common `Map<string, T>` shape it exists for — rather than reaching for
+// an object key's rendered text, which is display output, not a field name to pattern-match.
 function renderMapEntry(
   key: unknown,
   value: unknown,
   opts: Required<RenderOptions>,
   walk: RenderWalk,
 ): string {
-  const keyName = String(key);
-  const rendered = opts.redactionPolicy.shouldRedact(keyName)
-    ? RedactionPolicy.MARKER
-    : render(value, opts, walk);
-  return `${keyName}=${rendered}`;
+  const keyText = renderMapKey(key, opts, walk);
+  const nameRedactsValue = typeof key === "string" && opts.redactionPolicy.shouldRedact(key);
+  const rendered = nameRedactsValue ? RedactionPolicy.MARKER : render(value, opts, walk);
+  return `${keyText}=${rendered}`;
+}
+
+// Objects and symbols can carry hostile or secret-shaped content reachable only through the safe
+// `render()` dispatch (field introspection, redaction, sanitizing); every other key type's string
+// form can never carry arbitrary text, so it keeps the plain, unquoted `String(key)` display this
+// renderer has always used for map keys.
+function renderMapKey(key: unknown, opts: Required<RenderOptions>, walk: RenderWalk): string {
+  if (key !== null && (typeof key === "object" || typeof key === "symbol")) {
+    return render(key, opts, walk);
+  }
+  return String(key);
 }
 
 function renderArray(value: unknown[], opts: Required<RenderOptions>, walk: RenderWalk): string {
@@ -391,5 +438,22 @@ function renderEntry(
   if (opts.redactionPolicy.isRedacted(key, explicit.has(key))) {
     return `"${key}": ${RedactionPolicy.MARKER}`;
   }
-  return `"${key}": ${render((value as Record<string, unknown>)[key], opts, walk)}`;
+  return `"${key}": ${renderFieldValue(value, key, opts, walk)}`;
+}
+
+// A field can be a getter that throws while being read (own-enumerable accessors are the one
+// shape the renderer's introspection actually invokes — see the RenderOptions remarks). That
+// throw is scoped to this one field: siblings still render normally, and the failing field shows
+// the typed error marker rather than losing the whole object to a single hostile getter.
+function renderFieldValue(
+  value: object,
+  key: string,
+  opts: Required<RenderOptions>,
+  walk: RenderWalk,
+): string {
+  try {
+    return render((value as Record<string, unknown>)[key], opts, walk);
+  } catch (err) {
+    return errorMarker(err);
+  }
 }

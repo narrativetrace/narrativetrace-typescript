@@ -2,11 +2,21 @@
 
 **English** | [Español](LEAME.md) | [Português](LEIAME.md) | [简体中文](自述文件.md)
 
-> Code is the log.
+## Start here
+
+[See a trace in 60 seconds](documentation/first-10-minutes.md) — a plain script, one run, and the trace is in your terminal.
+
+## Demo
+
+Clone the repository and run `./demo.sh`.
+
+## Examples
+
+See [the examples](documentation/examples-guide.md) — NarrativeTrace in realistic applications.
+
+## Code is the log
 
 Zero-code logging that uses your method and parameter names as the log. If the trace is unreadable, your code needs refactoring — not more log statements.
-
-In a hurry: [try it locally](#try-it-locally) → [add it to one test](#add-it-to-one-test) → [pick your integration](#choose-your-integration).
 
 ## The problem
 
@@ -137,7 +147,7 @@ Overall: 0.92 (high)
 | processData | 0.30  | Generic verb + generic noun |
 ```
 
-Generic names like `processData`, `handleRequest`, `result` score low. Domain-specific names like `reserveInventory`, `customerId` score high. The clarity report is generated automatically once you write it to a Vitest run — see [First 10 Minutes](documentation/first-10-minutes.md#6-rename-placeorder-to-process-and-watch-clarity-drop) for a real before/after.
+Generic names like `processData`, `handleRequest`, `result` score low. Domain-specific names like `reserveInventory`, `customerId` score high. The clarity report is generated automatically once you write it to a Vitest run — see the [Clarity Guide](documentation/clarity-guide.md#report-output) for a real before/after.
 
 Clarity scoring is still experimental.
 
@@ -187,33 +197,21 @@ That line disappears; the method call already carries the information. By defaul
 
 Wire in `@narrativetrace/pino` or `@narrativetrace/winston` and NarrativeTrace becomes a live emitter: `createPinoEventConsumer`/`createWinstonEventConsumer` call your own `Logger` instance directly (`logger.trace()`/`logger.warn()`, configurable per event), so every transport, formatter, and shipping destination you already configured keeps working, untouched — NarrativeTrace is one more caller of your logger, not a replacement for it. Manual logging you keep writing on purpose — an audit line, a business metric, anything that isn't just narrating control flow — runs on the same logger, interleaved with NarrativeTrace's own lines. Want correlation without generating any lines at all? `@narrativetrace/observability`'s `createLogEnricher` stamps `trace_id`/`nt.*` fields onto the logger calls you still write by hand; it never emits on its own.
 
-## Try it locally
-
-No project, no wiring — the repository ships a demo launcher that runs the example applications and narrates them live (the first run needs a build):
-
-```bash
-pnpm install                                   # once
-pnpm run build && pnpm demo                    # interactive picker: ecommerce, clarity, minecraft, plain-js
-pnpm demo -- --example ecommerce               # six scenarios, live → ← !! stream, a stop point per scenario
-pnpm demo -- --example ecommerce --classic     # the same run as timestamped logs through the winston bridge
-pnpm demo -- --example ecommerce --lang es     # the same run re-rendered through the example's glossary.json
-```
-
-Every scenario opens with a note on how its trace is wired — decorators, `traceObject`, fork/join —
-and each rendering (tree, prose, Mermaid, PlantUML) is announced as its own section. Details in the
-[Examples Guide](documentation/examples-guide.md#demo-launcher).
-
 ## Add it to one test
 
-The shortest path from "interesting library" to "I saw a useful trace of my own code" is the Vitest fixture. Node 20+ (CI runs 22), TypeScript 5.0+ if you use the decorators below.
+The shortest path to a trace inside your existing test suite is the Vitest fixture — for the
+shortest path of all, a plain script with no test framework, see
+[See a trace in 60 seconds](documentation/first-10-minutes.md) instead. Node 20+ (CI runs 22),
+TypeScript 5.0+ if you use the decorators below.
 
 ```bash
 pnpm add @narrativetrace/core-node @narrativetrace/proxy
 pnpm add -D @narrativetrace/vitest
 ```
 
-npm publication is in preparation — until the packages are on the registry,
-build them from this repository (see [Building from source](#building-from-source)).
+These are the published packages — `npm view @narrativetrace/core version` shows the current
+release (0.1.1 as of this writing; see [Building from source](#building-from-source) if you need
+an unreleased change instead).
 
 ```ts
 // order-service.test.ts
@@ -236,9 +234,11 @@ Run `npx vitest run` and open `narrativetrace-output/order-service/customer_plac
 test name became the scenario name, no interface or build-tool plugin required (`traceObject` wraps
 the concrete object directly).
 
-Want to keep going — rename the method and watch the clarity score drop, add `@notTraced` and see a
-value redacted? → [First 10 Minutes](documentation/first-10-minutes.md) walks all seven steps with
-real, run-for-real output.
+Want to see the clarity score drop when you rename a method, or a value redacted with
+`@notTraced`? The [Clarity Guide](documentation/clarity-guide.md) and
+[Privacy and Redaction](documentation/privacy-and-redaction.md) walk through both, with real,
+run-for-real output. Prefer the shortest possible path first? →
+[See a trace in 60 seconds](documentation/first-10-minutes.md).
 
 ## Choose your integration
 
@@ -403,7 +403,7 @@ feature Free, Pro, In development, or Planned, and cites the code behind each sh
 
 Start here:
 
-- [First 10 Minutes](documentation/first-10-minutes.md) — one tiny service, one Vitest test, seven steps to a real trace, with real output
+- [See a trace in 60 seconds](documentation/first-10-minutes.md) — a plain script wraps one service, one run, the trace in your terminal
 - [Installation Guide](documentation/installation-guide.md) — dependencies, every integration path, trace output setup
 - [Choosing an Integration](documentation/choosing-an-integration.md) — which package you need, as a decision diagram
 - [Configuration Guide](documentation/configuration-guide.md) — tracing levels, Vitest config, render options

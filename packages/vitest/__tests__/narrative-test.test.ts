@@ -9,7 +9,7 @@ import {
   NarrativeTraceConfig,
   parameterCapture,
 } from "@narrativetrace/core-node";
-import { afterAll, afterEach, beforeEach, describe, expect, test, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   createNarrativeTest,
   DEFAULT_TEST_BUFFER_CAPACITY,
@@ -70,8 +70,9 @@ describe("resolveFixtureConfig", () => {
     process.env = { ...saved };
   });
 
-  test("defaults to detail plus the full per-test artifact set", () => {
+  test("defaults to detail plus the full per-test artifact set, output on", () => {
     delete process.env.NARRATIVETRACE_LEVEL;
+    delete process.env.NARRATIVETRACE_OUTPUT;
     delete process.env.NARRATIVETRACE_OUTPUT_DIR;
     delete process.env.NARRATIVETRACE_FORMAT;
     expect(resolveFixtureConfig()).toEqual({
@@ -79,6 +80,7 @@ describe("resolveFixtureConfig", () => {
       outputDir: "narrativetrace-output",
       formats: ["md", "json", "mmd"],
       bufferCapacity: 8192,
+      outputEnabled: true,
     });
   });
 
@@ -91,7 +93,27 @@ describe("resolveFixtureConfig", () => {
       outputDir: "/tmp/out",
       formats: ["json", "mmd"],
       bufferCapacity: 8192,
+      outputEnabled: true,
     });
+  });
+
+  test("NARRATIVETRACE_OUTPUT=false disables file output, case-insensitively and untrimmed", () => {
+    process.env.NARRATIVETRACE_OUTPUT = " FALSE ";
+    expect(resolveFixtureConfig().outputEnabled).toBe(false);
+  });
+
+  test("NARRATIVETRACE_OUTPUT=true stays enabled, same as any other non-false value", () => {
+    process.env.NARRATIVETRACE_OUTPUT = "true";
+    expect(resolveFixtureConfig().outputEnabled).toBe(true);
+    process.env.NARRATIVETRACE_OUTPUT = "console";
+    expect(resolveFixtureConfig().outputEnabled).toBe(true);
+  });
+
+  test("explicit outputEnabled option wins over the env channel", () => {
+    process.env.NARRATIVETRACE_OUTPUT = "false";
+    expect(resolveFixtureConfig({ outputEnabled: true }).outputEnabled).toBe(true);
+    process.env.NARRATIVETRACE_OUTPUT = "true";
+    expect(resolveFixtureConfig({ outputEnabled: false }).outputEnabled).toBe(false);
   });
 
   test("degrades a garbage level to detail without throwing", () => {
@@ -112,6 +134,7 @@ describe("resolveFixtureConfig — project config file channel", () => {
   beforeEach(() => {
     for (const key of [
       "NARRATIVETRACE_LEVEL",
+      "NARRATIVETRACE_OUTPUT",
       "NARRATIVETRACE_OUTPUT_DIR",
       "NARRATIVETRACE_FORMAT",
     ])
@@ -141,7 +164,13 @@ describe("resolveFixtureConfig — project config file channel", () => {
       outputDir: "traces",
       formats: ["json", "mmd"],
       bufferCapacity: 8192,
+      outputEnabled: true,
     });
+  });
+
+  test('reads output:"false" from narrativetrace.config.json', () => {
+    writeConfig("narrativetrace.config.json", '{"output":"false"}');
+    expect(resolveFixtureConfig().outputEnabled).toBe(false);
   });
 
   test("lets the env channel override the config file", () => {
@@ -160,6 +189,7 @@ describe("resolveFixtureConfig — project config file channel", () => {
       outputDir: "explicit",
       formats: ["md", "json", "mmd"],
       bufferCapacity: 8192,
+      outputEnabled: true,
     });
   });
 
@@ -703,6 +733,90 @@ describe("createNarrativeTest", () => {
     expect(existsSync(filePath)).toBe(true);
     const content = readFileSync(filePath, "utf-8");
     expect(content).toContain("OrderService.riskyOp");
+  });
+});
+
+// Owner ruling, 2026-09-11: test-integration trace output is on by default across every
+// NarrativeTrace runtime — capture was always on, only file-writing was ever opt-in, and that
+// opt-in was invisible to an adopter who never set it. These pin the flip end to end, through the
+// real fixture (not just resolveFixtureConfig): a run with nothing configured writes;
+// NARRATIVETRACE_OUTPUT=false writes nothing; an overridden outputDir is still honored regardless.
+// Each block follows the file's own established two-test pattern (register via the fixture, assert
+// in the next test) since a fixture's teardown runs during Vitest's own run phase, after this
+// file's synchronous collection — declaration order is run order within one file.
+describe("createNarrativeTest — output on by default", () => {
+  const saved = { ...process.env };
+  const tmpDir = mkdtempSync(join(tmpdir(), "narrative-output-default-"));
+  // resolveFixtureConfig reads NARRATIVETRACE_OUTPUT during the fixture's *setup*, which runs
+  // before the test body — so the env must be settled in beforeAll, not inside the test body.
+  beforeAll(() => {
+    delete process.env.NARRATIVETRACE_OUTPUT;
+  });
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+    process.env = { ...saved };
+  });
+
+  const defaultOnTest = createNarrativeTest({ outputDir: tmpDir, formats: ["md"] });
+  defaultOnTest("writes with nothing configured", ({ narrativeContext }) => {
+    narrativeContext.enterMethod("Svc", "op", []);
+    narrativeContext.exitMethodWithReturn('"ok"');
+  });
+
+  test("the artifact landed without any flag set", () => {
+    const moduleDir = join(tmpDir, "narrative-test");
+    expect(existsSync(moduleDir)).toBe(true);
+    const [file] = readdirSync(moduleDir);
+    expect(file).toContain("writes_with_nothing_configured");
+    expect(readFileSync(join(moduleDir, file as string), "utf-8")).toContain("Svc.op");
+  });
+});
+
+describe("createNarrativeTest — NARRATIVETRACE_OUTPUT=false writes nothing", () => {
+  const saved = { ...process.env };
+  const tmpDir = mkdtempSync(join(tmpdir(), "narrative-output-envoff-"));
+  beforeAll(() => {
+    process.env.NARRATIVETRACE_OUTPUT = "false";
+  });
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+    process.env = { ...saved };
+  });
+
+  const envOffTest = createNarrativeTest({ outputDir: tmpDir, formats: ["md"] });
+  envOffTest("would write if enabled", ({ narrativeContext }) => {
+    narrativeContext.enterMethod("Svc", "op", []);
+    narrativeContext.exitMethodWithReturn('"ok"');
+  });
+
+  test("no module directory was created under the (overridden) outputDir", () => {
+    expect(existsSync(join(tmpDir, "narrative-test"))).toBe(false);
+  });
+});
+
+describe("createNarrativeTest — explicit outputEnabled: false writes nothing", () => {
+  const saved = { ...process.env };
+  const tmpDir = mkdtempSync(join(tmpdir(), "narrative-output-optoff-"));
+  beforeAll(() => {
+    delete process.env.NARRATIVETRACE_OUTPUT;
+  });
+  afterAll(() => {
+    rmSync(tmpDir, { recursive: true, force: true });
+    process.env = { ...saved };
+  });
+
+  const optOffTest = createNarrativeTest({
+    outputDir: tmpDir,
+    formats: ["md"],
+    outputEnabled: false,
+  });
+  optOffTest("would write if enabled", ({ narrativeContext }) => {
+    narrativeContext.enterMethod("Svc", "op", []);
+    narrativeContext.exitMethodWithReturn('"ok"');
+  });
+
+  test("no module directory was created, even with the env channel unset", () => {
+    expect(existsSync(join(tmpDir, "narrative-test"))).toBe(false);
   });
 });
 

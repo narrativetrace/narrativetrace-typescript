@@ -135,24 +135,34 @@ describe("a value whose toString() throws", () => {
     }
   }
 
-  test("degrades to a type marker instead of throwing", () => {
+  test("degrades to the typed error marker instead of throwing", () => {
     // Narration must never break the call it narrates. The marker matches what
-    // value-renderer already emits for this hazard, so capture and narration agree.
+    // value-renderer already emits for this hazard (the THROWN value's own type, an Error here —
+    // never Rogue's type, and never the exception's message), so capture and narration agree.
     expect(resolveTemplate("Processing {payload}", { payload: new Rogue() })).toBe(
-      "Processing <Rogue>",
+      "Processing <error: Error>",
     );
   });
 
   test("degrades behind a property placeholder too", () => {
     expect(resolveTemplate("Processing {holder.value}", { holder: { value: new Rogue() } })).toBe(
-      "Processing <Rogue>",
+      "Processing <error: Error>",
     );
   });
 
+  // A class's toString() (prototype method) is a leaf's, so returning null still degrades to the
+  // bare type marker (not an error — nothing threw). Deliberately a class, not an object literal:
+  // an object literal's own `toString: () => null` property is itself an OWN enumerable key, so
+  // that shape is no longer a leaf under the 2026-09-11 dispatch rule and introspects instead
+  // (`{"toString": <function>}`) — a different, also-safe path this fixture is not testing.
   test("a toString() returning null degrades to the same marker", () => {
-    const nullish = { toString: () => null as unknown as string };
-    expect(resolveTemplate("Processing {payload}", { payload: nullish })).toBe(
-      "Processing <Object>",
+    class NullReturning {
+      toString(): string {
+        return null as unknown as string;
+      }
+    }
+    expect(resolveTemplate("Processing {payload}", { payload: new NullReturning() })).toBe(
+      "Processing <NullReturning>",
     );
   });
 
@@ -219,7 +229,22 @@ describe("resolveTemplate — a whole-object placeholder cannot bypass redaction
     expect(resolved).toContain("[REDACTED]");
   });
 
-  test("an object with nothing to hide keeps its own toString byte for byte", () => {
+  // 2026-09-11 family security fix narrowed this further: an object with own fields is ALWAYS
+  // introspected, "nothing to hide" or not — a benign-looking toString() is exactly what let a
+  // NESTED object's secret slip past the old own-field-only check (see value-renderer.test.ts's
+  // "a toString that interpolates a nested redacted object" for the shape this closes). Only a
+  // true leaf (no own enumerable key at all) still keeps its own toString byte for byte.
+  test("a leaf with nothing to hide keeps its own toString byte for byte", () => {
+    class Money {
+      toString() {
+        return "EUR 10.00";
+      }
+    }
+
+    expect(resolveTemplate("total {money}", { money: new Money() })).toBe("total EUR 10.00");
+  });
+
+  test("an object with own fields is introspected even when its toString has nothing to hide", () => {
     class Money {
       constructor(readonly amount: string) {}
       toString() {
@@ -227,7 +252,9 @@ describe("resolveTemplate — a whole-object placeholder cannot bypass redaction
       }
     }
 
-    expect(resolveTemplate("total {money}", { money: new Money("10.00") })).toBe("total EUR 10.00");
+    expect(resolveTemplate("total {money}", { money: new Money("10.00") })).toBe(
+      'total {"amount": "10.00"}',
+    );
   });
 });
 

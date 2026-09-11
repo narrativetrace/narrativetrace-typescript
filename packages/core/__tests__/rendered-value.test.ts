@@ -99,6 +99,32 @@ describe("renderStructured", () => {
     });
   });
 
+  // 2026-09-11 family security fix: a Map key can be an object carrying a redacted field, and its
+  // rendered LABEL must never come from a raw `String(key)` — that silently calls the key's own
+  // toString(), bypassing redaction entirely (the structured-path analog of the flat renderer's
+  // `renderMapEntry` fix). The key routes through the same `structured()` dispatch every value
+  // does, so its own redacted field is masked in the label too, not just in the (irrelevant, here
+  // benign) map value.
+  test("a Map key carrying a redacted field is masked in its own rendered label", () => {
+    class KeyHolder {
+      constructor(readonly password: string) {}
+      toString(): string {
+        return `Key(${this.password})`;
+      }
+    }
+    const m = new Map<unknown, unknown>([[new KeyHolder("hunter2"), "value"]]);
+    const rendered = renderStructured(m);
+
+    expect(JSON.stringify(rendered)).not.toContain("hunter2");
+    expect(rendered).toEqual({
+      kind: "object",
+      typeName: "Map",
+      fields: {
+        "KeyHolder{password: [REDACTED]}": { kind: "string", value: "value" },
+      },
+    });
+  });
+
   // Security fuzz suite finding: a throwing own-enumerable accessor escaped renderStructured
   // (no catch around field introspection, unlike renderValue's same-shaped `renderObject`), so
   // "the result ... never throws" (this function's own doc comment) did not hold.

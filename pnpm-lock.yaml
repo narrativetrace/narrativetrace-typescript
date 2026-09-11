@@ -89,9 +89,15 @@ importers:
       '@narrativetrace/core-node':
         specifier: workspace:*
         version: link:../../packages/core-node
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
   examples/distributed:
     devDependencies:
@@ -113,6 +119,9 @@ importers:
       '@narrativetrace/opentelemetry':
         specifier: workspace:*
         version: link:../../packages/opentelemetry
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
@@ -152,6 +161,9 @@ importers:
       express:
         specifier: ^4.21.0
         version: 4.22.1
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
       supertest:
         specifier: ^7.0.0
         version: 7.2.2
@@ -167,9 +179,15 @@ importers:
       '@narrativetrace/diagrams':
         specifier: workspace:*
         version: link:../../packages/diagrams
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
   examples/express:
     devDependencies:
@@ -182,6 +200,9 @@ importers:
       '@narrativetrace/express':
         specifier: workspace:*
         version: link:../../packages/express
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
@@ -197,6 +218,9 @@ importers:
       express:
         specifier: ^4.21.0
         version: 4.22.1
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
       supertest:
         specifier: ^7.0.0
         version: 7.2.2
@@ -242,6 +266,9 @@ importers:
       '@narrativetrace/express':
         specifier: workspace:*
         version: link:../../packages/express
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
@@ -260,6 +287,9 @@ importers:
       jsdom:
         specifier: ^26.0.0
         version: 26.1.0
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
       rxjs:
         specifier: ^7.8.0
         version: 7.8.2
@@ -287,6 +317,9 @@ importers:
       '@narrativetrace/hono':
         specifier: workspace:*
         version: link:../../packages/hono
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
@@ -296,6 +329,9 @@ importers:
       hono:
         specifier: ^4.13.5
         version: 4.13.5
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
   examples/minecraft:
     devDependencies:
@@ -308,9 +344,15 @@ importers:
       '@narrativetrace/diagrams':
         specifier: workspace:*
         version: link:../../packages/diagrams
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
   examples/minecraft-generic:
     devDependencies:
@@ -323,9 +365,15 @@ importers:
       '@narrativetrace/diagrams':
         specifier: workspace:*
         version: link:../../packages/diagrams
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
   examples/nestjs-react:
     devDependencies:
@@ -341,6 +389,9 @@ importers:
       '@narrativetrace/nestjs':
         specifier: workspace:*
         version: link:../../packages/nestjs
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
@@ -383,6 +434,9 @@ importers:
       jsdom:
         specifier: ^26.0.0
         version: 26.1.0
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -416,9 +470,15 @@ importers:
       '@narrativetrace/diagrams':
         specifier: workspace:*
         version: link:../../packages/diagrams
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../../packages/proxy
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
   examples/script-tag:
     devDependencies:
@@ -431,6 +491,9 @@ importers:
       jsdom:
         specifier: ^26.0.0
         version: 26.1.0
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
   packages/angular:
     devDependencies:
@@ -3293,6 +3356,10 @@ packages:
     resolution: {integrity: sha512-7MptL8U0cqcFdzIzwOTHoilX9x5BrNqye7Z/LuC7kCMRio1EMSyqRK3BEAUD7sXRq4iT4AzTVuZdhgQ2TCvYLg==}
     engines: {node: '>=8.6.0'}
 
+  fast-redact@3.5.0:
+    resolution: {integrity: sha512-dwsoQlS7h9hMeYUq1W++23NDcBLV4KqONnITDV9DjfS3q1SgDGVrBdvvTLUotWtPSD7asWDV9/CmsZPy8Hf70A==}
+    engines: {node: '>=6'}
+
   fast-safe-stringify@2.1.1:
     resolution: {integrity: sha512-W+KJc2dmILlPplD/H4K9l9LcAHAfPtP6BY84uVLXQ6Evcz9Lcg33Y2z1IVblT6xdY54PXYVHEv+0Wpq8Io6zkA==}
 
@@ -4074,6 +4141,10 @@ packages:
 
   pino-std-serializers@7.1.0:
     resolution: {integrity: sha512-BndPH67/JxGExRgiX1dX0w1FvZck5Wa4aal9198SrRhZjH3GxKQUKIBnYJTdj2HDN3UQAS06HlfcSbQj2OHmaw==}
+
+  pino@9.11.0:
+    resolution: {integrity: sha512-+YIodBB9sxcWeR8PrXC2K3gEDyfkUuVEITOcbqrfcj+z5QW4ioIcqZfYFbrLTYLsmAwunbS7nfU/dpBB6PZc1g==}
+    hasBin: true
 
   pino@9.14.0:
     resolution: {integrity: sha512-8OEwKp5juEvb/MjpIc4hjqfgCNysrS94RIOMXYvpYCdm/jglrKEiAYmiumbmGhCvs+IcInsphYDFwqrjr7398w==}
@@ -7378,6 +7449,8 @@ snapshots:
       merge2: 1.4.1
       micromatch: 4.0.8
 
+  fast-redact@3.5.0: {}
+
   fast-safe-stringify@2.1.1: {}
 
   fast-string-truncated-width@3.0.3: {}
@@ -8147,6 +8220,20 @@ snapshots:
       split2: 4.2.0
 
   pino-std-serializers@7.1.0: {}
+
+  pino@9.11.0:
+    dependencies:
+      atomic-sleep: 1.0.0
+      fast-redact: 3.5.0
+      on-exit-leak-free: 2.1.2
+      pino-abstract-transport: 2.0.0
+      pino-std-serializers: 7.1.0
+      process-warning: 5.0.0
+      quick-format-unescaped: 4.0.4
+      real-require: 0.2.0
+      safe-stable-stringify: 2.5.0
+      sonic-boom: 4.2.1
+      thread-stream: 3.1.0
 
   pino@9.14.0:
     dependencies:

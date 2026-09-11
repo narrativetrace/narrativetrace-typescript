@@ -4,6 +4,12 @@ dist/
 *.tsbuildinfo
 .biome/
 coverage/
+
+# createNarrativeTest's per-test trace artifacts (owner ruling, 2026-09-11: on by default, opt out
+# with NARRATIVETRACE_OUTPUT=false). No leading slash: matches at any depth, since a package or
+# example dogfooding the fixture writes its own narrativetrace-output/ under its own directory, not
+# only at the repo root.
+narrativetrace-output/
 reports/*
 !reports/benchmarks/
 # The nightly quality run commits its own report here so the night's result is
@@ -29,6 +35,10 @@ stryker.log
 .verify-all-logs/
 
 .pnpm-store/
+
+# pnpm demo's always-on pino logger (tools/demo.ts createDemoLogger) — every run appends here so
+# the styled/classic/translated console views stay readable; not a build artifact worth keeping.
+demo-trace.log
 
 
 # Session hardening progress notes (untracked working records)

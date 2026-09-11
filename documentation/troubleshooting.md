@@ -39,8 +39,8 @@ all for an empty trace by design, so a suite that captured no spans leaves
 no directories behind.
 
 **Fix:** use `createNarrativeTest` (see
-[First 10 Minutes](first-10-minutes.md#3-add-one-vitest-test)), and check
-that the call under test actually went through the traced wrapper — a call
+[Installation Guide § Option B: Vitest Plugin](installation-guide.md#option-b-vitest-plugin-auto-context--trace-output)),
+and check that the call under test actually went through the traced wrapper — a call
 made on the un-wrapped instance instead of the object `traceObject()`
 returned records nothing.
 
@@ -84,9 +84,7 @@ regardless of context.
 suite's `clarity-report.md` once `ClaritySuiteReporter` is wired in) and
 replace the flagged name with a domain-specific one (`getData()` →
 `fetchOrderHistory()`). See the [Clarity Guide](clarity-guide.md) for the
-full scoring model — renaming `placeOrder` to `process` in
-[First 10 Minutes § 6](first-10-minutes.md#6-rename-placeorder-to-process-and-watch-clarity-drop)
-reproduces this exact drop.
+full scoring model and worked examples of the same drop.
 
 ## Async trace is missing, or a background task never appears
 

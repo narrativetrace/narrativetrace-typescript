@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 695063750075 | translated: 2026-09-10 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 324f03029bab | translated: 2026-09-11 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -121,16 +121,60 @@ renderizado:
    `chosenHash`, `semiMajorAxis` y `carbonFootprintId` siguen visibles
    mientras que `rutCliente`, `senhaUsuario` y `otpCode` quedan ocultos.
 
-Un **`toString()` cuidado** normalmente se respeta tal como está escrito —
-pero una clase que declara cualquier campo `static notTraced` se
-introspecciona campo por campo en su lugar, así que la anotación se honra
-por encima de lo que ese `toString()` habría impreso. La resolución de
-plantillas tampoco tiene un atajo para saltarse esto: se auditó para
-asegurar que nunca recurre al `toString()` crudo de un valor cuando el
-renderizado seguro omitió el marcador por un motivo no relacionado
-(truncamiento por el límite de campos/profundidad) — todo valor de
-marcador de posición no escalar pasa por el mismo renderizador que oculta
+**Un `toString()` personalizado solo se respeta para una hoja** — un objeto
+sin ningún campo propio, de modo que no hay nada más que la introspección de
+campos podría mostrar en su lugar (invariante familiar, 2026-09-11; el
+diseño de este port ya coincidía con el de .NET). En cuanto un objeto tiene
+al menos un campo propio, siempre se introspecciona campo por campo,
+sea lo que sea que su `toString()` hubiera impreso — no solo cuando ese
+campo está anotado u oculto por nombre. Esto es más estricto de lo que
+parece necesario, y es deliberado: la regla anterior, más estrecha ("respetar
+`toString()` salvo que uno de los campos propios de *este objeto* sea un
+objetivo de ocultación"), pasaba por alto la forma que cierra una corrección
+de seguridad de 2026-09-11 — un `toString()` que interpola el texto cuidado
+de un objeto **anidado** (`Order.toString()` imprimiendo `this.customer`,
+que a su vez es un `Customer` que oculta un campo) nunca pone el nombre o la
+anotación del campo oculto en el propio `Order`, así que la comprobación de
+campos propios no encontraba nada que atrapar y el secreto anidado se
+imprimía por completo. Confiar en `toString()` solo para las hojas cierra
+toda esa clase de fuga de una vez, a cualquier profundidad de anidamiento,
+en lugar de perseguir cada nueva forma de interpolación como un error
+aparte. La misma regla se aplica a una **clave** de `Map`: una clave que es
+en sí misma un objeto pasa por el mismo renderizado consciente de la
+ocultación que un valor, nunca por un `toString()` crudo e incondicional.
+
+`narrativeSummary()` es texto cuidado que la autora escribió específicamente
+para la traza, y sigue superando tanto la confianza en `toString()` como la
+introspección de campos — pero no está exento del análisis de forma del
+valor (una forma JWT/PAN/SSN/identificación-nacional/`Set-Cookie` se oculta
+incluso dentro de texto cuidado), y un `narrativeSummary()` que lanza
+excepción ya no recae en `toString()`/introspección de campos: el valor
+completo degrada al marcador de error tipado en su lugar (ver más abajo),
+porque recaer así es exactamente cómo un resumen escrito para ocultar un
+secreto podría reintroducirlo a través de los campos ordinarios de la clase
+en el momento en que el propio resumen falla.
+
+La resolución de plantillas tampoco tiene un atajo para saltarse nada de
+esto: se auditó para asegurar que nunca recurre al `toString()` crudo de un
+valor cuando el renderizado seguro omitió el marcador por un motivo no
+relacionado (truncamiento por el límite de campos/profundidad) — todo valor
+de marcador de posición no escalar pasa por el mismo renderizador que oculta
 campos que usa el resto de la traza, sin excepciones.
+
+## Errores durante el renderizado
+
+Un miembro que esta librería invoca al renderizar un valor —
+`narrativeSummary()`, el `toString()` de una hoja, o un getter de campo—
+puede lanzar una excepción, o (solo `toString()`) devolver `null`. Una
+excepción degrada al marcador de error tipado para esa única parte,
+`<error: NombreDelConstructor>` (p. ej. `<error: TypeError>`; un valor
+lanzado que no es un `Error` muestra su `typeof`, p. ej. `<error: string>`)
+— **nunca el `message` de la excepción**, que puede llevar el valor exacto
+que el miembro se negaba a renderizar. Un getter de campo que lanza
+excepción degrada solo ese campo; los campos hermanos siguen
+renderizándose con normalidad. Un `toString()` que devuelve `null` (sin
+lanzar excepción) muestra en su lugar el marcador simple
+`<NombreDelConstructor>`, ya que nada falló.
 
 La ocultación también **sobrevive el anidamiento** — un miembro oculto
 dentro de un array, un `Set`, un `Map`, un objeto plano, varios de esos

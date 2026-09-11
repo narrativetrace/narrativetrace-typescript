@@ -12,6 +12,7 @@
   "devDependencies": {
     "@narrativetrace/standalone": "workspace:*",
     "@types/node": "^22.0.0",
-    "jsdom": "^26.0.0"
+    "jsdom": "^26.0.0",
+    "pino": "9.11.0"
   }
 }

@@ -1,4 +1,4 @@
-<!-- source: documentation/feature-guide.md blob d1a164f011f4 | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/feature-guide.md blob f1b69ff55f06 | translated: 2026-09-11 | reviewed: - -->
 # NarrativeTrace TypeScript — Guia de funcionalidades
 
 [English](../feature-guide.md) | [Español](../es/guia-de-funcionalidades.md) | **Português** | [简体中文](../zh-CN/功能指南.md)
@@ -88,7 +88,7 @@ Não presente nesta plataforma: um equivalente ao agente Java
 
 | Funcionalidade | Status | Notas |
 |---|---|---|
-| Renderers de texto indentado, Markdown e prosa | Gratuito | |
+| Renderers de texto indentado, Markdown e prosa | Gratuito | Durações são impressas como `— 3ms` (um inteiro assim que a magnitude chega a 1ms, até duas casas decimais abaixo disso — o float fracionário bruto do `performance.now()` nunca é mostrado); um membro que lança exceção ao ser renderizado (`@narrativeSummary`, o `toString()` de uma folha, um getter de campo) mostra `<error: NomeDoConstrutor>` só naquela parte, nunca a mensagem da exceção. Veja [Privacidade e ocultação § Erros durante a renderização](privacidade-e-ocultacao.md#erros-durante-a-renderização) |
 | Referências de valor no trace — deduplicação endereçada por conteúdo de valores capturados repetidos com rótulos legíveis (`‹Hotel›=full` na primeira emissão, `‹Hotel›` depois) | Gratuito | Os rótulos vêm do campo de identidade do valor estruturado (name/id/description/…), nunca de um campo ocultado; a igualdade de bytes certifica a mesmidade; a contenção dentro de outros valores capturados conta e é substituída. Somente Markdown |
 | Deltas de valor dentro do trace — uma recaptura da mesma entidade, alterada, é renderizada como um diff contra a referência (`‹Dinner›′{amount: 100→92, currency: "USD"→"EUR"}`) | Gratuito | "Mesma entidade" é o mesmo nome de tipo estruturado mais um campo de identidade igual; apenas campos escalares alterados (string, number, boolean e o tipo `other` pré-transformado em string), nunca reconstruído a partir da árvore estruturada. Um objeto ou lista aninhada alterada, um conjunto de campos diferente, ou um valor sem campo de identidade é renderizado por completo exatamente como antes. Uma variante alterada que por sua vez se repete é definida COMO o diff (`‹Dinner·2›=‹Dinner›′{…}`). Somente Markdown |
 | Exportação JSON canônica — envelope versionado (`version`, `scenario`, `trace`, `events[]`) com campos storyId/chapterId | Gratuito | `exportJson(tree, { scenario })` |

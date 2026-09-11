@@ -9,7 +9,7 @@ progress; the translation platform's conventions govern how each stays in sync).
 
 Start here:
 
-- [First 10 Minutes](first-10-minutes.md) — one tiny service, one Vitest test, seven steps to a real trace, with real output
+- [See a trace in 60 seconds](first-10-minutes.md) — a plain script wraps one service, one run, the trace in your terminal
 - [Installation Guide](installation-guide.md) — dependencies, every integration path, trace output setup
 - [Choosing an Integration](choosing-an-integration.md) — which package you need, as a decision diagram
 - [Configuration Guide](configuration-guide.md) — tracing levels, Vitest config, render options

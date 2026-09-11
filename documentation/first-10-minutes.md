@@ -1,213 +1,149 @@
-# First 10 minutes
+# See a trace in 60 seconds
 
-One tiny service, one Vitest test, seven steps. Every command below was run
-for real against this version of the repository — the file paths, the
-clarity scores, and the `[REDACTED]` marker are actual output, not
-illustrations. The only things that will differ on your machine are the
-duration (`ms`) and the two-word `trace_name`, both generated fresh on every
-run.
+No log statements, no test framework, no file to open afterward. A plain script, one run, and
+the trace prints to your terminal. Everything below was run for real against the published
+`@narrativetrace/core-node` and `@narrativetrace/proxy` packages (0.1.1, the version live on npm
+as of this writing — run `npm view @narrativetrace/core version` for whatever is current when you
+read this) — the output is pasted, not imagined. Needs Node 20+ (the published
+`@narrativetrace/core` package declares it in `engines`); pnpm is shown below, npm works too, with
+one difference called out in step 1.
 
-Node 20+ (CI runs 22), TypeScript 5.0+ (for the decorators in step 7), a project that
-already runs `vitest run`. If you have not seen the bigger picture yet,
-`pnpm run build && pnpm demo -- --example ecommerce --no-pause` from the
-repository root is faster still — this page is for when you want to see it
-against *your own* code.
-
-## 1. Add the packages
+## 1. New project, add the package(s)
 
 ```bash
+mkdir narrativetrace-quickstart && cd narrativetrace-quickstart
+pnpm init
 pnpm add @narrativetrace/core-node @narrativetrace/proxy
-pnpm add -D @narrativetrace/vitest
 ```
 
-`core-node` re-exports everything in `@narrativetrace/core` and registers
-the Node id generator — importing `@narrativetrace/core` alone throws on the
-first traced call. There is no build-tool plugin to apply; the packages are
-the entire dependency setup.
+`core-node` re-exports everything in `@narrativetrace/core` and registers the Node id generator —
+importing `@narrativetrace/core` alone throws on the first traced call. `pnpm init` writes a
+`package.json` with `"type": "module"`, so the `import` syntax below works with no other setup.
+Using npm instead? `npm init -y` defaults to CommonJS — run `npm pkg set type=module` right after
+it (before `npm add`), or the `import` in step 2 fails with `SyntaxError: Cannot use import
+statement outside a module`.
 
-## 2. Add one service class
+## 2. The program
 
-```ts
-// src/order-service.ts
-export class OrderService {
-  placeOrder(customerId: string, productId: string, quantity: number): string {
+```js
+// index.js
+import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+
+class OrderService {
+  placeOrder(customerId, productId, quantity) {
     return `ORD-${customerId}-${productId}-${quantity}`;
   }
 }
-```
 
-No interface to declare — `traceObject()` wraps the concrete object directly
-with an ES `Proxy`, so there is nothing to implement against. (the JDK/JVM runtimes
-of NarrativeTrace need an interface for their dynamic proxy; this one does
-not.)
-
-## 3. Add one Vitest test
-
-```ts
-// src/order-service.test.ts
-import { traceObject } from "@narrativetrace/proxy";
-import { createNarrativeTest } from "@narrativetrace/vitest";
-import { OrderService } from "./order-service.js";
-
-const test = createNarrativeTest();
-
-test("customer places order", ({ narrativeContext }) => {
-  const service = traceObject(new OrderService(), narrativeContext, {
-    placeOrder: ["customerId", "productId", "quantity"],
-  });
-
-  service.placeOrder("C-1234", "SKU-KB", 2);
+const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+const service = traceObject(new OrderService(), context, {
+  placeOrder: ["customerId", "productId", "quantity"],
 });
+
+service.placeOrder("C1", "P1", 2);
+console.log(renderMarkdownBody(context.captureTrace()));
 ```
 
-`createNarrativeTest()` returns a Vitest `test` that injects a fresh
-`narrativeContext` per test and writes trace artifacts after it finishes.
-The third argument to `traceObject` — `{ placeOrder: [...] }` — supplies
-parameter names, because JavaScript does not retain them at runtime; without
-it, the trace shows `arg0`, `arg1`, `arg2`. (Step 7 shows the decorator form,
-`@traced`, which does the same thing for a class you own.)
+`OrderService` is a plain class — no interface, no base class, no decorator required.
+`traceObject()` wraps the concrete instance in an ES `Proxy`; its third argument supplies
+`placeOrder`'s parameter names, because JavaScript does not retain them at runtime. Call the
+wrapped object instead of the original, and every call it makes is recorded in `context`.
 
-## 4. Run the suite
+## 3. Run it
 
 ```bash
-npx vitest run
+node index.js
 ```
 
-Output lands under `narrativetrace-output/` — the default the fixture
-picked because no `outputDir` was given — one file per scenario per format:
+Real output, from the run that produced this page:
 
 ```text
-narrativetrace-output/
-   |
-   +-- order-service/customer_places_order.md          human narrative
-   +-- order-service/customer_places_order.json         same trace, JSON
-   +-- diagrams/order-service/customer_places_order.mmd Mermaid sequence diagram
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.5849169999999901ms
 ```
 
-`order-service.test.ts` became the `order-service` directory (the test
-*file's* name, sanitized — the platform equivalent of Java's test *class*
-directory); `"customer places order"` became `customer_places_order.md` —
-the test name, slugged. Nothing else to configure. Only `md`/`json`/`mmd`
-are written by default; pass `formats: [...]` to `createNarrativeTest` for
-`puml`, `clarity-json`, or `canonical-json` too — see the
-[Installation Guide](installation-guide.md#3-configure-trace-output).
+The trailing `Nms` is wall-clock time — it will be a different number on your machine, and a
+different number the next time you run it. Everything else in the line is deterministic: the
+class name, the method name, the parameter names and values, and the return value.
 
-## 5. Open the narrative
+You did not write a log statement. The narrative came from your method name, your parameter
+names, and the value the method returned — the information was already there.
 
-`narrativetrace-output/order-service/customer_places_order.md`:
+## What just happened
 
-```markdown
----
-type: trace
-scenario: customer places order
-entry_point: OrderService.placeOrder
-duration_ms: 1.548
-trace_id: 7919d16fd10a133f3f1ebf9f5670c502
-trace_name: tidy mink roots
-method_count: 1
-error_count: 0
----
+- **A context** (`new SyncNarrativeContext(new NarrativeTraceConfig())`) is where calls get
+  recorded — a plain object, not a global, not a singleton. (Node code that spans an `await`
+  across a request needs `AsyncNarrativeContext` instead; see the
+  [Framework Integration Guide](framework-integration-guide.md).)
+- **The wrap** (`traceObject(new OrderService(), context, {...})`) is the one line that turns on
+  tracing for that object. Nothing about `OrderService` itself changed — no import, no base
+  class, no annotation. A class you own can use the `@traced`/`@narrated` decorators instead of
+  the parameter-name map; see the [Decorators Guide](decorators-guide.md).
+- **Capture, then render** — `context.captureTrace()` snapshots what happened into a plain tree;
+  `renderMarkdownBody()` is one of several renderers over that same tree. `renderIndentedText()`
+  draws an ASCII tree instead, `@narrativetrace/diagrams` turns it into a Mermaid or PlantUML
+  sequence diagram, and `@narrativetrace/browser`'s `renderToConsole()` pretty-prints it in a
+  browser's DevTools console.
 
-- `OrderService.placeOrder(customerId: "C-1234", productId: "SKU-KB", quantity: 2)` → `"ORD-C-1234-SKU-KB-2"` — 1.548ms
+## Send it to your logger
+
+The console line above is one renderer over the trace; the same trace can stream straight into
+the logger you already run in production. Add the [Pino](https://github.com/pinojs/pino) bridge
+(`@narrativetrace/winston` works the same way if Winston is your logger — swap the import for
+`createWinstonEventConsumer`):
+
+```diff
+-import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
++import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, renderMarkdownBody } from "@narrativetrace/core-node";
+ import { traceObject } from "@narrativetrace/proxy";
++import { createPinoEventConsumer } from "@narrativetrace/pino";
++import pino from "pino";
+
+ class OrderService {
+   placeOrder(customerId, productId, quantity) {
+     return `ORD-${customerId}-${productId}-${quantity}`;
+   }
+ }
+
+-const context = new SyncNarrativeContext(new NarrativeTraceConfig());
++const logger = pino();
++const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
++const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
++const context = new SyncNarrativeContext(new NarrativeTraceConfig(), undefined, pipeline);
+ const service = traceObject(new OrderService(), context, {
+   placeOrder: ["customerId", "productId", "quantity"],
+ });
+
+ service.placeOrder("C1", "P1", 2);
+ console.log(renderMarkdownBody(context.captureTrace()));
 ```
 
-Every value in the call flow — the parameter values, the return value —
-came from the call you actually made. Nothing was written by hand.
-
-## 6. Rename `placeOrder` to `process` and watch clarity drop
-
-Naming quality is measured, not asserted. `createNarrativeTest` also writes
-`customer_places_order.clarity-json` once you add `"clarity-json"` to
-`formats`. Before the rename, for this exact scenario:
-
-```json
-{
-  "overallScore": 0.94,
-  "methodNameScore": 0.91,
-  "classNameScore": 0.96,
-  "parameterNameScore": 0.95,
-  "structuralScore": 1,
-  "cohesionScore": 0.9,
-  "issues": []
-}
+```bash
+npm add @narrativetrace/pino @narrativetrace/observability pino
+node index.js
 ```
 
-Rename the method (declaration, `paramNames` key, and call site) to
-`process` and run `npx vitest run` again:
+Real output, from the run that produced this page:
 
-```json
-{
-  "overallScore": 0.79,
-  "methodNameScore": 0.4,
-  "classNameScore": 0.96,
-  "parameterNameScore": 0.95,
-  "structuralScore": 1,
-  "cohesionScore": 0.9,
-  "issues": [
-    {
-      "category": "method-name",
-      "element": "OrderService.process",
-      "suggestion": "Use a domain-specific verb+noun (e.g., calculateTotal, reserveInventory)",
-      "severity": "MEDIUM",
-      "occurrences": 1,
-      "impactScore": 2
-    }
-  ]
-}
+```text
+{"level":30,"time":1789158304041,"pid":44606,"hostname":"Danijels-MacBook-Air.local","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1.2094590000000096ms
+{"level":30,"time":1789158304042,"pid":44606,"hostname":"Danijels-MacBook-Air.local","nt.outcome":"returned","nt.depth":0,"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
 ```
 
-Same call, same values, same everything but the name — the overall score
-fell from 0.94 to 0.79, the method-name dimension alone fell from 0.91 to
-0.40, and an issue appeared. A suite-wide `clarity-report.md` /
-`clarity-results.json` (aggregating every scenario, with a pass/fail
-threshold you set) needs one extra step — adding `ClaritySuiteReporter` to
-your Vitest `reporters` — covered in the
-[Clarity Guide](clarity-guide.md#producing-the-results-file-from-vitest).
-Rename it back to `placeOrder` (or to something even more specific) before
-continuing.
+As with the timing above, every run-specific field (`time`, `pid`, `hostname`, `trace_id`,
+`span_id`, `nt.traceName`) is a different value on your machine and on every run; the shape of the
+two JSON lines and the markdown line in between does not change. This proves the trace lands in
+the sink you already have, with the console output untouched. Full configuration (per-event
+levels, the `LogContext` mixin for stamping your own log lines, Winston setup):
+[Framework Integration Guide § Winston & Pino](framework-integration-guide.md#9-winston--pino).
 
-## 7. Add `@notTraced` and see redaction
-
-```ts
-// src/order-service.ts
-import { notTraced, traced } from "@narrativetrace/proxy";
-
-export class OrderService {
-  @traced("customerId", "productId", "quantity", "paymentToken")
-  @notTraced(3)
-  placeOrder(customerId: string, productId: string, quantity: number, paymentToken: string): string {
-    return `ORD-${customerId}-${productId}-${quantity}`;
-  }
-}
-```
-
-`@traced` replaces the `paramNames` map from step 3 — with the decorator in
-place, `traceObject(new OrderService(), narrativeContext)` needs no third
-argument. `@notTraced(3)` marks parameter index 3 (`paymentToken`) as
-redacted. Pass a token in the test
-(`service.placeOrder("C-1234", "SKU-KB", 2, "tok_live_51H8x9J")`) and run
-again. The trace:
-
-```markdown
-- `OrderService.placeOrder(customerId: "C-1234", productId: "SKU-KB", quantity: 2, paymentToken: [REDACTED])` → `"ORD-C-1234-SKU-KB-2"` — 1.005ms
-```
-
-The parameter name still appears — you can see a token *was* passed — but
-its value never reaches disk. No decorators in your build? The same
-redaction (and narration, and error context) is available as config on the
-wrap itself:
-`traceObject(new OrderService(), narrativeContext, { methods: { placeOrder: { params: [...], notTraced: [3] } } })`
-— see the [Decorators Guide](decorators-guide.md) config section. See
-[Privacy and Redaction](privacy-and-redaction.md) for what else redaction
-covers, including field-level redaction (`static notTraced`) for objects you
-don't construct one parameter at a time.
-
-## Where to go next
+## Next
 
 | You want | Go to |
 |---|---|
-| A different integration path than the Vitest fixture above | [Choosing an Integration](choosing-an-integration.md) |
-| The row-by-row privacy contract | [Privacy and Redaction](privacy-and-redaction.md) |
-| Which generated files to commit | [What to Commit](what-to-commit.md) |
-| Something above did not work as shown | [Troubleshooting](troubleshooting.md) |
+| Use it in your tests | [Installation Guide § Option B: Vitest Plugin](installation-guide.md#option-b-vitest-plugin-auto-context--trace-output) |
+| Keep a value out of the trace (redaction) | [Privacy and Redaction](privacy-and-redaction.md) |
+| Score your naming clarity | [Clarity Guide](clarity-guide.md) |
 | Every configuration knob | [Configuration Guide](configuration-guide.md) |
+| Something above did not work as shown | [Troubleshooting](troubleshooting.md) |

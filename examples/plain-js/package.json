@@ -18,6 +18,8 @@
     "@narrativetrace/core": "workspace:*",
     "@narrativetrace/core-node": "workspace:*",
     "@narrativetrace/diagrams": "workspace:*",
-    "@narrativetrace/proxy": "workspace:*"
+    "@narrativetrace/pino": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "pino": "9.11.0"
   }
 }

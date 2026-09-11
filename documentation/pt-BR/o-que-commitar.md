@@ -1,13 +1,14 @@
-<!-- source: documentation/what-to-commit.md blob dbe573cdf91b | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/what-to-commit.md blob d3e208f10c1b | translated: 2026-09-11 | reviewed: - -->
 # O que commitar
 
 [English](../what-to-commit.md) | [Español](../es/que-commitear.md) | **Português** | [简体中文](../zh-CN/应提交的内容.md)
 
-O NarrativeTrace escreve arquivos que descrevem uma execução de teste.
-Nenhum deles é um contrato revisado e escrito à mão, como é uma baseline de
-aprovação em outras implementações do NarrativeTrace — esta implementação ainda não lançou
-testes estruturais/de aprovação (previsto para uma versão futura). Tudo
-abaixo é saída gerada, com uma exceção.
+O NarrativeTrace escreve arquivos que descrevem uma execução de teste, por
+padrão — uma suíte usando `createNarrativeTest` não precisa configurar nada
+para obtê-los. Nenhum deles é um contrato revisado e escrito à mão, como é
+uma baseline de aprovação em outras implementações do NarrativeTrace — esta
+implementação ainda não lançou testes estruturais/de aprovação (previsto
+para uma versão futura). Tudo abaixo é saída gerada, com uma exceção.
 
 | Artefato | Commit? | Por quê |
 |---|---|---|
@@ -25,6 +26,11 @@ Tudo o que está sob `narrativetrace-output/` é saída. Adicione ao
 ```gitignore
 narrativetrace-output/
 ```
+
+Um job de CI que quer a narrativa no console e os metadados de
+clareza/glossário, mas nenhum desses arquivos, pode definir
+`NARRATIVETRACE_OUTPUT=false` — veja o
+[Guia de Configuração](guia-de-configuracao.md#2-configuração-do-vitest).
 
 ## A regra em uma frase
 

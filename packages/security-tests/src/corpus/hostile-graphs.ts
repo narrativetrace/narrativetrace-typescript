@@ -72,6 +72,11 @@ const KIND_BUILDERS: Record<string, KindBuilder> = {
   emptyContainers: () => emptyContainers(),
   future: (_c, _payload, sentinel) => future(sentinel),
   throwable: (c) => throwable(c.state, c.n),
+  curatedToString: (_c, _payload, sentinel) => new PasswordToString(sentinel),
+  curatedToStringNested: (_c, _payload, sentinel) =>
+    new ToStringWrapper(new PasswordToString(sentinel)),
+  mapKey: (_c, _payload, sentinel) => new Map([[new PasswordToString(sentinel), "value"]]),
+  throwingSummary: (_c, _payload, sentinel) => new ThrowingSummary(sentinel),
 };
 
 function byKind(graphCase: GraphCase, payload: unknown, sentinel: string): unknown {
@@ -346,6 +351,55 @@ export class Wide {
 
   toString(): string {
     return `Wide[one=${this.one}, two=${this.two}, three=${this.three}, four=${this.four}, five=${this.five}, six=${this.six}]`;
+  }
+}
+
+/**
+ * A composite whose own deny-listed field (`password`) is interpolated by its native `toString()`
+ * — the top-level shape the 2026-09-11 family security fix's oracle contract targets directly
+ * (`curated-tostring-top-level`). Unlike {@link Card}/{@link Credentials}, this field carries no
+ * explicit `@notTraced`/deny-list annotation of its own beyond the name itself matching the
+ * default deny-list, so a renderer that ever special-cased "no annotation → trust toString" would
+ * still need to catch it by name.
+ */
+export class PasswordToString {
+  constructor(readonly password: string) {}
+  toString(): string {
+    return `Login(password=${this.password})`;
+  }
+}
+
+/**
+ * A composite with nothing of its OWN to hide, whose `toString()` interpolates a NESTED composite
+ * that does carry the deny-listed field (`curated-tostring-nested`) — the exact bypass shape an
+ * own-field-only trust check misses, because the redacted field never appears among *this*
+ * object's own keys.
+ */
+export class ToStringWrapper {
+  constructor(readonly inner: PasswordToString) {}
+  toString(): string {
+    return `Wrap(inner=${this.inner})`;
+  }
+}
+
+/**
+ * A composite whose `narrativeSummary()` throws, with the secret reachable only through the
+ * exception message a naive `<error>` marker could surface (`throwing-summary`) — the typed error
+ * marker must show the thrown value's type only, never `error.message`.
+ *
+ * @remarks `#sentinel` is a true private class field (not a constructor-property field), so it is
+ * neither own-enumerable nor reachable by `Object.keys`/bracket access — the structured export
+ * path (`renderStructured`, which never calls `narrativeSummary()` at all) sees zero fields on
+ * this object rather than a plain string property that would leak the sentinel by a route this
+ * fixture is not even testing.
+ */
+export class ThrowingSummary {
+  #sentinel: string;
+  constructor(sentinel: string) {
+    this.#sentinel = sentinel;
+  }
+  narrativeSummary(): string {
+    throw new Error(`cannot summarize ${this.#sentinel}`);
   }
 }
 

@@ -5,8 +5,10 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { resolve } from "node:path";
 import { createInterface, type Interface } from "node:readline";
+import { createPinoEventConsumer } from "../packages/pino/src/index.js";
 import { createWinstonEventConsumer } from "../packages/winston/src/index.js";
 import { DEMO_USAGE, parseDemoArgs } from "./demo-args.js";
+import type { LiveListener } from "./demo-registry.js";
 import { type ClassicSink, type DemoIo, runDemo } from "./demo-runner.js";
 
 /**
@@ -34,6 +36,37 @@ interface WinstonModule {
 function loadWinston(): WinstonModule {
   const require = createRequire(resolve(process.cwd(), "packages/winston/package.json"));
   return require("winston") as WinstonModule;
+}
+
+type PinoLogger = Parameters<typeof createPinoEventConsumer>[0];
+
+/** The slice of pino the demo logger needs; the module is resolved from `packages/pino`. */
+interface PinoModule {
+  (options: object, destination: unknown): PinoLogger;
+  destination(path: string): unknown;
+}
+
+/** pino is a dependency of `packages/pino`, not of the root — resolve it from there. */
+function loadPino(): PinoModule {
+  const require = createRequire(resolve(process.cwd(), "packages/pino/package.json"));
+  return require("pino") as PinoModule;
+}
+
+/** Path the always-on demo logger writes to — see documentation/examples-guide.md § Demo launcher. */
+export const DEMO_LOG_PATH = resolve(process.cwd(), "demo-trace.log");
+
+/**
+ * The one real logger every `pnpm demo` run attaches, regardless of mode — see
+ * documentation/framework-integration-guide.md § 9 (Winston & Pino). Written to a file, not
+ * stdout: the styled walk's colors and the classic/translated views must stay readable, and a
+ * demo re-run should not race the walk for the same terminal lines.
+ */
+function createDemoLogger(): LiveListener {
+  const pino = loadPino();
+  const logger = pino({ level: "info" }, pino.destination(DEMO_LOG_PATH));
+  return createPinoEventConsumer(logger, {
+    levels: { enter: "info", return: "info", exception: "error" },
+  }) as LiveListener;
 }
 
 /** Java's classic pattern: `yyyy-MM-dd HH:mm:ss.SSS LEVEL [thread] [logger] - message`. */
@@ -77,6 +110,7 @@ const io: DemoIo = {
   env: process.env,
   readFile: (path) => readFileSync(path, "utf-8"),
   createClassic,
+  createLogger: createDemoLogger,
 };
 
 async function main(): Promise<number> {

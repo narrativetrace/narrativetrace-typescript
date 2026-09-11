@@ -1,222 +1,157 @@
-<!-- source: documentation/first-10-minutes.md blob 8d61acfd864a | translated: 2026-09-07 | reviewed: - -->
-# Primeros 10 minutos
+<!-- source: documentation/first-10-minutes.md blob c70baa1c9759 | translated: 2026-09-11 | reviewed: - -->
+# Ve una traza en 60 segundos
 
 [English](../first-10-minutes.md) | **Español** | [Português](../pt-BR/primeiros-10-minutos.md) | [简体中文](../zh-CN/前10分钟.md)
 
-Un servicio minúsculo, un test de Vitest, siete pasos. Cada comando de abajo
-se ejecutó de verdad contra esta versión del repositorio — las rutas de
-fichero, las puntuaciones de claridad y el marcador `[REDACTED]` son salida
-real, no ilustraciones. Lo único que variará en tu máquina es la duración
-(`ms`) y el `trace_name` de dos palabras, ambos generados de nuevo en cada
-ejecución.
+Sin sentencias de log, sin framework de pruebas, sin ningún fichero que abrir después. Un script
+sencillo, una ejecución, y la traza aparece en tu terminal. Todo lo de abajo se ejecutó de verdad
+contra los paquetes publicados `@narrativetrace/core-node` y `@narrativetrace/proxy` (0.1.1, la
+versión que está en vivo en npm en el momento de escribir esto — ejecuta
+`npm view @narrativetrace/core version` para ver cuál es la actual cuando tú lo leas) — la salida
+está pegada tal cual, no es una ilustración. Necesitas Node 20+ (el paquete publicado
+`@narrativetrace/core` lo declara en `engines`); abajo se usa pnpm, pero npm también funciona, con
+una diferencia explicada en el paso 1.
 
-Node 20+ (CI usa la versión 22), TypeScript 5.0+ (para los decoradores del paso 7), un proyecto que
-ya ejecuta `vitest run`. Si todavía no has visto el panorama completo,
-`pnpm run build && pnpm demo -- --example ecommerce --no-pause` desde la
-raíz del repositorio es todavía más rápido — esta página es para cuando
-quieres verlo funcionar contra *tu propio* código.
-
-## 1. Añade los paquetes
+## 1. Proyecto nuevo, añade los paquetes
 
 ```bash
+mkdir narrativetrace-quickstart && cd narrativetrace-quickstart
+pnpm init
 pnpm add @narrativetrace/core-node @narrativetrace/proxy
-pnpm add -D @narrativetrace/vitest
 ```
 
-`core-node` reexporta todo lo que hay en `@narrativetrace/core` y registra
-el generador de id de Node — importar solo `@narrativetrace/core` lanza una
-excepción en la primera llamada trazada. No hay ningún plugin de build que
-aplicar; los paquetes son toda la configuración de dependencias.
+`core-node` reexporta todo lo que hay en `@narrativetrace/core` y registra el generador de id de
+Node — importar solo `@narrativetrace/core` lanza una excepción en la primera llamada trazada.
+`pnpm init` escribe un `package.json` con `"type": "module"`, así que la sintaxis `import` de abajo
+funciona sin ninguna otra configuración. ¿Usas npm? `npm init -y` usa CommonJS por defecto —
+ejecuta `npm pkg set type=module` justo después (antes de `npm add`), o el `import` del paso 2
+fallará con `SyntaxError: Cannot use import statement outside a module`.
 
-## 2. Añade una clase de servicio
+## 2. El programa
 
-```ts
-// src/order-service.ts
-export class OrderService {
-  placeOrder(customerId: string, productId: string, quantity: number): string {
+```js
+// index.js
+import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+
+class OrderService {
+  placeOrder(customerId, productId, quantity) {
     return `ORD-${customerId}-${productId}-${quantity}`;
   }
 }
-```
 
-No hay ninguna interfaz que declarar — `traceObject()` envuelve el objeto
-concreto directamente con un `Proxy` de ES, así que no hay nada contra lo
-que implementar. (Las implementaciones de NarrativeTrace para JDK/JVM necesitan una
-interfaz para su proxy dinámico; este no.)
-
-## 3. Añade un test de Vitest
-
-```ts
-// src/order-service.test.ts
-import { traceObject } from "@narrativetrace/proxy";
-import { createNarrativeTest } from "@narrativetrace/vitest";
-import { OrderService } from "./order-service.js";
-
-const test = createNarrativeTest();
-
-test("customer places order", ({ narrativeContext }) => {
-  const service = traceObject(new OrderService(), narrativeContext, {
-    placeOrder: ["customerId", "productId", "quantity"],
-  });
-
-  service.placeOrder("C-1234", "SKU-KB", 2);
+const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+const service = traceObject(new OrderService(), context, {
+  placeOrder: ["customerId", "productId", "quantity"],
 });
+
+service.placeOrder("C1", "P1", 2);
+console.log(renderMarkdownBody(context.captureTrace()));
 ```
 
-`createNarrativeTest()` devuelve un `test` de Vitest que inyecta un
-`narrativeContext` nuevo en cada test y escribe los artefactos de traza
-cuando termina. El tercer argumento de `traceObject` — `{ placeOrder: [...] }`
-— aporta los nombres de los parámetros, porque JavaScript no los conserva en
-tiempo de ejecución; sin él, la traza muestra `arg0`, `arg1`, `arg2`. (El
-paso 7 muestra la forma con decorador, `@traced`, que hace lo mismo para una
-clase de la que eres dueño.)
+`OrderService` es una clase corriente — sin interfaz, sin clase base, sin decorador
+obligatorio. `traceObject()` envuelve la instancia concreta en un `Proxy` de ES; su tercer
+argumento aporta los nombres de los parámetros de `placeOrder`, porque JavaScript no los conserva
+en tiempo de ejecución. Llama al objeto envuelto en lugar de al original, y cada llamada que haga
+queda registrada en `context`.
 
-## 4. Ejecuta la suite
+## 3. Ejecútalo
 
 ```bash
-npx vitest run
+node index.js
 ```
 
-La salida cae en `narrativetrace-output/` — el valor por defecto que eligió
-el fixture porque no se indicó `outputDir` — un fichero por escenario y por
-formato:
+Salida real, de la ejecución que produjo esta página:
 
 ```text
-narrativetrace-output/
-   |
-   +-- order-service/customer_places_order.md          narrativa humana
-   +-- order-service/customer_places_order.json         misma traza, JSON
-   +-- diagrams/order-service/customer_places_order.mmd diagrama de secuencia Mermaid
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.5849169999999901ms
 ```
 
-`order-service.test.ts` se convirtió en el directorio `order-service` (el
-nombre del *fichero* de test, saneado — el equivalente en esta plataforma al
-directorio de la *clase* de test en Java); `"customer places order"` se
-convirtió en `customer_places_order.md` — el nombre del test, convertido en
-slug. Nada más que configurar. Por defecto solo se escriben `md`/`json`/`mmd`;
-pasa `formats: [...]` a `createNarrativeTest` para obtener también `puml`,
-`clarity-json` o `canonical-json` — consulta la
-[Guía de instalación](guia-de-instalacion.md#3-configurar-la-salida-de-trazas).
+El `Nms` final es tiempo de reloj — en tu máquina será un número distinto, y la próxima vez que lo
+ejecutes será otro número distinto. Todo lo demás de la línea es determinista: el nombre de la
+clase, el nombre del método, los nombres y valores de los parámetros, y el valor de retorno.
 
-## 5. Abre la narrativa
+No escribiste ninguna sentencia de log. La narrativa vino del nombre de tu método, de los nombres
+de tus parámetros y del valor que devolvió el método — la información ya estaba ahí.
 
-`narrativetrace-output/order-service/customer_places_order.md`:
+## Qué acaba de pasar
 
-```markdown
----
-type: trace
-scenario: customer places order
-entry_point: OrderService.placeOrder
-duration_ms: 1.548
-trace_id: 7919d16fd10a133f3f1ebf9f5670c502
-trace_name: tidy mink roots
-method_count: 1
-error_count: 0
----
+- **Un contexto** (`new SyncNarrativeContext(new NarrativeTraceConfig())`) es el lugar donde se
+  registran las llamadas — un objeto corriente, no un global, no un singleton. (El código de Node
+  que atraviesa un `await` a lo largo de una petición necesita `AsyncNarrativeContext` en su
+  lugar; consulta la [Guía de integración de frameworks](guia-de-integracion-de-frameworks.md).)
+- **El envoltorio** (`traceObject(new OrderService(), context, {...})`) es la única línea que
+  activa el trazado para ese objeto. Nada en `OrderService` cambió — sin import, sin clase base,
+  sin anotación. Una clase de la que eres dueño puede usar los decoradores `@traced`/`@narrated`
+  en lugar del mapa de nombres de parámetros; consulta la
+  [Guía de decoradores](guia-de-decoradores.md).
+- **Captura y luego renderiza** — `context.captureTrace()` toma una instantánea de lo que pasó en
+  un árbol corriente; `renderMarkdownBody()` es uno de varios renderizadores sobre ese mismo
+  árbol. `renderIndentedText()` dibuja un árbol ASCII en su lugar,
+  `@narrativetrace/diagrams` lo convierte en un diagrama de secuencia Mermaid o PlantUML, y
+  `renderToConsole()` de `@narrativetrace/browser` lo imprime con buen formato en la consola de
+  DevTools del navegador.
 
-- `OrderService.placeOrder(customerId: "C-1234", productId: "SKU-KB", quantity: 2)` → `"ORD-C-1234-SKU-KB-2"` — 1.548ms
+## Envíalo a tu logger
+
+La línea de consola de arriba es solo uno de los renderizadores sobre la traza; la misma traza
+puede fluir directo al logger que ya usas en producción. Añade el puente de
+[Pino](https://github.com/pinojs/pino) (`@narrativetrace/winston` funciona igual si Winston es tu
+logger — cambia el import por `createWinstonEventConsumer`):
+
+```diff
+-import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
++import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, renderMarkdownBody } from "@narrativetrace/core-node";
+ import { traceObject } from "@narrativetrace/proxy";
++import { createPinoEventConsumer } from "@narrativetrace/pino";
++import pino from "pino";
+
+ class OrderService {
+   placeOrder(customerId, productId, quantity) {
+     return `ORD-${customerId}-${productId}-${quantity}`;
+   }
+ }
+
+-const context = new SyncNarrativeContext(new NarrativeTraceConfig());
++const logger = pino();
++const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
++const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
++const context = new SyncNarrativeContext(new NarrativeTraceConfig(), undefined, pipeline);
+ const service = traceObject(new OrderService(), context, {
+   placeOrder: ["customerId", "productId", "quantity"],
+ });
+
+ service.placeOrder("C1", "P1", 2);
+ console.log(renderMarkdownBody(context.captureTrace()));
 ```
 
-Cada valor del flujo de llamadas — los valores de los parámetros, el valor
-de retorno — vino de la llamada que hiciste de verdad. Nada se escribió a
-mano.
-
-## 6. Renombra `placeOrder` a `process` y observa cómo cae la claridad
-
-La calidad de los nombres se mide, no se asume. `createNarrativeTest`
-también escribe `customer_places_order.clarity-json` en cuanto añades
-`"clarity-json"` a `formats`. Antes del renombrado, para este escenario
-exacto:
-
-```json
-{
-  "overallScore": 0.94,
-  "methodNameScore": 0.91,
-  "classNameScore": 0.96,
-  "parameterNameScore": 0.95,
-  "structuralScore": 1,
-  "cohesionScore": 0.9,
-  "issues": []
-}
+```bash
+npm add @narrativetrace/pino @narrativetrace/observability pino
+node index.js
 ```
 
-Renombra el método (la declaración, la clave de `paramNames` y el punto de
-llamada) a `process` y ejecuta `npx vitest run` de nuevo:
+Salida real, de la ejecución que produjo esta página:
 
-```json
-{
-  "overallScore": 0.79,
-  "methodNameScore": 0.4,
-  "classNameScore": 0.96,
-  "parameterNameScore": 0.95,
-  "structuralScore": 1,
-  "cohesionScore": 0.9,
-  "issues": [
-    {
-      "category": "method-name",
-      "element": "OrderService.process",
-      "suggestion": "Use a domain-specific verb+noun (e.g., calculateTotal, reserveInventory)",
-      "severity": "MEDIUM",
-      "occurrences": 1,
-      "impactScore": 2
-    }
-  ]
-}
+```text
+{"level":30,"time":1789158304041,"pid":44606,"hostname":"Danijels-MacBook-Air.local","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1.2094590000000096ms
+{"level":30,"time":1789158304042,"pid":44606,"hostname":"Danijels-MacBook-Air.local","nt.outcome":"returned","nt.depth":0,"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
 ```
 
-Misma llamada, mismos valores, todo igual salvo el nombre — la puntuación
-global cayó de 0.94 a 0.79, la dimensión del nombre del método por sí sola
-cayó de 0.91 a 0.40, y apareció una incidencia. Un `clarity-report.md` /
-`clarity-results.json` para toda la suite (que agrega cada escenario, con un
-umbral de aprobado/fallado que tú defines) necesita un paso más — añadir
-`ClaritySuiteReporter` a tus `reporters` de Vitest — que se cubre en la
-[Guía de claridad](guia-de-claridad.md#generar-el-fichero-de-resultados-desde-vitest).
-Vuelve a llamarlo `placeOrder` (o algo todavía más específico) antes de
-continuar.
+Igual que con el tiempo de arriba, cada campo específico de la ejecución (`time`, `pid`,
+`hostname`, `trace_id`, `span_id`, `nt.traceName`) es un valor distinto en tu máquina y en cada
+ejecución; la forma de las dos líneas JSON y de la línea markdown entre ellas no cambia. Esto
+demuestra que la traza llega al destino que ya tienes, sin tocar la salida de consola.
+Configuración completa (niveles por evento, el mixin de `LogContext` para marcar tus propias
+líneas de log, configuración de Winston): [Guía de integración de frameworks § Winston y
+Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
 
-## 7. Añade `@notTraced` y observa la ocultación
-
-```ts
-// src/order-service.ts
-import { notTraced, traced } from "@narrativetrace/proxy";
-
-export class OrderService {
-  @traced("customerId", "productId", "quantity", "paymentToken")
-  @notTraced(3)
-  placeOrder(customerId: string, productId: string, quantity: number, paymentToken: string): string {
-    return `ORD-${customerId}-${productId}-${quantity}`;
-  }
-}
-```
-
-`@traced` sustituye al mapa `paramNames` del paso 3 — con el decorador
-puesto, `traceObject(new OrderService(), narrativeContext)` ya no necesita
-un tercer argumento. `@notTraced(3)` marca el parámetro de índice 3
-(`paymentToken`) como oculto. Pasa un token en el test
-(`service.placeOrder("C-1234", "SKU-KB", 2, "tok_live_51H8x9J")`) y ejecuta
-de nuevo. La traza:
-
-```markdown
-- `OrderService.placeOrder(customerId: "C-1234", productId: "SKU-KB", quantity: 2, paymentToken: [REDACTED])` → `"ORD-C-1234-SKU-KB-2"` — 1.005ms
-```
-
-El nombre del parámetro sigue apareciendo — puedes ver que *se pasó* un
-token — pero su valor nunca llega a disco. ¿Sin decoradores en tu build?
-La misma ocultación (y la narración, y el contexto de error) está
-disponible como configuración en el propio envoltorio:
-`traceObject(new OrderService(), narrativeContext, { methods: { placeOrder: { params: [...], notTraced: [3] } } })`
-— mira la sección de configuración de la
-[Guía de decoradores](guia-de-decoradores.md). Consulta
-[Privacidad y ocultación](privacidad-y-ocultacion.md) para saber qué más
-cubre la ocultación, incluida la ocultación a nivel de campo (`static
-notTraced`) para objetos que no construyes parámetro a parámetro.
-
-## A dónde ir a continuación
+## A continuación
 
 | Quieres | Ve a |
 |---|---|
-| Una vía de integración distinta al fixture de Vitest de arriba | [Eligiendo una integración](eligiendo-una-integracion.md) |
-| El contrato de privacidad fila por fila | [Privacidad y ocultación](privacidad-y-ocultacion.md) |
-| Qué ficheros generados hacer commit | [Qué commitear](que-commitear.md) |
-| Algo de lo anterior no funcionó como se mostraba | [Solución de problemas](solucion-de-problemas.md) |
+| Usarlo en tus tests | [Guía de instalación § Opción B: plugin de Vitest](guia-de-instalacion.md#opción-b-plugin-de-vitest-contexto-automático--salida-de-trazas) |
+| Mantener un valor fuera de la traza (ocultación) | [Privacidad y ocultación](privacidad-y-ocultacion.md) |
+| Puntuar la claridad de tus nombres | [Guía de claridad](guia-de-claridad.md) |
 | Cada opción de configuración | [Guía de configuración](guia-de-configuracion.md) |
+| Algo de lo anterior no funcionó como se mostraba | [Solución de problemas](solucion-de-problemas.md) |

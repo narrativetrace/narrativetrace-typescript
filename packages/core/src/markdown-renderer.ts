@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import { type FlatChildOp, flattenChildOps } from "./child-segment.js";
 import { ControlEscape } from "./control-escape.js";
+import { formatDurationMs } from "./duration-format.js";
 import { errorMessage, errorTypeName } from "./error-display.js";
 import { MarkdownEscape } from "./markdown-escape.js";
 import { displayParamValue, type ParameterCapture } from "./parameter-capture.js";
@@ -180,7 +181,7 @@ function documentHeader(tree: TraceTree, metadata: MarkdownDocumentMetadata): st
     `## Trace: ${className}.${methodName}`,
     "",
     `**Scenario:** ${MarkdownEscape.text(ControlEscape.sanitize(metadata.scenario))}`,
-    `**Duration:** ${root.durationMs}ms | **Result:** ${metadata.result}`,
+    `**Duration:** ${formatDurationMs(root.durationMs)} | **Result:** ${metadata.result}`,
     "",
     "### Call Flow",
     "",
@@ -298,7 +299,7 @@ function forkLabel(members: readonly TraceNode[], seqAsync: ReturnType<typeof an
 
 function joinSuffix(seqAsync: ReturnType<typeof analyze>): string {
   if (!seqAsync.isSequentialAsync) return "";
-  return ` ⚡ Sequential async: total ${seqAsync.totalMs}ms, parallelizable to ~${seqAsync.parallelizableMs}ms`;
+  return ` ⚡ Sequential async: total ${formatDurationMs(seqAsync.totalMs)}, parallelizable to ~${formatDurationMs(seqAsync.parallelizableMs)}`;
 }
 
 // `(waited Xms for <slowest> after <fastest>)` when ≥2 members finished at different times
@@ -311,11 +312,11 @@ function waitAnalysis(members: readonly TraceNode[]): string {
     if (m.durationMs > slowest.durationMs) slowest = m;
     if (m.durationMs < fastest.durationMs) fastest = m;
   }
-  const waitMs = Math.round(slowest.durationMs - fastest.durationMs);
+  const waitMs = slowest.durationMs - fastest.durationMs;
   if (waitMs <= 0) return "";
   const slow = ControlEscape.sanitize(slowest.signature.className);
   const fast = ControlEscape.sanitize(fastest.signature.className);
-  return ` (waited ${waitMs}ms for ${slow} after ${fast})`;
+  return ` (waited ${formatDurationMs(waitMs)} for ${slow} after ${fast})`;
 }
 
 function renderForkJoinSegment(
@@ -334,7 +335,7 @@ function renderForkJoinSegment(
     lines.push(`${indent}  - ↦ ${formatCall(m, refs)}${formatOutcome(m, refs, options)}`);
   }
   lines.push(
-    `${indent}- ⑃ join — ${Math.round(wallTime)}ms${waitAnalysis(members)}${joinSuffix(seqAsync)}`,
+    `${indent}- ⑃ join — ${formatDurationMs(wallTime)}${waitAnalysis(members)}${joinSuffix(seqAsync)}`,
   );
 }
 
@@ -388,7 +389,7 @@ function formatReturn(renderedValue: string | null, refs: ValueReferenceIndex): 
 function formatDuration(node: TraceNode, threshold: number): string {
   if (node.durationMs === undefined || node.durationMs <= 0) return "";
   const slow = node.durationMs > threshold ? " ⚠️ slow" : "";
-  return ` — ${node.durationMs}ms${slow}`;
+  return ` — ${formatDurationMs(node.durationMs)}${slow}`;
 }
 
 function formatOutcomeBody(node: TraceNode, refs: ValueReferenceIndex): string {

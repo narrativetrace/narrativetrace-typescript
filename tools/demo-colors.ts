@@ -68,7 +68,8 @@ export const RENDERERS_NOTE =
   "of the DualPathPipeline, formatting each event as it happens — the only view you get without\n" +
   "writing any rendering code, and what your log tool ingests (see --classic).\n" +
   "Configuration picks a renderer in exactly one place, trace files written from tests:\n" +
-  "NARRATIVETRACE_OUTPUT=true with NARRATIVETRACE_FORMAT=md|mmd|json|puml (md is the default).";
+  "createNarrativeTest writes them on its own, no flag needed — NARRATIVETRACE_FORMAT picks which\n" +
+  "(md|mmd|json|puml, md is the default); NARRATIVETRACE_OUTPUT=false turns file writing off.";
 
 const SECTIONS: Readonly<Record<string, string>> = {
   "Trace tree":

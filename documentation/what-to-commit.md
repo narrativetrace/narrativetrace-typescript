@@ -1,10 +1,11 @@
 # What to commit
 
-NarrativeTrace writes files that describe one test run. None of them are a
-reviewed, hand-authored contract the way an approval baseline is on some
-other NarrativeTrace runtimes — this runtime has not shipped structural/approval
-testing yet (tracked for a future release). Everything below is generated
-output, with one exception.
+NarrativeTrace writes files that describe one test run, by default — a suite
+using `createNarrativeTest` needs nothing configured to get them. None of
+them are a reviewed, hand-authored contract the way an approval baseline is
+on some other NarrativeTrace runtimes — this runtime has not shipped
+structural/approval testing yet (tracked for a future release). Everything
+below is generated output, with one exception.
 
 | Artifact | Commit? | Why |
 |---|---|---|
@@ -22,6 +23,10 @@ if you have not already:
 ```gitignore
 narrativetrace-output/
 ```
+
+A CI job that wants the console narrative and clarity/glossary metadata but
+none of these files can set `NARRATIVETRACE_OUTPUT=false` — see the
+[Configuration Guide](configuration-guide.md#2-vitest-configuration).
 
 ## The rule in one sentence
 

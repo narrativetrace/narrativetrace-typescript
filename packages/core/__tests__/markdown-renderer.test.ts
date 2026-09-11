@@ -82,6 +82,26 @@ describe("renderMarkdownDocument body header", () => {
       "**Scenario:** ok\\n# forged heading\\n&lt;img src=x onerror=alert(1)&gt;",
     );
   });
+
+  // The `**Duration:**` header is prose (the same sink the per-node `— Nms` marker is), so it
+  // gets the same rounding; the YAML frontmatter's `duration_ms` field a few lines above it is a
+  // deliberately different, machine-readable sink and is left the precise unrounded number
+  // (2026-09-11 duration-format fix — see documentation on `formatDurationMs`).
+  test("the Duration header rounds a fractional duration; the frontmatter field keeps it precise", () => {
+    const root = traceNode(
+      methodSignature("OrderService", "placeOrder", []),
+      returned('"OK"'),
+      [],
+      0.5849169999999901,
+    );
+    const doc = renderMarkdownDocument(traceTree([root]), {
+      scenario: "Places order",
+      result: "PASSED",
+    });
+
+    expect(doc).toContain("duration_ms: 0.5849169999999901");
+    expect(doc).toContain("**Duration:** 0.58ms | **Result:** PASSED");
+  });
 });
 
 describe("renderMarkdown", () => {
@@ -314,6 +334,28 @@ describe("renderMarkdown", () => {
     const result = renderMarkdown(traceTree([node]));
     expect(result).toContain('→ `"OK"` — 12ms');
     expect(result).not.toContain("⚠️");
+  });
+
+  // durationMs is measured with performance.now(), a sub-millisecond fractional float — the
+  // per-node `— Nms` marker used to print it raw (`— 0.5849169999999901ms`), breaking the
+  // family-wide `— Nms` convention (2026-09-11 duration-format fix). The body (not the full
+  // document) is asserted here: the YAML frontmatter's machine-readable `duration_ms` field is a
+  // deliberately different, unrounded sink — see the header test below.
+  test("a sub-millisecond duration rounds to at most two decimal places, not a raw float", () => {
+    const node = traceNode(
+      methodSignature("Svc", "op", []),
+      returned('"OK"'),
+      [],
+      0.5849169999999901,
+    );
+    const result = renderMarkdownBody(traceTree([node]));
+    expect(result).toBe('- `Svc.op()` → `"OK"` — 0.58ms');
+  });
+
+  test("a multi-millisecond duration with a fractional part rounds to a whole number", () => {
+    const node = traceNode(methodSignature("Svc", "op", []), returned('"OK"'), [], 3.7);
+    const result = renderMarkdownBody(traceTree([node]));
+    expect(result).toBe('- `Svc.op()` → `"OK"` — 4ms');
   });
 
   test("narration renders in italics below bullet", () => {

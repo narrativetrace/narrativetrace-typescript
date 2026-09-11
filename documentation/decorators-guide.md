@@ -263,22 +263,34 @@ What is invoked, and what is not:
   on a class lives on the prototype, is never enumerated, and never runs during
   introspection. (An accessor defined directly on an object literal *is* own-enumerable
   and would run — prefer class getters or mark the field in `static notTraced`.)
-- **What NarrativeTrace does invoke:** a custom `toString()` (own, non-default), a
-  `@narrativeSummary`-designated method, and any property path you name in a
-  `@narrated`/`@onError` template — `{order.total}` resolves via property access, so a
-  getter named there *will* run.
+- **A custom `toString()` (own, non-default) is invoked only for a leaf** — an object with
+  *no own field at all*. The moment your type has even one own field, `toString()` is never
+  called during rendering; field introspection runs instead, whatever your `toString()`
+  would have printed (family invariant, 2026-09-11 — see
+  [Privacy and Redaction](privacy-and-redaction.md) for why: trusting a curated
+  `toString()` on a type with fields was the exact route a *nested* object's own secret
+  used to leak through, one level below where any per-field check ever looked).
+- **`@narrativeSummary` is invoked regardless of fields**, and still outranks toString-trust
+  and field introspection — it is code you wrote *for* the trace, so it always runs and its
+  output is always preferred, on any type, leaf or not. Its output is still scanned for a
+  secret-shaped value (a JWT, a card number, …) as defense in depth.
+- Any property path you name in a `@narrated`/`@onError` template is invoked too —
+  `{order.total}` resolves via property access, so a getter named there *will* run.
 - **Invocation is bounded and isolated.** Output is capped (`maxStringLength`,
-  `maxArrayItems`, `maxObjectKeys`); a throwing getter or `toString()` never fails the
-  traced business call (templates fall back to the literal `{placeholder}`, rendering
-  falls back to a type-name marker); values render eagerly at the call site, so any side
-  effect happens once, at a deterministic point. Thenables are never awaited — they render
-  as `<pending>`.
+  `maxArrayItems`, `maxObjectKeys`); a throwing getter degrades only *that field* to the
+  typed error marker `<error: ConstructorName>` (never `.message`, which can carry the
+  exact value the member was refusing to render) — sibling fields still render normally. A
+  throwing `toString()` or `@narrativeSummary()` degrades the whole value the same way;
+  neither ever fails the traced business call (templates fall back to the literal
+  `{placeholder}`). Values render eagerly at the call site, so any side effect happens
+  once, at a deterministic point. Thenables are never awaited — they render as `<pending>`.
 
 If a member cannot be pure, list it in `static notTraced` — a redacted member's value is
-never read at all — or give the type a curated `toString()`/`@narrativeSummary` so you
-control exactly what is accessed. With an inactive context (level `off`, or parameter
-capture disabled at `summary`), no argument rendering happens at all — no user code is
-touched on the fast path.
+never read at all — or give the type a curated `@narrativeSummary` so you control exactly
+what is accessed; a curated `toString()` only helps for a type with no own fields at all,
+since one with fields is always introspected regardless of what `toString()` returns. With
+an inactive context (level `off`, or parameter capture disabled at `summary`), no argument
+rendering happens at all — no user code is touched on the fast path.
 
 ## Combining Decorators
 

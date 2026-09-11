@@ -105,15 +105,54 @@ Three independent mechanisms apply to every captured/rendered value:
    stay visible while `rutCliente`, `senhaUsuario` and `otpCode` are
    hidden.
 
-A **curated `toString()`** is normally trusted as written — but a class that
-declares any `static notTraced` field is introspected field-by-field
-instead, so the annotation is honored over whatever that `toString()` would
-have printed. Template resolution does not get a shortcut around this
-either: it was audited to make sure it never falls back to a value's raw
-`toString()` when the safe rendering happened to omit the marker for an
-unrelated reason (truncation at the field/depth cap) — every non-scalar
-placeholder value goes through the same field-redacting renderer the rest of
-the trace uses, unconditionally.
+**A custom `toString()` is trusted only for a leaf** — an object with no own
+field at all, so there is nothing field introspection could show instead
+(family invariant, 2026-09-11; this port's design already matched .NET's).
+The moment an object has even one own field, it is *always* introspected
+field-by-field, whatever its `toString()` would have printed — not merely
+when that field is itself annotated or deny-listed. This is narrower than it
+sounds like it needs to be, and deliberately so: the earlier, narrower rule
+("trust `toString()` unless one of *this object's own* fields is a
+redaction target") missed the shape a 2026-09-11 security fix closes — a
+`toString()` that interpolates a **nested** object's own curated text
+(`Order.toString()` printing `this.customer`, itself a `Customer` hiding a
+redacted field) never puts the redacted field's name or annotation on
+`Order` itself, so the own-field check found nothing to catch and the
+nested secret rendered in full. Trusting `toString()` only for leaves closes
+that whole class of bypass at once, at any nesting depth, rather than
+chasing each new interpolation shape as its own bug. The same rule applies
+to a Map **key**: a key that is itself an object goes through the identical
+redaction-aware rendering a value does, never a raw, unconditional
+`toString()`.
+
+`narrativeSummary()` is curated text the author wrote specifically for the
+trace, and still outranks both toString-trust and field introspection — but
+it is not exempt from the value-shape scan (a JWT/PAN/SSN/national-ID/
+`Set-Cookie` shape is redacted even inside curated text), and a
+`narrativeSummary()` that throws no longer falls through to toString/field
+introspection: the whole value degrades to the typed error marker instead
+(see below), because falling through is exactly how a summary written to
+hide a secret could reintroduce it through the class's ordinary fields the
+moment the summary itself misbehaves.
+
+Template resolution does not get a shortcut around any of this either: it
+was audited to make sure it never falls back to a value's raw `toString()`
+when the safe rendering happened to omit the marker for an unrelated reason
+(truncation at the field/depth cap) — every non-scalar placeholder value
+goes through the same field-redacting renderer the rest of the trace uses,
+unconditionally.
+
+## Errors while rendering
+
+A member this library invokes while rendering a value — `narrativeSummary()`,
+a leaf's `toString()`, or a field getter — can throw, or (`toString()` only)
+return `null`. A throw degrades to the typed error marker for that one part,
+`<error: ConstructorName>` (e.g. `<error: TypeError>`; a thrown non-`Error`
+value shows its `typeof`, e.g. `<error: string>`) — **never the exception's
+`message`**, which can carry the exact value the member was refusing to
+render. A throwing field getter degrades only that one field; every sibling
+field still renders normally. A `toString()` returning `null` (not a throw)
+shows the bare `<ConstructorName>` marker instead, since nothing threw.
 
 Redaction also **survives nesting** — a redacted member inside an array, a
 `Set`, a `Map`, a plain object, several of those stacked, and a

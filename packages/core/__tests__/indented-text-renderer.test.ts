@@ -118,6 +118,28 @@ describe("renderIndentedText", () => {
     expect(result).toContain("⑃ join — 120ms");
   });
 
+  // durationMs is measured with performance.now(), a sub-millisecond fractional float — printing
+  // it raw broke the family-wide `— Nms` convention (2026-09-11 duration-format fix).
+  test("join wall time rounds a fractional duration rather than printing it raw", () => {
+    const info1 = concurrencyInfo("g1", "A.a", "fork-join");
+    const info2 = concurrencyInfo("g1", "B.b", "fork-join");
+    const child1 = traceNode(
+      methodSignature("A", "a", []),
+      returned('"ok"'),
+      [],
+      0.5849169999999901,
+      100,
+      info1,
+    );
+    const child2 = traceNode(methodSignature("B", "b", []), returned('"ok"'), [], 0.2, 100, info2);
+    const root = traceNode(methodSignature("Svc", "op", []), returned('"ok"'), [child1, child2]);
+
+    const result = renderIndentedText(traceTree([root]));
+
+    expect(result).toContain("⑃ join — 0.58ms");
+    expect(result).not.toContain("0.5849169999999901");
+  });
+
   test("sorts concurrent members deterministically", () => {
     const info1 = concurrencyInfo("g1", "Z.z", "fork-join");
     const info2 = concurrencyInfo("g1", "A.a", "fork-join");

@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import { type FlatChildOp, flattenChildOps } from "./child-segment.js";
 import { ControlEscape } from "./control-escape.js";
+import { formatDurationMs } from "./duration-format.js";
 import { errorMessage, errorTypeName } from "./error-display.js";
 import { displayParamValue } from "./parameter-capture.js";
 import { analyze } from "./sequential-async-detector.js";
@@ -99,7 +100,7 @@ function renderTree(roots: readonly TraceNode[], lines: string[]): void {
 
 function seqAsyncHint(seqAsync: ReturnType<typeof analyze>): string {
   if (!seqAsync.isSequentialAsync) return "";
-  return ` ⚡ Sequential async: total ${seqAsync.totalMs}ms, parallelizable to ~${seqAsync.parallelizableMs}ms`;
+  return ` ⚡ Sequential async: total ${formatDurationMs(seqAsync.totalMs)}, parallelizable to ~${formatDurationMs(seqAsync.parallelizableMs)}`;
 }
 
 function renderForkJoinBlock(
@@ -119,7 +120,7 @@ function renderForkJoinBlock(
     lines.push(`${branchPrefix}↦ ${formatCall(m)}`);
   }
   lines.push(
-    `${prefix}${isLast ? "└── " : "├── "}⑃ join — ${Math.round(wallTime)}ms${seqAsyncHint(seqAsync)}`,
+    `${prefix}${isLast ? "└── " : "├── "}⑃ join — ${formatDurationMs(wallTime)}${seqAsyncHint(seqAsync)}`,
   );
 }
 

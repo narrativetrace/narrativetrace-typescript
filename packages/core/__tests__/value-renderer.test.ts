@@ -91,26 +91,83 @@ describe("renderValue", () => {
       expect(renderValue(new Order("42", "x"))).toBe("Order#42");
     });
 
-    test("a throwing narrativeSummary falls back to normal rendering", () => {
+    // Owner ruling, 2026-09-11: a throwing narrativeSummary() no longer falls through to
+    // toString/field introspection — that fallthrough is exactly how a summary written to hide a
+    // secret could reintroduce it via the class's ordinary fields the moment the summary itself
+    // misbehaves. The whole rendering degrades to the typed error marker instead.
+    test("a throwing narrativeSummary degrades to the typed error marker", () => {
       class Broken {
         readonly a = 1;
         narrativeSummary(): string {
           throw new Error("boom");
         }
       }
-      expect(renderValue(new Broken())).toBe('{"a": 1}');
+      expect(renderValue(new Broken())).toBe("<error: Error>");
+    });
+
+    // narrativeSummary() is curated text the author wrote for the trace — but curated text can
+    // still accidentally interpolate a secret-shaped value, so it gets the same value-shape scan
+    // (JWT/PAN/SSN/…) as any other rendered string (2026-09-11 family security fix, defense in
+    // depth).
+    test("a narrativeSummary() whose text is itself secret-shaped is redacted", () => {
+      class Session {
+        narrativeSummary(): string {
+          return "eyJhbGciOiJIUzI1NiJ9.payload.c2lnbmF0dXJl";
+        }
+      }
+      expect(renderValue(new Session())).toBe(RedactionPolicy.MARKER);
     });
   });
 
   describe("custom toString", () => {
-    test("an object with a custom toString renders that string, not a field dump", () => {
+    // The family invariant of 2026-09-11: a custom toString() is trusted ONLY for a leaf — an
+    // object with no own enumerable key, so introspection has nothing else it could show instead.
+    test("a leaf's custom toString renders that string, not a field dump", () => {
+      class Money {
+        toString(): string {
+          return "$12.34";
+        }
+      }
+      expect(renderValue(new Money())).toBe("$12.34");
+    });
+
+    // Before 2026-09-11, a custom toString() was trusted whenever none of the object's OWN fields
+    // was individually a redaction target — so a benign-looking class with real fields (a `cents`
+    // field here) still bypassed field introspection entirely. That is exactly the shape the
+    // family security fix closes: `hasRedactedOwnField`'s per-field check could never see a secret
+    // a toString() pulls in through a NESTED object's own toString (Order.toString() printing
+    // `this.customer`, itself hiding a redacted field) — closing the whole class of bypass meant no
+    // longer trusting toString() for any object that has fields at all, "nothing to hide" or not.
+    test("an object with own fields is always introspected, even with nothing to hide", () => {
       class Money {
         constructor(private readonly cents: number) {}
         toString(): string {
           return `$${(this.cents / 100).toFixed(2)}`;
         }
       }
-      expect(renderValue(new Money(1234))).toBe("$12.34");
+      expect(renderValue(new Money(1234))).toBe('{"cents": 1234}');
+    });
+
+    // The nested-interpolation shape the 2026-09-11 fix was written for: Outer has no field of its
+    // own that is a redaction target, but its toString() interpolates a nested object whose OWN
+    // field is `static notTraced`. The old own-field-only check never looked past Outer's own keys.
+    test("a toString that interpolates a nested redacted object no longer bypasses it", () => {
+      class Holder {
+        static readonly notTraced = ["name"];
+        constructor(readonly name: string) {}
+        toString(): string {
+          return `Holder(name=${this.name})`;
+        }
+      }
+      class Outer {
+        constructor(readonly customer: Holder) {}
+        toString(): string {
+          return `Order(customer=${this.customer})`;
+        }
+      }
+      const rendered = renderValue(new Outer(new Holder("Alice Cardholder")));
+      expect(rendered).not.toContain("Alice Cardholder");
+      expect(rendered).toContain("[REDACTED]");
     });
 
     test("a plain object without a custom toString still introspects", () => {
@@ -126,13 +183,41 @@ describe("renderValue", () => {
       expect(renderValue(new Weird())).toBe("<Weird>");
     });
 
-    test("a throwing toString falls back to <TypeName>", () => {
+    // A leaf's toString() throwing degrades to the typed error marker — the thrown value's own
+    // type (an Error here), never the leaf's type and never the exception's message (which could
+    // carry the exact value the toString() was refusing to render).
+    test("a leaf's throwing toString degrades to the typed error marker", () => {
       class Rogue {
         toString(): string {
           throw new Error("boom");
         }
       }
-      expect(renderValue(new Rogue())).toBe("<Rogue>");
+      expect(renderValue(new Rogue())).toBe("<error: Error>");
+    });
+
+    // A thrown non-Error value shows its typeof, never its stringified content.
+    test("a leaf's toString throwing a non-Error value shows the typeof marker", () => {
+      class Rogue {
+        toString(): string {
+          throw "not an Error object";
+        }
+      }
+      expect(renderValue(new Rogue())).toBe("<error: string>");
+    });
+
+    // The typed error marker never shows Error.message — a message can carry the exact value the
+    // thrower was refusing to render, which is exactly the shape a naive `<error: ${e.message}>`
+    // marker would leak (owner ruling, 2026-09-11).
+    test("the typed error marker never leaks the exception message", () => {
+      class Rogue {
+        toString(): string {
+          throw new Error("failed for card 4111-1111-1111-1111");
+        }
+      }
+      const rendered = renderValue(new Rogue());
+      expect(rendered).toBe("<error: Error>");
+      expect(rendered).not.toContain("4111-1111-1111-1111");
+      expect(rendered).not.toContain("failed for card");
     });
 
     test("custom toString output is control-sanitized and truncated with the ellipsis", () => {
@@ -229,13 +314,17 @@ describe("renderValue", () => {
   });
 
   describe("failure/edge", () => {
-    test("getter throws → fallback '<Object>'", () => {
+    // Owner ruling, 2026-09-11: a throwing getter degrades only the ONE field it backs, to the
+    // typed error marker — not the whole object. A hostile or buggy accessor on one field must
+    // not cost every sibling field its rendering.
+    test("a throwing getter degrades only that field to the typed error marker", () => {
       const obj = {
+        ok: 1,
         get bad(): never {
           throw new Error("getter throws");
         },
       };
-      expect(renderValue(obj)).toBe("<Object>");
+      expect(renderValue(obj)).toBe('{"ok": 1, "bad": <error: Error>}');
     });
 
     test("cycle detection → '<circular>'", () => {
@@ -331,15 +420,23 @@ describe("renderValue", () => {
       expect(rendered).toContain("[REDACTED]");
     });
 
-    test("a custom toString with nothing to hide still renders unchanged", () => {
-      class Money {
-        constructor(readonly amount: string) {}
+    // The Map-key analog of the two bypass tests above: a Map key can be an object carrying a
+    // deny-listed field, and its rendering must not depend on the object's own toString() any
+    // more than a plain value's does (2026-09-11 family security fix — `renderMapEntry` used to
+    // call `String(key)`, invoking the key's toString() unconditionally and bypassing dispatch
+    // entirely).
+    test("a custom toString on a Map key does not bypass a deny-listed field name", () => {
+      class KeyHolder {
+        constructor(readonly password: string) {}
         toString() {
-          return `EUR ${this.amount}`;
+          return `Key(${this.password})`;
         }
       }
 
-      expect(renderValue(new Money("10.00"))).toBe("EUR 10.00");
+      const rendered = renderValue(new Map([[new KeyHolder("hunter2"), "value"]]));
+
+      expect(rendered).not.toContain("hunter2");
+      expect(rendered).toContain("[REDACTED]");
     });
 
     test("custom options override defaults", () => {

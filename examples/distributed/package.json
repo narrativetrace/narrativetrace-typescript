@@ -15,6 +15,7 @@
     "@narrativetrace/express": "workspace:*",
     "@narrativetrace/observability": "workspace:*",
     "@narrativetrace/opentelemetry": "workspace:*",
+    "@narrativetrace/pino": "workspace:*",
     "@narrativetrace/proxy": "workspace:*",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.57.0",
@@ -28,6 +29,7 @@
     "@types/express": "^5.0.0",
     "@types/supertest": "^6.0.0",
     "express": "^4.21.0",
+    "pino": "9.11.0",
     "supertest": "^7.0.0"
   }
 }

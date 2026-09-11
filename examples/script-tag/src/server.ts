@@ -6,8 +6,15 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import pino from "pino";
 
 const PUBLIC_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "public");
+
+// Real logger destination for the received trace — documentation/framework-integration-guide.md
+// § 9 (Winston & Pino). The trace itself is produced in the BROWSER here (see public/app.js), so
+// there is no local TraceEvent stream to attach createPinoEventConsumer to; this collector logs
+// the exported JSON document it receives instead, structured, alongside the console line above.
+const logger = pino();
 const GLOBAL_BUNDLE = createRequire(import.meta.url).resolve(
   "@narrativetrace/standalone/dist/narrativetrace.global.js",
 );
@@ -27,6 +34,19 @@ const ROUTES: Record<string, StaticFile> = {
   },
 };
 
+/** Best-effort peek at the posted document's `scenario`/`events.length` fields for the log line. */
+function describeTrace(body: string): { scenario?: string; eventCount?: number } {
+  try {
+    const parsed = JSON.parse(body) as { scenario?: string; events?: unknown[] };
+    return {
+      ...(typeof parsed.scenario === "string" && { scenario: parsed.scenario }),
+      ...(Array.isArray(parsed.events) && { eventCount: parsed.events.length }),
+    };
+  } catch {
+    return {};
+  }
+}
+
 /** Stand-in collector: reads the JSON the page POSTs, logs its size, answers 202 Accepted. */
 function collectTrace(req: IncomingMessage, res: ServerResponse): void {
   let body = "";
@@ -35,6 +55,10 @@ function collectTrace(req: IncomingMessage, res: ServerResponse): void {
   });
   req.on("end", () => {
     console.log(`[collector] received trace (${body.length} bytes)`);
+    logger.info(
+      { bytes: body.length, ...describeTrace(body) },
+      "received trace document from the page",
+    );
     res.writeHead(202);
     res.end();
   });

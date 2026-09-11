@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 90ae6487249f | translated: 2026-09-07 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob 0ea75cc288c5 | translated: 2026-09-11 | reviewed: - -->
 # Solução de problemas
 
 [English](../troubleshooting.md) | [Español](../es/solucion-de-problemas.md) | **Português** | [简体中文](../zh-CN/故障排查.md)
@@ -44,8 +44,8 @@ outra para artefatos. Menos comumente: a árvore de trace tinha zero raízes
 nada para um trace vazio por design, então uma suíte que não capturou
 nenhum span não deixa diretórios para trás.
 
-**Correção:** use `createNarrativeTest` (veja [Primeiros 10
-Minutos](primeiros-10-minutos.md#3-adicione-um-teste-de-vitest)), e
+**Correção:** use `createNarrativeTest` (veja o [Guia de Instalação § Opção B: Plugin do
+Vitest](guia-de-instalacao.md#opção-b-plugin-do-vitest-auto-contexto--saída-de-trace)), e
 verifique se a chamada testada realmente passou pelo wrapper traced — uma
 chamada feita na instância não encapsulada, em vez do objeto que
 `traceObject()` retornou, não registra nada.
@@ -94,10 +94,8 @@ pontuam baixo independentemente do contexto.
 `clarity-report.md` da suíte, uma vez que o `ClaritySuiteReporter` esteja
 conectado) e substitua o nome sinalizado por um específico do domínio
 (`getData()` → `fetchOrderHistory()`). Veja o [Guia de
-Clareza](guia-de-clareza.md) para o modelo de pontuação completo —
-renomear `placeOrder` para `process` em [Primeiros 10 Minutos §
-6](primeiros-10-minutos.md#6-renomeie-placeorder-para-process-e-veja-a-clareza-cair)
-reproduz exatamente essa queda.
+Clareza](guia-de-clareza.md) para o modelo de pontuação completo e
+exemplos trabalhados dessa mesma queda.
 
 ## O trace assíncrono está ausente, ou uma tarefa em segundo plano nunca aparece
 

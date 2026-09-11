@@ -17,13 +17,17 @@
 # recorded run through the example's committed glossary.json: identifiers get glossed, values
 # stay byte-identical, and untranslated phrases land in a "Glossary gaps" footer. The picker
 # offers only the languages the example's own glossary actually carries.
+#
+# Every run also streams the same trace to a real logger (a pino consumer, documentation/
+# framework-integration-guide.md § 9), written to demo-trace.log so the picker's colors stay
+# readable — tail -f demo-trace.log in another terminal to watch it land.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 usage() {
-  # 2..16 is the header comment block; 17 is `set -euo pipefail`, which a wider
+  # 2..20 is the header comment block; 21 is `set -euo pipefail`, which a wider
   # range would print as the trailing line of --help.
-  sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//'
+  sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 # The four examples with a committed glossary.json (schemaVersion 1: terms carry per-locale

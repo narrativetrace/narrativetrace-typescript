@@ -150,6 +150,15 @@ function structuredList(
   return { kind: "list", items: capped };
 }
 
+// A Map key can be an arbitrary object — one carrying a redacted field, or one whose own
+// toString() interpolates such a field — so `RenderedValue.object.fields` (a flat
+// `Record<string, RenderedValue>`, which has no room for a key that is itself a typed tree) must
+// still get that key through the redaction-aware `structured()` dispatch before it is flattened
+// into a label, never via a raw `String(key)` (2026-09-11 family security fix, the structured-path
+// analog of the flat renderer's `renderMapEntry`: `String(key)` on an object calls its toString()
+// unconditionally and bypasses every redaction rule `structured()` would otherwise apply). The
+// "does this key's NAME look like a secret" check that decides whether to redact the associated
+// VALUE stays scoped to string keys, the common `Map<string, T>` shape it exists for.
 function structuredMap(
   value: Map<unknown, unknown>,
   opts: Required<StructuredOptions>,
@@ -158,12 +167,49 @@ function structuredMap(
 ): RenderedValue {
   const fields: Record<string, RenderedValue> = {};
   for (const [k, v] of [...value.entries()].slice(0, opts.maxFields)) {
-    const key = String(k);
-    fields[key] = opts.redactionPolicy.shouldRedact(key)
-      ? REDACTED
-      : structured(v, opts, depth + 1, seen);
+    const key = structuredMapKeyText(k, opts, depth, seen);
+    const nameRedactsValue = typeof k === "string" && opts.redactionPolicy.shouldRedact(k);
+    fields[key] = nameRedactsValue ? REDACTED : structured(v, opts, depth + 1, seen);
   }
   return { kind: "object", typeName: "Map", fields };
+}
+
+// Objects and symbols route through the same safe `structured()` dispatch every value does, then
+// flatten to a label via {@link renderedValueAsText} — the flattened text is safe by construction
+// because it is built FROM an already-redacted tree. Every other key type's string form can never
+// carry arbitrary text, so it keeps the plain `String(key)` label this renderer has always used.
+function structuredMapKeyText(
+  key: unknown,
+  opts: Required<StructuredOptions>,
+  depth: number,
+  seen: Set<object>,
+): string {
+  if (key !== null && (typeof key === "object" || typeof key === "symbol")) {
+    return renderedValueAsText(structured(key, opts, depth + 1, seen));
+  }
+  return String(key);
+}
+
+// Reconstitutes a compact, flat text label from an already-built RenderedValue tree — used only
+// for a Map key label, where the field-key position has no room for a typed tree of its own. Safe
+// by construction: every byte here already passed through `structured()`'s redaction/sanitizing,
+// so no additional escaping is needed on the way back out.
+function renderedValueAsText(value: RenderedValue): string {
+  switch (value.kind) {
+    case "string":
+      return value.value;
+    case "number":
+    case "boolean":
+      return String(value.value);
+    case "list":
+      return `[${value.items.map(renderedValueAsText).join(", ")}]`;
+    case "object":
+      return `${value.typeName}{${Object.entries(value.fields)
+        .map(([k, v]) => `${k}: ${renderedValueAsText(v)}`)
+        .join(", ")}}`;
+    case "other":
+      return value.text;
+  }
 }
 
 function structuredFields(

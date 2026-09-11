@@ -1,4 +1,4 @@
-<!-- source: documentation/decorators-guide.md blob 306e8a1c91e4 | translated: 2026-09-10 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob 81c11f9126d6 | translated: 2026-09-11 | reviewed: - -->
 
 # Guia de decoradores do NarrativeTrace TypeScript
 
@@ -272,22 +272,37 @@ O que é invocado, e o que não é:
   definido em uma classe vive no protótipo, nunca é enumerado, e nunca é executado durante a
   introspecção. (Um acessor definido diretamente em um objeto literal *é* próprio-enumerável
   e seria executado — prefira getters de classe ou marque o campo em `static notTraced`.)
-- **O que o NarrativeTrace realmente invoca:** um `toString()` personalizado (próprio, não o
-  padrão), um método designado com `@narrativeSummary`, e qualquer caminho de propriedade que você
-  nomear em um template `@narrated`/`@onError` — `{order.total}` se resolve por acesso à
-  propriedade, então um getter nomeado ali *vai* ser executado.
+- **Um `toString()` personalizado (próprio, não o padrão) só é invocado para uma folha** — um
+  objeto *sem nenhum campo próprio*. No momento em que seu tipo tem um único campo próprio,
+  `toString()` nunca é chamado durante a renderização; a introspecção de campos roda em vez disso,
+  não importa o que seu `toString()` teria impresso (invariante da família, 2026-09-11 — veja
+  [Privacidade e ocultação](privacidade-e-ocultacao.md) para o motivo: confiar em um `toString()`
+  cuidadosamente escrito em um tipo com campos era exatamente a rota pela qual o segredo de um
+  objeto *aninhado* vazava, um nível abaixo de onde qualquer checagem por campo chegava a olhar).
+- **`@narrativeSummary` é invocado independentemente dos campos**, e continua a prevalecer tanto
+  sobre a confiança no `toString()` quanto sobre a introspecção de campos — é código que você
+  escreveu *para* o trace, então sempre roda e sua saída sempre é preferida, em qualquer tipo,
+  folha ou não. Sua saída também é varrida em busca de um valor com forma de segredo (um JWT, um
+  número de cartão, …) como defesa adicional.
+- Qualquer caminho de propriedade que você nomear em um template `@narrated`/`@onError` também é
+  invocado — `{order.total}` se resolve por acesso à propriedade, então um getter nomeado ali *vai*
+  ser executado.
 - **A invocação é limitada e isolada.** A saída é limitada (`maxStringLength`,
-  `maxArrayItems`, `maxObjectKeys`); um getter ou `toString()` que lança uma exceção nunca faz a
-  chamada de negócio traced falhar (os templates recorrem ao literal `{placeholder}`, a renderização
-  recorre a um marcador com o nome do tipo); os valores são renderizados de forma eager no ponto de
-  chamada, então qualquer efeito colateral acontece uma única vez, em um ponto determinístico.
-  Thenables nunca são aguardados — eles são renderizados como `<pending>`.
+  `maxArrayItems`, `maxObjectKeys`); um getter que lança uma exceção degrada só *aquele campo* para
+  o marcador de erro tipado `<error: NomeDoConstrutor>` (nunca `.message`, que pode carregar o
+  valor exato que o membro se recusava a renderizar) — os campos irmãos continuam sendo
+  renderizados normalmente. Um `toString()` ou `@narrativeSummary()` que lança exceção degrada o
+  valor inteiro da mesma forma; nenhum dos dois jamais faz a chamada de negócio traced falhar (os
+  templates recorrem ao literal `{placeholder}`). Os valores são renderizados de forma eager no
+  ponto de chamada, então qualquer efeito colateral acontece uma única vez, em um ponto
+  determinístico. Thenables nunca são aguardados — eles são renderizados como `<pending>`.
 
 Se um membro não puder ser puro, liste-o em `static notTraced` — o valor de um membro oculto
-nunca é lido — ou dê ao tipo um `toString()`/`@narrativeSummary` curado para que você controle
-exatamente o que é acessado. Com um contexto inativo (nível `off`, ou captura de parâmetros
-desativada em `summary`), nenhuma renderização de argumento acontece — nenhum código do usuário é
-tocado no caminho rápido.
+nunca é lido — ou dê ao tipo um `@narrativeSummary` curado para que você controle exatamente o que
+é acessado; um `toString()` personalizado só ajuda para um tipo sem nenhum campo próprio, já que
+um com campos é sempre introspectado não importa o que `toString()` retorne. Com um contexto
+inativo (nível `off`, ou captura de parâmetros desativada em `summary`), nenhuma renderização de
+argumento acontece — nenhum código do usuário é tocado no caminho rápido.
 
 ## Combinando decoradores
 

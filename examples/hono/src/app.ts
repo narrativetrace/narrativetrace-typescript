@@ -4,16 +4,29 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { AsyncNarrativeContext, NarrativeTraceConfig } from "@narrativetrace/core-node";
+import {
+  BufferedEventConsumer,
+  DualPathPipeline,
+  NarrativeTraceConfig,
+} from "@narrativetrace/core-node";
 import { createTracedServices } from "@narrativetrace/example-ecommerce";
-import { narrativeTrace } from "@narrativetrace/hono";
+import { createHonoNarrativeContext, narrativeTrace } from "@narrativetrace/hono";
+import { createPinoEventConsumer } from "@narrativetrace/pino";
 import type { Context } from "hono";
 import { Hono } from "hono";
+import pino from "pino";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 const indexHtml = readFileSync(path.join(dirname, "index.html"), "utf-8");
 
-const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"));
+// Real logger destination for the trace — documentation/framework-integration-guide.md § 9
+// (Winston & Pino). BufferedEventConsumer stays wired so ctx.captureTrace() below still works.
+const logger = pino();
+const pinoConsumer = createPinoEventConsumer(logger, {
+  levels: { enter: "info", return: "info", exception: "error" },
+});
+const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
+const ctx = createHonoNarrativeContext(new NarrativeTraceConfig("detail"), { pipeline });
 const orderService = createTracedServices(ctx);
 
 async function handleOrder(c: Context): Promise<Response> {

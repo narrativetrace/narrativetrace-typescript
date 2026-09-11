@@ -8,15 +8,19 @@ import { notTraced } from "../src/not-traced.js";
 import { traceObject } from "../src/trace-object.js";
 
 describe("traceObject fast paths", () => {
+  // A class (prototype `toString()`), not an object literal: an object literal's own `toString`
+  // is an own-enumerable property, so it is no longer a leaf under the 2026-09-11 dispatch rule
+  // (value-renderer.ts) and would never reach toString() at all — these tests spy on whether
+  // rendering fires, not on the redaction invariant, so the fixture must stay a genuine leaf.
   function spyArg() {
     const state = { renders: 0 };
-    const arg = {
-      toString() {
+    class Spy {
+      toString(): string {
         state.renders++;
         return "spied";
-      },
-    };
-    return { state, arg };
+      }
+    }
+    return { state, arg: new Spy() };
   }
 
   test("an off-level context invokes the target with zero value rendering", () => {

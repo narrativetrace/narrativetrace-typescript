@@ -84,6 +84,16 @@ export type NarrativeTestOptions = {
    * default is not the runtime's.
    */
   readonly bufferCapacity?: number;
+  /**
+   * Whether {@link createNarrativeTest} writes artifact files at all, default `true`.
+   *
+   * @remarks The artifact IS the payoff (owner ruling, 2026-09-11): a suite that wraps a service and
+   * traces it should see files without configuring anything. Set `false` — or the env/config-file
+   * `output` channel to `"false"` — for the rare run that wants the console narrative and clarity/
+   * glossary metadata but not the files, e.g. a read-only CI job. Any other value, including unset,
+   * writes.
+   */
+  readonly outputEnabled?: boolean;
 };
 
 /**
@@ -116,6 +126,18 @@ const FORMAT_ALIASES: Record<string, TraceFormat> = {
   canonical: "canonical-json",
 };
 
+/**
+ * `output` channel value → whether artifact files should be written.
+ *
+ * @remarks Inverted-default opt-out (owner ruling, 2026-09-11): everything writes except the exact
+ * string `"false"` (case-insensitive, trimmed) — `undefined`, `"true"`, and legacy values like
+ * `"console"` all keep writing on, so an existing `NARRATIVETRACE_OUTPUT=true` in a project's env
+ * keeps working unchanged.
+ */
+function parseOutputEnabled(raw?: string): boolean {
+  return raw?.trim().toLowerCase() !== "false";
+}
+
 function parseFormats(raw?: string): TraceFormat[] | undefined {
   if (!raw) return undefined;
   const formats = raw
@@ -137,16 +159,20 @@ export interface ResolvedFixtureConfig {
   readonly outputDir: string;
   readonly formats: TraceFormat[];
   readonly bufferCapacity: number;
+  /** Whether artifact files are written at all; see {@link NarrativeTestOptions.outputEnabled}. */
+  readonly outputEnabled: boolean;
 }
 
 /**
- * Resolves the fixture's effective level/outputDir/formats/bufferCapacity across all channels,
- * highest precedence first: explicit `options` → `NARRATIVETRACE_*` env → project config file →
- * defaults. A garbage level degrades to `detail` via the lenient parser (TW4).
+ * Resolves the fixture's effective level/outputDir/formats/bufferCapacity/outputEnabled across all
+ * channels, highest precedence first: explicit `options` → `NARRATIVETRACE_*` env → project config
+ * file → defaults. A garbage level degrades to `detail` via the lenient parser (TW4).
  *
  * @remarks `bufferCapacity` has only the options channel — it is a property of the *fixture*, not
  * of the project's tracing configuration, and a suite-wide env override would push every test past
- * the allocation cliff the default exists to stay under.
+ * the allocation cliff the default exists to stay under. `outputEnabled` defaults to `true`
+ * (owner ruling, 2026-09-11: file writing is on by default, opt out with `NARRATIVETRACE_OUTPUT=false`
+ * or the config file's `output: "false"`) — see {@link parseOutputEnabled}.
  * @throws {DuplicateConfigurationError} when the project root declares more than one config
  * source — a misconfigured project fails the run instead of silently picking one.
  */
@@ -157,6 +183,7 @@ export function resolveFixtureConfig(options: NarrativeTestOptions = {}): Resolv
     outputDir: options.outputDir ?? resolved.outputDir ?? "narrativetrace-output",
     formats: options.formats ?? parseFormats(resolved.format) ?? [...DEFAULT_FORMATS],
     bufferCapacity: options.bufferCapacity ?? DEFAULT_TEST_BUFFER_CAPACITY,
+    outputEnabled: options.outputEnabled ?? parseOutputEnabled(resolved.output),
   };
 }
 
@@ -229,20 +256,26 @@ interface FixtureTask {
 }
 
 /**
- * Everything one finished test emits: its artifact files, the two suite-reporter channels
- * (`task.meta` clarity and glossary), and the console narrative.
+ * Everything one finished test emits: its artifact files (unless {@link
+ * ResolvedFixtureConfig.outputEnabled} is off), the two suite-reporter channels (`task.meta`
+ * clarity and glossary), and the console narrative.
  *
  * INTENT: one place that knows the full per-test emission set, so adding a channel cannot quietly
- * be wired into some fixtures and not others.
+ * be wired into some fixtures and not others. `outputEnabled` gates only the file write — the
+ * console narrative and the clarity/glossary metadata (neither of them a file on disk) still run,
+ * so turning file output off never silences a failing test's diagnostics.
  */
 function emitTestArtifacts(
   tree: TraceTree,
   task: FixtureTask,
-  config: Pick<ResolvedFixtureConfig, "outputDir" | "formats"> & { shedding?: CaptureShedding },
+  config: Pick<ResolvedFixtureConfig, "outputDir" | "formats" | "outputEnabled"> & {
+    shedding?: CaptureShedding;
+  },
 ): void {
   const testName = buildTestPath(task);
   const moduleName = moduleNameOf(task.file?.filepath);
-  writeTraceOutput(tree, { ...config, moduleName, testName });
+  const { outputEnabled, ...target } = config;
+  if (outputEnabled) writeTraceOutput(tree, { ...target, moduleName, testName });
   recordTestClarity(tree, testName, task.meta);
   recordTestGlossary(tree, task.meta);
   reportTestNarrative(tree, testName, task.result?.state === "fail");
@@ -253,7 +286,8 @@ export function createNarrativeTest(options: NarrativeTestOptions = {}) {
   return test.extend<{ narrativeContext: NarrativeContext }>({
     narrativeContext: async ({ task }, use) => {
       // Resolved per-test so NARRATIVETRACE_* env changes are honored at run time.
-      const { level, outputDir, formats, bufferCapacity } = resolveFixtureConfig(options);
+      const { level, outputDir, formats, bufferCapacity, outputEnabled } =
+        resolveFixtureConfig(options);
       const { ctx, buffer } = testContext(bufferCapacity, level);
       await use(ctx);
       const loss = ctx.traceLoss();
@@ -263,7 +297,7 @@ export function createNarrativeTest(options: NarrativeTestOptions = {}) {
         refusedScopes: loss.refusedScopes,
         refusedSpans: loss.refusedSpans,
       };
-      emitTestArtifacts(ctx.captureTrace(), task, { outputDir, formats, shedding });
+      emitTestArtifacts(ctx.captureTrace(), task, { outputDir, formats, outputEnabled, shedding });
       ctx.eventPipeline.close();
     },
   });

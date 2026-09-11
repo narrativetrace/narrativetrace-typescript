@@ -52,11 +52,23 @@ the renderer you want — `renderIndentedText(tree)`, `renderProse`, `renderMerm
 `EventConsumer` on the inline path of the example's `DualPathPipeline` (`tools/demo-stream.ts`, the
 twin of Java's `Slf4jTraceEventListener`) — the only view that costs no rendering code.
 Configuration selects a renderer in exactly one place, trace files written from tests:
-`NARRATIVETRACE_OUTPUT=true` plus `NARRATIVETRACE_FORMAT=md|mmd|json|puml`.
+`createNarrativeTest` writes them on its own — no flag needed — and
+`NARRATIVETRACE_FORMAT=md|mmd|json|puml` picks which formats. Set
+`NARRATIVETRACE_OUTPUT=false` to turn file writing off.
 
 **Classic log output is a first-class mode.** `--classic` sends the same run through
 `@narrativetrace/winston` with a traditional `yyyy-MM-dd HH:mm:ss.SSS LEVEL [thread] [logger] -
 message` format — the point being that the narration is ordinary log lines every log tool ingests.
+
+**Every run also reaches a real logger, in every mode.** Independent of `--classic`, the launcher
+composes a `@narrativetrace/pino` consumer onto whichever listener the mode already uses and
+writes structured per-event lines to `demo-trace.log` at the repository root
+(`tools/demo.ts`'s `createDemoLogger()` — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino)). The
+styled/classic/translated console views are unchanged; `tail -f demo-trace.log` shows the same
+trace landing in a configured logger as the demo runs. Each example's own entry point
+(`pnpm run example:<name>`, no launcher involved) wires the same bridge directly to stdout — see
+"Logger" under each example below.
 
 **Translated traces are a first-class mode too.** Every launcher example commits a domain glossary
 (`examples/<name>/glossary.json` — one bounded context with curated Spanish and Simplified Chinese
@@ -106,6 +118,10 @@ pnpm demo -- --example ecommerce
 - `examples/ecommerce/src/order-service.ts` — orchestrator that calls all other services
 - `examples/ecommerce/glossary.json` — the bounded context `--lang` translates through
 
+**Logger:** `src/demo.ts` sends the same trace to a real [Pino](https://github.com/pinojs/pino)
+logger (`@narrativetrace/pino`), interleaved with the console narration above — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
+
 ## Clarity
 
 Java's `ClarityDemoExample`: a hotel-reservation domain at four naming-quality tiers, then the
@@ -130,6 +146,10 @@ pnpm demo -- --example clarity
   trees the first four captured
 - `examples/clarity/src/reservation-service.ts` — the well-named tier
 
+**Logger:** `src/demo.ts` sends the same trace to a real Pino logger (`@narrativetrace/pino`),
+interleaved with the console narration above — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
+
 ## Express
 
 An Express HTTP server that wraps the ecommerce services with `narrativeTrace()` middleware. Each request gets its own trace context via `AsyncNarrativeContext`.
@@ -143,6 +163,11 @@ Then open `http://localhost:3000` in a browser. Submit the order form — the JS
 **Key files:**
 - `examples/express/src/app.ts` — Express app with `narrativeTrace(ctx)` middleware
 
+**Logger:** `src/app.ts` builds the context with `createExpressNarrativeContext(config, {
+pipeline })`, wiring a real Pino logger (`@narrativetrace/pino`) onto the pipeline's sync path
+alongside the `BufferedEventConsumer` that `ctx.captureTrace()` still needs — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
+
 ## Hono
 
 Same as the Express example but using the Hono framework.
@@ -155,6 +180,9 @@ Open `http://localhost:3001`. Same order form, same trace in the response.
 
 **Key files:**
 - `examples/hono/src/app.ts` — Hono app with `narrativeTrace(ctx)` middleware
+
+**Logger:** `src/app.ts` builds the context with `createHonoNarrativeContext(config, { pipeline
+})`, same wiring as the [Express](#express) example's Pino bridge.
 
 ## Distributed
 
@@ -219,6 +247,11 @@ docker compose -f examples/distributed/src/docker-compose.yml down
 - `examples/distributed/src/traced-service-factory.ts` — creates OTel-integrated trace contexts
 - `examples/distributed/src/docker-compose.yml` — container definitions
 
+**Logger:** `src/traced-service-factory.ts`'s `buildPipeline` streams every service's trace to a
+real Pino logger (`@narrativetrace/pino`) on stdout — the container-native destination — alongside
+the OTel spans and the enricher consumer it already wired; one shared factory covers all 5
+services — see [Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
+
 ## Minecraft
 
 A Minecraft-inspired domain (world generator, player inventory, crafting table, creature spawner, world server) with descriptive, domain-driven names. The trace reads like documentation.
@@ -237,6 +270,10 @@ WorldServer.playerJoined(playerName: "Steve")
 -> "Steve joined the world in plains biome"
 ```
 
+**Logger:** `src/demo.ts` sends the same trace to a real Pino logger (`@narrativetrace/pino`),
+interleaved with the console output above — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
+
 ## Minecraft-Generic
 
 The exact same logic as the minecraft example, but with generic, opaque names (GameManager, DataProcessor, StateManager, ThingFactory, EntityHandler). Compare the two traces side by side — the naming quality difference is immediately visible. This is the core argument for NarrativeTrace: if your trace is unreadable, your code needs renaming, not more log statements.
@@ -248,6 +285,10 @@ pnpm demo -- --example minecraft     # both halves, refactored first, as Java's 
 
 Both halves are wired byte for byte the same way — `traceObject(impl, context, paramNames,
 { className })`, no decorators — so the `paramNames` map is what names the parameters.
+
+**Logger:** `src/demo.ts` sends the same trace to a real Pino logger (`@narrativetrace/pino`),
+interleaved with the console output above — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
 
 ## Plain-JS
 
@@ -265,6 +306,10 @@ pnpm demo -- --example plain-js
 **Key files:**
 - `examples/plain-js/src/scenarios.mjs` — the registry, `createTracedLendingService(context)`
 - `examples/plain-js/src/lending-service.mjs` — takes an injectable clock so tests are reproducible
+
+**Logger:** `src/demo.mjs` sends the same trace to a real Pino logger (`@narrativetrace/pino`),
+interleaved with the console narration above — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
 
 ## Browser
 
@@ -287,6 +332,10 @@ Tests run under jsdom with `core-web` (never `core-node`), so the suite exercise
 - `examples/browser/src/calculator.ts` — the traced class
 - `examples/browser/vite.config.ts` — dev server + `/traces` collector middleware
 
+**Logger:** not applicable — this example runs entirely in the browser, where `renderToConsole()`
+(the DevTools console) is already the realistic sink; `@narrativetrace/pino` and
+`@narrativetrace/winston` are Node-only bridges with no TraceEvent stream to attach to here.
+
 ## Script tag
 
 The browser counterpart of [plain-js](#plain-js): plain JavaScript in a web page with **no TypeScript, no bundler, no ES modules**. `public/index.html` loads two classic scripts in order: `/narrativetrace.global.js` — the [`@narrativetrace/standalone`](../packages/standalone/README.md) bundle, which defines `window.NarrativeTrace` and registers the browser id generator — and `/app.js`, hand-written ES5-style JavaScript (constructor function + prototype methods; `traceObject` does not care how objects are built). Clicking **Run traced checkout** traces a `ShoppingCart`, including a caught `checkout("EXPIRED")` so a `✗` outcome is visible, then renders the trace into the page, mirrors it to the DevTools console and POSTs it to `/traces`.
@@ -303,6 +352,10 @@ Tests: the server against an ephemeral port (routes, content types, collector, 4
 - `examples/script-tag/public/index.html` — the page; explains itself in HTML comments
 - `examples/script-tag/public/app.js` — the plain-JavaScript application
 - `examples/script-tag/src/server.ts` — static routes + `/traces` collector; `src/entry.ts` starts it
+
+**Logger:** the trace itself is produced in the browser (`public/app.js`), so there is no local
+TraceEvent stream for a Node bridge to attach to; `src/server.ts`'s collector logs the received
+trace document through a real Pino logger, structured, alongside its existing console line.
 
 ## Angular + Express
 
@@ -333,6 +386,9 @@ Place an order and see:
 - `examples/express-angular/client/order.service.ts` — `HttpClient` wrapper, auto-traced
 - `examples/express-angular/client/order-form.component.ts` — form UI + trace display
 - `examples/express-angular/server/app.ts` — Express backend with CORS + `narrativeTrace(ctx)` middleware
+
+**Logger:** `server/app.ts`, same `createExpressNarrativeContext(config, { pipeline })` wiring as
+the [Express](#express) example's Pino bridge.
 
 ## NestJS + React
 
@@ -374,6 +430,11 @@ pnpm --filter @narrativetrace/example-nestjs-react test
 - `examples/nestjs-react/server/orders.controller.ts` — captures the request trace via injected `NarrativeStorage`
 - `examples/nestjs-react/server/orders.service.ts` — orchestrator (`InventoryService` + `PaymentService`)
 - `examples/nestjs-react/client/order-form.tsx` — `useTraced` / `useTracedFetch` / `useTraceCapture` + trace display
+
+**Logger:** `server/app.module.ts` passes an explicit `pipeline` (a real Pino logger plus
+`BufferedEventConsumer`) to `AutoProxyModule.forRoot()` — without it, captured spans go to a
+throwaway consumer nothing drains (`AutoProxyOptions.pipeline`'s own documented TS-DI-1 gap) — see
+[Framework Integration Guide § 9](framework-integration-guide.md#9-winston--pino).
 
 ## Running all examples
 
