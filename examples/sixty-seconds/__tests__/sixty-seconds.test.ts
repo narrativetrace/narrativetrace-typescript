@@ -11,7 +11,7 @@ import { expect } from "vitest";
 const test = createNarrativeTest();
 
 /**
- * Mirrors `index.js`'s `OrderService` verbatim (documentation/first-10-minutes.md § 2). Kept as
+ * Mirrors `index.js`'s `OrderService` verbatim (documentation/sixty-seconds.md § 2). Kept as
  * its own tiny copy rather than imported: `index.js` is the hand-run script itself (importing it
  * would re-run its own `console.log`), and this class is small and stable enough that the two
  * copies drifting apart silently is not a realistic risk — `snippet-check` still guards the page
@@ -30,7 +30,7 @@ test("places an order through the traced proxy", ({ narrativeContext }) => {
 
   expect(service.placeOrder("C1", "P1", 2)).toBe("ORD-C1-P1-2");
 
-  // The page's step-3 output block (documentation/first-10-minutes.md) is exactly this string —
+  // The page's step-3 output block (documentation/sixty-seconds.md) is exactly this string —
   // the same `renderMarkdownBody` call `index.js` itself makes, not the `.md` artifact
   // `createNarrativeTest` writes above on teardown (that one carries YAML frontmatter the
   // console-run script never prints). Saved as its own file so `snippet-check`

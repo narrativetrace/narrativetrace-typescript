@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { DEFAULT_REGISTRY_BASE } from "./verify-publication-registry.js";
 
 /**
- * The exact recipe `documentation/first-10-minutes.md` steps 1-5 document and this repository's
+ * The exact recipe `documentation/sixty-seconds.md` steps 1-5 document and this repository's
  * own copy of those steps is proven against — kept here as a literal string, not read off disk,
  * so a doc edit that silently drifts from what actually runs shows up as this tool's own smoke
  * test failing, not as a stale copy nobody notices.
@@ -120,7 +120,7 @@ function runVitest(dir: string, env: NodeJS.ProcessEnv): RunOutcome {
   return { ok: result.status === 0, log };
 }
 
-/** What `documentation/first-10-minutes.md` step 5 promises the trace narrative contains, for
+/** What `documentation/sixty-seconds.md` step 5 promises the trace narrative contains, for
  * this exact call — the assertion is "the docs are true", not "a file exists". */
 function assertMarkdown(dir: string): string | undefined {
   const path = join(dir, "narrativetrace-output", "order-service", "customer_places_order.md");
@@ -191,7 +191,7 @@ function writeFailureLog(dir: string, log: string): void {
 /**
  * The consumer smoke test: in a temp project with a fresh npm cache, installs
  * `@narrativetrace/core-node` + `@narrativetrace/proxy` (+ the `@narrativetrace/vitest` fixture)
- * from the real registry, runs the exact `first-10-minutes.md` steps 1-5 recipe, and asserts the
+ * from the real registry, runs the exact `sixty-seconds.md` steps 1-5 recipe, and asserts the
  * trace files it produces are what the docs promise. "Resolves and installs" is not the bar —
  * "an adopter's day one traces" is.
  */

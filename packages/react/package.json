@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/react",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "React hooks and provider for capturing component and service traces from method and parameter names",
   "license": "BUSL-1.1",
   "repository": {
@@ -13,6 +13,9 @@
     "access": "public"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/vitest",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Auto-traces Vitest tests, writing trace files, failure diagnostics, and clarity reports for each run",
   "license": "BUSL-1.1",
   "repository": {
@@ -13,11 +13,19 @@
     "access": "public"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
+    },
+    "./reporters": {
+      "types": "./dist/reporters.d.ts",
+      "import": "./dist/reporters.js",
+      "require": "./dist/reporters.cjs"
     }
   },
   "main": "./dist/index.cjs",
@@ -35,20 +43,17 @@
     "coverage": "vitest run --coverage",
     "mutate": "stryker run"
   },
-  "peerDependencies": {
+  "dependencies": {
     "@narrativetrace/clarity": "workspace:*",
     "@narrativetrace/core-node": "workspace:*",
     "@narrativetrace/diagrams": "workspace:*",
     "@narrativetrace/glossary": "workspace:*",
-    "@narrativetrace/proxy": "workspace:*",
-    "vitest": "^3.0.0"
+    "@narrativetrace/proxy": "workspace:*"
+  },
+  "peerDependencies": {
+    "vitest": "^1.0.0 || ^2.0.0 || ^3.0.0"
   },
   "devDependencies": {
-    "@narrativetrace/clarity": "workspace:*",
-    "@narrativetrace/core-node": "workspace:*",
-    "@narrativetrace/diagrams": "workspace:*",
-    "@narrativetrace/glossary": "workspace:*",
-    "@narrativetrace/proxy": "workspace:*",
     "@types/node": "^25.3.2",
     "ajv": "^8.18.0",
     "ajv-formats": "^3.0.1"

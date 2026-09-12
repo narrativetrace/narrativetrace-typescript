@@ -1,10 +1,10 @@
-<!-- source: documentation/decorators-guide.md blob 81c11f9126d6 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob b3ec5d04e13e | translated: 2026-09-11 | reviewed: - -->
 
 # Guia de decoradores do NarrativeTrace TypeScript
 
 [English](../decorators-guide.md) | [Español](../es/guia-de-decoradores.md) | **Português** | [简体中文](../zh-CN/装饰器指南.md)
 
-Este guia cobre os metadados de trace em nível de método — nomes de parâmetros, narração, contexto de erro e ocultação. A **forma padrão de declará-los é a forma de configuração** no `traceObject()`, na raiz de composição; os quatro decoradores são as mesmas declarações com uma sintaxe mais agradável para projetos que já compilam decoradores (NestJS, Angular, qualquer aplicação com TypeScript 5+).
+Este guia cobre os metadados de trace em nível de método — nomes de parâmetros, narração, contexto de erro e ocultação. A **forma padrão de declará-los é a forma de configuração** no `traceObject()`, na raiz de composição — os decoradores abaixo são o que a versão atualmente publicada no npm, `@narrativetrace/proxy@0.1.1`, tem em vez disso. *(since 0.1.3, unreleased)* Os quatro decoradores são as mesmas declarações com uma sintaxe mais agradável para projetos que já compilam decoradores (NestJS, Angular, qualquer aplicação com TypeScript 5+).
 
 O NarrativeTrace segue a filosofia **O código é o log**: os nomes de métodos, os nomes de parâmetros e os valores de retorno já deveriam comunicar por si só a história da execução. Mantenha a lógica de negócio limpa e expressiva antes de mais nada, e adicione metadados de forma excepcional, não por padrão — somente quando agregarem valor adicional concreto, como narração direcionada, contexto específico de erro, ou ocultação de dados sensíveis.
 
@@ -273,7 +273,7 @@ O que é invocado, e o que não é:
   introspecção. (Um acessor definido diretamente em um objeto literal *é* próprio-enumerável
   e seria executado — prefira getters de classe ou marque o campo em `static notTraced`.)
 - **Um `toString()` personalizado (próprio, não o padrão) só é invocado para uma folha** — um
-  objeto *sem nenhum campo próprio*. No momento em que seu tipo tem um único campo próprio,
+  objeto *sem nenhum campo próprio*. *(since 0.1.3, unreleased)* No momento em que seu tipo tem um único campo próprio,
   `toString()` nunca é chamado durante a renderização; a introspecção de campos roda em vez disso,
   não importa o que seu `toString()` teria impresso (invariante da família, 2026-09-11 — veja
   [Privacidade e ocultação](privacidade-e-ocultacao.md) para o motivo: confiar em um `toString()`
@@ -291,7 +291,7 @@ O que é invocado, e o que não é:
   `maxArrayItems`, `maxObjectKeys`); um getter que lança uma exceção degrada só *aquele campo* para
   o marcador de erro tipado `<error: NomeDoConstrutor>` (nunca `.message`, que pode carregar o
   valor exato que o membro se recusava a renderizar) — os campos irmãos continuam sendo
-  renderizados normalmente. Um `toString()` ou `@narrativeSummary()` que lança exceção degrada o
+  renderizados normalmente. *(since 0.1.3, unreleased)* Um `toString()` ou `@narrativeSummary()` que lança exceção degrada o
   valor inteiro da mesma forma; nenhum dos dois jamais faz a chamada de negócio traced falhar (os
   templates recorrem ao literal `{placeholder}`). Os valores são renderizados de forma eager no
   ponto de chamada, então qualquer efeito colateral acontece uma única vez, em um ponto

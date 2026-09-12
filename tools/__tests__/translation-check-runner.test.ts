@@ -20,7 +20,7 @@ function write(relativePath: string, content: string): void {
 const SOURCE = "# First 10 Minutes\n\nSeven steps.\n";
 
 function seedRepo(): void {
-  write("documentation/first-10-minutes.md", SOURCE);
+  write("documentation/sixty-seconds.md", SOURCE);
   write(
     "documentation/i18n/manifest.json",
     JSON.stringify({
@@ -37,8 +37,8 @@ function seedRepo(): void {
       ],
       documents: [
         {
-          source: "documentation/first-10-minutes.md",
-          translations: { es: "primeros-10-minutos.md" },
+          source: "documentation/sixty-seconds.md",
+          translations: { es: "sesenta-segundos.md" },
         },
       ],
     }),
@@ -48,8 +48,8 @@ function seedRepo(): void {
     "# NarrativeTrace documentation\n\n[English](README.md) | Español\n",
   );
   write(
-    "documentation/es/primeros-10-minutos.md",
-    `<!-- source: documentation/first-10-minutes.md blob ${gitBlobHash12(SOURCE)} | translated: 2026-09-03 -->\n# Los Primeros 10 Minutos\n\nSiete pasos.\n`,
+    "documentation/es/sesenta-segundos.md",
+    `<!-- source: documentation/sixty-seconds.md blob ${gitBlobHash12(SOURCE)} | translated: 2026-09-03 -->\n# Los Primeros 10 Minutos\n\nSiete pasos.\n`,
   );
 }
 
@@ -66,7 +66,7 @@ afterEach(() => {
 
 describe("runTranslationCheck", () => {
   it("degrades to the staleness-only check with one warning when no manifest exists", () => {
-    write("documentation/first-10-minutes.md", SOURCE);
+    write("documentation/sixty-seconds.md", SOURCE);
     const result = runTranslationCheck();
     expect(result.failures).toEqual([]);
     expect(result.warnings).toEqual([
@@ -82,7 +82,7 @@ describe("runTranslationCheck", () => {
 
   it("fails staleness when the English source changes without restamping the translation", () => {
     seedRepo();
-    write("documentation/first-10-minutes.md", `${SOURCE}\nOne more paragraph.\n`);
+    write("documentation/sixty-seconds.md", `${SOURCE}\nOne more paragraph.\n`);
     const result = runTranslationCheck();
     expect(result.failures.some((f) => f.includes("stale"))).toBe(true);
   });
@@ -99,8 +99,8 @@ describe("runTranslationCheck", () => {
   it("fails structure parity when a translation drops a heading", () => {
     seedRepo();
     write(
-      "documentation/es/primeros-10-minutos.md",
-      `<!-- source: documentation/first-10-minutes.md blob ${gitBlobHash12(SOURCE)} | translated: 2026-09-03 -->\nSin título.\n`,
+      "documentation/es/sesenta-segundos.md",
+      `<!-- source: documentation/sixty-seconds.md blob ${gitBlobHash12(SOURCE)} | translated: 2026-09-03 -->\nSin título.\n`,
     );
     const result = runTranslationCheck();
     expect(result.failures.some((f) => f.includes("heading count differs"))).toBe(true);
@@ -124,8 +124,8 @@ describe("runTranslationCheck", () => {
         ],
         documents: [
           {
-            source: "documentation/first-10-minutes.md",
-            translations: { es: "primeros-10-minutos.md" },
+            source: "documentation/sixty-seconds.md",
+            translations: { es: "sesenta-segundos.md" },
           },
           { source: "documentation/installation-guide.md", translations: {} },
         ],
@@ -154,8 +154,8 @@ describe("runTranslationCheck", () => {
         ],
         documents: [
           {
-            source: "documentation/first-10-minutes.md",
-            translations: { es: "primeros-10-minutos.md" },
+            source: "documentation/sixty-seconds.md",
+            translations: { es: "sesenta-segundos.md" },
           },
           { source: "documentation/installation-guide.md", translations: {} },
         ],

@@ -8,7 +8,7 @@
 # What it proves, every night, from a cold environment: the latest released version of every
 # @narrativetrace/* package still resolves from the REAL npm registry (a fresh cache directory,
 # never a warm one), its provenance attestation is still there and still bound to the exact
-# published bytes, and the exact recipe documentation/first-10-minutes.md teaches still installs
+# published bytes, and the exact recipe documentation/sixty-seconds.md teaches still installs
 # and traces what the docs promise. In other words: a first-time adopter's day one still works.
 # tools/verify-publication.ts holds all the logic (package list derived from the workspace
 # manifests, the registry poll, the provenance check, the consumer smoke test); this file only

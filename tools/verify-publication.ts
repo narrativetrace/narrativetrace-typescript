@@ -113,7 +113,7 @@ function printDryRun(targets: readonly RegistryTarget[], version: string): void 
   console.log(
     `\nSmoke test would install @narrativetrace/core-node + @narrativetrace/proxy + ` +
       `@narrativetrace/vitest @${version} from the real registry into a fresh temp project and ` +
-      `run documentation/first-10-minutes.md steps 1-5.`,
+      `run documentation/sixty-seconds.md steps 1-5.`,
   );
 }
 

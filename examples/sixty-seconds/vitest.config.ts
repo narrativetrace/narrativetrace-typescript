@@ -5,7 +5,7 @@ import { defineConfig } from "vitest/config";
 
 /**
  * Test-only demo package, not a library with its own `src/`: `index.js`/`index-with-logger.js` are
- * the hand-run tutorial entry points (documentation/first-10-minutes.md), never imported by the
+ * the hand-run tutorial entry points (documentation/sixty-seconds.md), never imported by the
  * suite (duplicating the entry point's real side effects — a fresh `SyncNarrativeContext`,
  * `console.log` — would defeat the point of running it by hand). The one test below drives the
  * same call independently through `@narrativetrace/vitest`'s fixture. No coverage floor applies

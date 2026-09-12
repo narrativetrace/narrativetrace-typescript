@@ -108,6 +108,7 @@ Three independent mechanisms apply to every captured/rendered value:
 **A custom `toString()` is trusted only for a leaf** — an object with no own
 field at all, so there is nothing field introspection could show instead
 (family invariant, 2026-09-11; this port's design already matched .NET's).
+*(since 0.1.3, unreleased)*
 The moment an object has even one own field, it is *always* introspected
 field-by-field, whatever its `toString()` would have printed — not merely
 when that field is itself annotated or deny-listed. This is narrower than it
@@ -123,7 +124,7 @@ that whole class of bypass at once, at any nesting depth, rather than
 chasing each new interpolation shape as its own bug. The same rule applies
 to a Map **key**: a key that is itself an object goes through the identical
 redaction-aware rendering a value does, never a raw, unconditional
-`toString()`.
+`toString()`. *(since 0.1.3, unreleased)*
 
 `narrativeSummary()` is curated text the author wrote specifically for the
 trace, and still outranks both toString-trust and field introspection — but
@@ -146,7 +147,7 @@ unconditionally.
 
 A member this library invokes while rendering a value — `narrativeSummary()`,
 a leaf's `toString()`, or a field getter — can throw, or (`toString()` only)
-return `null`. A throw degrades to the typed error marker for that one part,
+return `null`. *(since 0.1.3, unreleased)* A throw degrades to the typed error marker for that one part,
 `<error: ConstructorName>` (e.g. `<error: TypeError>`; a thrown non-`Error`
 value shows its `typeof`, e.g. `<error: string>`) — **never the exception's
 `message`**, which can carry the exact value the member was refusing to

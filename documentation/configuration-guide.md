@@ -69,7 +69,9 @@ const test = createNarrativeTest({
 Turn it off for a run that wants the console narrative and clarity/glossary
 metadata but not the files — `NARRATIVETRACE_OUTPUT=false` (or `outputEnabled:
 false` in code, or `"output": "false"` in the project config file). Any other
-value, including the variable being unset, keeps writing.
+value, including the variable being unset, keeps writing. *(since 0.1.3, unreleased)*
+npm's currently published `@narrativetrace/vitest@0.1.1` writes the files
+unconditionally — `NARRATIVETRACE_OUTPUT` has no effect there.
 
 ### Output layout
 

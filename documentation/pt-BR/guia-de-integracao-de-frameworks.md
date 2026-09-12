@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 81f0dafd3c08 | translated: 2026-09-10 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 3f7fcc64ea54 | translated: 2026-09-12 | reviewed: - -->
 # Guia de Integração de Frameworks do NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | [Español](../es/guia-de-integracion-de-frameworks.md) | **Português** | [简体中文](../zh-CN/框架集成指南.md)
@@ -140,8 +140,9 @@ export default app;
 
 O pacote `@narrativetrace/browser` fornece dois mecanismos de saída para ambientes de navegador.
 No navegador, importe a API principal de `@narrativetrace/core-web`: ela reexporta
-`@narrativetrace/core` e registra o gerador de ids do Web Crypto. Importar `@narrativetrace/core`
-diretamente não deixa nenhum gerador registrado, e a primeira chamada traceada lança uma exceção.
+`@narrativetrace/core` e registra explicitamente o gerador de ids do Web Crypto. Importar
+`@narrativetrace/core` diretamente também funciona — ele recorre por conta própria ao Web
+Crypto — mas `core-web` é o caminho testado e documentado.
 
 ### Renderização no console
 
@@ -428,17 +429,18 @@ O callback é opcional — omita-o para simplesmente resetar o trace a cada nave
 
 ## 8. OpenTelemetry
 
-O pacote `@narrativetrace/opentelemetry` mapeia narrativas de chamadas de método para spans do OTel, de modo que visualizações existentes no Jaeger/Tempo/Datadog passam a funcionar sem spans instrumentados manualmente. `createOtelEventConsumer` é a ponte ao vivo — ela inicia/encerra spans conforme os métodos são executados, aninhando spans filhos sob seus pais. Conecte-a a um pipeline:
+O pacote `@narrativetrace/opentelemetry` mapeia narrativas de chamadas de método para spans do OTel, de modo que visualizações existentes no Jaeger/Tempo/Datadog passam a funcionar sem spans instrumentados manualmente. `createOtelEventConsumer` é a ponte ao vivo — ela inicia/encerra spans conforme os métodos são executados, aninhando spans filhos sob seus pais. Conecte-a a um pipeline: *(since 0.1.3, unreleased)*
 
 ```ts
-import { AsyncNarrativeContext, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
+import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
 import { createOtelEventConsumer } from "@narrativetrace/opentelemetry";
 import { trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("orders");
 const consumer = createOtelEventConsumer({ tracer, maxActiveSpans: 1024 });
 
-const pipeline = new DualPathPipeline(consumer, null);
+// Mantenha o consumidor com buffer junto à ponte ao vivo — é ele que sustenta captureTrace()/events().
+const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 
@@ -458,10 +460,10 @@ Cada span é estampado com `nt.trace_id` e outros atributos de schema `nt.*` (id
 
 Os pacotes `@narrativetrace/winston` e `@narrativetrace/pino` transmitem eventos de chamada de método para o seu logger como linhas estruturadas por evento (`→ Class.method` na entrada, `← returned: …` / `!! Error` na saída) carregando `code.*`, `trace_id`, `service.*`, `nt.depth` e parâmetros tipados.
 
-### Winston
+### Winston *(since 0.1.3, unreleased)*
 
 ```ts
-import { AsyncNarrativeContext, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
+import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
 import { createWinstonEventConsumer } from "@narrativetrace/winston";
 import winston from "winston";
 
@@ -472,16 +474,17 @@ const consumer = createWinstonEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
 });
 
-const pipeline = new DualPathPipeline(consumer, null);
+// Mantenha o consumidor com buffer junto à ponte ao vivo — é ele que sustenta captureTrace()/events().
+const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 
 Para estampar a identidade do trace ativo nas suas *próprias* chamadas `logger.*`, adicione `createWinstonFormat()` à cadeia de formatação do logger — ele mescla o `LogContext` atual (`trace_id`, `service.*`, `nt.depth`) em cada linha.
 
-### Pino
+### Pino *(since 0.1.3, unreleased)*
 
 ```ts
-import { AsyncNarrativeContext, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
+import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
 import { createPinoEventConsumer } from "@narrativetrace/pino";
 import pino from "pino";
 
@@ -492,7 +495,8 @@ const consumer = createPinoEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
 });
 
-const pipeline = new DualPathPipeline(consumer, null);
+// Mantenha o consumidor com buffer junto à ponte ao vivo — é ele que sustenta captureTrace()/events().
+const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 

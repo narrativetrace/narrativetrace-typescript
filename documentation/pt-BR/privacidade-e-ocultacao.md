@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 324f03029bab | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 0bbd71ce1631 | translated: 2026-09-11 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -124,7 +124,8 @@ Três mecanismos independentes se aplicam a todo valor capturado/renderizado:
 **Um `toString()` personalizado só é confiado para uma folha** — um objeto
 sem nenhum campo próprio, de modo que não há mais nada que a introspecção de
 campos poderia mostrar em vez disso (invariante da família, 2026-09-11; o
-design deste port já coincidia com o do .NET). No momento em que um objeto
+design deste port já coincidia com o do .NET). *(since 0.1.3, unreleased)*
+No momento em que um objeto
 tem ao menos um campo próprio, ele é *sempre* introspectado campo a campo,
 não importa o que seu `toString()` teria impresso — não apenas quando esse
 campo é, por si só, anotado ou pertence à lista de negação. Isso é mais
@@ -142,7 +143,7 @@ profundidade de aninhamento, em vez de perseguir cada nova forma de
 interpolação como um bug à parte. A mesma regra vale para uma **chave** de
 `Map`: uma chave que é ela própria um objeto passa pela mesma renderização
 consciente de ocultação que um valor, nunca por um `toString()` bruto e
-incondicional.
+incondicional. *(since 0.1.3, unreleased)*
 
 `narrativeSummary()` é texto cuidadosamente escrito pelo autor
 especificamente para o trace, e continua a prevalecer tanto sobre a
@@ -167,7 +168,8 @@ usado pelo resto do trace, incondicionalmente.
 
 Um membro que esta biblioteca invoca ao renderizar um valor —
 `narrativeSummary()`, o `toString()` de uma folha, ou um getter de campo —
-pode lançar uma exceção, ou (somente `toString()`) retornar `null`. Uma
+pode lançar uma exceção, ou (somente `toString()`) retornar `null`.
+*(since 0.1.3, unreleased)* Uma
 exceção degrada para o marcador de erro tipado só naquela parte,
 `<error: NomeDoConstrutor>` (ex.: `<error: TypeError>`; um valor lançado que
 não é um `Error` mostra seu `typeof`, ex.: `<error: string>`) — **nunca o

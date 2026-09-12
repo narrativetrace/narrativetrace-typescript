@@ -228,11 +228,18 @@ export function resolveSnippetSource(block: SnippetBlock): string {
   return content;
 }
 
-/** Every English documentation page: `documentation/*.md` directly, never a `documentation/<lang>/` mirror. */
+/**
+ * Every English documentation page: `documentation/*.md` directly, plus `documentation/llms.txt`
+ * (the one non-Markdown page — an agent's first read, so its "copy this" block is held to the same
+ * no-drift guarantee as everything else). Never a `documentation/<lang>/` mirror.
+ */
 export function englishDocPages(root = "documentation"): string[] {
   if (!existsSync(root)) return [];
   return readdirSync(root)
-    .filter((name) => name.endsWith(".md") && statSync(join(root, name)).isFile())
+    .filter(
+      (name) =>
+        (name.endsWith(".md") || name === "llms.txt") && statSync(join(root, name)).isFile(),
+    )
     .map((name) => join(root, name))
     .sort();
 }

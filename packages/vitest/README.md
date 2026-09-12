@@ -6,10 +6,15 @@ and get trace files, per-test failure diagnostics, and clarity reports for free.
 ## Install
 
 ```bash
-pnpm add -D @narrativetrace/vitest @narrativetrace/core-node @narrativetrace/clarity @narrativetrace/diagrams @narrativetrace/proxy vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
 
-All of the above (plus `vitest ^3`) are peer dependencies.
+`vitest` (any of 1.x, 2.x or 3.x) is the only peer dependency — the other four NarrativeTrace
+dependencies (core-node, clarity, diagrams, glossary) install automatically with this package,
+since they release in lockstep and are never independently versioned. `@narrativetrace/proxy` is
+listed explicitly because the example below imports `traceObject` from it directly: pnpm only
+exposes a package's own direct dependencies, not a dependency's dependencies, so anything you
+`import` yourself still needs to be your own dependency. *(since 0.1.3, unreleased)*
 
 ## Usage
 
@@ -49,7 +54,24 @@ The same sentence is appended as a footer to the Markdown and diagram artifacts,
 so a saved trace never looks complete when it is not. (The JSON artifacts are
 left untouched — their schema forbids extra fields.)
 
-For suite-wide clarity, register `ClaritySuiteReporter` in your Vitest config.
+For suite-wide clarity, register `ClaritySuiteReporter` in your Vitest config,
+importing it from the `/reporters` subpath — **not** the package root, which
+also loads the `narrativeTest` fixture and, with it, `vitest` itself; importing
+`vitest` from inside `vitest.config.ts` fails with "Vitest failed to access
+its internal state" on every Vitest version *(since 0.1.3, unreleased)*:
+
+```ts
+// vitest.config.ts
+import { defineConfig } from 'vitest/config';
+import { ClaritySuiteReporter } from '@narrativetrace/vitest/reporters';
+
+export default defineConfig({
+  test: {
+    reporters: ['default', new ClaritySuiteReporter()],
+  },
+});
+```
+
 It aggregates every test's clarity scenario across workers and emits a single
 `clarity-results.json` — the artifact `narrativetrace-clarity` gates on.
 

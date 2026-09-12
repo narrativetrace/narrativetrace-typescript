@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/opentelemetry",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Bridges NarrativeTrace method-call narratives onto OpenTelemetry spans for existing Jaeger, Tempo, or Datadog views",
   "license": "BUSL-1.1",
   "repository": {
@@ -13,6 +13,9 @@
     "access": "public"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

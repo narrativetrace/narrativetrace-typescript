@@ -14,14 +14,15 @@ pnpm add @narrativetrace/observability @narrativetrace/core
 
 `createEnricherEventConsumer` follows the trace and keeps `LogContext` current; `createLogEnricher`
 adapts that context to any logger callback. Downstream `@narrativetrace/winston` and
-`@narrativetrace/pino` build on this same `LogContext`.
+`@narrativetrace/pino` build on this same `LogContext`. *(since 0.1.3, unreleased)*
 
 ```ts
-import { AsyncNarrativeContext, DualPathPipeline, NarrativeTraceConfig } from '@narrativetrace/core-node';
+import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from '@narrativetrace/core-node';
 import { createEnricherEventConsumer, createLogEnricher } from '@narrativetrace/observability';
 
 const enricher = createEnricherEventConsumer();
-const pipeline = new DualPathPipeline(enricher, null);
+// Keep the buffered consumer alongside the live bridge — it backs captureTrace()/events().
+const pipeline = new DualPathPipeline(enricher, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig('detail'), pipeline);
 
 // Stamp the current trace identity onto your own logger.

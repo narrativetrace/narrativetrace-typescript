@@ -1,11 +1,11 @@
-<!-- source: README.md blob dd87ca2709f1 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: README.md blob 0e6eb7a8e007 | translated: 2026-09-12 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
 
 ## Empieza aquí
 
-[Ve una traza en 60 segundos](documentation/es/primeros-10-minutos.md) — un script sencillo, una ejecución, y la traza queda en tu terminal.
+[Ve una traza en 60 segundos](documentation/es/sesenta-segundos.md) — un script sencillo, una ejecución, y la traza queda en tu terminal.
 
 ## Demo
 
@@ -222,13 +222,20 @@ Conecta `@narrativetrace/pino` o `@narrativetrace/winston` y NarrativeTrace se c
 
 El camino más corto a una traza dentro de tu suite de tests ya existente es el fixture de Vitest —
 para el camino más corto de todos, un script sencillo sin framework de tests, consulta
-[Ve una traza en 60 segundos](documentation/es/primeros-10-minutos.md). Node 20+ (CI usa la
+[Ve una traza en 60 segundos](documentation/es/sesenta-segundos.md). Node 20+ (CI usa la
 versión 22), TypeScript 5.0+ si usas los decoradores de abajo.
 
 ```bash
-pnpm add @narrativetrace/core-node @narrativetrace/proxy
-pnpm add -D @narrativetrace/vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
+
+`vitest` es la única dependencia de pares (`peerDependency`). `@narrativetrace/vitest` trae sus
+otras cuatro dependencias de NarrativeTrace (core-node, clarity, diagrams, glossary) por sí solo
+— se publican al mismo ritmo y nunca se versionan por separado — pero `@narrativetrace/proxy` se
+indica explícitamente porque el test de abajo importa `traceObject` directamente desde ahí: pnpm
+solo expone las dependencias propias de un paquete, no las de una dependencia, así que cualquier
+cosa que importes tú mismo sigue necesitando ser tu propia dependencia (el `node_modules` más
+plano de npm no traza esta línea, pero pnpm — el que se muestra aquí — sí). *(since 0.1.3, unreleased)*
 
 Estos son los paquetes publicados — `npm view @narrativetrace/core version` muestra la versión
 actual (0.1.1 en el momento de escribir esto; consulta [Compilar desde el código
@@ -259,7 +266,7 @@ nombre del test se convirtió en el nombre del escenario, sin necesidad de inter
 `@notTraced`? La [Guía de claridad](documentation/es/guia-de-claridad.md) y
 [Privacidad y ocultación](documentation/es/privacidad-y-ocultacion.md) recorren ambas cosas, con
 salida real, ejecutada de verdad. ¿Prefieres primero el camino más corto posible? →
-[Ve una traza en 60 segundos](documentation/es/primeros-10-minutos.md).
+[Ve una traza en 60 segundos](documentation/es/sesenta-segundos.md).
 
 ## Elige tu integración
 
@@ -435,7 +442,7 @@ detrás de cada fila ya distribuida.
 
 Empieza aquí:
 
-- [Ve una traza en 60 segundos](documentation/es/primeros-10-minutos.md) — un script sencillo envuelve un servicio, una ejecución, la traza en tu terminal
+- [Ve una traza en 60 segundos](documentation/es/sesenta-segundos.md) — un script sencillo envuelve un servicio, una ejecución, la traza en tu terminal
 - [Guía de instalación](documentation/es/guia-de-instalacion.md) — dependencias, cada camino de integración, configuración de la salida de trazas
 - [Eligiendo una integración](documentation/es/eligiendo-una-integracion.md) — qué paquete necesitas, como diagrama de decisión
 - [Guía de configuración](documentation/es/guia-de-configuracion.md) — niveles de tracing, config de Vitest, opciones de renderizado

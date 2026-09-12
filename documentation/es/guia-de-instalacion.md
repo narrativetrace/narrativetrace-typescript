@@ -1,4 +1,4 @@
-<!-- source: documentation/installation-guide.md blob 93610c18bb85 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/installation-guide.md blob 888db3e4a9fb | translated: 2026-09-12 | reviewed: - -->
 # Guía de instalación de NarrativeTrace TypeScript
 
 [English](../installation-guide.md) | **Español** | [Português](../pt-BR/guia-de-instalacao.md) | [简体中文](../zh-CN/安装指南.md)
@@ -7,7 +7,7 @@ Esta guía cubre la instalación y el cableado de NarrativeTrace TypeScript en u
 
 ## Requisitos previos
 
-- Node.js 18+
+- Node.js 20+
 - pnpm (o npm/yarn)
 
 ## Inicio rápido
@@ -37,8 +37,11 @@ pnpm add @narrativetrace/core-node @narrativetrace/proxy   # Node
 pnpm add @narrativetrace/core-web @narrativetrace/proxy    # Navegador / Web Worker
 
 # `core-node` y `core-web` reexportan todo lo de `@narrativetrace/core` y registran el
-# generador de id de la plataforma (node:crypto frente a Web Crypto). Importar solo
-# `@narrativetrace/core` lanza "No IdGenerator registered" en la primera llamada trazada.
+# generador de id optimizado de la plataforma (node:crypto frente a Web Crypto). Usar solo
+# `@narrativetrace/core` sigue funcionando — recurre directamente a Web Crypto donde está
+# disponible (todos los runtimes que soporta esta librería) — pero el paquete de plataforma
+# sigue siendo el que hay que instalar: es la vía probada y documentada, y la única que
+# garantiza no lanzar un error en un runtime sin Web Crypto en absoluto.
 
 # Integraciones opcionales
 pnpm add -D @narrativetrace/vitest           # Plugin de Vitest
@@ -74,8 +77,17 @@ Usa esta opción cuando quieras control explícito sobre el trazado. Funciona en
 ### Opción B: plugin de Vitest (contexto automático + salida de trazas)
 
 ```bash
-pnpm add -D @narrativetrace/vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
+
+`vitest` es la única dependencia de pares (`peerDependency`) de `@narrativetrace/vitest`; sus otras
+cuatro dependencias de NarrativeTrace (core-node, clarity, diagrams, glossary) se instalan
+automáticamente con él — se publican al mismo ritmo y nunca se versionan por separado.
+`@narrativetrace/proxy` se indica explícitamente porque los ejemplos de abajo importan
+`traceObject` directamente desde ahí: pnpm solo expone las dependencias propias de un paquete, no
+las dependencias de una dependencia, así que cualquier cosa que importes tú mismo sigue
+necesitando ser tu propia dependencia (el `node_modules` más plano de npm no traza esta línea,
+pero pnpm — el que se muestra aquí — sí). *(since 0.1.3, unreleased)*
 
 #### Fixture básico (sin salida a archivo)
 

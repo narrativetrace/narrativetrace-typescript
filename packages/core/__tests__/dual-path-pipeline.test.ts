@@ -92,14 +92,19 @@ describe("DualPathPipeline", () => {
     vi.useRealTimers();
   });
 
-  test("works with null bestEffort consumer", () => {
+  // A null bestEffort must never silently empty captureTrace(): every real call site in this
+  // repository always supplies a BufferedEventConsumer, and every documented snippet that once
+  // passed `null` here did so by mistake, not by design — so `null` now defaults to a working
+  // BufferedEventConsumer instead of disabling capture.
+  test("null bestEffort consumer defaults to a working buffer, not silent capture loss", () => {
     const received: TraceEvent[] = [];
     const pipeline = new DualPathPipeline((e) => received.push(e), null);
     pipeline.publish(enter(0));
     expect(received).toEqual([enter(0)]);
-    expect(pipeline.events()).toEqual([]);
     pipeline.flush();
+    expect(pipeline.events()).toEqual([enter(0)]);
     pipeline.clear();
+    expect(pipeline.events()).toEqual([]);
     pipeline.close();
   });
 

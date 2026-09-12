@@ -1,7 +1,7 @@
-<!-- source: documentation/first-10-minutes.md blob 3a9d18f33b8e | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/sixty-seconds.md blob fd3478465b06 | translated: 2026-09-12 | reviewed: - -->
 # Ve una traza en 60 segundos
 
-[English](../first-10-minutes.md) | **Español** | [Português](../pt-BR/primeiros-10-minutos.md) | [简体中文](../zh-CN/前10分钟.md)
+[English](../sixty-seconds.md) | **Español** | [Português](../pt-BR/sessenta-segundos.md) | [简体中文](../zh-CN/60秒.md)
 
 Sin sentencias de log, sin framework de pruebas, sin ningún fichero que abrir después. Un script
 sencillo, una ejecución, y la traza aparece en tu terminal. Todo lo de abajo se ejecutó de verdad
@@ -21,8 +21,9 @@ pnpm add @narrativetrace/core-node @narrativetrace/proxy
 ```
 
 `core-node` reexporta todo lo que hay en `@narrativetrace/core` y registra el generador de id de
-Node — importar solo `@narrativetrace/core` lanza una excepción en la primera llamada trazada.
-`pnpm init` escribe un `package.json` con `"type": "module"`, así que la sintaxis `import` de abajo
+Node. `@narrativetrace/core` solo también funciona — recurre directamente a Web Crypto cuando
+está disponible — pero `core-node` es la vía probada y documentada. `pnpm init` escribe un
+`package.json` con `"type": "module"`, así que la sintaxis `import` de abajo
 funciona sin ninguna otra configuración. ¿Usas npm? `npm init -y` usa CommonJS por defecto —
 ejecuta `npm pkg set type=module` justo después (antes de `npm add`), o el `import` del paso 2
 fallará con `SyntaxError: Cannot use import statement outside a module`.

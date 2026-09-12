@@ -7,20 +7,35 @@ import type { SpanId } from "./span-id-generator.js";
 import type { TraceEvent } from "./trace-event.js";
 
 /**
- * The default {@link EventPipeline}: fans each event to an optional synchronous consumer and an
- * optional best-effort buffered consumer, isolating both.
+ * The default {@link EventPipeline}: fans each event to an optional synchronous consumer and a
+ * best-effort buffered consumer, isolating both.
  *
  * INTENT: split "someone listening live" (the sync path, e.g. an OTel bridge) from "durable
- * capture for trace assembly" (the buffered path). Either may be `null`.
+ * capture for trace assembly" (the buffered path). The sync path is genuinely optional — pass
+ * `null` when nothing needs to observe events live.
+ *
+ * @remarks **The buffered path is never silently absent.** Passing `null` or omitting the second
+ * argument still gets you a working {@link BufferedEventConsumer} — every real call site in this
+ * repository always supplies one, and a `null` here was, in every case found, a mistake that made
+ * `captureTrace()`/`events()` return empty with no error: the trace looked complete but was
+ * empty. Wiring a live consumer (Winston/Pino/OTel) is additive, not a replacement for capture —
+ * `new DualPathPipeline(consumer, new BufferedEventConsumer())`, not `new
+ * DualPathPipeline(consumer, null)`. Pass an explicit {@link BufferedEventConsumer} instance
+ * (e.g. sized for your workload) when the default capacity does not fit; there is no way to
+ * disable buffering from this constructor, by design. *(since 0.1.3, unreleased)*
  *
  * @remarks Fail-safe posture: both delivery paths are wrapped in try/catch, so a buggy listener or
  * a full buffer can never break the traced business call.
  */
 export class DualPathPipeline implements EventPipeline {
+  private readonly bestEffort: BufferedEventConsumer;
+
   constructor(
     private readonly syncConsumer: EventConsumer | null,
-    private readonly bestEffort: BufferedEventConsumer | null,
-  ) {}
+    bestEffort: BufferedEventConsumer | null,
+  ) {
+    this.bestEffort = bestEffort ?? new BufferedEventConsumer();
+  }
 
   publish(event: TraceEvent): void {
     // Observability failure must never become an application failure. Both
@@ -33,45 +48,43 @@ export class DualPathPipeline implements EventPipeline {
         // ignored
       }
     }
-    if (this.bestEffort !== null) {
-      try {
-        this.bestEffort.accept(event);
-      } catch {
-        // ignored
-      }
+    try {
+      this.bestEffort.accept(event);
+    } catch {
+      // ignored
     }
   }
 
   flush(): void {
-    this.bestEffort?.flush();
+    this.bestEffort.flush();
   }
 
   events(): readonly TraceEvent[] {
-    return this.bestEffort?.events() ?? [];
+    return this.bestEffort.events();
   }
 
   clear(): void {
-    this.bestEffort?.clear();
+    this.bestEffort.clear();
   }
 
   removeSpans(spanIds: ReadonlySet<SpanId>): void {
-    this.bestEffort?.removeSpans(spanIds);
+    this.bestEffort.removeSpans(spanIds);
   }
 
   discardSpans(spanIds: ReadonlySet<SpanId>): void {
-    this.bestEffort?.discardSpans(spanIds);
+    this.bestEffort.discardSpans(spanIds);
   }
 
   droppedEventCount(): number {
-    return this.bestEffort?.overflowCount() ?? 0;
+    return this.bestEffort.overflowCount();
   }
 
   discardedSpanCount(): number {
-    return this.bestEffort?.discardedSpanCount() ?? 0;
+    return this.bestEffort.discardedSpanCount();
   }
 
   close(): void {
-    this.bestEffort?.close();
+    this.bestEffort.close();
   }
 }
 

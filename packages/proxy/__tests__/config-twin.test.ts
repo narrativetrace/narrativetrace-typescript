@@ -195,3 +195,64 @@ describe("third-argument routing", () => {
     expect(root?.outcome.kind === "returned" && root.outcome.renderedValue).toBeNull();
   });
 });
+
+// An unrecognised option shape must fail loudly, never silently: the historical failure mode was
+// `{ methods: { charge: { notTraced: [2] } } }` landing on a traceObject build that predated the
+// config twin, being treated as a bare paramNames map (`config.paramNames["charge"]` never
+// existed, so parameters fell back to `arg0`/`arg1`/... and `notTraced` was never applied) —
+// compiling, running, and redacting nothing, with no error anywhere.
+describe("unrecognised option keys are rejected, not silently ignored", () => {
+  class Svc {
+    op(x: string): string {
+      return x;
+    }
+  }
+
+  test("an unknown top-level ProxyOptions key throws, naming the accepted keys", () => {
+    const ctx = freshContext();
+    expect(() =>
+      traceObject(new Svc(), ctx, {
+        className: "Svc",
+        // @ts-expect-error deliberately wrong key for the runtime-rejection test
+        notARealOption: true,
+      }),
+    ).toThrow(/unrecognised key\(s\) notARealOption.*className, includeReturnValues, methods/);
+  });
+
+  test("an unknown per-method config key throws, naming the accepted keys", () => {
+    const ctx = freshContext();
+    expect(() =>
+      traceObject(new Svc(), ctx, {
+        methods: {
+          // @ts-expect-error deliberately wrong key for the runtime-rejection test
+          op: { notTraced: [0], nottraced: [0] },
+        },
+      }),
+    ).toThrow(/unrecognised key\(s\) nottraced.*params, notTraced, narration, onError/);
+  });
+
+  test("methods.<name> nested directly under `methods` (skipping the method key) throws", () => {
+    const ctx = freshContext();
+    expect(() =>
+      traceObject(new Svc(), ctx, {
+        // The doc-described shape is `methods: { <methodName>: { notTraced: [...] } }` — putting
+        // `notTraced` directly under `methods` skips the method-name level entirely.
+        // @ts-expect-error deliberately wrong shape for the runtime-rejection test
+        methods: { notTraced: [0] },
+      }),
+    ).toThrow(
+      /methods\.notTraced must be an object with keys: params, notTraced, narration, onError/,
+    );
+  });
+
+  test("a well-formed config form is unaffected by the new validation", () => {
+    const ctx = freshContext();
+    const svc = traceObject(new Svc(), ctx, {
+      className: "Svc",
+      includeReturnValues: true,
+      methods: { op: { params: ["x"], notTraced: [] } },
+    });
+    svc.op("val");
+    expect(ctx.captureTrace().roots[0]?.signature.parameters[0]?.name).toBe("x");
+  });
+});

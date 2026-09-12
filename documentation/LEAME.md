@@ -11,7 +11,7 @@ Empieza aquí:
 
 | Documento | Qué cubre |
 |---|---|
-| [Primeros 10 minutos](es/primeros-10-minutos.md) | Un servicio diminuto, un test de Vitest, siete pasos hasta una traza real, con salida real |
+| [Ve una traza en 60 segundos](es/sesenta-segundos.md) | Un servicio diminuto, un test de Vitest, siete pasos hasta una traza real, con salida real |
 | [Guía de instalación](es/guia-de-instalacion.md) | Dependencias, cada camino de integración, configuración de la salida de trazas |
 | [Eligiendo una integración](es/eligiendo-una-integracion.md) | Qué paquete necesitas, como diagrama de decisión |
 | [Guía de configuración](es/guia-de-configuracion.md) | Niveles de tracing, config de Vitest, opciones de renderizado |

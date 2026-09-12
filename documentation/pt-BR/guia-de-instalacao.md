@@ -1,4 +1,4 @@
-<!-- source: documentation/installation-guide.md blob 93610c18bb85 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/installation-guide.md blob 888db3e4a9fb | translated: 2026-09-12 | reviewed: - -->
 
 # Guia de instalação do NarrativeTrace TypeScript
 
@@ -8,7 +8,7 @@ Este guia cobre a instalação e o wiring do NarrativeTrace TypeScript em um pro
 
 ## Pré-requisitos
 
-- Node.js 18+
+- Node.js 20+
 - pnpm (ou npm/yarn)
 
 ## Início rápido
@@ -38,8 +38,11 @@ pnpm add @narrativetrace/core-node @narrativetrace/proxy   # Node
 pnpm add @narrativetrace/core-web @narrativetrace/proxy    # Navegador / Web Worker
 
 # `core-node` e `core-web` reexportam tudo em `@narrativetrace/core` e registram o
-# gerador de id da plataforma (node:crypto vs. Web Crypto). Importar somente `@narrativetrace/core`
-# lança "No IdGenerator registered" na primeira chamada traced.
+# gerador de id otimizado da plataforma (node:crypto vs. Web Crypto). Usar somente
+# `@narrativetrace/core` ainda funciona — ele recorre diretamente ao Web Crypto onde disponível
+# (todo runtime que esta biblioteca suporta) — mas o pacote da plataforma continua sendo o que
+# você deve instalar: é o caminho testado e documentado, e o único garantidamente livre de
+# lançar erro em um runtime sem Web Crypto algum.
 
 # Integrações opcionais
 pnpm add -D @narrativetrace/vitest           # plugin do Vitest
@@ -75,8 +78,16 @@ Use isso quando você quer controle explícito sobre o tracing. Funciona em Node
 ### Opção B: Plugin do Vitest (auto-contexto + saída de trace)
 
 ```bash
-pnpm add -D @narrativetrace/vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
+
+`vitest` é a única dependência de pares (`peerDependency`) de `@narrativetrace/vitest`; as outras
+quatro dependências do NarrativeTrace (core-node, clarity, diagrams, glossary) são instaladas
+automaticamente com ele — elas são lançadas em conjunto e nunca são versionadas separadamente.
+`@narrativetrace/proxy` é listado explicitamente porque os exemplos abaixo importam `traceObject`
+diretamente dele: o pnpm só expõe as dependências do próprio pacote, não as dependências de uma
+dependência, então qualquer coisa que você importe também precisa ser sua própria dependência (o
+`node_modules` mais plano do npm não faz essa distinção, mas o pnpm — usado aqui — faz). *(since 0.1.3, unreleased)*
 
 #### Fixture básica (sem saída em arquivo)
 

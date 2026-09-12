@@ -29,13 +29,17 @@ The core insight: if your method is called `placeOrder(customerId, quantity)` an
 ### 1. Install
 
 ```bash
-pnpm add @narrativetrace/core @narrativetrace/proxy
+pnpm add @narrativetrace/core-node @narrativetrace/proxy
 ```
+
+`core-node` re-exports everything in `@narrativetrace/core` and registers Node's id generator;
+`@narrativetrace/core` alone falls back to Web Crypto and still works, but `core-node`/`core-web` is
+the tested, documented path — use the platform package, not bare `core`.
 
 ### 2. Trace an object
 
 ```ts
-import { NarrativeTraceConfig, SyncNarrativeContext, renderIndentedText } from "@narrativetrace/core";
+import { NarrativeTraceConfig, SyncNarrativeContext, renderIndentedText } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
 
 const context = new SyncNarrativeContext(new NarrativeTraceConfig());
@@ -48,8 +52,15 @@ console.log(renderIndentedText(context.captureTrace()));
 ### 3. With Vitest
 
 ```bash
-pnpm add -D @narrativetrace/vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
+
+`vitest` is the only peer dependency; `@narrativetrace/vitest`'s other four NarrativeTrace
+dependencies (core-node, clarity, diagrams, glossary) install automatically with it — they release
+in lockstep and are never independently versioned. `@narrativetrace/proxy` is listed explicitly
+because the example below imports `traceObject` from it directly: pnpm only exposes a package's
+own direct dependencies, not a dependency's dependencies, so anything you `import` yourself still
+needs to be your own dependency. *(since 0.1.3, unreleased)*
 
 ```ts
 import { createNarrativeTest } from "@narrativetrace/vitest";
@@ -439,7 +450,7 @@ const traced = traceObject(target, context, {
 });
 ```
 
-A configured axis overrides the same method's decorator metadata; an absent axis keeps the decorator's declaration. A plain string `onError` is the catch-all shorthand.
+A configured axis overrides the same method's decorator metadata; an absent axis keeps the decorator's declaration. A plain string `onError` is the catch-all shorthand. The "Full config form" example above *(since 0.1.3, unreleased)*.
 
 **Requirements:**
 - Target must be an object with methods

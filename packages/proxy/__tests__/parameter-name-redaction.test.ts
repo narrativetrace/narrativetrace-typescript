@@ -138,10 +138,14 @@ describe("parameter redaction by name alone (no @notTraced decorator anywhere)",
 // reference, not a field read off any config object), and ProxyOptions/MethodTraceConfig below
 // carry no redactionPolicy property to plug one into. Attempted here with the most aggressive
 // narrowing available (RedactionPolicy.DISABLED turns off BOTH the name axis and the value-shape
-// axis) sitting in scope and attached to the options object via an escape-hatch cast — a
-// `password` parameter is still redacted at capture regardless.
+// axis) sitting in scope and attached to the options object via an escape-hatch cast.
+//
+// Onboarding hardening (2026-09-12): traceObject() now rejects any unrecognised ProxyOptions key
+// outright (see "unrecognised option keys are rejected" in config-twin.test.ts) — an even stronger
+// guarantee than "inert": the narrowing attempt below no longer silently loses, it never gets a
+// wrapped object to call in the first place.
 describe("the built-in redaction vocabulary is a floor traceObject() cannot lower", () => {
-  test("a maximally narrowed RedactionPolicy in scope, and spread into options, does not reach capture", () => {
+  test("a maximally narrowed RedactionPolicy in scope, spread into options, is rejected outright", () => {
     const attemptedNarrowing = RedactionPolicy.DISABLED;
     const context = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
     class AuthService {
@@ -150,25 +154,16 @@ describe("the built-in redaction vocabulary is a floor traceObject() cannot lowe
       }
     }
     // ProxyOptions has no redactionPolicy field at all — attaching one anyway (via an escape
-    // hatch a real attacker's config-merging code could equally produce) proves the point
-    // structurally: an unknown property here is simply inert, never read by resolveRedactedFlags.
+    // hatch a real attacker's config-merging code could equally produce) now fails validation
+    // before the object is ever wrapped, rather than being silently ignored.
     const options = {
       className: "AuthService",
       redactionPolicy: attemptedNarrowing,
     } as unknown as ProxyOptions;
-    const traced = traceObject(
-      new AuthService(),
-      context,
-      { login: ["username", "password"] },
-      options,
-    );
 
-    traced.login("admin", "hunter2");
-
-    const params = context.captureTrace().roots[0]?.signature.parameters ?? [];
-    const pw = params.find((p) => p.name === "password");
-    expect(pw?.redacted).toBe(true);
-    expect(pw?.renderedValue).toBe("[REDACTED]");
+    expect(() =>
+      traceObject(new AuthService(), context, { login: ["username", "password"] }, options),
+    ).toThrow(/unrecognised key\(s\) redactionPolicy/);
   });
 });
 

@@ -1,11 +1,11 @@
-<!-- source: README.md blob dd87ca2709f1 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: README.md blob 0e6eb7a8e007 | translated: 2026-09-12 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
 
 ## Comece aqui
 
-[Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md) — um script simples, uma execução, e o trace aparece no seu terminal.
+[Veja um trace em 60 segundos](documentation/pt-BR/sessenta-segundos.md) — um script simples, uma execução, e o trace aparece no seu terminal.
 
 ## Demo
 
@@ -223,13 +223,20 @@ Conecte o `@narrativetrace/pino` ou o `@narrativetrace/winston` e o NarrativeTra
 
 O caminho mais curto até um trace dentro da sua suíte de testes já existente é o fixture do
 Vitest — para o caminho mais curto de todos, um script simples sem framework de testes, veja
-[Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md). Node 20+ (o CI roda a
+[Veja um trace em 60 segundos](documentation/pt-BR/sessenta-segundos.md). Node 20+ (o CI roda a
 versão 22), TypeScript 5.0+ se você usar os decorators abaixo.
 
 ```bash
-pnpm add @narrativetrace/core-node @narrativetrace/proxy
-pnpm add -D @narrativetrace/vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
+
+`vitest` é a única dependência de pares (`peerDependency`). O `@narrativetrace/vitest` traz
+sozinho as outras quatro dependências do NarrativeTrace (core-node, clarity, diagrams, glossary)
+— elas são lançadas em conjunto e nunca são versionadas separadamente — mas `@narrativetrace/proxy`
+é listado explicitamente porque o teste abaixo importa `traceObject` diretamente dele: o pnpm só
+expõe as dependências do próprio pacote, não as de uma dependência, então qualquer coisa que você
+importe também precisa ser sua própria dependência (o `node_modules` mais plano do npm não faz
+essa distinção, mas o pnpm — usado aqui — faz). *(since 0.1.3, unreleased)*
 
 Estes são os pacotes publicados — `npm view @narrativetrace/core version` mostra a versão atual
 (0.1.1 no momento em que isto foi escrito; veja [Compilando a partir do
@@ -261,7 +268,7 @@ Quer ver a pontuação de clareza cair ao renomear um método, ou um valor ocult
 `@notTraced`? O [Guia de clareza](documentation/pt-BR/guia-de-clareza.md) e
 [Privacidade e ocultação](documentation/pt-BR/privacidade-e-ocultacao.md) percorrem os dois, com
 saída real, executada de verdade. Prefere o caminho mais curto possível primeiro? →
-[Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md).
+[Veja um trace em 60 segundos](documentation/pt-BR/sessenta-segundos.md).
 
 ## Escolha sua integração
 
@@ -453,7 +460,7 @@ distribuída.
 
 Comece aqui:
 
-- [Veja um trace em 60 segundos](documentation/pt-BR/primeiros-10-minutos.md) — um script simples envolve um serviço, uma execução, o trace no seu terminal
+- [Veja um trace em 60 segundos](documentation/pt-BR/sessenta-segundos.md) — um script simples envolve um serviço, uma execução, o trace no seu terminal
 - [Guia de instalação](documentation/pt-BR/guia-de-instalacao.md) — dependências, cada caminho de integração, configuração da saída de trace
 - [Escolhendo uma integração](documentation/pt-BR/escolhendo-uma-integracao.md) — de qual pacote você precisa, como diagrama de decisão
 - [Guia de configuração](documentation/pt-BR/guia-de-configuracao.md) — níveis de tracing, config do Vitest, opções de renderização

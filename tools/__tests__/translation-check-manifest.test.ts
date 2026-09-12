@@ -17,7 +17,7 @@ const VALID = {
     },
   ],
   documents: [
-    { source: "documentation/first-10-minutes.md", translations: { es: "primeros-10-minutos.md" } },
+    { source: "documentation/sixty-seconds.md", translations: { es: "sesenta-segundos.md" } },
     { source: "documentation/maven-guide.md" },
   ],
 };
@@ -37,7 +37,7 @@ describe("parseManifest", () => {
 
   it("preserves a document's declared translations map", () => {
     const manifest = parseManifest(VALID);
-    expect(manifest.documents[0]?.translations).toEqual({ es: "primeros-10-minutos.md" });
+    expect(manifest.documents[0]?.translations).toEqual({ es: "sesenta-segundos.md" });
   });
 
   it("accepts the 'complete' status", () => {

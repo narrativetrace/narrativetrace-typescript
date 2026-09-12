@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 324f03029bab | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 0bbd71ce1631 | translated: 2026-09-11 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -124,7 +124,8 @@ renderizado:
 **Un `toString()` personalizado solo se respeta para una hoja** — un objeto
 sin ningún campo propio, de modo que no hay nada más que la introspección de
 campos podría mostrar en su lugar (invariante familiar, 2026-09-11; el
-diseño de este port ya coincidía con el de .NET). En cuanto un objeto tiene
+diseño de este port ya coincidía con el de .NET). *(since 0.1.3, unreleased)*
+En cuanto un objeto tiene
 al menos un campo propio, siempre se introspecciona campo por campo,
 sea lo que sea que su `toString()` hubiera impreso — no solo cuando ese
 campo está anotado u oculto por nombre. Esto es más estricto de lo que
@@ -142,6 +143,7 @@ en lugar de perseguir cada nueva forma de interpolación como un error
 aparte. La misma regla se aplica a una **clave** de `Map`: una clave que es
 en sí misma un objeto pasa por el mismo renderizado consciente de la
 ocultación que un valor, nunca por un `toString()` crudo e incondicional.
+*(since 0.1.3, unreleased)*
 
 `narrativeSummary()` es texto cuidado que la autora escribió específicamente
 para la traza, y sigue superando tanto la confianza en `toString()` como la
@@ -165,7 +167,8 @@ campos que usa el resto de la traza, sin excepciones.
 
 Un miembro que esta librería invoca al renderizar un valor —
 `narrativeSummary()`, el `toString()` de una hoja, o un getter de campo—
-puede lanzar una excepción, o (solo `toString()`) devolver `null`. Una
+puede lanzar una excepción, o (solo `toString()`) devolver `null`.
+*(since 0.1.3, unreleased)* Una
 excepción degrada al marcador de error tipado para esa única parte,
 `<error: NombreDelConstructor>` (p. ej. `<error: TypeError>`; un valor
 lanzado que no es un `Error` muestra su `typeof`, p. ej. `<error: string>`)

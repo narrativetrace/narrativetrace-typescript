@@ -11,7 +11,7 @@ Comece aqui:
 
 | Documento | O que cobre |
 |---|---|
-| [Primeiros 10 minutos](pt-BR/primeiros-10-minutos.md) | Um serviço minúsculo, um teste Vitest, sete passos até um trace real, com saída real |
+| [Veja um trace em 60 segundos](pt-BR/sessenta-segundos.md) | Um serviço minúsculo, um teste Vitest, sete passos até um trace real, com saída real |
 | [Guia de instalação](pt-BR/guia-de-instalacao.md) | Dependências, cada caminho de integração, configuração da saída de trace |
 | [Escolhendo uma integração](pt-BR/escolhendo-uma-integracao.md) | De qual pacote você precisa, como diagrama de decisão |
 | [Guia de configuração](pt-BR/guia-de-configuracao.md) | Níveis de tracing, config do Vitest, opções de renderização |

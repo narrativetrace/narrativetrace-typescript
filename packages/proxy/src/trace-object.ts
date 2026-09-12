@@ -536,6 +536,7 @@ export function traceObject<T extends object>(
   // hop on every call — the disabled-cost story for the null context is exact: the same object.
   if (context === NOOP_CONTEXT) return target;
   const [paramNames, resolvedOptions] = splitWrapArguments(namesOrOptions, options);
+  if (resolvedOptions !== undefined) validateProxyOptions(resolvedOptions);
   return new Proxy(
     target,
     createTracingHandler(buildTracingConfig(target, context, paramNames, resolvedOptions)),
@@ -543,6 +544,7 @@ export function traceObject<T extends object>(
 }
 
 const PROXY_OPTION_KEYS = ["className", "includeReturnValues", "methods"] as const;
+const METHOD_CONFIG_KEYS = ["params", "notTraced", "narration", "onError"] as const;
 
 // A paramNames map's values are always arrays of names; ProxyOptions' distinguishing keys never
 // hold arrays — so a method that happens to be *named* like an option key still routes correctly.
@@ -558,4 +560,33 @@ function splitWrapArguments(
 ): [Record<string, string[]> | undefined, ProxyOptions | undefined] {
   if (third !== undefined && isProxyOptions(third)) return [undefined, third];
   return [third as Record<string, string[]> | undefined, fourth];
+}
+
+// A stale doc/version mismatch (e.g. a config shape a newer traceObject introduced) or a plain
+// typo must never be accepted silently as a no-op — the historical failure mode here was `{
+// methods: {...} }` landing on a traceObject build that only understood a bare paramNames map: it
+// compiled, ran, redacted nothing, and threw nothing. Reject unrecognised keys, naming the ones
+// that are actually understood, both at the top level and inside each per-method config.
+function validateProxyOptions(options: ProxyOptions): void {
+  rejectUnknownKeys(options, PROXY_OPTION_KEYS, "traceObject options");
+  if (options.methods === undefined) return;
+  for (const [methodName, cfg] of Object.entries(options.methods)) {
+    if (cfg === null || typeof cfg !== "object" || Array.isArray(cfg)) {
+      throw new Error(
+        `traceObject: methods.${methodName} must be an object with keys: ${METHOD_CONFIG_KEYS.join(", ")} (got ${JSON.stringify(cfg)})`,
+      );
+    }
+    rejectUnknownKeys(cfg, METHOD_CONFIG_KEYS, `traceObject methods.${methodName}`);
+  }
+}
+
+function rejectUnknownKeys(value: object, accepted: readonly string[], label: string): void {
+  const unknown = Object.keys(value).filter(
+    (key) => !(accepted as readonly string[]).includes(key),
+  );
+  if (unknown.length > 0) {
+    throw new Error(
+      `${label}: unrecognised key(s) ${unknown.join(", ")} — accepted keys are: ${accepted.join(", ")}`,
+    );
+  }
 }

@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob a96501237d61 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 42bde5f4fa1e | translated: 2026-09-11 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -75,6 +75,9 @@ metadatos de claridad/glosario pero no los archivos —
 `NARRATIVETRACE_OUTPUT=false` (o `outputEnabled: false` en código, o
 `"output": "false"` en el archivo de configuración del proyecto). Cualquier
 otro valor, incluida la variable sin definir, mantiene la escritura activa.
+*(since 0.1.3, unreleased)* La versión actualmente publicada en npm,
+`@narrativetrace/vitest@0.1.1`, escribe los archivos incondicionalmente —
+`NARRATIVETRACE_OUTPUT` no tiene efecto ahí.
 
 ### Estructura de la salida
 

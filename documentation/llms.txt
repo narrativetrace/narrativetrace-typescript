@@ -1,15 +1,55 @@
 # NarrativeTrace
+*(These docs describe 0.1.3; published is 0.1.1.)*<!-- registry checked 2026-09-12T13:31:47.226Z -->
 
 > Code is the log. Auto-generate human-readable execution traces from method names, parameter names, and return values.
 
 NarrativeTrace is a TypeScript library that eliminates manual logging. It wraps objects with ES Proxy to capture every method call and renders the result as Markdown, prose, diagrams, or JSON. It propagates trace identity across fork/join, fire-and-forget and asynchronous-snapshot boundaries — and the work traced across those boundaries comes back into the launching trace — bridges to OpenTelemetry/Winston/Pino, and includes naming clarity analysis that scores code readability and gates builds.
+
+## Install and first trace (copy this)
+Node 20+ required. npm only, before `npm add` (else step 2 throws `SyntaxError: Cannot use import statement outside a module`; pnpm/yarn default to it, skip this):
+```bash
+npm pkg set type=module
+npm add @narrativetrace/core-node @narrativetrace/proxy
+```
+<!-- snippet: examples/sixty-seconds/index.js -->
+```js
+// index.js
+import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+
+class OrderService {
+  placeOrder(customerId, productId, quantity) {
+    return `ORD-${customerId}-${productId}-${quantity}`;
+  }
+}
+
+const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+const service = traceObject(new OrderService(), context, {
+  placeOrder: ["customerId", "productId", "quantity"],
+});
+
+service.placeOrder("C1", "P1", 2);
+console.log(renderMarkdownBody(context.captureTrace()));
+```
+<!-- /snippet -->
+Run `node index.js`. Expected output (your duration will differ):
+<!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
+```text
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.55ms
+```
+<!-- /snippet -->
+
+## Before you start
+- Parameter names of classes you don't own are lost at compile time — pass them explicitly (`traceObject(target, context, { placeOrder: [...] })`) or every argument renders as `arg0`, `arg1`, ...; unrecognised option keys there now throw, naming the accepted ones, instead of being silently ignored. *(since 0.1.3, unreleased)*
+- `@narrativetrace/vitest` peers on vitest `1.x`, `2.x`, or `3.x` (tested, not just declared); register `ClaritySuiteReporter`/`GlossarySuiteReporter` from the `@narrativetrace/vitest/reporters` subpath in `vitest.config.ts`, never the package root — the root also loads `vitest` itself, which crashes config loading on every version. *(since 0.1.3, unreleased)*
+- `DualPathPipeline`'s buffered argument now defaults itself when `null`/omitted, so adding a Winston/Pino/OTel consumer can no longer make `captureTrace()` silently empty; pass an explicit `new BufferedEventConsumer()` when you want to size it yourself. *(since 0.1.3, unreleased)*
+- Test trace output is on by default since 2026-09-11 (`NARRATIVETRACE_OUTPUT=false` opts out). *(since 0.1.3, unreleased)*
 
 ## Field notes from AI agents (self-reported, not a benchmark)
 We asked AI agents to build a claims service with NarrativeTrace and write up the experience for another engineer, naming what was awkward. Prompted, one run each, unedited, model named; we wrote the library. The reports so far are from the Java runtime; the same exercise runs for TypeScript next, and the principle they describe — the trace as evidence, redaction by parameter name, output on by default — is the same here. All six reports, the exact prompt and the task: https://narrativetrace.ai/#agents-saying
 - "…the release call is present, generated from a real run, not asserted from inside the process being tested." — Claude Sonnet, 2026-09-11
 - "The always-on name-based deny-list is a genuinely nice piece of design: naming a parameter `paymentToken` gets you redaction for free, and I could prove it in a test." — Claude Sonnet, 2026-09-11
 - "The trace of a failed payment made missing compensation immediately visible, and approval testing caught an extra call that ordinary value assertions accepted." — GPT-6, 2026-09-08
-What our own cold walk of this runtime's 60-second page stumbled on, so you need not: the published packages require Node 20+; with npm, run `npm pkg set type=module` before `npm add` or step 2 fails with `SyntaxError: Cannot use import statement outside a module`; when adding a logger consumer keep the buffered consumer — `new DualPathPipeline(consumer, null)` makes `captureTrace()` return an empty trace with no error; test trace output is on by default since 2026-09-11 (`NARRATIVETRACE_OUTPUT=false` opts out).
 
 ## Docs
 

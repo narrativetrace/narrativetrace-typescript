@@ -271,6 +271,14 @@ describe("englishDocPages", () => {
     expect(englishDocPages(dir)).toEqual([join(dir, "a.md"), join(dir, "b.md")]);
   });
 
+  it("also includes llms.txt — the one non-Markdown page, held to the same no-drift guarantee", () => {
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "a.md"), "", "utf-8");
+    writeFileSync(join(dir, "llms.txt"), "", "utf-8");
+    writeFileSync(join(dir, "other.txt"), "", "utf-8");
+    expect(englishDocPages(dir)).toEqual([join(dir, "a.md"), join(dir, "llms.txt")]);
+  });
+
   it("returns an empty list when the directory does not exist", () => {
     expect(englishDocPages(join(dir, "nope"))).toEqual([]);
   });

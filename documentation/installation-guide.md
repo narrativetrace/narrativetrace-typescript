@@ -4,7 +4,7 @@ This guide covers installing and wiring NarrativeTrace TypeScript in a Node.js o
 
 ## Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - pnpm (or npm/yarn)
 
 ## Quick Start
@@ -34,8 +34,10 @@ pnpm add @narrativetrace/core-node @narrativetrace/proxy   # Node
 pnpm add @narrativetrace/core-web @narrativetrace/proxy    # Browser / Web Worker
 
 # `core-node` and `core-web` re-export everything in `@narrativetrace/core` and register the
-# platform id generator (node:crypto vs. Web Crypto). Importing `@narrativetrace/core` alone
-# throws "No IdGenerator registered" on the first traced call.
+# platform's optimized id generator (node:crypto vs. Web Crypto). `@narrativetrace/core` alone
+# still works — it falls back to Web Crypto directly where available (every runtime this library
+# targets) — but the platform package is still the one to install: it is the tested, documented
+# path, and the one path guaranteed not to throw on a runtime with no Web Crypto at all.
 
 # Optional integrations
 pnpm add -D @narrativetrace/vitest           # Vitest plugin
@@ -71,8 +73,16 @@ Use this when you want explicit control over tracing. Works in Node, Deno, Bun, 
 ### Option B: Vitest Plugin (auto-context + trace output)
 
 ```bash
-pnpm add -D @narrativetrace/vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
+
+`vitest` is the only peer dependency of `@narrativetrace/vitest`; its other four NarrativeTrace
+dependencies (core-node, clarity, diagrams, glossary) install automatically with it — they release
+in lockstep and are never independently versioned. `@narrativetrace/proxy` is listed explicitly
+because the examples below import `traceObject` from it directly: pnpm only exposes a package's
+own direct dependencies, not a dependency's dependencies, so anything you `import` yourself still
+needs to be your own dependency (npm's flatter `node_modules` doesn't draw this line, but pnpm —
+shown here — does). *(since 0.1.3, unreleased)*
 
 #### Basic fixture (no file output)
 

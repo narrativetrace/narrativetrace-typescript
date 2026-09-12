@@ -4,7 +4,7 @@
 
 ## Start here
 
-[See a trace in 60 seconds](documentation/first-10-minutes.md) — a plain script, one run, and the trace is in your terminal.
+[See a trace in 60 seconds](documentation/sixty-seconds.md) — a plain script, one run, and the trace is in your terminal.
 
 ## Demo
 
@@ -201,13 +201,20 @@ Wire in `@narrativetrace/pino` or `@narrativetrace/winston` and NarrativeTrace b
 
 The shortest path to a trace inside your existing test suite is the Vitest fixture — for the
 shortest path of all, a plain script with no test framework, see
-[See a trace in 60 seconds](documentation/first-10-minutes.md) instead. Node 20+ (CI runs 22),
+[See a trace in 60 seconds](documentation/sixty-seconds.md) instead. Node 20+ (CI runs 22),
 TypeScript 5.0+ if you use the decorators below.
 
 ```bash
-pnpm add @narrativetrace/core-node @narrativetrace/proxy
-pnpm add -D @narrativetrace/vitest
+pnpm add -D @narrativetrace/vitest @narrativetrace/proxy vitest
 ```
+
+`vitest` is the only peer dependency. `@narrativetrace/vitest` pulls in its other four
+NarrativeTrace dependencies (core-node, clarity, diagrams, glossary) on its own — they release in
+lockstep with it and are never independently versioned — but `@narrativetrace/proxy` is listed
+explicitly because the test below imports `traceObject` from it directly: pnpm only exposes a
+package's own direct dependencies, not a dependency's dependencies, so anything you `import`
+yourself still needs to be your own dependency (npm's flatter `node_modules` doesn't draw this
+line, but pnpm — shown here — does). *(since 0.1.3, unreleased)*
 
 These are the published packages — `npm view @narrativetrace/core version` shows the current
 release (0.1.1 as of this writing; see [Building from source](#building-from-source) if you need
@@ -238,7 +245,7 @@ Want to see the clarity score drop when you rename a method, or a value redacted
 `@notTraced`? The [Clarity Guide](documentation/clarity-guide.md) and
 [Privacy and Redaction](documentation/privacy-and-redaction.md) walk through both, with real,
 run-for-real output. Prefer the shortest possible path first? →
-[See a trace in 60 seconds](documentation/first-10-minutes.md).
+[See a trace in 60 seconds](documentation/sixty-seconds.md).
 
 ## Choose your integration
 
@@ -403,7 +410,7 @@ feature Free, Pro, In development, or Planned, and cites the code behind each sh
 
 Start here:
 
-- [See a trace in 60 seconds](documentation/first-10-minutes.md) — a plain script wraps one service, one run, the trace in your terminal
+- [See a trace in 60 seconds](documentation/sixty-seconds.md) — a plain script wraps one service, one run, the trace in your terminal
 - [Installation Guide](documentation/installation-guide.md) — dependencies, every integration path, trace output setup
 - [Choosing an Integration](documentation/choosing-an-integration.md) — which package you need, as a decision diagram
 - [Configuration Guide](documentation/configuration-guide.md) — tracing levels, Vitest config, render options

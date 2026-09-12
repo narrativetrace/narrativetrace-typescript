@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/react-router",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Captures a fresh NarrativeTrace tree on every React Router navigation",
   "license": "BUSL-1.1",
   "repository": {
@@ -13,6 +13,9 @@
     "access": "public"
   },
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",

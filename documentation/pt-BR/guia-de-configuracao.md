@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob a96501237d61 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 42bde5f4fa1e | translated: 2026-09-11 | reviewed: - -->
 # Guia de Configuração do NarrativeTrace TypeScript
 
 [English](../configuration-guide.md) | [Español](../es/guia-de-configuracion.md) | **Português** | [简体中文](../zh-CN/配置指南.md)
@@ -73,7 +73,9 @@ Desligue para uma execução que quer a narrativa no console e os metadados de
 clareza/glossário, mas não os arquivos — `NARRATIVETRACE_OUTPUT=false` (ou
 `outputEnabled: false` no código, ou `"output": "false"` no arquivo de
 configuração do projeto). Qualquer outro valor, inclusive a variável não
-definida, mantém a escrita ativada.
+definida, mantém a escrita ativada. *(since 0.1.3, unreleased)*
+A versão atualmente publicada no npm, `@narrativetrace/vitest@0.1.1`, escreve
+os arquivos incondicionalmente — `NARRATIVETRACE_OUTPUT` não tem efeito nela.
 
 ### Layout de saída
 

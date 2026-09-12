@@ -16,8 +16,9 @@ pnpm init
 pnpm add @narrativetrace/core-node @narrativetrace/proxy
 ```
 
-`core-node` re-exports everything in `@narrativetrace/core` and registers the Node id generator —
-importing `@narrativetrace/core` alone throws on the first traced call. `pnpm init` writes a
+`core-node` re-exports everything in `@narrativetrace/core` and registers Node's id generator.
+`@narrativetrace/core` alone still works — it falls back to Web Crypto directly where available —
+but `core-node` is the tested, documented path. `pnpm init` writes a
 `package.json` with `"type": "module"`, so the `import` syntax below works with no other setup.
 Using npm instead? `npm init -y` defaults to CommonJS — run `npm pkg set type=module` right after
 it (before `npm add`), or the `import` in step 2 fails with `SyntaxError: Cannot use import

@@ -136,8 +136,9 @@ export default app;
 
 The `@narrativetrace/browser` package provides two output mechanisms for browser environments.
 In the browser, import the core API from `@narrativetrace/core-web`: it re-exports
-`@narrativetrace/core` and registers the Web Crypto id generator. Importing `@narrativetrace/core`
-directly leaves no generator registered and the first traced call throws.
+`@narrativetrace/core` and registers the Web Crypto id generator explicitly. Importing
+`@narrativetrace/core` directly still works — it falls back to Web Crypto itself — but
+`core-web` is the tested, documented path.
 
 ### Console rendering
 
@@ -421,17 +422,18 @@ The callback is optional — omit it to simply reset the trace on each navigatio
 
 ## 8. OpenTelemetry
 
-The `@narrativetrace/opentelemetry` package maps method-call narratives onto OTel spans, so existing Jaeger/Tempo/Datadog views light up without hand-instrumented spans. `createOtelEventConsumer` is the live bridge — it starts/ends spans as methods execute, nesting child spans under their parent. Wire it into a pipeline:
+The `@narrativetrace/opentelemetry` package maps method-call narratives onto OTel spans, so existing Jaeger/Tempo/Datadog views light up without hand-instrumented spans. `createOtelEventConsumer` is the live bridge — it starts/ends spans as methods execute, nesting child spans under their parent. Wire it into a pipeline: *(since 0.1.3, unreleased)*
 
 ```ts
-import { AsyncNarrativeContext, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
+import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
 import { createOtelEventConsumer } from "@narrativetrace/opentelemetry";
 import { trace } from "@opentelemetry/api";
 
 const tracer = trace.getTracer("orders");
 const consumer = createOtelEventConsumer({ tracer, maxActiveSpans: 1024 });
 
-const pipeline = new DualPathPipeline(consumer, null);
+// Keep the buffered consumer alongside the live bridge — it backs captureTrace()/events().
+const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 
@@ -451,10 +453,10 @@ Each span is stamped with `nt.trace_id` and other `nt.*` schema attributes (trac
 
 The `@narrativetrace/winston` and `@narrativetrace/pino` packages stream method-call events into your logger as structured, per-event lines (`→ Class.method` on entry, `← returned: …` / `!! Error` on exit) carrying `code.*`, `trace_id`, `service.*`, `nt.depth`, and typed parameters.
 
-### Winston
+### Winston *(since 0.1.3, unreleased)*
 
 ```ts
-import { AsyncNarrativeContext, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
+import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
 import { createWinstonEventConsumer } from "@narrativetrace/winston";
 import winston from "winston";
 
@@ -465,16 +467,17 @@ const consumer = createWinstonEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
 });
 
-const pipeline = new DualPathPipeline(consumer, null);
+// Keep the buffered consumer alongside the live bridge — it backs captureTrace()/events().
+const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 
 To stamp the active trace identity onto your *own* `logger.*` calls, add `createWinstonFormat()` to the logger's format chain — it merges the current `LogContext` (`trace_id`, `service.*`, `nt.depth`) into every line.
 
-### Pino
+### Pino *(since 0.1.3, unreleased)*
 
 ```ts
-import { AsyncNarrativeContext, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
+import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
 import { createPinoEventConsumer } from "@narrativetrace/pino";
 import pino from "pino";
 
@@ -485,7 +488,8 @@ const consumer = createPinoEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
 });
 
-const pipeline = new DualPathPipeline(consumer, null);
+// Keep the buffered consumer alongside the live bridge — it backs captureTrace()/events().
+const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 
