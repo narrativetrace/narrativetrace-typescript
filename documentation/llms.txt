@@ -4,6 +4,13 @@
 
 NarrativeTrace is a TypeScript library that eliminates manual logging. It wraps objects with ES Proxy to capture every method call and renders the result as Markdown, prose, diagrams, or JSON. It propagates trace identity across fork/join, fire-and-forget and asynchronous-snapshot boundaries — and the work traced across those boundaries comes back into the launching trace — bridges to OpenTelemetry/Winston/Pino, and includes naming clarity analysis that scores code readability and gates builds.
 
+## Field notes from AI agents (self-reported, not a benchmark)
+We asked AI agents to build a claims service with NarrativeTrace and write up the experience for another engineer, naming what was awkward. Prompted, one run each, unedited, model named; we wrote the library. The reports so far are from the Java runtime; the same exercise runs for TypeScript next, and the principle they describe — the trace as evidence, redaction by parameter name, output on by default — is the same here. All six reports, the exact prompt and the task: https://narrativetrace.ai/#agents-saying
+- "…the release call is present, generated from a real run, not asserted from inside the process being tested." — Claude Sonnet, 2026-09-11
+- "The always-on name-based deny-list is a genuinely nice piece of design: naming a parameter `paymentToken` gets you redaction for free, and I could prove it in a test." — Claude Sonnet, 2026-09-11
+- "The trace of a failed payment made missing compensation immediately visible, and approval testing caught an extra call that ordinary value assertions accepted." — GPT-6, 2026-09-08
+What our own cold walk of this runtime's 60-second page stumbled on, so you need not: the published packages require Node 20+; with npm, run `npm pkg set type=module` before `npm add` or step 2 fails with `SyntaxError: Cannot use import statement outside a module`; when adding a logger consumer keep the buffered consumer — `new DualPathPipeline(consumer, null)` makes `captureTrace()` return an empty trace with no error; test trace output is on by default since 2026-09-11 (`NARRATIVETRACE_OUTPUT=false` opts out).
+
 ## Docs
 
 - [Complete Reference](llms-full.md): Full API reference, 18-package map, configuration, concurrency, integration guides, architecture decisions, and troubleshooting

@@ -56,6 +56,15 @@ function cachedSegments(template: string): Segment[] {
   return segments;
 }
 
+/**
+ * Upper bound on distinct cached templates. Test-only; deliberately not in the barrel — exposed
+ * so a bound test can size its flood from the cache's own state instead of an arbitrary constant
+ * duplicated between implementation and test.
+ */
+export function maxCachedTemplates(): number {
+  return MAX_CACHED_TEMPLATES;
+}
+
 /** Number of distinct templates currently cached. Test-only; deliberately not in the barrel. */
 export function cachedTemplateCount(): number {
   return cache.size;

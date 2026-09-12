@@ -6,6 +6,7 @@ import {
   cachedTemplateCount,
   findUnresolved,
   isCached,
+  maxCachedTemplates,
   resolveTemplate,
 } from "../src/template-parser.js";
 
@@ -380,17 +381,27 @@ describe("resolveTemplate — a scalar placeholder obeys both redaction axes", (
 // shape F2).
 describe("resolveTemplate — the template cache is bounded", () => {
   test("a flood of unique templates does not grow the cache without bound", () => {
-    for (let i = 0; i < 100_000; i++) {
+    const bound = maxCachedTemplates();
+    // Sized to prove eviction, not to stress the cache: a small margin past the bound is enough
+    // to force at least one eviction, and asserting the resulting size equals the bound (read
+    // from the cache's own state, not a duplicated literal) shows growth actually stopped there
+    // rather than merely staying under some arbitrary ceiling.
+    const floodSize = bound + 50;
+
+    for (let i = 0; i < floodSize; i++) {
       resolveTemplate(`template-${i} {x}`, { x: i });
     }
 
-    expect(cachedTemplateCount()).toBeLessThan(100_000);
+    expect(cachedTemplateCount()).toBe(bound);
   });
 
   test("a hot template survives a flood of single-use templates around it", () => {
     resolveTemplate("hot {x}", { x: 0 });
 
-    for (let i = 0; i < 5_000; i++) {
+    const bound = maxCachedTemplates();
+    const floodSize = bound + 50;
+
+    for (let i = 0; i < floodSize; i++) {
       resolveTemplate(`noise-${i} {x}`, { x: i });
       resolveTemplate("hot {x}", { x: i });
     }
