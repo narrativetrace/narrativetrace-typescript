@@ -34,12 +34,13 @@
     }
   },
   "bin": {
-    "narrativetrace-approve": "./dist/approve-narratives-bin.js"
+    "narrativetrace-approve": "./bin/narrativetrace-approve.js"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "files": [
+    "bin",
     "dist",
     "README.md",
     "LICENSE"

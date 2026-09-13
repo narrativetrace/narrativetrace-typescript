@@ -27,9 +27,10 @@
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "bin": {
-    "narrativetrace-clarity": "./dist/clarity-bin.js"
+    "narrativetrace-clarity": "./bin/narrativetrace-clarity.js"
   },
   "files": [
+    "bin",
     "dist",
     "README.md",
     "LICENSE"
