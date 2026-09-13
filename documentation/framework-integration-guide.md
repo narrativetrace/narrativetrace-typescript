@@ -451,7 +451,7 @@ Each span is stamped with `nt.trace_id` and other `nt.*` schema attributes (trac
 
 ## 9. Winston & Pino
 
-The `@narrativetrace/winston` and `@narrativetrace/pino` packages stream method-call events into your logger as structured, per-event lines (`→ Class.method` on entry, `← returned: …` / `!! Error` on exit) carrying `code.*`, `trace_id`, `service.*`, `nt.depth`, and typed parameters.
+The `@narrativetrace/winston` and `@narrativetrace/pino` packages stream method-call events into your logger as structured, per-event lines (`→ Class.method` on entry, `← returned: …` / `!! Error` on exit) carrying `code.*`, `trace_id`, `service.*`, `nt.depth`, and typed parameters — plus `nt.traceName`, the trace's own three-word phrase, on every line.
 
 ### Winston *(since 0.1.3, unreleased)*
 
@@ -463,8 +463,11 @@ import winston from "winston";
 const logger = winston.createLogger({ format: winston.format.json() });
 
 // Entry/return default to `debug`, exceptions to `warn` — override per event.
+// `runName` (2026-09-13 ruling): the enclosing test-suite run's own phrase, e.g.
+// @narrativetrace/vitest's `runIdentity().name` — omit it outside a tracked run.
 const consumer = createWinstonEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
+  runName: "bold elk soars",
 });
 
 // Keep the buffered consumer alongside the live bridge — it backs captureTrace()/events().
@@ -472,7 +475,7 @@ const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 
-To stamp the active trace identity onto your *own* `logger.*` calls, add `createWinstonFormat()` to the logger's format chain — it merges the current `LogContext` (`trace_id`, `service.*`, `nt.depth`) into every line.
+To stamp the active trace identity onto your *own* `logger.*` calls, add `createWinstonFormat()` to the logger's format chain — it merges the current `LogContext` (`trace_id`, `service.*`, `nt.depth`, `nt.runName` when `createEnricherEventConsumer` was given one) into every line.
 
 ### Pino *(since 0.1.3, unreleased)*
 
@@ -486,6 +489,7 @@ const logger = pino();
 // Entry/return default to `trace` (pino has a real TRACE level), exceptions to `warn`.
 const consumer = createPinoEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
+  runName: "bold elk soars",
 });
 
 // Keep the buffered consumer alongside the live bridge — it backs captureTrace()/events().
@@ -498,6 +502,10 @@ To stamp the active trace identity onto your *own* `logger.*` calls, pass `creat
 ### Per-event levels
 
 Both consumers accept a `levels` map keyed by event kind (`enter`, `return`, `exception`), so you can raise entry/return chatter to `info` or push exceptions to `error` independently. Winston defaults to `debug`/`debug`/`warn`; Pino defaults to `trace`/`trace`/`warn`.
+
+### Naming the run *(since 0.1.3, unreleased)*
+
+Both consumers, and `@narrativetrace/observability`'s `createEnricherEventConsumer`, accept an optional `runName` — the enclosing test-suite (or process) run's own three-word phrase, bound once at consumer creation rather than re-derived per event (a run has no id of its own to derive it from the way a trace does). Every log line then carries `nt.runName` alongside `nt.traceName`; see [Configuration Guide § The run has a name](configuration-guide.md#the-run-has-a-name-since-013-unreleased) for where else the same name appears (the console footer, `manifest.json`, the Markdown frontmatter).
 
 ## See also
 

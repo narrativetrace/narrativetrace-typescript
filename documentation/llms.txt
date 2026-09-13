@@ -1,5 +1,5 @@
 # NarrativeTrace
-*(These docs describe 0.1.3; published is 0.1.1.)*<!-- registry checked 2026-09-12T13:31:47.226Z -->
+*(These docs describe 0.1.3; published is 0.1.1; 39 behaviours marked unreleased.)*<!-- registry checked 2026-09-13T03:38:05.597Z -->
 
 > Code is the log. Auto-generate human-readable execution traces from method names, parameter names, and return values.
 
@@ -35,7 +35,7 @@ console.log(renderMarkdownBody(context.captureTrace()));
 Run `node index.js`. Expected output (your duration will differ):
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.55ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms
 ```
 <!-- /snippet -->
 
@@ -44,6 +44,8 @@ Run `node index.js`. Expected output (your duration will differ):
 - `@narrativetrace/vitest` peers on vitest `1.x`, `2.x`, or `3.x` (tested, not just declared); register `ClaritySuiteReporter`/`GlossarySuiteReporter` from the `@narrativetrace/vitest/reporters` subpath in `vitest.config.ts`, never the package root — the root also loads `vitest` itself, which crashes config loading on every version. *(since 0.1.3, unreleased)*
 - `DualPathPipeline`'s buffered argument now defaults itself when `null`/omitted, so adding a Winston/Pino/OTel consumer can no longer make `captureTrace()` silently empty; pass an explicit `new BufferedEventConsumer()` when you want to size it yourself. *(since 0.1.3, unreleased)*
 - Test trace output is on by default since 2026-09-11 (`NARRATIVETRACE_OUTPUT=false` opts out). *(since 0.1.3, unreleased)*
+- `createNarrativeTest` also writes a value-free `.nt` structural artifact per scenario (last-green baseline, "Since last green" console delta) with no configuration needed; `approval: true` turns on approval traces (`.approved.nt`/`.received.nt`, promote with `pnpm run approve-narratives`). Use `createNarrativeTest(...).each(cases)` — this port's own thin `.each`, not Vitest's native one — for a per-invocation `.nt`/approval identity. *(since 0.1.3, unreleased)*
+- A Vitest run has a name — one three-word phrase (`runIdentity()`) named in the console footer (`run: bold elk soars`), `manifest.json`'s top-level `run` object, and every Markdown trace's `run:` frontmatter; pass `runIdentity().name` as `runName` to `createPinoEventConsumer`/`createWinstonEventConsumer`/`createEnricherEventConsumer` to carry it into your own logs too. Never reaches the structural `.nt` artifact, an approved/received trace, or the delta computation. *(since 0.1.3, unreleased)*
 
 ## Field notes from AI agents (self-reported, not a benchmark)
 We asked AI agents to build a claims service with NarrativeTrace and write up the experience for another engineer, naming what was awkward. Prompted, one run each, unedited, model named; we wrote the library. The reports so far are from the Java runtime; the same exercise runs for TypeScript next, and the principle they describe — the trace as evidence, redaction by parameter name, output on by default — is the same here. All six reports, the exact prompt and the task: https://narrativetrace.ai/#agents-saying
@@ -54,6 +56,7 @@ We asked AI agents to build a claims service with NarrativeTrace and write up th
 ## Docs
 
 - [Complete Reference](llms-full.md): Full API reference, 18-package map, configuration, concurrency, integration guides, architecture decisions, and troubleshooting
+- [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — and `narrativetrace-doctor` — a thin, read-only agent skill over `npx narrativetrace doctor`, installable today via `.claude/skills/{add,doctor}/` or the always-on `AGENTS.md` pointer *(since 0.1.3, unreleased)*
 
 ## Sections in Complete Reference
 
@@ -64,7 +67,7 @@ We asked AI agents to build a claims service with NarrativeTrace and write up th
 - Data model: TraceTree, TraceNode, MethodSignature, ParameterCapture, TraceOutcome
 - Proxy API: traceObject, ProxyOptions, decorators (@traced, @narrated, @onError, @notTraced)
 - Concurrency: ForkJoinGroup (identity propagation, join wait-analysis), FireAndForgetGroup, ContextSnapshot (bidirectional propagation — async work joins the trace that launched it, reported from publication)
-- Vitest API: narrativeTest, createNarrativeTest, writeTraceOutput, ClaritySuiteReporter
+- Vitest API: narrativeTest, createNarrativeTest, createNarrativeTest(...).each, writeTraceOutput, writeStructuralOutput, evaluateApprovalTrace, ClaritySuiteReporter, StructuralSuiteReporter, ManifestSuiteReporter, runIdentity (the run has a name)
 - Diagrams API: renderMermaidSequence, renderPlantUmlSequence
 - Clarity API: analyzeClarity, renderClaritySuiteReport, exportClarityJson, the clarity gate CLI
 - Runtime adapters: express, hono, nestjs, angular, react, react-router

@@ -14,6 +14,19 @@ import { describe, expect, it } from "vitest";
 const REPO_ROOT = join(import.meta.dirname, "..");
 const PACKAGES_DIR = join(REPO_ROOT, "packages");
 const RUNTIME_LICENSE = "BUSL-1.1";
+const OPEN_LICENSE = "Apache-2.0";
+
+// The "open" tier (README § License; free-repo `licensing.properties` precedent): the standards
+// surface third-party code compiles against ships Apache 2.0, distinct from the BUSL-1.1 runtime.
+// `cli` is the first such package — the format CLI over the open artifact formats (Pro TODO §4.5,
+// ruled free/Open). Adding a package here is a licensing decision, not a default: it belongs on
+// this list only when that decision has actually been made and recorded (commit message + this
+// comment), same discipline as every other named exception in this file.
+const OPEN_TIER_PACKAGES = new Set(["cli"]);
+
+function expectedLicense(dir: string): string {
+  return OPEN_TIER_PACKAGES.has(dir) ? OPEN_LICENSE : RUNTIME_LICENSE;
+}
 
 interface Manifest {
   readonly name?: string;
@@ -41,12 +54,14 @@ describe("publishable package manifests", () => {
     expect(publishable.length).toBeGreaterThan(0);
   });
 
-  it.each(publishable)("$dir declares the runtime license", ({ manifest }) => {
-    expect(manifest.license).toBe(RUNTIME_LICENSE);
+  it.each(publishable)("$dir declares its tier's license", ({ dir, manifest }) => {
+    expect(manifest.license).toBe(expectedLicense(dir));
   });
 
   it("declares no package under a license the repository does not grant", () => {
-    const wrong = publishable.filter(({ manifest }) => manifest.license !== RUNTIME_LICENSE);
+    const wrong = publishable.filter(
+      ({ dir, manifest }) => manifest.license !== expectedLicense(dir),
+    );
     expect(wrong.map(({ dir }) => dir)).toEqual([]);
   });
 
@@ -102,5 +117,14 @@ describe("LICENSE", () => {
   it("grants production use except as a competing product", () => {
     expect(license).toContain("You may make production use of the Licensed Work for any");
     expect(license).toContain("logging, tracing, or code-narrative product");
+  });
+});
+
+describe("LICENSE-APACHE", () => {
+  const license = readFileSync(join(REPO_ROOT, "LICENSE-APACHE"), "utf-8");
+
+  it("is the Apache License, Version 2.0", () => {
+    expect(license).toContain("Apache License");
+    expect(license).toContain("Version 2.0, January 2004");
   });
 });

@@ -10,6 +10,7 @@ import {
 } from "../src/markdown-renderer.js";
 import { methodSignature } from "../src/method-signature.js";
 import { parameterCapture } from "../src/parameter-capture.js";
+import { humanName } from "../src/trace-namer.js";
 import { traceNode } from "../src/trace-node.js";
 import { incomplete, returned, threw } from "../src/trace-outcome.js";
 import { traceTree } from "../src/trace-tree.js";
@@ -31,10 +32,15 @@ describe("renderMarkdownDocument", () => {
       [],
       125,
     );
-    const doc = renderMarkdownDocument(traceTree([root]), {
+    const tree = traceTree([root]);
+    const doc = renderMarkdownDocument(tree, {
       scenario: "Places order",
       result: "PASSED",
     });
+    // A real (non-empty) tree always carries a traceId (generated when not assigned), so the
+    // title's phrase prefix is unconditional here — computed from the tree's own randomly
+    // generated id, not asserted as a fixed string (2026-09-13 ruling, item 4).
+    const phrase = humanName(tree.traceId!);
 
     expect(doc).toBe(
       [
@@ -47,7 +53,7 @@ describe("renderMarkdownDocument", () => {
         "error_count: 0",
         "---",
         "",
-        "## Trace: OrderService.placeOrder",
+        `## Trace: ${phrase} — OrderService.placeOrder`,
         "",
         "**Scenario:** Places order",
         "**Duration:** 125ms | **Result:** PASSED",
@@ -57,6 +63,44 @@ describe("renderMarkdownDocument", () => {
         '- `OrderService.placeOrder()` → `"OK"` — 125ms',
       ].join("\n"),
     );
+  });
+
+  test("prefixes the frontmatter with run: when a runName is given, before scenario:", () => {
+    const tree = traceTree([
+      traceNode(methodSignature("OrderService", "placeOrder", []), returned('"OK"'), []),
+    ]);
+    const doc = renderMarkdownDocument(tree, {
+      scenario: "Places order",
+      result: "PASSED",
+      runName: "bold elk soars",
+    });
+    const frontmatter = doc.slice(0, doc.indexOf("\n\n"));
+
+    expect(frontmatter.split("\n")).toEqual([
+      "---",
+      "type: trace",
+      "run: bold elk soars",
+      "scenario: Places order",
+      "entry_point: OrderService.placeOrder",
+      "duration_ms: 0",
+      "method_count: 1",
+      "error_count: 0",
+      "---",
+    ]);
+  });
+
+  // RunIdentity/runName is metadata about the SUITE, not the trace itself, so it goes through
+  // yamlSafe like every other frontmatter scalar (2026-09-13 ruling, item 3's own escaping rule).
+  test("quotes a run name containing YAML-special characters, same as scenario", () => {
+    const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
+    const doc = renderMarkdown(tree, { runName: "deploy: prod" });
+    expect(doc).toContain('run: "deploy: prod"');
+  });
+
+  test("omits the run key entirely when no runName was given — outside a tracked run", () => {
+    const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
+    const doc = renderMarkdownDocument(tree, { scenario: "Places order", result: "PASSED" });
+    expect(doc).not.toContain("run:");
   });
 });
 

@@ -7,7 +7,7 @@ import { describe, expect, test } from "vitest";
 import { hostileRedactions } from "../src/corpus/hostile-corpus.js";
 import { isNameCase, type RedactionCase, secretOf } from "../src/corpus/types.js";
 import { everyOutput } from "../src/oracle/emitters.js";
-import { withinBudget } from "../src/oracle/oracles.js";
+import { boundedSize } from "../src/oracle/oracles.js";
 
 /**
  * Replays `redaction.json` through the REAL capture path, `traceObject()` — not `renderValue()`
@@ -94,11 +94,13 @@ function assertRedactedFlag(redactionCase: RedactionCase, redacted: boolean): vo
 
 function assertRedactionCase(redactionCase: RedactionCase): void {
   const secret = secretOf(redactionCase);
-  const { renderedValue, redacted, tree } = withinBudget(`capture ${redactionCase.id}`, () =>
-    driveCase(redactionCase),
-  );
+  // Family release rule 3 (2026-09-07): wall-clock, GC and scheduler are never test inputs —
+  // this used to run through a removed `withinBudget` hang detector. `boundedSize` below, over
+  // every emitter's output, is the deterministic property that timing bound stood in for.
+  const { renderedValue, redacted, tree } = driveCase(redactionCase);
   assertRedactedFlag(redactionCase, redacted);
   const outputs = everyOutput(tree);
+  boundedSize(outputs);
   if (redactionCase.expect === "redacted") {
     expect(
       renderedValue,

@@ -1,0 +1,13 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderHuman > matches the known-good rendering 1`] = `
+"narrativetrace doctor — 2 check(s), 1 finding(s)
+
+[FAIL] trap.silent-sink — traceObject() is used but no consumer or sink was found
+  fix:  Attach a BufferedEventConsumer or call captureTrace().
+  docs: https://example.invalid/configuration-guide.md#8-event-pipeline-buffering
+
+[PASS] toolchain.node-engine — Node 20.11.0 satisfies the required >=20
+
+1 finding(s). Exit code 1."
+`;

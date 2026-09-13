@@ -8,19 +8,22 @@ import { notTraced } from "../src/not-traced.js";
 import { traceObject } from "../src/trace-object.js";
 
 describe("traceObject fast paths", () => {
-  // A class (prototype `toString()`), not an object literal: an object literal's own `toString`
-  // is an own-enumerable property, so it is no longer a leaf under the 2026-09-11 dispatch rule
-  // (value-renderer.ts) and would never reach toString() at all — these tests spy on whether
-  // rendering fires, not on the redaction invariant, so the fixture must stay a genuine leaf.
+  // A real Date instance, not a user class: the 2026-09-12 "trusted-leaf" carve-out
+  // (value-renderer.ts) trusts native toString() only for a realm platform intrinsic, checked by
+  // prototype identity — a user class's own toString() is never invoked during rendering any
+  // more, field-less or not. These tests spy on whether rendering fires at all, not on the
+  // redaction invariant, so the fixture must stay a genuine platform value for its toString() to
+  // ever run.
   function spyArg() {
     const state = { renders: 0 };
-    class Spy {
-      toString(): string {
+    const arg = new Date();
+    Object.defineProperty(arg, "toString", {
+      value: () => {
         state.renders++;
         return "spied";
-      }
-    }
-    return { state, arg: new Spy() };
+      },
+    });
+    return { state, arg };
   }
 
   test("an off-level context invokes the target with zero value rendering", () => {

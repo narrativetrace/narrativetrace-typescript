@@ -6,6 +6,7 @@ import { ControlEscape } from "./control-escape.js";
 import { errorMessage, errorTypeName } from "./error-display.js";
 import { displayParamValue } from "./parameter-capture.js";
 import { analyze } from "./sequential-async-detector.js";
+import { humanName } from "./trace-namer.js";
 import type { TraceNode } from "./trace-node.js";
 import type { TraceTree } from "./trace-tree.js";
 import { TREE_WALK_MARKER, TreeWalk } from "./tree-walk.js";
@@ -145,16 +146,29 @@ function renderConcurrentBlock(members: readonly TraceNode[], sentences: string[
 }
 
 /**
+ * Opens in this renderer's own voice — `The trace bold elk soars: ` — before the first sentence,
+ * whenever {@link TraceTree.traceId} is present (2026-09-13 ruling, item 4); empty on an empty tree,
+ * or a hand-built one that opted out of identity — nothing here is invented. This is the trace's
+ * OWN name, unrelated to a test-suite run's name (see `RunIdentity`); neither ever reaches the
+ * structural `.nt` text.
+ */
+function traceHeader(tree: TraceTree): string {
+  const { traceId } = tree;
+  return traceId === undefined ? "" : `The trace ${humanName(traceId)}:\n\n`;
+}
+
+/**
  * Renders a trace as flowing English prose — one sentence per call ("The order service places the
  * order for …, returning …"), with concurrent segments collapsed into a "Concurrently: …" sentence.
  *
  * INTENT: reach for this when a trace is meant to be read as narrative (reports, LLM prompts) rather
  * than scanned as a tree. Class/method names are de-camel-cased; errors read as "failed to <verb>".
  *
- * @returns the sentences joined by single spaces; an empty tree yields an empty string.
+ * @returns the header (see {@link traceHeader}) followed by the sentences joined by single spaces;
+ * an empty tree yields an empty string.
  */
 export function renderProse(tree: TraceTree): string {
   const sentences: string[] = [];
   renderTree(tree.roots, sentences);
-  return sentences.join(" ");
+  return `${traceHeader(tree)}${sentences.join(" ")}`;
 }

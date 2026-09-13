@@ -5,7 +5,6 @@ import { formatTraceparent, parseTraceparent, renderValue } from "@narrativetrac
 import * as fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { hostileTraceparents, hostileTracestates } from "../src/corpus/hostile-corpus.js";
-import { withinBudget } from "../src/oracle/oracles.js";
 
 /**
  * Target 1: the wire-format reader. Mirrors Java's `TraceparentParsingPropertyTest`, adapted to
@@ -25,10 +24,17 @@ import { withinBudget } from "../src/oracle/oracles.js";
 const KNOWN_STRICTER_MISSES = new Set(["valid-future-version-with-extra", "very-long-fields"]);
 
 describe("traceparent parsing", () => {
+  // Family release rule 3 (2026-09-07): wall-clock, GC and scheduler are never test inputs —
+  // this used to run through a removed `withinBudget` hang detector. Dropped outright rather
+  // than replaced: `TRACEPARENT_REGEX` is a fixed-length, anchored, non-backtracking pattern
+  // (no nested quantifiers), and the parser reads only fixed-width substrings out of a regex
+  // match — there is no input shape that costs more than linear work, and no unbounded output to
+  // bound (the result is a fixed 32-hex string or `undefined`, already asserted by the other
+  // tests in this file).
   test("never throws on any corpus header", () => {
     for (const header of hostileTraceparents()) {
       expect(
-        () => withinBudget(`traceparent ${header.id}`, () => parseTraceparent(header.value)),
+        () => parseTraceparent(header.value),
         `${header.id}: ${header.description}`,
       ).not.toThrow();
     }

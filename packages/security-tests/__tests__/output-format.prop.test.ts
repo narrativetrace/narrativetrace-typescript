@@ -20,7 +20,7 @@ import {
   isWellFormedPlantUml,
   validatesAgainstChapterTreeSchema,
 } from "../src/oracle/formats.js";
-import { boundedSize, idempotent, withinBudget } from "../src/oracle/oracles.js";
+import { boundedSize, idempotent } from "../src/oracle/oracles.js";
 
 /**
  * Target 3: every output format, whatever the value contained. Mirrors Java's
@@ -156,9 +156,14 @@ describe("output format well-formedness", () => {
     );
   });
 
-  test("a hostile string never costs unbounded time through any format", () => {
+  // Family release rule 3 (2026-09-07): wall-clock, GC and scheduler are never test inputs — this
+  // used to run through a removed `withinBudget` hang detector. `everyOutput` (unlike `renderers`,
+  // used by "every corpus string keeps every format bounded" above) also writes the artifacts the
+  // shipped writer puts on disk, so `boundedSize` here is the deterministic property, over that
+  // wider set including the written artifacts, that the timing bound stood in for.
+  test("a hostile string never produces unbounded output, written artifacts included", () => {
     for (const hostile of hostileStrings()) {
-      withinBudget(`captured ${hostile.id}`, () => everyOutput(asCapturedValue(hostile)));
+      boundedSize(everyOutput(asCapturedValue(hostile)));
     }
   });
 });

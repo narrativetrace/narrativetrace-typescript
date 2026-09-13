@@ -63,7 +63,7 @@ Real output, from the run that produced this page:
 
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.3ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms
 ```
 <!-- /snippet -->
 
@@ -99,7 +99,7 @@ the logger you already run in production. Add the [Pino](https://github.com/pino
 
 ```diff
 -import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
-+import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, renderMarkdownBody } from "@narrativetrace/core-node";
++import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, parseTraceparent, renderMarkdownBody } from "@narrativetrace/core-node";
  import { traceObject } from "@narrativetrace/proxy";
 +import { createPinoEventConsumer } from "@narrativetrace/pino";
 +import pino from "pino";
@@ -110,11 +110,24 @@ the logger you already run in production. Add the [Pino](https://github.com/pino
    }
  }
 
++// A documented constant for THIS example only — never the library default, which always
++// generates a random trace id — so nt.traceName/trace_id below stay the same phrase every time
++// this page's output is regenerated.
++const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
++const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
++
 -const context = new SyncNarrativeContext(new NarrativeTraceConfig());
 +const logger = pino();
 +const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 +const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), undefined, pipeline);
++const context = new SyncNarrativeContext(
++  new NarrativeTraceConfig(),
++  undefined,
++  pipeline,
++  null,
++  undefined,
++  fixedTraceId,
++);
  const service = traceObject(new OrderService(), context, {
    placeOrder: ["customerId", "productId", "quantity"],
  });
@@ -131,17 +144,23 @@ node index.js
 Real output, from the run that produced this page:
 
 ```text
-{"level":30,"time":1789158304041,"pid":44606,"hostname":"Danijels-MacBook-Air.local","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1.2094590000000096ms
-{"level":30,"time":1789158304042,"pid":44606,"hostname":"Danijels-MacBook-Air.local","nt.outcome":"returned","nt.depth":0,"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
+{"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 2ms
+{"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
 ```
 
-As with the timing above, every run-specific field (`time`, `pid`, `hostname`, `trace_id`,
-`span_id`, `nt.traceName`) is a different value on your machine and on every run; the shape of the
-two JSON lines and the markdown line in between does not change. This proves the trace lands in
-the sink you already have, with the console output untouched. Full configuration (per-event
-levels, the `LogContext` mixin for stamping your own log lines, Winston setup):
-[Framework Integration Guide § Winston & Pino](framework-integration-guide.md#9-winston--pino).
+`time`, `pid`, `hostname`, `span_id` and the duration are still a different value on your machine
+and on every run — this example only fixes the trace id, not the span id, the same way a real
+inbound request would carry a trace id but mint its own span. `trace_id` and `nt.traceName` are
+now the same on every run, because the constant above stands in for a `traceparent` header a real
+upstream request would send; see the Framework Integration Guide for reading one from an actual
+request. There is no `nt.runName` field here at all — a plain script run belongs to no test-suite
+execution, so there is no run to name (`createPinoEventConsumer`'s `runName` option is how a
+caller that DOES have one, `@narrativetrace/vitest`'s `runIdentity().name` among them, adds it).
+The shape of the two JSON lines and the markdown line in between does not change. This proves the
+trace lands in the sink you already have, with the console output untouched. Full configuration
+(per-event levels, the `runName` option, the `LogContext` mixin for stamping your own log lines,
+Winston setup): [Framework Integration Guide § Winston & Pino](framework-integration-guide.md#9-winston--pino).
 
 ## Next
 

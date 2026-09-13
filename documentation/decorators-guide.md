@@ -263,13 +263,15 @@ What is invoked, and what is not:
   on a class lives on the prototype, is never enumerated, and never runs during
   introspection. (An accessor defined directly on an object literal *is* own-enumerable
   and would run — prefer class getters or mark the field in `static notTraced`.)
-- **A custom `toString()` (own, non-default) is invoked only for a leaf** — an object with
-  *no own field at all*. *(since 0.1.3, unreleased)* The moment your type has even one own field, `toString()` is never
-  called during rendering; field introspection runs instead, whatever your `toString()`
-  would have printed (family invariant, 2026-09-11 — see
-  [Privacy and Redaction](privacy-and-redaction.md) for why: trusting a curated
-  `toString()` on a type with fields was the exact route a *nested* object's own secret
-  used to leak through, one level below where any per-field check ever looked).
+- **A custom `toString()` (own, non-default) is invoked only for a realm platform
+  intrinsic** — `Date`, `URL`, `RegExp`, a boxed `BigInt`, or a typed array, checked by
+  prototype identity, never by name. *(since 0.1.3, unreleased)* Your own types never
+  reach this path any more, field-less or not: field introspection always runs instead,
+  whatever your `toString()` would have printed (owner ruling, 2026-09-12, narrowing the
+  2026-09-11 "any leaf" rule — see [Privacy and Redaction](privacy-and-redaction.md) for
+  why: on this platform, "no own enumerable field" was never proof of "nothing to hide" —
+  a true `#private` field, a closure, or a module-level `WeakMap` keyed by `this` is
+  invisible to introspection yet freely readable from inside your own `toString()`).
 - **`@narrativeSummary` is invoked regardless of fields**, and still outranks toString-trust
   and field introspection — it is code you wrote *for* the trace, so it always runs and its
   output is always preferred, on any type, leaf or not. Its output is still scanned for a
@@ -288,8 +290,9 @@ What is invoked, and what is not:
 
 If a member cannot be pure, list it in `static notTraced` — a redacted member's value is
 never read at all — or give the type a curated `@narrativeSummary` so you control exactly
-what is accessed; a curated `toString()` only helps for a type with no own fields at all,
-since one with fields is always introspected regardless of what `toString()` returns. With
+what is accessed; a curated `toString()` on your own type is never trusted any more,
+fields or not — only `Date`/`URL`/`RegExp`/a boxed `BigInt`/a typed array get that, by
+platform identity. With
 an inactive context (level `off`, or parameter capture disabled at `summary`), no argument
 rendering happens at all — no user code is touched on the fast path.
 

@@ -13,8 +13,10 @@ export default defineConfig({
       // Ratchet (branches measured 2026-08-20, functions raised 2026-08-30 when
       // project-vocabulary.ts landed with full coverage; both below the 98
       // baseline): floors at the actual value rounded down — only move up.
-      // TODO Quality-gate item 2.
-      thresholds: { ...packageCoverage.thresholds, branches: 91, functions: 91 },
+      // Raised 2026-09-12 (branches 91 → 97, functions 91 → 99) when the
+      // structural `.nt` artifact/delta/approval-mode block landed with
+      // near-full coverage. TODO Quality-gate item 2.
+      thresholds: { ...packageCoverage.thresholds, branches: 97, functions: 99 },
     },
   },
 });

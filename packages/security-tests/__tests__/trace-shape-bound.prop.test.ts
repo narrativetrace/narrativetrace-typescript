@@ -11,7 +11,7 @@ import {
   isWellFormedPlantUml,
   validatesAgainstChapterTreeSchema,
 } from "../src/oracle/formats.js";
-import { boundedSize, withinBudget } from "../src/oracle/oracles.js";
+import { boundedSize } from "../src/oracle/oracles.js";
 
 /**
  * A deep or cyclic `TraceNode` tree must not crash or hang any renderer or exporter — `TreeWalk`
@@ -29,7 +29,10 @@ describe("trace shape bound", () => {
   test("every trace shape leaves every format well-formed and bounded", () => {
     for (const shape of hostileTraceShapes()) {
       const tree = build(shape);
-      const outputs = withinBudget(shape.id, () => everyOutput(tree));
+      // Family release rule 3 (2026-09-07): wall-clock, GC and scheduler are never test inputs —
+      // this used to run through the now-removed `withinBudget` hang detector. `boundedSize`
+      // right below is the deterministic property that timing bound stood in for.
+      const outputs = everyOutput(tree);
 
       boundedSize(outputs);
       validatesAgainstChapterTreeSchema("renderer:json", outputs["renderer:json"] as string);

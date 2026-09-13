@@ -19,6 +19,13 @@ import type { Level, Logger } from "pino";
  * Per-event log levels. Defaults follow the Java SLF4J listener's intent: entry/return are `trace`
  * (pino has a real TRACE level, unlike winston) and exceptions are `warn`, not `error`, so a
  * handled-and-narrated failure does not masquerade as an unhandled logger error.
+ *
+ * @remarks `runName` is the enclosing test-suite (or process) run's three-word phrase, bound once
+ * at consumer creation — unlike `nt.traceName`, which is re-derived per event from that event's own
+ * trace id, a run has no id to derive from here, so the caller supplies the phrase it already holds
+ * (e.g. `RunIdentity.name`, `@narrativetrace/vitest`'s `runIdentity().name`). Every log line then
+ * carries `nt.runName` the way it already carries `nt.traceName` (2026-09-13 ruling, item 2) —
+ * omit it outside a tracked run.
  */
 export interface PinoConsumerOptions {
   readonly levels?: {
@@ -26,6 +33,7 @@ export interface PinoConsumerOptions {
     readonly return?: Level;
     readonly exception?: Level;
   };
+  readonly runName?: string;
 }
 
 const DEFAULT_LEVELS = { enter: "trace", return: "trace", exception: "warn" } as const;
@@ -41,7 +49,10 @@ function resolveDepth(frames: Map<SpanId, Frame>, parentSpanId: SpanId | null): 
 }
 
 /** Trace-identity + service.* keys emitted on every line so each log is self-correlating. */
-function identityMeta(sc: EnterEvent["spanContext"] | ExitEvent["spanContext"]) {
+function identityMeta(
+  sc: EnterEvent["spanContext"] | ExitEvent["spanContext"],
+  runName: string | undefined,
+) {
   return {
     trace_id: sc.traceId,
     "nt.traceName": humanName(sc.traceId as TraceId),
@@ -52,6 +63,7 @@ function identityMeta(sc: EnterEvent["spanContext"] | ExitEvent["spanContext"]) 
     ...(sc.environment !== undefined && { "service.environment": sc.environment }),
     ...(sc.storyId !== undefined && { "nt.storyId": sc.storyId }),
     ...(sc.chapterId !== undefined && { "nt.chapterId": sc.chapterId }),
+    ...(runName !== undefined && { "nt.runName": runName }),
   };
 }
 
@@ -71,6 +83,7 @@ function enterMeta(
   signature: EnterEvent["signature"],
   sc: EnterEvent["spanContext"],
   depth: number,
+  runName: string | undefined,
 ) {
   const { className, methodName, parameters } = signature;
   return {
@@ -78,7 +91,7 @@ function enterMeta(
     "code.function": methodName,
     "nt.depth": depth,
     "nt.parameters": parameters.map((p) => ({ name: p.name, value: p.renderedValue })),
-    ...identityMeta(sc),
+    ...identityMeta(sc, runName),
     ...ENTER_SCHEMA,
   };
 }
@@ -88,16 +101,22 @@ function logEnter(
   frames: Map<SpanId, Frame>,
   level: Level,
   event: EnterEvent,
+  runName: string | undefined,
 ): void {
   const { className, methodName } = event.signature;
   const sc = event.spanContext;
   const depth = resolveDepth(frames, sc.parentSpanId);
   frames.set(sc.spanId, { parentSpanId: sc.parentSpanId, depth });
-  logger[level](enterMeta(event.signature, sc, depth), `→ ${className}.${methodName}`);
+  logger[level](enterMeta(event.signature, sc, depth, runName), `→ ${className}.${methodName}`);
 }
 
-function exitMeta(outcome: string, sc: ExitEvent["spanContext"], depth: number) {
-  return { "nt.outcome": outcome, "nt.depth": depth, ...identityMeta(sc), ...EXIT_SCHEMA };
+function exitMeta(
+  outcome: string,
+  sc: ExitEvent["spanContext"],
+  depth: number,
+  runName: string | undefined,
+) {
+  return { "nt.outcome": outcome, "nt.depth": depth, ...identityMeta(sc, runName), ...EXIT_SCHEMA };
 }
 
 /**
@@ -139,10 +158,11 @@ function logExit(
   frames: Map<SpanId, Frame>,
   levels: Required<NonNullable<PinoConsumerOptions["levels"]>>,
   event: ExitEvent,
+  runName: string | undefined,
 ): void {
   const sc = event.spanContext;
   const depth = exitDepth(frames, sc.spanId);
-  const meta = (outcome: string) => exitMeta(outcome, sc, depth);
+  const meta = (outcome: string) => exitMeta(outcome, sc, depth, runName);
   if (event.outcome.kind === "threw") {
     logThrew(logger, levels.exception, meta("threw"), event.outcome);
   } else if (event.outcome.kind === "returned") {
@@ -159,12 +179,13 @@ export function createPinoEventConsumer(
 ): EventConsumer {
   const levels = { ...DEFAULT_LEVELS, ...options.levels };
   const frames = new Map<SpanId, Frame>();
+  const { runName } = options;
   return (event: TraceEvent) => {
     switch (event.type) {
       case "enter":
-        return logEnter(logger, frames, levels.enter, event);
+        return logEnter(logger, frames, levels.enter, event, runName);
       case "exit":
-        return logExit(logger, frames, levels, event);
+        return logExit(logger, frames, levels, event, runName);
     }
   };
 }

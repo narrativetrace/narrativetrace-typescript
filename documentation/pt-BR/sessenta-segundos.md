@@ -1,4 +1,4 @@
-<!-- source: documentation/sixty-seconds.md blob fd3478465b06 | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/sixty-seconds.md blob 686e34f814c5 | translated: 2026-09-13 | reviewed: - -->
 # Veja um trace em 60 segundos
 
 [English](../sixty-seconds.md) | [Español](../es/sesenta-segundos.md) | **Português** | [简体中文](../zh-CN/60秒.md)
@@ -100,7 +100,7 @@ Winston for o seu logger — troque o import por `createWinstonEventConsumer`):
 
 ```diff
 -import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
-+import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, renderMarkdownBody } from "@narrativetrace/core-node";
++import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, parseTraceparent, renderMarkdownBody } from "@narrativetrace/core-node";
  import { traceObject } from "@narrativetrace/proxy";
 +import { createPinoEventConsumer } from "@narrativetrace/pino";
 +import pino from "pino";
@@ -111,11 +111,24 @@ Winston for o seu logger — troque o import por `createWinstonEventConsumer`):
    }
  }
 
++// Uma constante documentada só para ESTE exemplo — nunca o padrão da biblioteca, que sempre
++// gera um id de trace aleatório — para que nt.traceName/trace_id abaixo continuem com a mesma
++// frase toda vez que a saída desta página for regenerada.
++const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
++const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
++
 -const context = new SyncNarrativeContext(new NarrativeTraceConfig());
 +const logger = pino();
 +const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 +const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), undefined, pipeline);
++const context = new SyncNarrativeContext(
++  new NarrativeTraceConfig(),
++  undefined,
++  pipeline,
++  null,
++  undefined,
++  fixedTraceId,
++);
  const service = traceObject(new OrderService(), context, {
    placeOrder: ["customerId", "productId", "quantity"],
  });
@@ -132,17 +145,24 @@ node index.js
 Saída real, da execução que produziu esta página:
 
 ```text
-{"level":30,"time":1789158304041,"pid":44606,"hostname":"Danijels-MacBook-Air.local","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1.2094590000000096ms
-{"level":30,"time":1789158304042,"pid":44606,"hostname":"Danijels-MacBook-Air.local","nt.outcome":"returned","nt.depth":0,"trace_id":"33a1c71cc9d9e84df946442b3e6387be","nt.traceName":"wooly sled plows","span_id":"8c0f8a467530ec0f","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
+{"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 2ms
+{"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
 ```
 
-Assim como o tempo acima, cada campo específico da execução (`time`, `pid`, `hostname`,
-`trace_id`, `span_id`, `nt.traceName`) é um valor diferente na sua máquina e em cada execução; o
-formato das duas linhas JSON e da linha markdown no meio não muda. Isso prova que o trace chega ao
-destino que você já tem, sem alterar a saída de console. Configuração completa (níveis por evento,
-o mixin `LogContext` para marcar suas próprias linhas de log, configuração do Winston): [Guia de
-Integração de Frameworks § Winston & Pino](guia-de-integracao-de-frameworks.md#9-winston--pino).
+`time`, `pid`, `hostname`, `span_id` e a duração continuam sendo um valor diferente na sua máquina
+e em cada execução — este exemplo só fixa o id de trace, não o id de span, do mesmo jeito que uma
+requisição real de entrada carregaria um id de trace mas cunharia seu próprio span. `trace_id` e
+`nt.traceName` agora são os mesmos em toda execução, porque a constante acima faz o papel de um
+cabeçalho `traceparent` que uma requisição real de upstream enviaria; veja o Guia de Integração de
+Frameworks para ler um a partir de uma requisição de verdade. Não existe nenhum campo `nt.runName`
+aqui — um script simples não pertence a nenhuma execução de suíte de testes, então não há execução
+nenhuma para nomear (a opção `runName` de `createPinoEventConsumer` é como um caller que TEM uma —
+`runIdentity().name` de `@narrativetrace/vitest`, entre outros — a adiciona). O formato das duas
+linhas JSON e da linha markdown no meio não muda. Isso prova que o trace chega ao destino que você
+já tem, sem alterar a saída de console. Configuração completa (níveis por evento, a opção
+`runName`, o mixin `LogContext` para marcar suas próprias linhas de log, configuração do Winston):
+[Guia de Integração de Frameworks § Winston & Pino](guia-de-integracao-de-frameworks.md#9-winston--pino).
 
 ## Próximos passos
 

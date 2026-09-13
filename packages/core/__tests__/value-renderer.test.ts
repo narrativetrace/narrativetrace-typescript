@@ -120,15 +120,54 @@ describe("renderValue", () => {
   });
 
   describe("custom toString", () => {
-    // The family invariant of 2026-09-11: a custom toString() is trusted ONLY for a leaf — an
-    // object with no own enumerable key, so introspection has nothing else it could show instead.
-    test("a leaf's custom toString renders that string, not a field dump", () => {
+    // Owner ruling, 2026-09-12 (narrows the 2026-09-11 leaf rule further): native stringification
+    // is trusted ONLY for a realm platform intrinsic (see the "platform-defined types" block
+    // below) — never for an arbitrary user class, leaf or not. "No own enumerable key" was never
+    // proof of "nothing to hide": a true `#private` field, a closure, or a module-level WeakMap
+    // keyed by `this` is invisible to `Object.keys` yet freely readable from inside toString().
+    test("a field-less user class's toString is no longer trusted — it is walked, not called", () => {
+      let called = false;
       class Money {
         toString(): string {
+          called = true;
           return "$12.34";
         }
       }
-      expect(renderValue(new Money())).toBe("$12.34");
+      expect(renderValue(new Money())).toBe("{}");
+      expect(called).toBe(false);
+    });
+
+    // Row corpus: platform-lookalike-walked. Identity is by prototype, never by name — a class
+    // that merely calls itself `Date` and carries a deny-listed field renders like any other user
+    // type: field-walked and redacted, never handed to its own toString().
+    test("a spoofed class named like a platform type is walked, not trusted", () => {
+      class Impostor {
+        static readonly notTraced = ["secret"];
+        constructor(readonly secret: string) {}
+        toString(): string {
+          return `Date(secret=${this.secret})`;
+        }
+      }
+      Object.defineProperty(Impostor, "name", { value: "Date" });
+      const rendered = renderValue(new Impostor("hunter2"));
+      expect(rendered).not.toContain("hunter2");
+      expect(rendered).toContain("[REDACTED]");
+    });
+
+    // Row corpus: platform-subclass-walked. `Object.getPrototypeOf` one level up from a Date
+    // subclass instance is the subclass's own prototype, not `Date.prototype`, so the identity
+    // check fails and the field walk runs — surfacing (and redacting) a field the base Date never
+    // had.
+    test("a user subclass of a platform type is walked, not trusted", () => {
+      class TimestampedSecret extends Date {
+        static readonly notTraced = ["secret"];
+        constructor(readonly secret: string) {
+          super();
+        }
+      }
+      const rendered = renderValue(new TimestampedSecret("hunter2"));
+      expect(rendered).not.toContain("hunter2");
+      expect(rendered).toContain("[REDACTED]");
     });
 
     // Before 2026-09-11, a custom toString() was trusted whenever none of the object's OWN fields
@@ -174,59 +213,83 @@ describe("renderValue", () => {
       expect(renderValue({ a: 1 })).toBe('{"a": 1}');
     });
 
-    test("toString returning null falls back to <TypeName>", () => {
-      class Weird {
-        toString(): string {
-          return null as unknown as string;
-        }
-      }
-      expect(renderValue(new Weird())).toBe("<Weird>");
+    // The null-returning / throwing / sanitize-and-truncate toString degrade paths below now only
+    // ever fire for a trusted platform value (2026-09-12 ruling) — see the "platform-defined
+    // types" block, which pins all three against a real Date instance instead of an arbitrary
+    // user leaf class.
+  });
+
+  describe("platform-defined types (2026-09-12 trusted-leaf carve-out)", () => {
+    test("Date renders its own short value, not a field walk", () => {
+      const d = new Date("2024-01-01T00:00:00.000Z");
+      expect(renderValue(d)).toBe(d.toString());
     });
 
-    // A leaf's toString() throwing degrades to the typed error marker — the thrown value's own
-    // type (an Error here), never the leaf's type and never the exception's message (which could
-    // carry the exact value the toString() was refusing to render).
-    test("a leaf's throwing toString degrades to the typed error marker", () => {
-      class Rogue {
-        toString(): string {
-          throw new Error("boom");
-        }
-      }
-      expect(renderValue(new Rogue())).toBe("<error: Error>");
+    test("URL renders its own short value, not a field walk", () => {
+      const u = new URL("https://example.com/a?b=1");
+      expect(renderValue(u)).toBe(u.toString());
     });
 
-    // A thrown non-Error value shows its typeof, never its stringified content.
-    test("a leaf's toString throwing a non-Error value shows the typeof marker", () => {
-      class Rogue {
-        toString(): string {
-          throw "not an Error object";
-        }
-      }
-      expect(renderValue(new Rogue())).toBe("<error: string>");
+    test("RegExp renders its own short value, not a field walk", () => {
+      const r = /a.*b/g;
+      expect(renderValue(r)).toBe(r.toString());
+    });
+
+    test("a boxed BigInt renders its own short value", () => {
+      const boxed = Object(BigInt(42));
+      expect(renderValue(boxed)).toBe("42");
+    });
+
+    test("a typed array renders its own short value, not an indexed field walk", () => {
+      const bytes = new Uint8Array([1, 2, 3]);
+      expect(renderValue(bytes)).toBe("1,2,3");
+    });
+
+    // Row corpus: platform-type-name-redacted. Trusted stringification is not a bypass of the
+    // name-based axis: a URL held under a deny-listed field name is redacted before renderValue
+    // ever calls the URL's own toString().
+    test("a platform value's deny-listed field name is still redacted", () => {
+      const rendered = renderValue({ token: new URL("https://example.com/secret") });
+      expect(rendered).toBe('{"token": [REDACTED]}');
+    });
+
+    test("a platform value's null-returning toString falls back to <TypeName>", () => {
+      const d = new Date();
+      Object.defineProperty(d, "toString", { value: () => null });
+      expect(renderValue(d)).toBe("<Date>");
     });
 
     // The typed error marker never shows Error.message — a message can carry the exact value the
     // thrower was refusing to render, which is exactly the shape a naive `<error: ${e.message}>`
     // marker would leak (owner ruling, 2026-09-11).
-    test("the typed error marker never leaks the exception message", () => {
-      class Rogue {
-        toString(): string {
+    test("a platform value's throwing toString degrades to the typed error marker, never the message", () => {
+      const d = new Date();
+      Object.defineProperty(d, "toString", {
+        value: () => {
           throw new Error("failed for card 4111-1111-1111-1111");
-        }
-      }
-      const rendered = renderValue(new Rogue());
+        },
+      });
+      const rendered = renderValue(d);
       expect(rendered).toBe("<error: Error>");
       expect(rendered).not.toContain("4111-1111-1111-1111");
       expect(rendered).not.toContain("failed for card");
     });
 
-    test("custom toString output is control-sanitized and truncated with the ellipsis", () => {
-      class Multi {
-        toString(): string {
-          return "line1\nline2";
-        }
-      }
-      expect(renderValue(new Multi())).toBe("line1\\nline2");
+    // A thrown non-Error value shows its typeof, never its stringified content.
+    test("a platform value's toString throwing a non-Error value shows the typeof marker", () => {
+      const d = new Date();
+      Object.defineProperty(d, "toString", {
+        value: () => {
+          throw "not an Error object";
+        },
+      });
+      expect(renderValue(d)).toBe("<error: string>");
+    });
+
+    test("a platform value's toString output is control-sanitized and truncated with the ellipsis", () => {
+      const d = new Date();
+      Object.defineProperty(d, "toString", { value: () => "line1\nline2" });
+      expect(renderValue(d)).toBe("line1\\nline2");
     });
   });
 

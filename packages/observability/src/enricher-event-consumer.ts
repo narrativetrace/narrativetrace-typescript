@@ -35,8 +35,12 @@ function resolveDepth(frames: Map<SpanId, Frame>, parentSpanId: SpanId | null): 
 /**
  * Trace-level fields the first (root) span owns: later spans share the trace, so re-setting them
  * would let a child overwrite the trace's identity.
+ *
+ * @param runName the enclosing run's phrase, set as `nt.runName` the same once-only way — the run
+ * has no id of its own to derive it from here (unlike `nt.traceName`), so the caller supplies the
+ * phrase it already holds (2026-09-13 ruling, item 2).
  */
-function setTraceIdentityOnce(sc: EnterEvent["spanContext"]): void {
+function setTraceIdentityOnce(sc: EnterEvent["spanContext"], runName: string | undefined): void {
   if (LogContext.get("trace_id") === undefined) {
     LogContext.set("trace_id", sc.traceId);
     LogContext.set("nt.traceName", humanName(sc.traceId as TraceId));
@@ -44,13 +48,18 @@ function setTraceIdentityOnce(sc: EnterEvent["spanContext"]): void {
   setIdentityOnce("service.name", sc.serviceName);
   setIdentityOnce("service.version", sc.serviceVersion);
   setIdentityOnce("service.environment", sc.environment);
+  setIdentityOnce("nt.runName", runName);
 }
 
 // className/methodName come straight from MethodSignature, a public API that accepts any string —
 // control-escaped once here (before entering the frame map) so a hostile one cannot forge a log
 // line either now or when a child's exit later restores this frame (cross-runtime shape F6,
 // 2026-09-02 audit).
-function handleEnter(frames: Map<SpanId, Frame>, event: EnterEvent): void {
+function handleEnter(
+  frames: Map<SpanId, Frame>,
+  event: EnterEvent,
+  runName: string | undefined,
+): void {
   const className = ContextExport.sanitize(event.signature.className);
   const methodName = ContextExport.sanitize(event.signature.methodName);
   const { spanId, parentSpanId } = event.spanContext;
@@ -59,7 +68,7 @@ function handleEnter(frames: Map<SpanId, Frame>, event: EnterEvent): void {
   LogContext.set("code.namespace", className);
   LogContext.set("code.function", methodName);
   LogContext.set("nt.depth", depth);
-  setTraceIdentityOnce(event.spanContext);
+  setTraceIdentityOnce(event.spanContext, runName);
   LogContext.set("span_id", spanId);
   LogContext.set("nt.entryType", "entry");
   LogContext.set("nt.eventType", "method_enter");
@@ -80,12 +89,18 @@ function handleExit(frames: Map<SpanId, Frame>, event: ExitEvent): void {
   LogContext.set("nt.eventType", "method_exit");
 }
 
-export function createEnricherEventConsumer(): EventConsumer {
+/**
+ * @param runName the enclosing test-suite (or process) run's three-word phrase, or `undefined`
+ * outside a tracked run (2026-09-13 ruling, item 2) — set into `LogContext` as `nt.runName`
+ * alongside `nt.traceName`, once per run, the same way `RunListener`/`Slf4jRunListener` attach it
+ * to MDC in the reference runtime.
+ */
+export function createEnricherEventConsumer(runName?: string): EventConsumer {
   const frames = new Map<SpanId, Frame>();
   return (event: TraceEvent) => {
     switch (event.type) {
       case "enter":
-        return handleEnter(frames, event);
+        return handleEnter(frames, event, runName);
       case "exit":
         return handleExit(frames, event);
     }

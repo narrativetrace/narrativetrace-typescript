@@ -1,0 +1,36 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# Duplication report — the nightly JSON producer for a cross-repo duplication resolver (a separate
+# piece of work on its own branch, not this file's job). `pnpm run duplication:check` already runs
+# the same report and ratchets it every commit (see documentation/duplication.md); this workflow
+# exists only to hand the resulting `duplication.json` to something outside this checkout on a
+# predictable schedule, as a build artifact rather than a committed file (`reports/*` is
+# git-ignored here, same as this repo's other generated reports).
+name: Duplication
+
+permissions: {}
+
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run duplication:report
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: duplication-report
+          path: reports/duplication/duplication.json
+          retention-days: 30

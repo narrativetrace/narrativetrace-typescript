@@ -176,15 +176,55 @@ function maskDuration(text: string): string {
   return text.replace(/—\s*\d+(\.\d+)?ms/g, "— Nms");
 }
 
+/** The adjective-noun-verb phrase's own shape — three lowercase words, `TraceNamer`/`humanName`. */
+const PHRASE = "[a-z]+ [a-z]+ [a-z]+";
+const MASKED_PHRASE = "NAME NAME NAME";
+
 /**
- * Applies `mask` to `text` before a check/sync comparison. `undefined` is a no-op; `"duration"` is
- * the only mask implemented (design note: "and only that mask, for now") — anything else is a
- * marker typo, so it fails loudly rather than silently comparing unmasked text.
+ * Masks the trace/run three-word phrase (and, where adjacent, the 7-hex id fragment) wherever a
+ * `trace:`/`run:`/`trace_name:`/`runName:` label, the prose renderer's `The trace …:` lead-in, or
+ * the Markdown renderer's `## Trace: … —` title carries one (2026-09-13 ruling: every OTHER embed
+ * of live output needs this, now that a trace/run header exists — the id (and so the phrase) is
+ * randomly generated on every capture, so it would otherwise fail `snippetCheck` on every
+ * regeneration; the sixty-seconds quickstart needs no mask at all, since its trace id is fixed).
+ */
+function maskTraceName(text: string): string {
+  return text
+    .replace(
+      new RegExp(`\\btrace: ${PHRASE} \\([0-9a-f]{7}\\)`, "g"),
+      `trace: ${MASKED_PHRASE} (0000000)`,
+    )
+    .replace(new RegExp(`\\brun: ${PHRASE}\\b`, "g"), `run: ${MASKED_PHRASE}`)
+    .replace(new RegExp(`\\btrace_name: ${PHRASE}\\b`, "g"), `trace_name: ${MASKED_PHRASE}`)
+    .replace(new RegExp(`\\brunName["']?\\s*[:=]\\s*"?${PHRASE}"?`, "g"), (m) =>
+      m.replace(new RegExp(PHRASE), MASKED_PHRASE),
+    )
+    .replace(new RegExp(`\\bThe trace ${PHRASE}:`, "g"), `The trace ${MASKED_PHRASE}:`)
+    .replace(new RegExp(`## Trace: ${PHRASE} —`, "g"), `## Trace: ${MASKED_PHRASE} —`);
+}
+
+const MASKS: Record<string, (text: string) => string> = {
+  duration: maskDuration,
+  traceName: maskTraceName,
+};
+
+/**
+ * Applies `mask` to `text` before a check/sync comparison. `undefined` is a no-op; `mask` is a
+ * comma-separated list of named masks (`mask=duration,traceName`), applied in order — anything not
+ * in {@link MASKS} is a marker typo, so it fails loudly rather than silently comparing unmasked
+ * text.
  */
 export function applyMask(text: string, mask: string | undefined): string {
   if (mask === undefined) return text;
-  if (mask === "duration") return maskDuration(text);
-  throw new Error(`unsupported mask '${mask}' — only 'duration' is implemented`);
+  return mask.split(",").reduce((acc, name) => {
+    const fn = MASKS[name];
+    if (!fn) {
+      throw new Error(
+        `unsupported mask '${name}' — only ${Object.keys(MASKS).join("/")} are implemented`,
+      );
+    }
+    return fn(acc);
+  }, text);
 }
 
 /**

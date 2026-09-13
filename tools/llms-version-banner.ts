@@ -2,7 +2,8 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
+import { englishDocPages } from "./snippet-shared.js";
 import { DEFAULT_REGISTRY_BASE } from "./verify-publication-registry.js";
 
 // The `llms.txt` "docs vs published" banner (family design note, docs-vs-published-gate
@@ -16,6 +17,18 @@ import { DEFAULT_REGISTRY_BASE } from "./verify-publication-registry.js";
 // PUBLISHED-version half is verified only opportunistically, when a fresh (<1h) cache already
 // exists; check never fails merely because the current run happens to be offline (thin-CI /
 // offline-nightly convention) — an expired or absent cache simply skips that half of the check.
+//
+// **The line also counts `unreleased` since-markers** (owner ruling, 2026-09-12; design note
+// docs-vs-published-gate-2026-09-12.md §1.1 item 8 + §5.1): the repo version stays at the last
+// *published* number until `--tag` bumps it, so the three shapes above can read as fully in sync
+// while `*(since X.Y.Z, unreleased)*` markers still sit on the page describing behaviour npm does
+// not ship yet. Whenever that count is greater than zero, each shape appends a clause before its
+// closing period — `; N behaviour(s) marked unreleased`, singular for a count of 1. The count is a
+// pure, deterministic file scan ({@link countUnreleasedMarkers}: `documentation/*.md` including
+// `llms-full.md` + `documentation/llms.txt` + root `README.md`, mirrors excluded via the same
+// `englishDocPages` `snippet-check`/`snippet-sync` already use for the snippet-drift check), so it
+// is verified on every commit alongside the repo-version half — unlike the published-version
+// half, which keeps its fresh-cache-only rule.
 
 /** Where the last successful registry lookup is cached — git-ignored (`.tools-cache/`), next to
  * every other tool-self-managed cache this repo already keeps out of source control. */
@@ -143,21 +156,92 @@ export async function resolvePublishedVersion(
 }
 
 /**
+ * Matches one `*(since X.Y.Z, unreleased)*` marker, whitespace-tolerant across BOTH wrap points a
+ * real Markdown hard-wrap can introduce — right after `since` (`*(since\n0.1.3, unreleased)*`) or
+ * right after the version's comma (`*(since 0.1.3,\nunreleased)*`). A marker split across a line
+ * break that way is invisible to a line-based grep/sed (neither half is then a complete line on
+ * its own), so every reader of this shape — this counter, the publish script's marker rewrite, and
+ * its stale-marker gate — matches against a file's WHOLE text, never one line at a time (owner
+ * ruling, 2026-09-12, closing the same gap Python's port found live in its own docs).
+ */
+export const UNRELEASED_MARKER_RE = /\*\(since\s+[0-9]+(?:\.[0-9]+)*,\s*unreleased\)\*/g;
+
+/** Every English doc file {@link countUnreleasedMarkers} reads: `documentation/*.md` (top level
+ * only — `llms-full.md` included, the es/pt-BR/zh-CN mirror subdirectories excluded, exactly what
+ * {@link englishDocPages} already computes for the snippet-drift check) plus
+ * `documentation/llms.txt`, plus the root `README.md`. */
+function unreleasedMarkerFiles(repoRoot: string): string[] {
+  const docs = englishDocPages(join(repoRoot, "documentation"));
+  const readme = join(repoRoot, "README.md");
+  return existsSync(readme) ? [...docs, readme] : docs;
+}
+
+/**
+ * How many `unreleased` since-markers sit across the English docs right now — a pure,
+ * deterministic file scan (no network, no clock), so `snippet-check` can verify the banner's count
+ * clause on every commit, unlike the published-version half.
+ */
+export function countUnreleasedMarkers(repoRoot = "."): number {
+  let total = 0;
+  for (const file of unreleasedMarkerFiles(repoRoot)) {
+    total += readFileSync(file, "utf-8").match(UNRELEASED_MARKER_RE)?.length ?? 0;
+  }
+  return total;
+}
+
+/** The `; N behaviour(s) marked unreleased` clause {@link renderVersionBannerLine} inserts before
+ * the closing period — empty for a count of zero, so the line reads exactly as it did before this
+ * feature. */
+function unreleasedClause(count: number): string {
+  if (count <= 0) return "";
+  return `; ${count} ${count === 1 ? "behaviour" : "behaviours"} marked unreleased`;
+}
+
+const UNRELEASED_CLAUSE_RE = /; (\d+) behaviours? marked unreleased/;
+
+/** The count an already-rendered banner line's clause currently states, or `0` when it carries
+ * none at all — the two are equivalent renderings of "nothing unreleased right now". */
+export function extractUnreleasedCount(bannerLine: string): number {
+  const match = UNRELEASED_CLAUSE_RE.exec(bannerLine);
+  return match ? Number(match[1]) : 0;
+}
+
+/**
  * The one generated `llms.txt` banner line (design note's three exact forms): versions equal,
  * versions differ, or no answer at all ("published: unknown offline" — never a guess, never a
- * stale cached value presented as fresh).
+ * stale cached value presented as fresh) — each optionally carrying the unreleased-count clause
+ * (see module doc) when `unreleasedCount` is greater than zero.
  */
 export function renderVersionBannerLine(
   repoVersion: string,
   publishedVersion: string | undefined,
+  unreleasedCount = 0,
 ): string {
+  const clause = unreleasedClause(unreleasedCount);
   if (publishedVersion === undefined) {
-    return `*(These docs describe ${repoVersion}; published: unknown offline.)*`;
+    return `*(These docs describe ${repoVersion}; published: unknown offline${clause}.)*`;
   }
   if (publishedVersion === repoVersion) {
-    return `*(Docs and published both at ${repoVersion}.)*`;
+    return `*(Docs and published both at ${repoVersion}${clause}.)*`;
   }
-  return `*(These docs describe ${repoVersion}; published is ${publishedVersion}.)*`;
+  return `*(These docs describe ${repoVersion}; published is ${publishedVersion}${clause}.)*`;
+}
+
+/**
+ * Rewrites just the unreleased-count clause of an ALREADY-RENDERED banner line to match `count`,
+ * leaving the repo-/published-version prose and any trailing cache-age comment untouched.
+ *
+ * INTENT: the publish script's `--tag` transform strips shipped since-markers from the staged
+ * snapshot only, and must keep this clause in sync with what survives that rewrite — without
+ * re-resolving the published-version half, which it never re-queries at tag time (that half keeps
+ * whatever a prior `snippet-sync` last resolved).
+ */
+export function refreshUnreleasedClauseInBanner(bannerLine: string, count: number): string {
+  const core = stripCacheAgeComment(bannerLine);
+  const trailingComment = bannerLine.slice(core.length);
+  const stripped = core.replace(UNRELEASED_CLAUSE_RE, "");
+  const withClause = stripped.replace(/\.\)\*$/, `${unreleasedClause(count)}.)*`);
+  return withClause + trailingComment;
 }
 
 const AGE_COMMENT = /\s*<!--\s*registry checked ([^>]*?)\s*-->\s*$/;

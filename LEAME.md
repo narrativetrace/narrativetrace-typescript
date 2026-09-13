@@ -1,4 +1,4 @@
-<!-- source: README.md blob 0e6eb7a8e007 | translated: 2026-09-12 | reviewed: - -->
+<!-- source: README.md blob ad27bcf6bdf2 | translated: 2026-09-13 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -453,6 +453,7 @@ Yendo más a fondo:
 - [Privacidad y ocultación](documentation/es/privacidad-y-ocultacion.md) — el contrato de ocultación fila por fila, verificado contra el código
 - [Qué commitear](documentation/es/que-commitear.md) — qué ficheros generados son salida de ejecución y cuáles (si acaso) son baselines revisadas
 - [Solución de problemas](documentation/es/solucion-de-problemas.md) — síntoma → causa → solución para los modos de fallo que la gente realmente encuentra
+- [Habilidades de agente](documentation/es/habilidades-de-agente.md) — `narrativetrace-doctor`, una habilidad de agente fina y de solo lectura sobre `npx narrativetrace doctor` *(since 0.1.3, unreleased)*
 - [Guía de claridad](documentation/es/guia-de-claridad.md) — modelo de puntuación, componentes de NLP, scanner estático
 - [Guía de integración de frameworks](documentation/es/guia-de-integracion-de-frameworks.md) — Express, Hono, navegador, AsyncLocalStorage
 - [Guía de ejemplos](documentation/es/guia-de-ejemplos.md) — el lanzador `pnpm demo` y los ejemplos ejecutables: ecommerce, clarity, Minecraft, JavaScript plano, Express, Hono, distribuido (Docker + Jaeger), navegador

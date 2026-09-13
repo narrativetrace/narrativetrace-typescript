@@ -1,11 +1,22 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   AsyncNarrativeContext,
+  artifactIdentityOfInvocation,
+  artifactIdentityOfMethod,
+  fileSlug,
   NarrativeTraceConfig,
   parameterCapture,
 } from "@narrativetrace/core-node";
@@ -81,6 +92,8 @@ describe("resolveFixtureConfig", () => {
       formats: ["md", "json", "mmd"],
       bufferCapacity: 8192,
       outputEnabled: true,
+      approval: false,
+      approvedDir: "narratives",
     });
   });
 
@@ -94,6 +107,8 @@ describe("resolveFixtureConfig", () => {
       formats: ["json", "mmd"],
       bufferCapacity: 8192,
       outputEnabled: true,
+      approval: false,
+      approvedDir: "narratives",
     });
   });
 
@@ -165,6 +180,8 @@ describe("resolveFixtureConfig — project config file channel", () => {
       formats: ["json", "mmd"],
       bufferCapacity: 8192,
       outputEnabled: true,
+      approval: false,
+      approvedDir: "narratives",
     });
   });
 
@@ -190,6 +207,8 @@ describe("resolveFixtureConfig — project config file channel", () => {
       formats: ["md", "json", "mmd"],
       bufferCapacity: 8192,
       outputEnabled: true,
+      approval: false,
+      approvedDir: "narratives",
     });
   });
 
@@ -272,6 +291,53 @@ describe("writeTraceOutput", () => {
     expect(existsSync(filePath)).toBe(true);
     const content = readFileSync(filePath, "utf-8");
     expect(content).toContain("OrderService.placeOrder");
+  });
+
+  // 2026-09-13 ruling, item 2: only the Markdown frontmatter carries `run:`.
+  test("the markdown frontmatter names the enclosing test-suite run", () => {
+    const config = new NarrativeTraceConfig();
+    const ctx = new AsyncNarrativeContext(config);
+    ctx.enterMethod("OrderService", "placeOrder", []);
+    ctx.exitMethodWithReturn('"OK"');
+
+    writeTraceOutput(ctx.captureTrace(), {
+      outputDir: tmpDir,
+      moduleName: "order-service-run",
+      testName: "names the run",
+      formats: ["md"],
+    });
+
+    const content = readFileSync(join(tmpDir, "order-service-run", "names_the_run.md"), "utf-8");
+    expect(content).toMatch(/^run: [a-z]+ [a-z]+ [a-z]+$/m);
+  });
+
+  // 2026-09-13 ruling, item 2: manifest wiring — one role → relative path per format written.
+  test("returns the manifest role → relative path for every format actually written", () => {
+    const config = new NarrativeTraceConfig();
+    const ctx = new AsyncNarrativeContext(config);
+    ctx.enterMethod("OrderService", "placeOrder", []);
+    ctx.exitMethodWithReturn('"OK"');
+
+    const artifacts = writeTraceOutput(ctx.captureTrace(), {
+      outputDir: tmpDir,
+      moduleName: "order-service-manifest",
+      testName: "manifest roles",
+      formats: ["md", "json", "mmd"],
+    });
+
+    expect(Object.fromEntries(artifacts)).toEqual({
+      trace: "order-service-manifest/manifest_roles.md",
+      json: "order-service-manifest/manifest_roles.json",
+      mmd: "diagrams/order-service-manifest/manifest_roles.mmd",
+    });
+  });
+
+  test("returns an empty map for an empty trace — nothing was written", () => {
+    const artifacts = writeTraceOutput(
+      { roots: [], isEmpty: true },
+      { outputDir: tmpDir, moduleName: "m", testName: "t", formats: ["md"] },
+    );
+    expect(artifacts.size).toBe(0);
   });
 
   test("writes mermaid file for trace", () => {
@@ -671,6 +737,25 @@ describe("createNarrativeTest", () => {
     expect(defaultTest).toBeDefined();
   });
 
+  const untracedTest = createNarrativeTest({ outputDir: tmpDir, formats: ["md"] });
+  // No traced calls at all: every per-test emitter (file writer, manifest row, clarity/glossary
+  // recording) shares the same "no roots, no artifact" contract — this exercises that guard
+  // clause end to end, through the real fixture, not just in each emitter's own unit test.
+  untracedTest("writes nothing at all when the test traces no call", ({ narrativeContext }) => {
+    // Referencing the fixture (Vitest fixtures are lazy — only initialized when a test destructures
+    // them) without calling anything on it: no enterMethod, so the captured trace is empty.
+    expect(narrativeContext).toBeDefined();
+  });
+
+  test("an untraced test leaves no artifact file behind", () => {
+    const filePath = join(
+      tmpDir,
+      "narrative-test",
+      "createNarrativeTest_writes_nothing_at_all_when_the_test_traces_no_call.md",
+    );
+    expect(existsSync(filePath)).toBe(false);
+  });
+
   const tracedTest = createNarrativeTest({
     outputDir: tmpDir,
     formats: ["md"],
@@ -733,6 +818,143 @@ describe("createNarrativeTest", () => {
     expect(existsSync(filePath)).toBe(true);
     const content = readFileSync(filePath, "utf-8");
     expect(content).toContain("OrderService.riskyOp");
+  });
+});
+
+// End-to-end approval mode through the real fixture — the reference runtime's approval-testing
+// idea, applied to traces (owner naming ruling, 2026-09-12: "approval traces", never "approval
+// tests"). Each block follows the file's own two-test pattern: register via the fixture, assert in
+// the next test, since a fixture's teardown runs during Vitest's own run phase.
+describe("createNarrativeTest — approval mode", () => {
+  const outputDir = mkdtempSync(join(tmpdir(), "narrative-approval-output-"));
+  const approvedDir = mkdtempSync(join(tmpdir(), "narrative-approval-approved-"));
+  afterAll(() => {
+    rmSync(outputDir, { recursive: true, force: true });
+    rmSync(approvedDir, { recursive: true, force: true });
+  });
+
+  const approvalTest = createNarrativeTest({
+    outputDir,
+    formats: ["md"],
+    approval: true,
+    approvedDir,
+  });
+
+  /** The full suite-qualified test name `buildTestPath` derives for one of this suite's tests. */
+  function testNameFor(testTitle: string): string {
+    return `createNarrativeTest — approval mode > ${testTitle}`;
+  }
+
+  /** The exact artifact base name `createNarrativeTest` derives for one of this suite's tests. */
+  function slugFor(testTitle: string): string {
+    return fileSlug(artifactIdentityOfMethod("narrative-test", testNameFor(testTitle)));
+  }
+
+  const noBaselineSlug = slugFor("fails a scenario with no approved trace yet");
+  approvalTest.fails("fails a scenario with no approved trace yet", ({ narrativeContext }) => {
+    narrativeContext.enterMethod("Svc", "run", []);
+    narrativeContext.exitMethodWithReturn(null);
+  });
+
+  test("writes a received trace naming the approve-narratives script", () => {
+    const receivedPath = join(approvedDir, "narrative-test", `${noBaselineSlug}.received.nt`);
+    expect(existsSync(receivedPath)).toBe(true);
+    expect(readFileSync(receivedPath, "utf-8")).toContain("Svc.run()");
+  });
+
+  const changedSlug = slugFor("fails a scenario whose structure changed");
+  const matchedSlug = slugFor("passes a scenario whose structure matches the approved trace");
+  beforeAll(() => {
+    const dir = join(approvedDir, "narrative-test");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, `${changedSlug}.approved.nt`),
+      `scenario: ${testNameFor("fails a scenario whose structure changed")}\n\n- Other.call()\n`,
+    );
+    writeFileSync(
+      join(dir, `${matchedSlug}.approved.nt`),
+      `scenario: ${testNameFor("passes a scenario whose structure matches the approved trace")}\n\n- Svc.run()\n`,
+    );
+  });
+
+  approvalTest.fails("fails a scenario whose structure changed", ({ narrativeContext }) => {
+    narrativeContext.enterMethod("Svc", "run", []);
+    narrativeContext.exitMethodWithReturn(null);
+  });
+
+  test("writes a received trace with the current structure, leaving the approved trace untouched", () => {
+    const dir = join(approvedDir, "narrative-test");
+    const received = readFileSync(join(dir, `${changedSlug}.received.nt`), "utf-8");
+    expect(received).toContain("Svc.run()");
+    expect(readFileSync(join(dir, `${changedSlug}.approved.nt`), "utf-8")).toContain(
+      "Other.call()",
+    );
+  });
+
+  approvalTest(
+    "passes a scenario whose structure matches the approved trace",
+    ({ narrativeContext }) => {
+      narrativeContext.enterMethod("Svc", "run", []);
+      narrativeContext.exitMethodWithReturn(null);
+    },
+  );
+
+  test("advances the last-green baseline on a matching, fully green verdict", () => {
+    const lastGreenPath = join(outputDir, "structural", "narrative-test", `${matchedSlug}.nt`);
+    expect(existsSync(lastGreenPath)).toBe(true);
+    expect(readFileSync(lastGreenPath, "utf-8")).toContain("Svc.run()");
+  });
+});
+
+// Per-invocation identity (cross-port naming rule, 2026-09-12): an
+// invocation's structural title is `<humanized test name> #<index>` — never the interpolated
+// label — while the filename keeps the label, and each invocation of one .each() call gets its own
+// artifact set.
+describe("createNarrativeTest(...).each", () => {
+  const outputDir = mkdtempSync(join(tmpdir(), "narrative-each-"));
+  afterAll(() => rmSync(outputDir, { recursive: true, force: true }));
+
+  const eachTest = createNarrativeTest({ outputDir, formats: ["md"] });
+  const structuralDir = join(outputDir, "structural", "narrative-test");
+
+  eachTest.each(["TENT", "KAYAK"])(
+    "equipment can be found: %s",
+    (item: string, { narrativeContext }: { narrativeContext: AsyncNarrativeContext }) => {
+      narrativeContext.enterMethod("Catalog", "find", [parameterCapture("item", item, false)]);
+      narrativeContext.exitMethodWithReturn(`"${item}"`);
+    },
+  );
+
+  test("gives each invocation its own .nt file, named with the 1-based index and label", () => {
+    const identityOne = artifactIdentityOfInvocation(
+      "narrative-test",
+      "equipment can be found: %s",
+      1,
+      "equipment can be found: TENT",
+    );
+    const identityTwo = artifactIdentityOfInvocation(
+      "narrative-test",
+      "equipment can be found: %s",
+      2,
+      "equipment can be found: KAYAK",
+    );
+    const pathOne = join(structuralDir, `${fileSlug(identityOne)}.nt`);
+    const pathTwo = join(structuralDir, `${fileSlug(identityTwo)}.nt`);
+    expect(existsSync(pathOne)).toBe(true);
+    expect(existsSync(pathTwo)).toBe(true);
+    expect(readFileSync(pathOne, "utf-8")).toContain("Catalog.find(item)");
+  });
+
+  test("titles the structural header <humanized name> #<index>, never the interpolated label", () => {
+    const identity = artifactIdentityOfInvocation(
+      "narrative-test",
+      "equipment can be found: %s",
+      2,
+      "equipment can be found: KAYAK",
+    );
+    const content = readFileSync(join(structuralDir, `${fileSlug(identity)}.nt`), "utf-8");
+    expect(content).toContain("scenario: equipment can be found: %s #2");
+    expect(content).not.toContain("KAYAK");
   });
 });
 
@@ -809,6 +1031,8 @@ describe("createNarrativeTest — explicit outputEnabled: false writes nothing",
     outputDir: tmpDir,
     formats: ["md"],
     outputEnabled: false,
+    approval: false,
+    approvedDir: "narratives",
   });
   optOffTest("would write if enabled", ({ narrativeContext }) => {
     narrativeContext.enterMethod("Svc", "op", []);

@@ -117,7 +117,8 @@ class RenderWalk {
  * Renders any captured value to a single compact, human-readable string for a trace line, applying
  * truncation, cycle detection (`<circular>`), a depth cap (`<max-depth>`), and key redaction.
  * Dispatch order mirrors the Java `ValueRenderer`: array/Set/Map, then `@narrativeSummary`, then a
- * custom `toString()`, then field introspection.
+ * custom `toString()` (realm platform intrinsics only, e.g. `Date`/`URL`/`RegExp`/typed arrays —
+ * see `isPlatformValue`), then field introspection.
  *
  * @param value any argument or return value, including `null`/`undefined` (rendered literally) and
  * cyclic structures.
@@ -287,30 +288,76 @@ function hasCustomToString(value: object): boolean {
 }
 
 /**
- * Whether `value` is a leaf: no own enumerable key, so it has nothing field introspection could
- * ever walk (the renderer never reaches a prototype getter — see the `RenderOptions` remarks).
+ * The realm intrinsic prototypes {@link isPlatformValue} trusts native stringification for (owner
+ * ruling, 2026-09-12 "trusted-leaf" carve-out). `Map`/`Set` are deliberately absent: `dispatchObject`
+ * routes both to their own renderer before this check is ever consulted, so they never reach here.
  *
- * @remarks This is the line the family invariant of 2026-09-11 draws: a custom `toString()` is
- * trusted ONLY for a leaf. An object with own fields is ALWAYS introspected instead, whatever its
- * `toString()` would have printed — not merely when one of ITS OWN fields happens to be a
- * redaction target. The narrower, field-name-based predecessor of this check
- * (`hasRedactedOwnField`) missed the shape the family security fix of 2026-09-11 exists for: a
- * `toString()` that interpolates a NESTED object's own curated text (`Order.toString()` printing
- * `this.customer`, itself a `Holder` with a redacted field) never puts the redacted field's name
- * or annotation on `Order` itself, so the own-field check saw nothing to catch — the leak lived a
- * level down, past where the check ever looked. Trusting `toString()` for leaves only closes that
- * whole class at once, at every depth, rather than chasing each new interpolation shape as its
- * own bug.
+ * @remarks `Error` is deliberately NOT included, despite being a realm intrinsic. Every other entry
+ * here stringifies opaque, platform-managed internal state (`Date`'s numeric timestamp, `URL`'s
+ * parsed components, `RegExp`'s pattern, a typed array's numeric buffer) that cannot itself embed a
+ * caller-named secret. `Error.prototype.toString()` instead interpolates `message` — free text the
+ * caller supplies at construction (`new Error(user.password)`) — exactly the shape a deny-listed
+ * field exists to catch, so trusting it here would hand back a way to smuggle a secret past both
+ * this renderer's redaction axes at once.
  */
-function isLeaf(value: object): boolean {
-  return Object.keys(value).length === 0;
+// `URL` is a WHATWG/Node global, not an ECMAScript one — this package's `lib` is ES2022 only, kept
+// lean on purpose so its compiled types never assume a DOM or Node ambient (see tsconfig.json), so
+// there is no type for a bare `URL` reference here. Resolved dynamically instead, purely for its
+// `prototype` object's identity, and left out of the set entirely on a runtime with no URL global
+// at all (no false negative: nothing else on this list is ever a URL, so omitting it only means
+// this one intrinsic falls back to a field walk there instead of a short value).
+const urlCtor = (globalThis as { URL?: { readonly prototype: unknown } }).URL;
+
+const PLATFORM_PROTOTYPES: ReadonlySet<unknown> = new Set<unknown>(
+  [
+    Date.prototype,
+    urlCtor?.prototype,
+    RegExp.prototype,
+    BigInt.prototype,
+    Int8Array.prototype,
+    Uint8Array.prototype,
+    Uint8ClampedArray.prototype,
+    Int16Array.prototype,
+    Uint16Array.prototype,
+    Int32Array.prototype,
+    Uint32Array.prototype,
+    Float32Array.prototype,
+    Float64Array.prototype,
+    BigInt64Array.prototype,
+    BigUint64Array.prototype,
+  ].filter((prototype): prototype is object => prototype !== undefined),
+);
+
+/**
+ * Whether `value` IS, by identity, one of the realm's platform-defined intrinsics this renderer
+ * trusts native stringification for.
+ *
+ * @remarks Owner ruling, 2026-09-12: after the 2026-09-11 fix (trust `toString()` only for a
+ * leaf — no own enumerable key), a field-less user class was STILL trusted merely for having
+ * nothing `Object.keys` could see — but "no own enumerable key" was never proof of "nothing to
+ * hide" the way it looked: a true `#private` class field, a closure variable, or a module-level
+ * `WeakMap` keyed by `this` are all invisible to `Object.keys` yet freely readable from inside the
+ * class's own `toString()`. That is a strictly JS-shaped hole the 2026-09-11 fix didn't close, and
+ * closing it means narrowing trust from "any leaf" to "a leaf this library itself ships and can
+ * vouch for" — a realm intrinsic, checked by IDENTITY.
+ *
+ * The check is `Object.getPrototypeOf(value) === <Intrinsic>.prototype`, never
+ * `value.constructor?.name` or any other name-based test: a user class can freely name itself
+ * `Date` (`platform-lookalike-walked` in the hostile corpus) without ever touching
+ * `Date.prototype`, and a subclass's instances have the SUBCLASS's prototype one level up, not the
+ * base intrinsic's (`platform-subclass-walked`) — `class Foo extends Date {}` fails this check for
+ * every one of its instances, exactly as it must: the most-derived type is what decides trust, and
+ * a subclass is never trusted merely because its superclass is.
+ */
+function isPlatformValue(value: object): boolean {
+  return PLATFORM_PROTOTYPES.has(Object.getPrototypeOf(value));
 }
 
 // An object with its own toString() renders that string (sanitized + truncated) rather than a
 // field dump; a null-returning toString falls back to <TypeName>, a throwing one to the typed
 // error marker (Java renderWithToString). Plain objects (Object.prototype.toString) still
-// introspect. Only ever called for a leaf (see dispatchObject) — an object with fields never
-// reaches here at all.
+// introspect. Only ever called for a platform value (see dispatchObject) — every other object,
+// leaf or not, always field-walks instead (2026-09-12 ruling — see isPlatformValue).
 function renderWithToString(value: object, opts: Required<RenderOptions>): string {
   try {
     const raw = (value as { toString(): unknown }).toString();
@@ -337,16 +384,16 @@ function renderObject(value: object, opts: Required<RenderOptions>, walk: Render
 }
 
 // Render order mirrors Java ValueRenderer: Array, Set, Map, @narrativeSummary, custom toString
-// (leaves only — see isLeaf), then field introspection. A custom toString() on an object that
-// HAS fields is never trusted, regardless of whether any of those fields is itself a redaction
-// target — see isLeaf's doc for the nested-interpolation leak this closes.
+// (realm platform intrinsics only — see isPlatformValue), then field introspection. A custom
+// toString() on any object that is NOT a platform value is never trusted, fields or not — see
+// isPlatformValue's doc for the private-field/closure leak this closes.
 function dispatchObject(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
   if (Array.isArray(value)) return renderArray(value, opts, walk);
   if (value instanceof Set) return renderSet(value, opts, walk);
   if (value instanceof Map) return renderMap(value, opts, walk);
   const summary = renderSummary(value, opts);
   if (summary !== undefined) return summary;
-  if (hasCustomToString(value) && isLeaf(value)) {
+  if (hasCustomToString(value) && isPlatformValue(value)) {
     return renderWithToString(value, opts);
   }
   return renderPlainObject(value, opts, walk);
@@ -375,7 +422,7 @@ function renderMap(
 }
 
 // A Map key can be an arbitrary object — including one carrying a redacted field, or one whose
-// own toString() is the exact nested-interpolation hazard `isLeaf` guards against — so the key is
+// own toString() is the exact private-state hazard `isPlatformValue` guards against — so the key is
 // rendered through the same total, redaction-aware `render()` every value goes through, never via
 // a raw `String(key)` (2026-09-11 family security fix: `String(key)` on an object silently calls
 // its toString() unconditionally, bypassing dispatch entirely). The "does this key's NAME look

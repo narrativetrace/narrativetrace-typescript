@@ -1,4 +1,4 @@
-<!-- source: documentation/feature-guide.md blob bd281d7f6165 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/feature-guide.md blob 7fe3e6a936cf | translated: 2026-09-13 | reviewed: - -->
 # NarrativeTrace TypeScript — Guia de funcionalidades
 
 [English](../feature-guide.md) | [Español](../es/guia-de-funcionalidades.md) | **Português** | [简体中文](../zh-CN/功能指南.md)
@@ -72,7 +72,7 @@ TS-004 no ADL da plataforma.
 | `angular` — `provideNarrativeTrace()`, interceptor HTTP, tracing de DI | Gratuito | |
 | `react` — hooks/provider para traces de componentes e serviços | Gratuito | |
 | `react-router` — captura de navegação | Gratuito | |
-| `vitest` — fixture `narrativeTest`, arquivos de trace por teste (`md`/`mmd`/`puml`/`json`/`clarity-json`/`canonical-json`), resumo no console + reporters de clareza | Gratuito | |
+| `vitest` — fixture `narrativeTest`, arquivos de trace por teste (`md`/`mmd`/`puml`/`json`/`clarity-json`/`canonical-json`), resumo no console + reporters de clareza, um subpath `/reporters` importável, artefato estrutural `.nt` livre de valores + trace aprovados, identidade por invocação com `.each` *(since 0.1.3, unreleased)* | Gratuito | |
 | Schema canônico 1.2 + artefatos validados pelo escritor (writer) | Gratuito | `nt.schemaVersion` `1.2` a partir de uma única constante `SCHEMA_VERSION`; `.canonical.json` por teste (lista plana de entradas, determinística para uma captura livre de contexto); os schemas vivem em `schema/` e um teste de conformidade valida os bytes que `writeTraceOutput` escreve, não uma entrada construída à mão |
 | `winston` / `pino` — eventos de narrativa através do seu logger existente, campos tipados, níveis configuráveis por evento | Gratuito | TS-003 no ADL da plataforma |
 | `observability` — enriquecedor de escopo de log (`trace_id`, `code.*`, `service.*`, `nt.depth`) + middleware de requisição | Gratuito | |
@@ -94,6 +94,7 @@ Não presente nesta plataforma: um equivalente ao agente Java
 | Exportação JSON canônica — envelope versionado (`version`, `scenario`, `trace`, `events[]`) com campos storyId/chapterId | Gratuito | `exportJson(tree, { scenario })` |
 | Diagramas de sequência — Mermaid + PlantUML | Gratuito | `@narrativetrace/diagrams` |
 | Arquivos de trace por teste + resumos de teste no console via Vitest | Gratuito | |
+| Artefato estrutural `.nt` — trace por cenário livre de valores, baseline de último-verde, rodapé de delta "Since last green", trace aprovados opcionais (`.approved.nt`/`.received.nt`, `pnpm run approve-narratives`) | Gratuito | [structural-trace-format.md](../structural-trace-format.md) (ainda não traduzido) |
 | Resumos de fluxo — caminhos agregados + frequências por ponto de entrada | Planejado (Pro) | Plano enterprise, Fase E3 |
 | Diffs de migração — comparação comportamental antes/depois | Planejado (Pro) | Plano enterprise, Fase E3 |
 | Grafos de dependência em runtime (sempre chamado vs condicional) | Planejado (Pro) | Plano enterprise, Fase E4 |

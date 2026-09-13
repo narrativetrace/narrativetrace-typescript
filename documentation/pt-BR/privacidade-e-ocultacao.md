@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 0bbd71ce1631 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 8fc25f9b4abe | translated: 2026-09-13 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -19,6 +19,7 @@ código em 2026-09-02, não inferido a partir da documentação.
 | Fixture do Vitest (`createNarrativeTest`/`narrativeTest`) | Não |
 | Uma chamada customizada a `renderValue()`/`renderStructured()` que seu próprio código faz diretamente | Sim — apenas passando `{ redactionPolicy: RedactionPolicy.DISABLED }` explicitamente, e mesmo assim `@notTraced`/`static notTraced` continuam ocultando (veja abaixo) |
 | `@notTraced` / `static notTraced` | Não aplicável — é a própria coisa que faz a ocultação, e sempre vence, em toda superfície, inclusive em um renderer com `RedactionPolicy.DISABLED` |
+| Trace estrutural `.nt` (`renderStructural`/`renderStructuralDocument`) | Não aplicável — não carrega nenhum valor para ocultar, antes de tudo |
 
 Verificado contra o código, não inferido: `traceObject()` é o caminho de
 captura sobre o qual `express`, `hono`, `angular` e `react` são
@@ -99,7 +100,7 @@ Três mecanismos independentes se aplicam a todo valor capturado/renderizado:
    lista, um valor de map) ou um bearer token sob um nome não reconhecido
    ainda assim é capturado.
    **A metade deste eixo baseada em parâmetro só se aplica sob
-   `traceObject()`** — um parâmetro simplesmente *nomeado* como um
+   `traceObject()`** *(since 0.1.3, unreleased)* — um parâmetro simplesmente *nomeado* como um
    segredo (`paymentToken`, `password`) é ocultado sem nenhum decorator,
    exatamente como um nome de campo é. Sob o `AutoProxyModule` do NestJS
    todo parâmetro é capturado como `arg0`, `arg1`, … (veja a nota de
@@ -121,29 +122,51 @@ Três mecanismos independentes se aplicam a todo valor capturado/renderizado:
    `carbonFootprintId` permanecem visíveis enquanto `rutCliente`,
    `senhaUsuario` e `otpCode` ficam ocultos.
 
-**Um `toString()` personalizado só é confiado para uma folha** — um objeto
-sem nenhum campo próprio, de modo que não há mais nada que a introspecção de
-campos poderia mostrar em vez disso (invariante da família, 2026-09-11; o
-design deste port já coincidia com o do .NET). *(since 0.1.3, unreleased)*
-No momento em que um objeto
-tem ao menos um campo próprio, ele é *sempre* introspectado campo a campo,
-não importa o que seu `toString()` teria impresso — não apenas quando esse
-campo é, por si só, anotado ou pertence à lista de negação. Isso é mais
-restritivo do que parece necessário, e é deliberado: a regra anterior, mais
-estreita ("confiar no `toString()` a menos que um dos campos *próprios deste
-objeto* seja um alvo de ocultação"), deixava passar a forma que uma correção
-de segurança de 2026-09-11 fecha — um `toString()` que interpola o texto
-cuidadosamente escrito de um objeto **aninhado** (`Order.toString()`
-imprimindo `this.customer`, que por sua vez é um `Customer` que oculta um
-campo) nunca coloca o nome ou a anotação do campo ocultado no próprio
-`Order`, então a checagem de campo próprio não encontrava nada para pegar e
-o segredo aninhado era impresso por completo. Confiar no `toString()` apenas
-para folhas fecha essa classe inteira de brecha de uma vez, em qualquer
-profundidade de aninhamento, em vez de perseguir cada nova forma de
-interpolação como um bug à parte. A mesma regra vale para uma **chave** de
-`Map`: uma chave que é ela própria um objeto passa pela mesma renderização
-consciente de ocultação que um valor, nunca por um `toString()` bruto e
-incondicional. *(since 0.1.3, unreleased)*
+**Um `toString()` personalizado só é confiado para um intrínseco da
+plataforma do realm** — `Date`, `URL`, `RegExp`, um `BigInt` encaixotado ou
+um typed array (decisão do time, 2026-09-12, a exceção da "folha de
+confiança"). *(since 0.1.3, unreleased)* Qualquer outro objeto — uma classe
+comum, um valor em forma de registro, uma "folha" sem campo próprio visível
+— é *sempre* introspectado campo a campo, não importa o que seu `toString()`
+teria impresso. A checagem de identidade é
+`Object.getPrototypeOf(valor) === Date.prototype` (e o mesmo para cada um
+dos outros intrínsecos acima) — **nunca** `constructor.name` ou qualquer
+outra checagem baseada em nome: uma classe do usuário pode se autodenominar
+`Date` livremente sem nunca tocar no `Date.prototype` real, e as instâncias
+de uma subclasse carregam o protótipo da *subclasse* um nível acima, não o
+do intrínseco base, então nem um impostor com o mesmo nome nem uma subclasse
+de um tipo de plataforma são confiados apenas por associação. `Error` é
+deliberadamente excluído dessa lista mesmo sendo também um intrínseco do
+realm: diferente do timestamp opaco de `Date` ou do buffer numérico de um
+typed array, `Error.prototype.toString()` interpola `message` — texto livre
+que quem chama fornece na construção (`new Error(usuario.password)`) —
+exatamente a forma que um campo na lista de negação existe para pegar,
+então um valor `Error` é introspectado campo a campo como qualquer outro
+objeto. *(since 0.1.3, unreleased)*
+
+Isso estreita uma regra intermediária de vida curta de 2026-09-11 ("confiar
+no `toString()` para qualquer folha — qualquer objeto sem nenhum campo
+próprio enumerável") que este port publicou por menos de um dia: nesta
+plataforma, "sem campo próprio enumerável" nunca foi, de fato, prova de
+"nada a esconder" como parece — um campo `#private` verdadeiro, uma
+variável de closure ou um `WeakMap` em nível de módulo indexado por `this`
+são todos invisíveis para `Object.keys`, mas livremente legíveis de dentro
+do próprio `toString()` da classe, então um impostor com o mesmo nome ou a
+mesma forma de um tipo confiável ainda podia vazar por ali. Restringir a
+confiança ao pequeno conjunto fechado de intrínsecos que esta biblioteca já
+traz consigo — nunca uma classe de usuário arbitrária, folha ou não — fecha
+essa brecha de vez. A própria regra de 2026-09-11 fechou antes uma ainda
+mais estreita: a regra original ("confiar no `toString()` a menos que um
+dos campos *próprios deste objeto* seja um alvo de ocultação") deixava
+passar um `toString()` que interpola o texto cuidadosamente escrito de um
+objeto **aninhado** (`Order.toString()` imprimindo `this.customer`, que por
+sua vez é um `Customer` que oculta um campo) — o nome ou a anotação do
+campo ocultado nunca aparecia no próprio `Order`, então a checagem de campo
+próprio não encontrava nada para pegar e o segredo aninhado era impresso
+por completo. A mesma regra vale para uma **chave** de `Map`: uma chave que
+é ela própria um objeto passa pela mesma renderização consciente de
+ocultação que um valor, nunca por um `toString()` bruto e incondicional.
+*(since 0.1.3, unreleased)*
 
 `narrativeSummary()` é texto cuidadosamente escrito pelo autor
 especificamente para o trace, e continua a prevalecer tanto sobre a
@@ -212,6 +235,24 @@ Detalhes completos e exemplos resolvidos:
   [Guia de configuração § 8](guia-de-configuracao.md#8-buffer-do-pipeline-de-eventos-bufferedeventconsumer)).
   Uma captura que perdeu eventos imprime a contagem e para quanto
   aumentar a capacidade, em seu próprio rodapé.
+- **O artefato estrutural `.nt` não carrega nenhum valor em tempo de
+  execução.** *(since 0.1.3, unreleased)* Apenas nomes, hierarquia de chamadas e tipos de resultado —
+  zero superfície de injeção de prompt, e isso é uma propriedade do
+  renderer, não uma política que alguém pudesse esquecer de aplicar. Seu
+  cabeçalho `scenario:` está coberto por isso: uma invocação de uma linha de
+  `createNarrativeTest(...).each(cases)` é titulada `<nome do teste>
+  #<índice>`, nunca o rótulo em que um template interpolou seus argumentos
+  (veja [Structural Trace Format](../structural-trace-format.md), ainda não
+  traduzido). Como o artefato é *chamado* — seu nome de arquivo, e o próprio
+  título do teste — é uma pergunta diferente; veja a não garantia abaixo.
+- **A frase do trace/execução não carrega nenhum dado próprio.** *(since 0.1.3, unreleased)*
+  `bold elk soars` é derivada deterministicamente de um id de trace ou de
+  execução (`humanName()`, três tabelas de palavras fixas) — ela não é, e
+  nunca lê, nada que o código traçado produziu, então é seguro imprimi-la,
+  logá-la ou colá-la em um relatório de bug sozinha. Ela nunca chega ao
+  artefato estrutural `.nt`, a um trace aprovado ou recebido, ao nome de
+  arquivo de um artefato, nem às chaves por cenário do manifest — veja
+  [Guia de Configuração § A execução tem um nome](guia-de-configuracao.md#a-execução-tem-um-nome-since-013-unreleased).
 
 ## Não garantias
 
@@ -224,14 +265,18 @@ Detalhes completos e exemplos resolvidos:
   interface para implementar antes; todo método alcançável por meio de
   lookup de propriedade — declarado no próprio objeto ou herdado de sua
   cadeia de protótipos — é visível para `traceObject()`.
-- **Ainda sem artefato estrutural, livre de valores.** Alguns outros
-  implementações do NarrativeTrace também distribuem um artefato no estilo `.nt`
-  sem nenhum valor de runtime, para entregar a uma ferramenta de IA com
-  superfície zero para prompt injection por construção. Esta implementação ainda
-  não construiu isso — veja
-  [O que commitar](o-que-commitar.md#por-que-ainda-não-há-uma-linha-approvednt-aqui).
-  Até que exista, todo artefato gerado nesta implementação carrega valores
-  capturados reais e deve ser tratado de acordo.
+- **Nenhuma ocultação dos nomes dos testes.** *(since 0.1.3, unreleased)* O cabeçalho `scenario:` do
+  artefato estrutural e seu nome de arquivo são derivados do próprio título
+  do teste (e, para uma invocação de `.each`, do rótulo interpolado, que só
+  chega ao nome de arquivo — veja
+  [Structural Trace Format](../structural-trace-format.md), ainda não
+  traduzido) — texto que o desenvolvedor escreveu, não um valor capturado,
+  então nenhum dos mecanismos de ocultação acima roda sobre ele. Um título
+  de teste ou um rótulo de `.each` que embuta um segredo
+  (`test("faz login como ${password}", ...)`) coloca esse segredo no nome
+  de arquivo e no caminho do `.approved.nt` commitado — mantenha segredos
+  fora dos títulos de teste e dos templates de nome do `.each`, a mesma
+  regra de qualquer outro framework de teste.
 - **Nenhum caminho "zero código", de "envolver um app que você não
   escreveu".** Não existe um equivalente ao Java agent nesta plataforma,
   então o escopo é sempre por call site explícito ou anotação de classe

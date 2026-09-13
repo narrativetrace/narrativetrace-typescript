@@ -7,6 +7,7 @@ import { join } from "node:path";
 import type { ScenarioResult } from "@narrativetrace/clarity";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { ClaritySuiteReporter, collectClarityEntries } from "../src/clarity-suite-reporter.js";
+import { resetRunIdentityForTest, runIdentity } from "../src/run-identity-accumulator.js";
 
 function entry(scenario: string, overall: number): ScenarioResult {
   return {
@@ -76,6 +77,27 @@ describe("ClaritySuiteReporter.onFinished", () => {
     reporter.onFinished([{ type: "suite", tasks: [{ type: "test" }] }]);
     expect(Object.keys(writes)).toHaveLength(0);
     expect(logs).toHaveLength(0);
+  });
+
+  // 2026-09-13 ruling, item 2: the run's own name reaches the footer without any extra wiring.
+  describe("run name", () => {
+    afterEach(() => {
+      resetRunIdentityForTest();
+    });
+
+    test("the footer names the run this process established", () => {
+      const { reporter, logs } = memReporter();
+      const run = runIdentity();
+      reporter.onFinished([{ type: "suite", tasks: [testTask("A", 0.9)] }]);
+      expect(logs[0]).toContain(`run: ${run.name}`);
+    });
+
+    test("onInit establishes the run identity early, before any test writes", () => {
+      resetRunIdentityForTest();
+      const { reporter } = memReporter();
+      reporter.onInit();
+      expect(process.env["NARRATIVETRACE_RUN_ID"]).toBeDefined();
+    });
   });
 });
 

@@ -7,6 +7,7 @@ import { formatDurationMs } from "./duration-format.js";
 import { errorMessage, errorTypeName } from "./error-display.js";
 import { displayParamValue } from "./parameter-capture.js";
 import { analyze } from "./sequential-async-detector.js";
+import { humanName } from "./trace-namer.js";
 import type { TraceNode } from "./trace-node.js";
 import type { TraceTree } from "./trace-tree.js";
 import { TREE_WALK_MARKER, TreeWalk } from "./tree-walk.js";
@@ -16,14 +17,26 @@ import { TREE_WALK_MARKER, TreeWalk } from "./tree-walk.js";
  * outcome (`→ value`, `✗ Error: …`, or `⏳ (incomplete)`). Fork/join segments render a `⑂ fork`
  * header, sorted `↦` branches, and a `⑃ join — Nms` footer.
  *
- * INTENT: a dependency-free, terminal-friendly view for logs or console output.
+ * INTENT: a dependency-free, terminal-friendly view for logs or console output. Opens with the
+ * trace's own three-word phrase (`trace: bold elk soars (a1b2c3d)` — the phrase plus the first 7
+ * hex characters of its id) whenever {@link TraceTree.traceId} is present (2026-09-13 ruling, item
+ * 4); silent on an empty tree, or a hand-built one that opted out of identity — nothing here is
+ * invented. This is the trace's OWN name, unrelated to a test-suite run's name (see
+ * `RunIdentity`); neither ever reaches the structural `.nt` text.
  *
  * @returns the tree lines joined by `\n`; an empty tree yields an empty string.
  */
 export function renderIndentedText(tree: TraceTree): string {
   const lines: string[] = [];
+  appendTraceHeader(tree, lines);
   renderTree(tree.roots, lines);
   return lines.join("\n");
+}
+
+function appendTraceHeader(tree: TraceTree, lines: string[]): void {
+  const { traceId } = tree;
+  if (traceId === undefined) return;
+  lines.push(`trace: ${humanName(traceId)} (${traceId.slice(0, 7)})`, "");
 }
 
 /**

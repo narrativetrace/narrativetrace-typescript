@@ -17,6 +17,10 @@
       "dependsOn": ["build"],
       "outputs": ["coverage/**"]
     },
+    "@narrativetrace/skills#coverage": {
+      "dependsOn": ["build", "@narrativetrace/example-sixty-seconds#coverage"],
+      "outputs": ["coverage/**"]
+    },
     "bench": {
       "dependsOn": ["build"]
     },

@@ -122,6 +122,14 @@
         "pt-BR": "guia-de-funcionalidades.md",
         "zh-CN": "功能指南.md"
       }
+    },
+    {
+      "source": "documentation/agent-skills.md",
+      "translations": {
+        "es": "habilidades-de-agente.md",
+        "pt-BR": "habilidades-de-agente.md",
+        "zh-CN": "智能体技能.md"
+      }
     }
   ]
 }

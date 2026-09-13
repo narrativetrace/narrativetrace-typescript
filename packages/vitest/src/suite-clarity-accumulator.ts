@@ -7,36 +7,31 @@ import {
   type ScenarioResult,
 } from "@narrativetrace/clarity";
 import { ConsoleSummaryReporter } from "./console-summary-reporter.js";
+import { createPerProcessRegistry } from "./per-process-registry.js";
+import { type ArtifactSink, whenNonEmpty } from "./suite-artifact-io.js";
 
 /**
- * Per-process registry that fixtures push into as each test completes. Vitest fixtures have no
- * suite-close hook, so accumulation happens here and is drained by the suite reporter/globalSetup
- * teardown once every test in the process has run (Java's suite-level `NarrativeTraceExtension`
- * behaviour). Duplicate scenario names are retained — different test files may share a display name
- * and each run is a distinct data point.
+ * Per-process registry that fixtures push into as each test completes, drained by the suite
+ * reporter/globalSetup teardown once every test in the process has run (Java's suite-level
+ * `NarrativeTraceExtension` behaviour) — see `per-process-registry.ts`.
  */
-const registry: ScenarioResult[] = [];
+const registry = createPerProcessRegistry<ScenarioResult>();
 
 export function recordClarityScenario(entry: ScenarioResult): void {
-  registry.push(entry);
+  registry.record(entry);
 }
 
 export function clarityScenarioCount(): number {
-  return registry.length;
+  return registry.count();
 }
 
 /** Returns a copy of the accumulated scenarios (insertion order) and clears the registry. */
 export function drainClarityScenarios(): ScenarioResult[] {
-  const copy = [...registry];
-  registry.length = 0;
-  return copy;
+  return registry.drain();
 }
 
 /** Injected IO so artifact writing is testable without the real filesystem. */
-export interface SuiteArtifactSink {
-  mkdir: (dir: string) => void;
-  writeFile: (path: string, content: string) => void;
-}
+export type SuiteArtifactSink = ArtifactSink;
 
 export interface SuiteArtifactOutcome {
   written: boolean;
@@ -54,24 +49,34 @@ export function writeSuiteClarityArtifacts(
   outputDir: string,
   sink: SuiteArtifactSink,
 ): SuiteArtifactOutcome {
-  if (entries.length === 0) return { written: false };
-  sink.mkdir(outputDir);
-  const jsonPath = `${outputDir}/clarity-results.json`;
-  const reportPath = `${outputDir}/clarity-report.md`;
-  sink.writeFile(jsonPath, exportClarityJsonReport(entries));
-  sink.writeFile(reportPath, renderClaritySuiteReport(entries));
-  return { written: true, jsonPath, reportPath };
+  return whenNonEmpty(entries, () => {
+    sink.mkdir(outputDir);
+    const jsonPath = `${outputDir}/clarity-results.json`;
+    const reportPath = `${outputDir}/clarity-report.md`;
+    sink.writeFile(jsonPath, exportClarityJsonReport(entries));
+    sink.writeFile(reportPath, renderClaritySuiteReport(entries));
+    return { written: true, jsonPath, reportPath };
+  });
 }
 
 /**
  * Builds the one-shot suite footer (Java `ConsoleSummaryReporter.formatSuiteFooter`) with the
  * high/moderate/low clarity split. Returns undefined for an empty suite so callers print nothing.
+ *
+ * @param runName the enclosing test-suite run's three-word phrase, or `undefined` outside a
+ * tracked run (2026-09-13 ruling, item 2).
  */
 export function suiteClarityFooter(
   entries: readonly ScenarioResult[],
   outputPath: string,
+  runName?: string,
 ): string | undefined {
   if (entries.length === 0) return undefined;
   const scores = entries.map((e) => e.result.overall);
-  return new ConsoleSummaryReporter().formatSuiteFooter(entries.length, outputPath, scores);
+  return new ConsoleSummaryReporter().formatSuiteFooter(
+    entries.length,
+    outputPath,
+    scores,
+    runName,
+  );
 }

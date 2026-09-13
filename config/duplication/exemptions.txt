@@ -1,0 +1,81 @@
+# Duplication exemptions — default-deny: an unclassified cluster over the 60-token floor is a
+# finding, not exempt. Every entry here is a `globA :: globB` pair (matched against the
+# repository-root-relative path jscpd reports), with a `#` reason directly above it — see
+# documentation/duplication.md. A cluster is exempt only when every one of its occurrences matches
+# one of the pair's two globs.
+
+# Data tables, not logic (owner ruling 2026-09-12, mirroring the Java golden repo's own
+# `*Dictionary.java` exemption): the clarity module's word-list dictionaries are rows of
+# structurally identical entries, so with identifiers and literals ignored every row matches every
+# other row and the same handful of shapes recur throughout each file. Exempt the dictionaries
+# against each other; a cluster that reaches outside them (into trace-namer.ts, say — see below)
+# stays a finding. KNOWN GAP (ruling item 4): TS does not split each dictionary's data rows into a
+# separate `*Data.ts` file the way Swift's port does, so this pair also exempts the small amount of
+# LOGIC that lives beside the data in the same files — read each file before trusting a "no finding
+# here" from this pair alone: abbreviation-dictionary.ts (classifyAbbreviation,
+# abbreviationScore, abbreviationDictionaryMetrics), collocation-dictionary.ts
+# (mergeCollocationMaps, hasNoun, isValidCollocation, preferredVerbs, allCollocationPairs,
+# collocationDictionaryMetrics), role-suffix-dictionary.ts (classifyRoleSuffix,
+# expectedVerbsForRole, roleSuffixDictionaryMetrics), verb-dictionary.ts (classifyVerb,
+# verbCategoryMembers, verbDictionaryMetrics).
+packages/clarity/src/*-dictionary.ts :: packages/clarity/src/*-dictionary.ts
+
+# TraceNamer's word tables are data (owner ruling 2026-09-12): trace-namer.ts carries the
+# multi-word-boundary/generic-noun/verb-synonym tables `humanName`'s naming heuristic reads, rows
+# of structurally identical entries exactly like the clarity dictionaries above. Exempt the file
+# against itself and against the clarity dictionaries it shares table shape with. This pair is
+# deliberately narrow: the LOGIC in trace-namer.ts (the naming heuristic itself, not the tables it
+# reads) remains a finding whenever it clusters with anything NOT matching one of these two globs —
+# a cluster is exempt only when *every* occurrence matches the pair, so trace-namer.ts's real
+# 519-token cluster with redaction-policy.ts (a different file's own word-list-shaped deny-list
+# vocabulary, coincidentally structured like a naming table but not a naming table) stays an
+# unexempted finding on purpose, not an oversight — see the top-10 remaining clusters in the
+# duplication report/commit for that one named explicitly. Same content-shape gap as the pair
+# above: trace-namer.ts also mixes logic with its tables (humanName and its helpers), so read the
+# file before trusting "no finding" from this pair alone.
+packages/core/src/trace-namer.ts :: packages/core/src/trace-namer.ts
+
+# See above: TraceNamer's word tables are data, exempt against the clarity dictionaries they share
+# table shape with.
+packages/core/src/trace-namer.ts :: packages/clarity/src/*-dictionary.ts
+
+# Word tables exempt by content shape, not file name (owner ruling 2026-09-12, item 2):
+# generic-token-detector.ts's MEANINGLESS/VAGUE/etc. word sets are `Set([...])` literals of
+# strings, the same data shape as the clarity dictionaries, in a file that does not match the
+# `*-dictionary.ts` glob by name. Exempt it against itself and against the dictionaries it
+# clusters with (abbreviation-dictionary.ts today). Same known gap as above: classifyToken and
+# tokenTierScore are logic living in the same file as the tables.
+packages/clarity/src/generic-token-detector.ts :: packages/clarity/src/generic-token-detector.ts
+
+# See above: generic-token-detector.ts's word sets, exempt against the dictionaries they cluster
+# with.
+packages/clarity/src/generic-token-detector.ts :: packages/clarity/src/*-dictionary.ts
+
+# Word tables exempt by content shape, not file name (owner ruling 2026-09-12, item 2):
+# SPAN_CONTEXT_FIELDS in attribute-tier.ts is a `Map([...])` literal of field-name-to-tier rows —
+# data rows, not logic — a lookup table mapping each SpanContext field to the OTel resource/trace/
+# span scope its exporters place it in.
+packages/core/src/attribute-tier.ts :: packages/core/src/attribute-tier.ts
+
+# Word tables exempt by content shape, not file name (owner ruling 2026-09-12, item 2):
+# scaffolding-bundle.ts's per-locale EN/ES/ZH_CN objects are data rows, not logic — the renderer's
+# own scaffolding words (heading/label text) shipped once per locale for a repository that curates
+# no glossary of its own.
+packages/glossary/src/scaffolding-bundle.ts :: packages/glossary/src/scaffolding-bundle.ts
+
+# Wide-record builders (owner ruling 2026-09-12, item 3, mirroring the Java golden repo's
+# CanonicalEntry/SpanContext exemption): SpanContext/SpanContextExtras and their
+# spreadService/spreadExtras merge helpers in span-context.ts, and CanonicalEntry's wide flat
+# export interface in canonical-entry.ts, are one field/one conditional-spread line per component
+# — each is public API (an exporter or a consumer keys off that exact field), so collapsing the
+# repetition into a loop over a name list would turn a compile-time-checked field into a
+# runtime-keyed one and change the API. Exempt both files against each other and against
+# themselves.
+packages/core/src/span-context.ts :: packages/core/src/span-context.ts
+
+# See above: SpanContext and CanonicalEntry are both wide-record builders, exempt against each
+# other.
+packages/core/src/span-context.ts :: packages/core/src/canonical-entry.ts
+
+# See above: CanonicalEntry's own wide flat export interface, exempt against itself.
+packages/core/src/canonical-entry.ts :: packages/core/src/canonical-entry.ts

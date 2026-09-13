@@ -26,7 +26,15 @@
       "types": "./dist/reporters.d.ts",
       "import": "./dist/reporters.js",
       "require": "./dist/reporters.cjs"
+    },
+    "./global-setup": {
+      "types": "./dist/global-setup.d.ts",
+      "import": "./dist/global-setup.js",
+      "require": "./dist/global-setup.cjs"
     }
+  },
+  "bin": {
+    "narrativetrace-approve": "./dist/approve-narratives-bin.js"
   },
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
@@ -41,7 +49,8 @@
     "build": "tsup",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
-    "mutate": "stryker run"
+    "mutate": "stryker run",
+    "approve-narratives": "node ./dist/approve-narratives-bin.js"
   },
   "dependencies": {
     "@narrativetrace/clarity": "workspace:*",

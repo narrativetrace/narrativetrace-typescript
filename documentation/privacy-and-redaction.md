@@ -15,6 +15,7 @@ at all. Verified line-by-line against the code on 2026-09-02, not inferred from 
 | Vitest fixture (`createNarrativeTest`/`narrativeTest`) | No |
 | A custom call to `renderValue()`/`renderStructured()` your own code makes directly | Yes — only by passing `{ redactionPolicy: RedactionPolicy.DISABLED }` explicitly, and even then `@notTraced`/`static notTraced` still redact (see below) |
 | `@notTraced` / `static notTraced` | Not applicable — it is the thing doing the redacting, and it always wins, on every surface, including a `RedactionPolicy.DISABLED` renderer |
+| Structural `.nt` (`renderStructural`/`renderStructuralDocument`) | Not applicable — it carries no values to redact in the first place |
 
 Verified against the code, not inferred: `traceObject()` is the capture
 path `express`, `hono`, `angular` and `react` are built on — it never
@@ -85,6 +86,7 @@ Three independent mechanisms apply to every captured/rendered value:
    unnamed value (a list item, a map value) or a bearer token under an
    unrecognized name is still caught.
    **The parameter half of this axis applies under `traceObject()` only**
+   *(since 0.1.3, unreleased)*
    — a parameter merely *named* like a secret (`paymentToken`, `password`)
    is redacted with no decorator anywhere, exactly like a field name is.
    Under NestJS's `AutoProxyModule` every parameter is captured as `arg0`,
@@ -105,26 +107,46 @@ Three independent mechanisms apply to every captured/rendered value:
    stay visible while `rutCliente`, `senhaUsuario` and `otpCode` are
    hidden.
 
-**A custom `toString()` is trusted only for a leaf** — an object with no own
-field at all, so there is nothing field introspection could show instead
-(family invariant, 2026-09-11; this port's design already matched .NET's).
+**A custom `toString()` is trusted only for a realm platform intrinsic** —
+`Date`, `URL`, `RegExp`, a boxed `BigInt`, or a typed array (owner ruling,
+2026-09-12, the "trusted-leaf" carve-out). *(since 0.1.3, unreleased)*
+Every other object — a plain class, a record-shaped value, a field-less
+"leaf" with nothing visible to introspect — is *always* introspected
+field-by-field instead, whatever its `toString()` would have printed. The
+identity check is `Object.getPrototypeOf(value) === Date.prototype` (and the
+same for each of the other intrinsics above) — **never** `constructor.name`
+or any other name-based test: a user class can freely name itself `Date`
+without ever touching the real `Date.prototype`, and a subclass's instances
+carry the *subclass's* prototype one level up, not the base intrinsic's, so
+neither a same-named lookalike nor a subclass of a platform type is ever
+trusted merely by association. `Error` is deliberately excluded from this
+list even though it is a realm intrinsic too: unlike `Date`'s opaque
+timestamp or a typed array's numeric buffer, `Error.prototype.toString()`
+interpolates `message` — free text the caller supplies at construction
+(`new Error(user.password)`) — exactly the shape a deny-listed field exists
+to catch, so an `Error` value is field-walked like any other object.
 *(since 0.1.3, unreleased)*
-The moment an object has even one own field, it is *always* introspected
-field-by-field, whatever its `toString()` would have printed — not merely
-when that field is itself annotated or deny-listed. This is narrower than it
-sounds like it needs to be, and deliberately so: the earlier, narrower rule
-("trust `toString()` unless one of *this object's own* fields is a
-redaction target") missed the shape a 2026-09-11 security fix closes — a
-`toString()` that interpolates a **nested** object's own curated text
-(`Order.toString()` printing `this.customer`, itself a `Customer` hiding a
-redacted field) never puts the redacted field's name or annotation on
-`Order` itself, so the own-field check found nothing to catch and the
-nested secret rendered in full. Trusting `toString()` only for leaves closes
-that whole class of bypass at once, at any nesting depth, rather than
-chasing each new interpolation shape as its own bug. The same rule applies
-to a Map **key**: a key that is itself an object goes through the identical
-redaction-aware rendering a value does, never a raw, unconditional
-`toString()`. *(since 0.1.3, unreleased)*
+
+This narrows a shorter-lived intermediate rule from 2026-09-11 ("trust
+`toString()` for any leaf — any object with no own enumerable field at all")
+that this port shipped for less than a day: on this platform, "no own
+enumerable field" was never actually proof of "nothing to hide" the way it
+sounds — a true `#private` class field, a closure variable, or a
+module-level `WeakMap` keyed by `this` are all invisible to `Object.keys`
+yet freely readable from inside the class's own `toString()`, so a
+same-named or same-shaped impostor of a trusted type could still leak
+through it. Restricting trust to the small, closed set of intrinsics this
+library ships alongside — never an arbitrary user class, leaf or not —
+closes that hole outright. The 2026-09-11 rule itself closed an earlier,
+narrower one still: the original rule ("trust `toString()` unless one of
+*this object's own* fields is a redaction target") missed a `toString()`
+that interpolates a **nested** object's own curated text (`Order.toString()`
+printing `this.customer`, itself a `Customer` hiding a redacted field) —
+the redacted field's name or annotation never appeared on `Order` itself, so
+the own-field check found nothing to catch and the nested secret rendered
+in full. The same rule applies to a Map **key**: a key that is itself an
+object goes through the identical redaction-aware rendering a value does,
+never a raw, unconditional `toString()`. *(since 0.1.3, unreleased)*
 
 `narrativeSummary()` is curated text the author wrote specifically for the
 trace, and still outranks both toString-trust and field introspection — but
@@ -186,6 +208,23 @@ Full detail and worked examples:
   [Configuration Guide § 8](configuration-guide.md#8-event-pipeline-buffering-bufferedeventconsumer)).
   A capture that lost events prints the count and what to raise the
   capacity to, in its own footer.
+- **The structural `.nt` artifact has no runtime values at all.** *(since 0.1.3, unreleased)* Names,
+  call hierarchy and outcome kinds only — zero prompt-injection surface, and
+  that is a property of the renderer, not a policy someone could forget to
+  apply. Its `scenario:` header is covered by that: one invocation of a
+  `createNarrativeTest(...).each(cases)` row is titled `<test name> #<index>`,
+  never the label a template interpolated its arguments into (see
+  [Structural Trace Format](structural-trace-format.md)). What the artifact
+  is *called* — its filename, and the test title itself — is a different
+  question; see the non-guarantee below.
+- **The trace/run phrase carries no data of its own.** *(since 0.1.3, unreleased)*
+  `bold elk soars` is derived deterministically from a trace or run id
+  (`humanName()`, three fixed word tables) — it is not, and never reads,
+  anything the traced code produced, so it is safe to print, log, or paste
+  into a bug report on its own. It never reaches the structural `.nt`
+  artifact, an approved/received trace, an artifact filename, or the
+  manifest's per-scenario keys — see
+  [Configuration Guide § The run has a name](configuration-guide.md#the-run-has-a-name-since-013-unreleased).
 
 ## Non-guarantees
 
@@ -197,13 +236,15 @@ Full detail and worked examples:
   interface to implement first; every method reachable through property
   lookup — declared on the object itself or inherited from its prototype
   chain — is visible to `traceObject()`.
-- **No structural, value-free artifact yet.** Some other NarrativeTrace
-  runtimes also ship a `.nt`-style artifact with no runtime values at all, for
-  handing to an AI tool with zero prompt-injection surface by construction.
-  This runtime has not built that yet — see
-  [What to Commit](what-to-commit.md#why-there-is-no-approvednt-row-here-yet).
-  Until it exists, every generated artifact in this runtime carries real
-  captured values and should be treated accordingly.
+- **No redaction of test names.** *(since 0.1.3, unreleased)* The structural artifact's `scenario:`
+  header and filename are derived from the test's own title (and, for a
+  `.each` invocation, the interpolated label baked into the filename only —
+  see [Structural Trace Format](structural-trace-format.md)) — text the
+  developer wrote, not a captured value, so none of the redaction machinery
+  above ever runs on it. A test title or `.each` label that embeds a secret
+  (`test("logs in as ${password}", ...)`) puts that secret in the filename
+  and the committed `.approved.nt`'s path — keep secrets out of test titles
+  and `.each` name templates, the same rule as any other test framework.
 - **No zero-code, "wrap an app you didn't write" path.** There is no
   Java-agent equivalent on this platform, so scoping is always by explicit
   call site or class annotation — see

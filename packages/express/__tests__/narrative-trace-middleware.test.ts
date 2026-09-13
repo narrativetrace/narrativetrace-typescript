@@ -444,13 +444,20 @@ describe("narrativeTrace middleware no-poison contract: request-scoped cleanup",
     });
     const app = express();
     app.use(narrativeTrace(ctx));
+    let finished!: Promise<void>;
     app.get("/hello", (_req, res) => {
       svc.greet("test");
+      // A real barrier on the actual completion signal, not a fixed-ms guess (family release rule
+      // 3, 2026-09-07: wall-clock, GC and scheduler are never test inputs): narrativeTrace's own
+      // `res.on("finish", ...)` cleanup listener was registered first (in the middleware, before
+      // this handler runs), so this listener — registered after it, still before "finish" can
+      // possibly fire — observes the middleware's synchronous `ctx.reset()` as already applied.
+      finished = new Promise((resolve) => res.on("finish", () => resolve()));
       res.json({ ok: true });
     });
 
     await request(app).get("/hello").expect(200);
-    await new Promise((r) => setTimeout(r, 10));
+    await finished;
 
     ctx.eventPipeline.flush();
     expect(ctx.eventPipeline.events()).toHaveLength(0);
@@ -469,13 +476,16 @@ describe("narrativeTrace middleware no-poison contract: request-scoped cleanup",
         },
       }),
     );
+    let finished!: Promise<void>;
     app.get("/hello", (_req, res) => {
       svc.greet("test");
+      // See the barrier note above — same reasoning, registered after the same middleware.
+      finished = new Promise((resolve) => res.on("finish", () => resolve()));
       res.json({ ok: true });
     });
 
     await request(app).get("/hello").expect(200);
-    await new Promise((r) => setTimeout(r, 10));
+    await finished;
 
     ctx.eventPipeline.flush();
     expect(ctx.eventPipeline.events()).toHaveLength(0);

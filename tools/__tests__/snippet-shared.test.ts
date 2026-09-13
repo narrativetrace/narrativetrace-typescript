@@ -113,6 +113,60 @@ describe("applyMask", () => {
   it("rejects an unknown mask rather than silently comparing unmasked text", () => {
     expect(() => applyMask("x", "gibberish")).toThrow(/unsupported mask/);
   });
+
+  // 2026-09-13 ruling: masks the trace/run phrase wherever a labeled line or a header carries one.
+  describe("traceName mask", () => {
+    it("masks the console/indented-text header's phrase and 7-hex id", () => {
+      const text = "trace: bold elk soars (a1b2c3d)\n\nOrderService.placeOrder()";
+      expect(applyMask(text, "traceName")).toBe(
+        "trace: NAME NAME NAME (0000000)\n\nOrderService.placeOrder()",
+      );
+    });
+
+    it("masks the console footer's run: line", () => {
+      expect(applyMask("  run: bold elk soars\n  3 scenarios recorded", "traceName")).toBe(
+        "  run: NAME NAME NAME\n  3 scenarios recorded",
+      );
+    });
+
+    it("masks the frontmatter's trace_name: field", () => {
+      expect(applyMask("trace_name: bold elk soars", "traceName")).toBe(
+        "trace_name: NAME NAME NAME",
+      );
+    });
+
+    it("masks a runName field however it is spelled (key: value or key=value)", () => {
+      expect(applyMask('"runName": "bold elk soars"', "traceName")).toBe(
+        '"runName": "NAME NAME NAME"',
+      );
+      expect(applyMask("runName=bold elk soars", "traceName")).toBe("runName=NAME NAME NAME");
+    });
+
+    it("masks the prose renderer's 'The trace ...:' lead-in", () => {
+      expect(applyMask("The trace bold elk soars: The order service places…", "traceName")).toBe(
+        "The trace NAME NAME NAME: The order service places…",
+      );
+    });
+
+    it("masks the Markdown title's phrase prefix, leaving the class.method after the dash", () => {
+      expect(applyMask("## Trace: bold elk soars — OrderService.placeOrder", "traceName")).toBe(
+        "## Trace: NAME NAME NAME — OrderService.placeOrder",
+      );
+    });
+
+    it("leaves text with no trace/run phrase at all untouched", () => {
+      expect(applyMask("plain text, no phrase here", "traceName")).toBe(
+        "plain text, no phrase here",
+      );
+    });
+  });
+
+  it("applies a comma-separated list of masks in order (mask=duration,traceName)", () => {
+    const text = "trace: bold elk soars (a1b2c3d)\n\n- `Svc.op()` → `1` — 3ms";
+    expect(applyMask(text, "duration,traceName")).toBe(
+      "trace: NAME NAME NAME (0000000)\n\n- `Svc.op()` → `1` — Nms",
+    );
+  });
 });
 
 describe("stripLicenseHeader", () => {

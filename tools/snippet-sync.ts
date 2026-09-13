@@ -4,6 +4,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import {
   applyVersionBanner,
+  countUnreleasedMarkers,
   renderVersionBannerLine,
   resolvePublishedVersion,
   withCacheAgeComment,
@@ -56,7 +57,7 @@ async function syncVersionBanner(): Promise<void> {
     nowMs: Date.now(),
   });
   const bannerLine = withCacheAgeComment(
-    renderVersionBannerLine(repoVersion, publishedVersion),
+    renderVersionBannerLine(repoVersion, publishedVersion, countUnreleasedMarkers()),
     asOfMs,
   );
   const path = "documentation/llms.txt";

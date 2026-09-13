@@ -47,4 +47,84 @@ describe("ConsoleSummaryReporter", () => {
       "Clarity: 0% high | 0% moderate | 0% low",
     );
   });
+
+  // 2026-09-13 ruling, item 2: the enclosing test-suite run's own name, right after the header.
+  describe("run name", () => {
+    test("adds a 'run: <name>' line right after the header, before the scenario count", () => {
+      expect(reporter.formatSuiteFooter(3, "out/", undefined, "bold elk soars")).toBe(
+        "\nNarrativeTrace — Suite complete\n  run: bold elk soars\n  3 scenarios recorded\n  Reports: out/",
+      );
+    });
+
+    test("adds the run line ahead of the clarity split too", () => {
+      const footer = reporter.formatSuiteFooter(1, "out/", [0.9], "bold elk soars");
+      const lines = footer.split("\n");
+      expect(lines[2]).toBe("  run: bold elk soars");
+      expect(lines[3]).toBe("  1 scenarios recorded");
+    });
+
+    test("omits the run line entirely outside a tracked run", () => {
+      expect(reporter.formatSuiteFooter(3, "out/")).not.toContain("run:");
+    });
+  });
+
+  describe("formatDeltaLine", () => {
+    test("is empty for an empty scenario list", () => {
+      expect(reporter.formatDeltaLine([])).toBe("");
+    });
+
+    test("names 'scenario(s)' only on the first segment", () => {
+      const deltas = [
+        { scenario: "A", kind: "unchanged" as const, summary: "", diff: "" },
+        { scenario: "B", kind: "new" as const, summary: "", diff: "" },
+      ];
+      expect(reporter.formatDeltaLine(deltas)).toBe("1 scenario unchanged · 1 new");
+    });
+
+    test("pluralizes 'scenarios' for more than one of the first kind", () => {
+      const deltas = [
+        { scenario: "A", kind: "unchanged" as const, summary: "", diff: "" },
+        { scenario: "B", kind: "unchanged" as const, summary: "", diff: "" },
+      ];
+      expect(reporter.formatDeltaLine(deltas)).toBe("2 scenarios unchanged");
+    });
+
+    test("names each changed scenario with its summary", () => {
+      const deltas = [
+        {
+          scenario: "Customer places order",
+          kind: "changed" as const,
+          summary: "+1 call InventoryService.release",
+          diff: "",
+        },
+      ];
+      expect(reporter.formatDeltaLine(deltas)).toBe(
+        '1 scenario changed: "Customer places order" (+1 call InventoryService.release)',
+      );
+    });
+
+    test("truncates a scenario name over 32 characters with an ellipsis", () => {
+      const deltas = [
+        {
+          scenario: "Weekend trip settles with three transfers",
+          kind: "changed" as const,
+          summary: "+1 call X.y",
+          diff: "",
+        },
+      ];
+      const line = reporter.formatDeltaLine(deltas);
+      expect(line).toContain('"Weekend trip settles with three…"');
+    });
+
+    test("joins unchanged, new and changed segments with the middle dot", () => {
+      const deltas = [
+        { scenario: "A", kind: "unchanged" as const, summary: "", diff: "" },
+        { scenario: "B", kind: "new" as const, summary: "", diff: "" },
+        { scenario: "C", kind: "changed" as const, summary: "+1 call X.y", diff: "" },
+      ];
+      expect(reporter.formatDeltaLine(deltas)).toBe(
+        '1 scenario unchanged · 1 new · 1 changed: "C" (+1 call X.y)',
+      );
+    });
+  });
 });

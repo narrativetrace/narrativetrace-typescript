@@ -65,7 +65,7 @@ production bundles. See TS-004 in the platform ADL.
 | `angular` — `provideNarrativeTrace()`, HTTP interceptor, DI tracing | Free | |
 | `react` — hooks/provider for component + service traces | Free | |
 | `react-router` — navigation capture | Free | |
-| `vitest` — `narrativeTest` fixture, per-test trace files (`md`/`mmd`/`puml`/`json`/`clarity-json`/`canonical-json`), console summary + clarity reporters | Free | |
+| `vitest` — `narrativeTest` fixture, per-test trace files (`md`/`mmd`/`puml`/`json`/`clarity-json`/`canonical-json`), console summary + clarity reporters, an importable `/reporters` subpath, value-free `.nt` structural artifact + approval traces, `.each` per-invocation identity *(since 0.1.3, unreleased)* | Free | |
 | Canonical schema 1.2 + writer-validated artifacts | Free | `nt.schemaVersion` `1.2` from one `SCHEMA_VERSION` constant; per-test `.canonical.json` (flat entry list, deterministic for a context-free capture); the schemas live in `schema/` and a conformance test validates the bytes `writeTraceOutput` writes, not hand-built input |
 | `winston` / `pino` — narrative events through your existing logger, typed fields, configurable per-event levels | Free | TS-003 in the platform ADL |
 | `observability` — log-scope enricher (`trace_id`, `code.*`, `service.*`, `nt.depth`) + request middleware | Free | |
@@ -86,6 +86,7 @@ auto-instrumentation) is deliberately **not** offered — see TS-004.
 | Canonical JSON export — versioned envelope (`version`, `scenario`, `trace`, `events[]`) with storyId/chapterId fields | Free | `exportJson(tree, { scenario })` |
 | Sequence diagrams — Mermaid + PlantUML | Free | `@narrativetrace/diagrams` |
 | Per-test trace files + console test summaries via Vitest | Free | |
+| Structural `.nt` artifact — value-free per-scenario trace, last-green baseline, "Since last green" delta footer, opt-in approval traces (`.approved.nt`/`.received.nt`, `pnpm run approve-narratives`) | Free | [structural-trace-format.md](structural-trace-format.md) |
 | Flow summaries — aggregated paths + frequencies per entry point | Planned (Pro) | Enterprise plan Phase E3 |
 | Migration diffs — behavioral before/after comparison | Planned (Pro) | Enterprise plan Phase E3 |
 | Runtime dependency graphs (always-called vs conditional) | Planned (Pro) | Enterprise plan Phase E4 |

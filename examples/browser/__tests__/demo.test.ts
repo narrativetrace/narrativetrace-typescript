@@ -31,12 +31,16 @@ test("clicking run renders the traced calculation into the trace panel", () => {
   root.querySelector<HTMLButtonElement>("button[data-testid='run']")?.click();
 
   const trace = root.querySelector<HTMLPreElement>("pre[data-testid='trace']");
-  expect(trace?.textContent).toBe(
-    [
-      "Calculator.add(a: 2, b: 3) → 5",
-      "Calculator.divide(a: 10, b: 2) → 5",
-      "Calculator.divide(a: 1, b: 0) ✗ Error: Division by zero",
-    ].join("\n"),
+  // Every non-empty tree opens with its own `trace: <phrase> (<7 hex>)` header (2026-09-13
+  // ruling, item 4) — the id is randomly generated, so the phrase is matched, not asserted.
+  expect(trace?.textContent).toMatch(
+    new RegExp(
+      `^trace: [a-z]+ [a-z]+ [a-z]+ \\([0-9a-f]{7}\\)\\n\\n${[
+        "Calculator\\.add\\(a: 2, b: 3\\) → 5",
+        "Calculator\\.divide\\(a: 10, b: 2\\) → 5",
+        "Calculator\\.divide\\(a: 1, b: 0\\) ✗ Error: Division by zero",
+      ].join("\\n")}$`,
+    ),
   );
 });
 
@@ -114,7 +118,9 @@ test("every run starts a fresh trace instead of accumulating previous runs", () 
   clickRun();
 
   const lines = root.querySelector("pre[data-testid='trace']")?.textContent?.split("\n");
-  expect(lines).toHaveLength(3);
+  // 2 header lines (the trace's own `trace: <phrase> (<7 hex>)` line plus the blank line after
+  // it, 2026-09-13 ruling item 4) + 3 calculation lines — never 6, which accumulation would give.
+  expect(lines).toHaveLength(5);
 });
 
 test("a non-Error rejection from fetch is still reported readably", async () => {

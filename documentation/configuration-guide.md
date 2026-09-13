@@ -131,6 +131,101 @@ The test name is used as the scenario name in output files. File names are sanit
 - `customer_places_order` → "Customer places order"
 - `test_should_validate_input` → "Should validate input"
 
+### Structural artifact, delta, and approval traces *(since 0.1.3, unreleased)*
+
+Every `createNarrativeTest` scenario also writes a value-free `.nt` file —
+names, call hierarchy and outcome kinds only, no argument or return values —
+beside the other artifacts:
+
+```
+narrativetrace-output/
+  structural/
+    order-service/
+      places_order.nt             # last-green baseline
+  manifest.json                   # scenario -> artifact index, plus the run's own id/name
+```
+
+The file on disk is the **last-green baseline**: a green run advances it, a
+non-green run compares against it but never overwrites it, so the console
+footer always reads "what changed since the last time this scenario
+passed." See [Structural Trace Format](structural-trace-format.md) for the
+format itself and the per-invocation naming rule.
+
+`approval: true` turns on **approval traces** (the approval-testing idea,
+applied to traces): after a passing test, its structure is verified against
+the committed `<approvedDir>/<module>/<test>.approved.nt`. A missing
+approved trace or a structural difference fails the test and writes
+`.received.nt` beside it for review:
+
+```ts
+const tracedTest = createNarrativeTest({
+  approval: true,
+  approvedDir: "narratives", // default; committed to the repo
+});
+```
+
+Review a `.received.nt` diff, then promote it with the approve script:
+
+```bash
+pnpm run approve-narratives
+# or, if the package exposes its bin on PATH:
+narrativetrace-approve
+```
+
+`NARRATIVETRACE_APPROVAL=true` and `NARRATIVETRACE_APPROVED_DIR` set the
+same two settings from the environment or the project config file, same
+precedence as every other channel below. See
+[What to Commit](what-to-commit.md) for which of these files to add to
+`.gitignore` and which one to commit.
+
+### The run has a name *(since 0.1.3, unreleased)*
+
+A trace has a three-word phrase (`bold elk soars`) because a raw trace id
+is unreadable — a whole **test-suite execution** needed the same thing for
+a different reason: before this, nothing named "this run" at all, so a
+console footer or `manifest.json` could say "18 scenarios" but never
+"which 18-scenario run" when two ran back to back. One run identity — a
+W3C-shaped id plus the same three-word phrase `humanName()` derives for a
+trace — is established once per Vitest process (`@narrativetrace/vitest`'s
+`runIdentity()`) and named in four places:
+
+- the console suite footer: `run: bold elk soars`
+- `manifest.json`'s top-level `run` object (`{ "id": ..., "name": ... }`)
+  beside `scenarios`
+- the YAML frontmatter of every Markdown trace document: `run: bold elk
+  soars`, alongside `scenario:`
+- `nt.runName` in the `@narrativetrace/pino`/`@narrativetrace/winston`
+  consumers' log lines and `@narrativetrace/observability`'s `LogContext`,
+  passed as the `runName` option/argument — `@narrativetrace/vitest` does
+  not wire this into a logger automatically, since it does not own your
+  logging setup; pass `runIdentity().name` yourself where you construct
+  the consumer
+
+```ts
+import { createPinoEventConsumer } from "@narrativetrace/pino";
+import { runIdentity } from "@narrativetrace/vitest";
+
+createPinoEventConsumer(logger, { runName: runIdentity().name });
+```
+
+**Invariant, proved by test, not just documented**: the run name (and a
+trace's own name) never reach the structural `.nt` text, an approved or
+received trace, an artifact filename, the manifest's per-scenario keys, or
+the delta computation — every function that computes one of those takes
+no run identity at all. `run-name-byte-identity.test.ts`
+(`@narrativetrace/vitest`) runs the identical scenario as two separate
+process executions with two different run ids and asserts the `.nt` and
+delta output are byte-identical while the run name differs. The phrase
+carries no data of its own — it is derived from the id — see
+[Privacy and Redaction](privacy-and-redaction.md).
+
+A **trace's own** name is unrelated to the run name and needs no
+configuration: `renderIndentedText()` opens with `trace: bold elk soars
+(a1b2c3d)`, `renderProse()` opens with `The trace bold elk soars:`, and
+`renderMarkdownDocument()`'s title line reads `## Trace: bold elk soars —
+OrderService.placeOrder`. All three are silent on an empty tree, or one
+built without an explicit trace id.
+
 ## 2b. Where settings come from
 
 Settings resolve highest-precedence-first. Each channel fills only what
@@ -292,6 +387,11 @@ const traced = traceObject(service, context, paramNames, {
 |--------|---------|--------|
 | `className` | `target.constructor.name` | Class name shown in traces |
 | `includeReturnValues` | `true` | When `false`, return values are not rendered |
+
+An options object carrying a key outside this table — a typo, or a shape from a newer
+`traceObject()` this install predates — **throws** naming the unrecognised key and the accepted
+ones, rather than compiling, running, and silently redacting or tracing nothing. The same check
+applies inside each per-method `methods` entry. *(since 0.1.3, unreleased)*
 
 ## 7. Recommended Defaults by Environment
 

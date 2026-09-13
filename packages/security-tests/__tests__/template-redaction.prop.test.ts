@@ -8,12 +8,7 @@ import { hostileTemplates } from "../src/corpus/hostile-corpus.js";
 import { templateValues } from "../src/corpus/hostile-graphs.js";
 import { expectsRedaction, type TemplateCase } from "../src/corpus/types.js";
 import { everyOutput, treeNarrating } from "../src/oracle/emitters.js";
-import {
-  containsNoSentinel,
-  freshSentinel,
-  idempotent,
-  withinBudget,
-} from "../src/oracle/oracles.js";
+import { containsNoSentinel, freshSentinel, idempotent } from "../src/oracle/oracles.js";
 
 /**
  * Target 4: template parsing and rendering. Mirrors Java's `TemplateRedactionPropertyTest`.
@@ -42,9 +37,13 @@ function assertResolves(templateCase: TemplateCase): void {
   const sentinel = freshSentinel();
   const values = templateValues(templateCase.values, sentinel);
 
-  const resolved = withinBudget(`template ${templateCase.id}`, () =>
-    resolveTemplate(templateCase.template, values),
-  );
+  // Family release rule 3 (2026-09-07): wall-clock, GC and scheduler are never test inputs —
+  // this used to run through a removed `withinBudget` hang detector. Dropped outright rather
+  // than replaced: a resolved template's size is already bounded by `renderValue`'s own caps
+  // (asserted directly against hostile graphs in `value-renderer-redaction.prop.test.ts`, which
+  // `resolveTemplate` routes every non-scalar value through), so there is no additional property
+  // to pin here.
+  const resolved = resolveTemplate(templateCase.template, values);
 
   expect(resolved, templateCase.id).not.toContain(sentinel);
   if (expectsRedaction(templateCase)) {

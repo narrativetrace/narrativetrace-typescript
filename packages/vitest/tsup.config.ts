@@ -4,7 +4,12 @@
 import { defineConfig } from "tsup";
 
 export default defineConfig({
-  entry: ["src/index.ts", "src/reporters.ts"],
+  entry: [
+    "src/index.ts",
+    "src/reporters.ts",
+    "src/global-setup.ts",
+    "src/approve-narratives-bin.ts",
+  ],
   format: ["cjs", "esm"],
   dts: true,
   sourcemap: true,

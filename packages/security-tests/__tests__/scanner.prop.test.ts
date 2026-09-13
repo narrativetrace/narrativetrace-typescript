@@ -32,7 +32,6 @@ import * as fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { hostileStrings } from "../src/corpus/hostile-corpus.js";
 import { parseJson } from "../src/oracle/formats.js";
-import { withinBudget } from "../src/oracle/oracles.js";
 
 /**
  * Target 5: the clarity and glossary scanners over arbitrary identifier text. Mirrors Java's
@@ -109,10 +108,14 @@ describe("clarity and glossary scanners", () => {
     }
   });
 
+  // Family release rule 3 (2026-09-07): wall-clock, GC and scheduler are never test inputs —
+  // this used to run through a removed `withinBudget` hang detector. Dropped outright rather
+  // than replaced: the score-range and well-formed-JSON assertions below are the real properties
+  // this call was ever guarding, with no output-size or hang risk of their own.
   test("a trace of hostile identifiers produces a parseable clarity report", () => {
     for (const hostile of hostileStrings()) {
       const tree = treeNamed(hostile.value);
-      const result = withinBudget(`clarity ${hostile.id}`, () => analyzeClarity(tree));
+      const result = analyzeClarity(tree);
 
       expect(result.overall, hostile.id).toBeGreaterThanOrEqual(0);
       expect(result.overall, hostile.id).toBeLessThanOrEqual(1);

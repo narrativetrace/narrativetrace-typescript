@@ -6,9 +6,34 @@ import { concurrencyInfo } from "../src/concurrency-info.js";
 import { renderIndentedText } from "../src/indented-text-renderer.js";
 import { methodSignature } from "../src/method-signature.js";
 import { parameterCapture } from "../src/parameter-capture.js";
+import { humanName } from "../src/trace-namer.js";
 import { traceNode } from "../src/trace-node.js";
 import { incomplete, returned, threw } from "../src/trace-outcome.js";
 import { traceTree } from "../src/trace-tree.js";
+
+/**
+ * The `trace: <phrase> (<7 hex>)` header every non-empty tree now opens with (2026-09-13 ruling,
+ * item 4) — computed from the tree's own randomly generated id, never asserted as a fixed string.
+ */
+function header(tree: ReturnType<typeof traceTree>): string {
+  const traceId = tree.traceId!;
+  return `trace: ${humanName(traceId)} (${traceId.slice(0, 7)})\n\n`;
+}
+
+describe("renderIndentedText trace header", () => {
+  test("opens with 'trace: <phrase> (<7 hex>)' plus a blank line, for a non-empty tree", () => {
+    const tree = traceTree([traceNode(methodSignature("Svc", "op", []), returned('"ok"'), [])]);
+    const result = renderIndentedText(tree);
+    expect(result.startsWith(header(tree))).toBe(true);
+    expect(result).toMatch(/^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)\n\n/);
+  });
+
+  test("is silent (no header at all) on an empty tree — nothing here is invented", () => {
+    const result = renderIndentedText(traceTree([]));
+    expect(result).toBe("");
+    expect(result).not.toContain("trace:");
+  });
+});
 
 describe("renderIndentedText", () => {
   test("a redacted param renders the [REDACTED] marker, not the captured value", () => {
@@ -27,7 +52,7 @@ describe("renderIndentedText", () => {
 
     const result = renderIndentedText(tree);
 
-    expect(result).toBe('OrderService.placeOrder(orderId: "order-42") → "OK"');
+    expect(result).toBe(`${header(tree)}OrderService.placeOrder(orderId: "order-42") → "OK"`);
   });
 
   test("nested calls render as tree with box-drawing", () => {
@@ -52,11 +77,12 @@ describe("renderIndentedText", () => {
     const result = renderIndentedText(tree);
 
     expect(result).toBe(
-      [
-        'OrderService.placeOrder() → "OK"',
-        '├── InventoryService.reserve(productId: "P1") → true',
-        '└── PaymentService.charge(amount: 100) → "receipt-1"',
-      ].join("\n"),
+      header(tree) +
+        [
+          'OrderService.placeOrder() → "OK"',
+          '├── InventoryService.reserve(productId: "P1") → true',
+          '└── PaymentService.charge(amount: 100) → "receipt-1"',
+        ].join("\n"),
     );
   });
 
@@ -70,7 +96,9 @@ describe("renderIndentedText", () => {
 
     const result = renderIndentedText(tree);
 
-    expect(result).toBe("PaymentService.charge(amount: 100) ✗ Error: insufficient funds");
+    expect(result).toBe(
+      `${header(tree)}PaymentService.charge(amount: 100) ✗ Error: insufficient funds`,
+    );
   });
 
   test("non-Error thrown renders as string", () => {
@@ -221,20 +249,24 @@ describe("renderIndentedText", () => {
 
     const result = renderIndentedText(tree);
 
-    expect(result).toBe('Logger.log(msg: "hello")');
+    expect(result).toBe(`${header(tree)}Logger.log(msg: "hello")`);
   });
 
   // className/methodName/parameter names are trace metadata: unlike a captured value they are not
   // control-escaped upstream, so a hostile one reaching a renderer raw would inject an extra line
-  // (cross-runtime shape F4, 2026-09-02 audit).
+  // (cross-runtime shape F4, 2026-09-02 audit). The header is fixed, well-formed text unrelated to
+  // this hostile metadata, so it is stripped before counting lines (Java parity: the header line
+  // change updated this same assertion in RendererMetadataEscapingTest).
   test("a control character in className/methodName/a parameter name does not inject an extra line", () => {
     const sig = methodSignature("A\nB", "c\nd", [parameterCapture("e\nf", '"v"', false)]);
     const node = traceNode(sig, returned('"OK"'), []);
+    const tree = traceTree([node]);
 
-    const result = renderIndentedText(traceTree([node]));
+    const result = renderIndentedText(tree);
+    const body = result.slice(header(tree).length);
 
-    expect(result.split("\n")).toHaveLength(1);
-    expect(result).toBe('A\\nB.c\\nd(e\\nf: "v") → "OK"');
+    expect(body.split("\n")).toHaveLength(1);
+    expect(body).toBe('A\\nB.c\\nd(e\\nf: "v") → "OK"');
   });
 });
 
@@ -276,8 +308,9 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   test("an ordinary tree well within the bound renders exactly as before", () => {
     const child = traceNode(methodSignature("Repo", "find", []), returned('"found"'), []);
     const root = traceNode(methodSignature("Svc", "op", []), returned('"ok"'), [child]);
-    expect(renderIndentedText(traceTree([root]))).toBe(
-      'Svc.op() → "ok"\n└── Repo.find() → "found"',
+    const tree = traceTree([root]);
+    expect(renderIndentedText(tree)).toBe(
+      `${header(tree)}Svc.op() → "ok"\n└── Repo.find() → "found"`,
     );
   });
 });

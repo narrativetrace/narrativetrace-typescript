@@ -18,9 +18,17 @@ Start here:
 Going deeper:
 
 - [Privacy and Redaction](privacy-and-redaction.md) — the row-by-row redaction contract, verified against the code
+- [Structural Trace Format](structural-trace-format.md) — the value-free `.nt` artifact, per-invocation identity, and approval traces end to end
 - [What to Commit](what-to-commit.md) — which generated files are run output and which (if any) are reviewed baselines
 - [Troubleshooting](troubleshooting.md) — symptom → cause → fix for the failure modes people actually hit
+- [Agent Skills](agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx narrativetrace doctor`
 - [Clarity Guide](clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](examples-guide.md) — the `pnpm demo` launcher and the runnable examples
 - [Feature Guide](feature-guide.md) — canonical catalog of what this runtime ships, with tier and status
+
+Gates and tooling (process/contributor content — English only, no translated mirror):
+
+- [The Contract Gate](contract-gate.md) — `documentation/contract.yaml`, proving a documented
+  default or config shape true of a real, published install
+- [Duplication Detection](duplication.md) — the structural-duplication ratchet `pnpm run check` enforces

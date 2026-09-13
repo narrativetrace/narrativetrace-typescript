@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 42bde5f4fa1e | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob b81225f5f786 | translated: 2026-09-13 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -136,6 +136,107 @@ El nombre de la prueba se usa como el nombre del escenario en los archivos de sa
 - `customerPlacesOrder` → "Customer places order"
 - `customer_places_order` → "Customer places order"
 - `test_should_validate_input` → "Should validate input"
+
+### Artefacto estructural, delta y trazas aprobadas *(since 0.1.3, unreleased)*
+
+Todo escenario de `createNarrativeTest` también escribe un fichero `.nt`
+libre de valores — solo nombres, jerarquía de llamadas y tipos de
+resultado, sin valores de argumentos ni de retorno — junto a los demás
+artefactos:
+
+```
+narrativetrace-output/
+  structural/
+    order-service/
+      places_order.nt             # baseline de último-verde
+  manifest.json                   # índice escenario -> artefactos, más el id/name propios de la ejecución
+```
+
+El fichero en disco es la **baseline de último-verde**: una ejecución en
+verde la hace avanzar, una ejecución que no está en verde compara contra
+ella pero nunca la sobrescribe, así que el pie de página de consola
+siempre dice "qué cambió desde la última vez que este escenario pasó".
+Consulta [Structural Trace Format](../structural-trace-format.md) (todavía
+sin traducir) para el formato en sí y la regla de nombrado por invocación.
+
+`approval: true` activa las **trazas aprobadas** (la idea del approval
+testing, aplicada a trazas): tras un test que pasa, su estructura se
+verifica contra el `<approvedDir>/<módulo>/<test>.approved.nt` commiteado.
+Una traza aprobada ausente o una diferencia estructural hace fallar el
+test y escribe `.received.nt` al lado para revisión:
+
+```ts
+const tracedTest = createNarrativeTest({
+  approval: true,
+  approvedDir: "narratives", // por defecto; commiteado al repositorio
+});
+```
+
+Revisa el diff de un `.received.nt`, y luego promuévelo con el script de
+aprobación:
+
+```bash
+pnpm run approve-narratives
+# o, si el paquete expone su bin en el PATH:
+narrativetrace-approve
+```
+
+`NARRATIVETRACE_APPROVAL=true` y `NARRATIVETRACE_APPROVED_DIR` definen los
+mismos dos ajustes desde el entorno o el fichero de configuración del
+proyecto, con la misma precedencia que cualquier otro canal de abajo.
+Consulta [Qué commitear](que-commitear.md) para saber cuál de estos
+ficheros añadir a `.gitignore` y cuál commitear.
+
+### La ejecución tiene un nombre *(since 0.1.3, unreleased)*
+
+Una traza tiene una frase de tres palabras (`bold elk soars`) porque un id
+de traza en crudo es ilegible — toda una **ejecución de la suite de
+tests** necesitaba lo mismo por una razón distinta: antes de esto, nada
+nombraba "esta ejecución" en absoluto, así que un pie de página de consola
+o `manifest.json` podían decir "18 escenarios" pero nunca "cuál ejecución
+de 18 escenarios" cuando dos corrían una tras otra. Una identidad de
+ejecución — un id con forma W3C más la misma frase de tres palabras que
+`humanName()` deriva para una traza — se establece una vez por proceso de
+Vitest (`runIdentity()` de `@narrativetrace/vitest`) y se nombra en cuatro
+sitios:
+
+- el pie de página de la suite en consola: `run: bold elk soars`
+- el objeto `run` de nivel superior de `manifest.json` (`{ "id": ...,
+  "name": ... }`) junto a `scenarios`
+- el frontmatter YAML de cada documento Markdown de traza: `run: bold elk
+  soars`, junto a `scenario:`
+- `nt.runName` en las líneas de log de los consumidores de
+  `@narrativetrace/pino`/`@narrativetrace/winston` y en el `LogContext` de
+  `@narrativetrace/observability`, pasado como la opción/argumento
+  `runName` — `@narrativetrace/vitest` no lo conecta automáticamente a un
+  logger, ya que no gestiona tu configuración de logging; pasa tú mismo
+  `runIdentity().name` donde construyas el consumidor
+
+```ts
+import { createPinoEventConsumer } from "@narrativetrace/pino";
+import { runIdentity } from "@narrativetrace/vitest";
+
+createPinoEventConsumer(logger, { runName: runIdentity().name });
+```
+
+**Invariante, demostrado con un test, no solo documentado**: el nombre de
+la ejecución (y el nombre propio de una traza) nunca llegan al texto
+estructural `.nt`, a una traza aprobada o recibida, al nombre de fichero
+de un artefacto, a las claves por escenario del manifest, ni al cálculo
+del delta — ninguna función que calcula alguna de esas cosas recibe una
+identidad de ejecución en absoluto. `run-name-byte-identity.test.ts`
+(`@narrativetrace/vitest`) ejecuta el mismo escenario como dos procesos
+distintos con dos ids de ejecución diferentes y comprueba que el `.nt` y
+el delta son byte a byte idénticos mientras el nombre de la ejecución
+difiere. La frase no lleva ningún dato propio — se deriva del id — consulta
+[Privacidad y ocultación](privacidad-y-ocultacion.md).
+
+El nombre **propio de una traza** no tiene relación con el nombre de la
+ejecución y no necesita configuración: `renderIndentedText()` abre con
+`trace: bold elk soars (a1b2c3d)`, `renderProse()` abre con `The trace
+bold elk soars:`, y la línea de título de `renderMarkdownDocument()` dice
+`## Trace: bold elk soars — OrderService.placeOrder`. Los tres callan en
+un árbol vacío, o en uno construido sin un id de traza explícito.
 
 ## 2b. De dónde provienen los ajustes
 
@@ -297,6 +398,12 @@ const traced = traceObject(service, context, paramNames, {
 |--------|---------|--------|
 | `className` | `target.constructor.name` | Nombre de clase mostrado en las trazas |
 | `includeReturnValues` | `true` | Cuando es `false`, los valores de retorno no se renderizan |
+
+Un objeto de opciones que lleva una clave fuera de esta tabla — una errata, o una forma de un
+`traceObject()` más nuevo que esta instalación no tiene — **lanza una excepción** nombrando la
+clave no reconocida y las aceptadas, en lugar de compilar, ejecutarse y no ocultar ni trazar nada
+en silencio. La misma comprobación se aplica dentro de cada entrada `methods` por método. *(since
+0.1.3, unreleased)*
 
 ## 7. Valores predeterminados recomendados por entorno
 

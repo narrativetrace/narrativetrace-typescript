@@ -1,0 +1,349 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# Machine-readable claims this repository's documentation makes about defaults, entry points,
+# config shapes and their effects — checked against a PUBLISHED (never local) install, never a
+# workspace build, never `workspace:`/`link:`/`file:`. See documentation/contract-gate.md for what
+# runs this and when.
+#
+# Schema (four `kind`s, docs-vs-published-gate-2026-09-12.md §2):
+#   id                  unique slug
+#   kind                entry-point | reflectable-default | probed-default | config-shape
+#   page                "<doc path>#<anchor>" — the sentence this entry backs
+#   claim               one human sentence
+#   since               the version the claim first holds (x.y.z)
+#   documented_default  (reflectable-default, probed-default) the exact observed value expected
+#   expected_effect     (config-shape) same role, named the way the design note spells it
+#   probe               source file (repo-relative) implementing the check
+#   coordinate          (entry-point only) the npm package name
+#   registry            (entry-point only) npm (default)
+#
+# `since` exempts an entry from the nightly gate only while it is LATER than the version actually
+# installed that run (docs-vs-published-gate-2026-09-12.md §5.1 ruling 1) — never keyed on this
+# repo's own package.json version. `contract-lint` (per commit, no network) validates this file's
+# shape; `contract-check` (nightly, registry-backed) runs contract-probe/ against it.
+version_source: "packages/core/package.json#version"
+entries:
+  # ---- entry points: does the package resolve at all, on the real registry -------------------
+  - id: entry-point-core
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/core"
+    page: "README.md#packages"
+    claim: "@narrativetrace/core resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-core-node
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/core-node"
+    page: "README.md#packages"
+    claim: "@narrativetrace/core-node resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-core-web
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/core-web"
+    page: "README.md#packages"
+    claim: "@narrativetrace/core-web resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-proxy
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/proxy"
+    page: "README.md#packages"
+    claim: "@narrativetrace/proxy resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-vitest
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/vitest"
+    page: "README.md#packages"
+    claim: "@narrativetrace/vitest resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-diagrams
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/diagrams"
+    page: "README.md#packages"
+    claim: "@narrativetrace/diagrams resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-clarity
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/clarity"
+    page: "README.md#packages"
+    claim: "@narrativetrace/clarity resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-glossary
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/glossary"
+    page: "README.md#packages"
+    claim: "@narrativetrace/glossary resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-browser
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/browser"
+    page: "README.md#packages"
+    claim: "@narrativetrace/browser resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-standalone
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/standalone"
+    page: "README.md#packages"
+    claim: "@narrativetrace/standalone resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-angular
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/angular"
+    page: "README.md#packages"
+    claim: "@narrativetrace/angular resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-react
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/react"
+    page: "README.md#packages"
+    claim: "@narrativetrace/react resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-react-router
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/react-router"
+    page: "README.md#packages"
+    claim: "@narrativetrace/react-router resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-express
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/express"
+    page: "README.md#packages"
+    claim: "@narrativetrace/express resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-hono
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/hono"
+    page: "README.md#packages"
+    claim: "@narrativetrace/hono resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-nestjs
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/nestjs"
+    page: "README.md#packages"
+    claim: "@narrativetrace/nestjs resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-observability
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/observability"
+    page: "README.md#packages"
+    claim: "@narrativetrace/observability resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-opentelemetry
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/opentelemetry"
+    page: "README.md#packages"
+    claim: "@narrativetrace/opentelemetry resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-winston
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/winston"
+    page: "README.md#packages"
+    claim: "@narrativetrace/winston resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  - id: entry-point-pino
+    kind: entry-point
+    registry: npm
+    coordinate: "@narrativetrace/pino"
+    page: "README.md#packages"
+    claim: "@narrativetrace/pino resolves on the npm registry at the installed version"
+    since: "0.1.0"
+    documented_default: "PRESENT"
+    probe: "contract-probe/probes/entry-point.mjs"
+
+  # ---- reflectable defaults: read straight off the published package.json, nothing executed ---
+  - id: reflectable-vitest-peer-range
+    kind: reflectable-default
+    page: "documentation/installation-guide.md#option-b-vitest-plugin-auto-context--trace-output"
+    claim: "vitest is the only peerDependency of @narrativetrace/vitest, at ^1.0.0 || ^2.0.0 || ^3.0.0"
+    since: "0.1.3"
+    documented_default: "^1.0.0 || ^2.0.0 || ^3.0.0"
+    probe: "contract-probe/probes/vitest-peer-range.mjs"
+
+  - id: reflectable-siblings-as-dependencies
+    kind: reflectable-default
+    page: "documentation/installation-guide.md#option-b-vitest-plugin-auto-context--trace-output"
+    claim: "@narrativetrace/vitest's core-node/clarity/diagrams/glossary siblings install as regular dependencies, not peerDependencies"
+    since: "0.1.3"
+    documented_default: "dependencies"
+    probe: "contract-probe/probes/siblings-as-dependencies.mjs"
+
+  - id: reflectable-engines
+    kind: reflectable-default
+    page: "documentation/installation-guide.md#prerequisites"
+    claim: "the published @narrativetrace/core package.json declares engines.node >=20"
+    since: "0.1.0"
+    documented_default: ">=20"
+    probe: "contract-probe/probes/engines.mjs"
+
+  # ---- config shapes: run the documented shape, assert one named, checkable effect ------------
+  - id: config-shape-vitest-reporters-subpath
+    kind: config-shape
+    page: "documentation/feature-guide.md#attach-it-to-your-stack-the-19-packages"
+    claim: "@narrativetrace/vitest/reporters is an importable subpath export"
+    since: "0.1.3"
+    expected_effect: "resolves"
+    probe: "contract-probe/probes/vitest-reporters-subpath.mjs"
+
+  - id: config-shape-trace-object-rejects-unknown-keys
+    kind: config-shape
+    page: "documentation/configuration-guide.md#6-proxy-options"
+    claim: "traceObject() throws on an unrecognised ProxyOptions key rather than silently ignoring it"
+    since: "0.1.3"
+    expected_effect: "throws"
+    probe: "contract-probe/probes/trace-object-rejects-unknown-keys.mjs"
+
+  - id: config-shape-narrativetrace-approve-bin
+    kind: config-shape
+    page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces-since-013-unreleased"
+    claim: "@narrativetrace/vitest publishes a narrativetrace-approve executable"
+    since: "0.1.3"
+    expected_effect: "resolves"
+    probe: "contract-probe/probes/narrativetrace-approve-bin.mjs"
+
+  - id: config-shape-approval-traces
+    kind: config-shape
+    page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces-since-013-unreleased"
+    claim: "createNarrativeTest's approval mode writes a value-free .nt structural artifact"
+    since: "0.1.3"
+    expected_effect: "writes-nt-artifact"
+    probe: "contract-probe/probes/approval-traces.mjs"
+
+  - id: config-shape-per-invocation-each
+    kind: config-shape
+    page: "documentation/feature-guide.md#attach-it-to-your-stack-the-19-packages"
+    claim: "each invocation of one .each() call gets its own structural title (<name> #<index>) and artifact set"
+    since: "0.1.3"
+    expected_effect: "distinct-per-invocation"
+    probe: "contract-probe/probes/per-invocation-each.mjs"
+
+  - id: config-shape-cli-doctor-exit-clean
+    kind: config-shape
+    page: "packages/cli/README.md#narrativetrace-doctor"
+    claim: "npx narrativetrace doctor exits 0 against a clean, healthy install"
+    since: "0.1.0"
+    expected_effect: "exit-0"
+    probe: "contract-probe/probes/cli-doctor-exit-clean.mjs"
+
+  # ---- probed defaults: real execution, no override set, observe what actually happens --------
+  - id: probed-narrativetrace-output-default
+    kind: probed-default
+    page: "documentation/configuration-guide.md#with-file-output"
+    claim: "NARRATIVETRACE_OUTPUT defaults to true — createNarrativeTest writes trace files with no configuration"
+    since: "0.1.3"
+    documented_default: "true"
+    probe: "contract-probe/probes/narrativetrace-output-default.mjs"
+
+  - id: probed-redaction-default
+    kind: probed-default
+    page: "documentation/privacy-and-redaction.md#what-redacts-and-what-outranks-what"
+    claim: "a parameter named password is redacted at capture, unconditionally, even with no annotation"
+    since: "0.1.3"
+    documented_default: "[REDACTED]"
+    probe: "contract-probe/probes/redaction-default.mjs"
+
+  - id: probed-platform-type-carveout
+    kind: probed-default
+    page: "documentation/privacy-and-redaction.md#what-redacts-and-what-outranks-what"
+    claim: "a platform type (Date, URL, RegExp, a boxed BigInt, a typed array) keeps its own toString(), unwalked"
+    since: "0.1.3"
+    documented_default: "own-tostring-used"
+    probe: "contract-probe/probes/platform-type-carveout.mjs"
+
+  - id: probed-dual-path-pipeline-default-consumer
+    kind: probed-default
+    page: "documentation/configuration-guide.md#8-event-pipeline-buffering-bufferedeventconsumer"
+    claim: "a DualPathPipeline built with a null buffered-consumer argument still gets a working BufferedEventConsumer — the buffered path is never silently absent"
+    since: "0.1.3"
+    documented_default: "captures"
+    probe: "contract-probe/probes/dual-path-pipeline-default-consumer.mjs"
+
+  - id: probed-run-name-console-footer
+    kind: probed-default
+    page: "documentation/configuration-guide.md#the-run-has-a-name-since-013-unreleased"
+    claim: "once ClaritySuiteReporter is registered, the suite footer names the enclosing run ('run: <phrase>') with no further configuration"
+    since: "0.1.3"
+    documented_default: "true"
+    probe: "contract-probe/probes/run-name-console-footer.mjs"
+
+  - id: probed-run-name-manifest-field
+    kind: probed-default
+    page: "documentation/configuration-guide.md#the-run-has-a-name-since-013-unreleased"
+    claim: "once ManifestSuiteReporter is registered, manifest.json carries a top-level run object ({id, name}) with no further configuration"
+    since: "0.1.3"
+    documented_default: "true"
+    probe: "contract-probe/probes/run-name-manifest-field.mjs"

@@ -34,7 +34,11 @@ describe("ES module bundle", () => {
     for (const name of BROWSER_API) expect(nt, name).toHaveProperty(name);
     const ctx = new nt.SyncNarrativeContext(new nt.NarrativeTraceConfig());
     nt.traceObject(new Cart(), ctx, { add: ["sku", "qty"] }).add("P1", 2);
-    expect(nt.renderIndentedText(ctx.captureTrace())).toBe('Cart.add(sku: "P1", qty: 2) → 2');
+    // Every non-empty tree opens with its own `trace: <phrase> (<7 hex>)` header (2026-09-13
+    // ruling, item 4) — the id is randomly generated, so the phrase is matched, not asserted.
+    expect(nt.renderIndentedText(ctx.captureTrace())).toMatch(
+      /^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)\n\nCart\.add\(sku: "P1", qty: 2\) → 2$/,
+    );
   });
 });
 
@@ -82,7 +86,11 @@ describe("classic <script> bundle — tracing", () => {
       page,
     );
 
-    expect(rendered).toBe('Cart.add(sku: "P1", qty: 2) → 2');
+    // Every non-empty tree opens with its own `trace: <phrase> (<7 hex>)` header (2026-09-13
+    // ruling, item 4) — the id is randomly generated, so the phrase is matched, not asserted.
+    expect(rendered).toMatch(
+      /^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)\n\nCart\.add\(sku: "P1", qty: 2\) → 2$/,
+    );
   });
 });
 
@@ -109,7 +117,13 @@ describe("type declarations", () => {
 });
 
 describe("size budget", () => {
-  // ~74 KiB today (raised from 73 KiB, 2026-09-10, for the six national-ID value-shape
+  // ~85 KiB today (raised from 76 KiB, 2026-09-12, for the structural `.nt` artifact block:
+  // StructuralTraceRenderer/StructuralProjection, ArtifactIdentity + the output-directory-resolver
+  // naming scheme, StructuralDelta/ScenarioDelta/LineDiff, evaluateApprovalTrace, and
+  // ScenarioManifest — all genuinely new @narrativetrace/core public API, none of it a
+  // dependency slipping into `noExternal`; headroom kept the same few-KiB margin as every prior
+  // raise below.
+  // ~74 KiB before that (raised from 73 KiB, 2026-09-10, for the six national-ID value-shape
   // checksums — Chilean RUT, Brazilian CPF/CNPJ, Spanish DNI/NIE, French NIR, Chinese resident
   // id — landed as secret-value-shapes.ts's new national-id-shapes.ts sibling, cross-runtime
   // shape parity with Java/.NET/Swift/Python's own national-ID modules). Raised from 70 KiB,
@@ -124,7 +138,7 @@ describe("size budget", () => {
   // budget catches accidental growth (a Node package or a large dependency slipping into
   // `noExternal`) before it reaches a page that loads this on every visit — a few KiB of
   // headroom stays tight enough for that, since a real accidental dependency adds far more.
-  const BUDGET_BYTES = 76 * 1024;
+  const BUDGET_BYTES = 88 * 1024;
 
   test.each([
     ["ES module", ESM_BUNDLE],

@@ -2,9 +2,12 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { readFileSync } from "node:fs";
+import { SKILLS } from "@narrativetrace/skills";
 import {
+  countUnreleasedMarkers,
   currentVersionBanner,
   extractRepoVersion,
+  extractUnreleasedCount,
   freshVersionCache,
   renderVersionBannerLine,
   stripCacheAgeComment,
@@ -31,9 +34,14 @@ interface Drift {
   readonly region: string | undefined;
 }
 
+/** Rendered SKILL.md pages carry the same `<!-- snippet: --> ` markers as docs (agent-skills-2026-09-12.md §3: "never a second hand-copied literal") — checked here, not a second implementation. */
+function skillPages(): string[] {
+  return SKILLS.flatMap((skill) => englishDocPages(`.claude/skills/${skill.claudeSegment}`));
+}
+
 function findSnippetDrifts(): Drift[] {
   const drifts: Drift[] = [];
-  for (const page of englishDocPages()) {
+  for (const page of [...englishDocPages(), ...skillPages()]) {
     const text = readFileSync(page, "utf-8");
     for (const block of parseSnippetBlocks(page, text)) {
       const embedded = applyMask(block.contentLines.join("\n"), block.mask);
@@ -75,10 +83,11 @@ function readRepoVersion(): string {
 }
 
 /**
- * `undefined` when the banner passes; otherwise a failure message. Two independent checks:
- * the repo-version half is always verified (deterministic, no network); the published-version
- * half is verified only when a fresh (<1h) registry cache already exists — an offline run (no
- * fresh cache) skips that half rather than failing on it, per the thin-CI/offline-nightly rule.
+ * `undefined` when the banner passes; otherwise a failure message. Three checks, two of them
+ * always run (deterministic, no network): the repo-version half, and the unreleased-marker count
+ * clause (owner ruling, 2026-09-12 — see llms-version-banner.ts's module doc). The published-
+ * version half is verified only when a fresh (<1h) registry cache already exists — an offline run
+ * (no fresh cache) skips that half rather than failing on it, per the thin-CI/offline-nightly rule.
  */
 function checkVersionBanner(): string | undefined {
   const repoVersion = readRepoVersion();
@@ -93,10 +102,19 @@ function checkVersionBanner(): string | undefined {
     );
   }
 
-  const cached = freshVersionCache();
-  if (!cached) return undefined; // offline: repo-version half already verified, stop here
+  const unreleasedCount = countUnreleasedMarkers();
+  const claimedUnreleasedCount = extractUnreleasedCount(banner);
+  if (claimedUnreleasedCount !== unreleasedCount) {
+    return (
+      `documentation/llms.txt's banner counts ${claimedUnreleasedCount} behaviour(s) marked ` +
+      `unreleased but the docs currently mark ${unreleasedCount}`
+    );
+  }
 
-  const expected = renderVersionBannerLine(repoVersion, cached.publishedVersion);
+  const cached = freshVersionCache();
+  if (!cached) return undefined; // offline: deterministic halves already verified, stop here
+
+  const expected = renderVersionBannerLine(repoVersion, cached.publishedVersion, unreleasedCount);
   if (stripCacheAgeComment(banner) !== expected) {
     return `documentation/llms.txt's banner is stale — expected '${expected}'`;
   }

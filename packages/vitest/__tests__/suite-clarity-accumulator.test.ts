@@ -89,4 +89,15 @@ describe("suiteClarityFooter", () => {
     // 0.9 high, 0.5 moderate, 0.2 low → 33% each.
     expect(footer).toContain("33% high | 33% moderate | 33% low");
   });
+
+  // 2026-09-13 ruling, item 2: the enclosing test-suite run's own name reaches the footer.
+  test("threads a given runName into the footer's own run: line", () => {
+    const footer = suiteClarityFooter([entry("A", 0.9)], "out", "bold elk soars");
+    expect(footer).toContain("run: bold elk soars");
+  });
+
+  test("omits the run line entirely when no runName is given", () => {
+    const footer = suiteClarityFooter([entry("A", 0.9)], "out");
+    expect(footer).not.toContain("run:");
+  });
 });

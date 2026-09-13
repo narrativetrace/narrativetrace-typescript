@@ -10,6 +10,7 @@ import {
   collectClarityEntries,
   GlossarySuiteReporter,
   glossaryHarvestEnabled,
+  ManifestSuiteReporter,
 } from "../src/reporters.js";
 
 // `../src/index.ts` imports `test` from "vitest" at module scope, which is only safe inside a
@@ -22,6 +23,7 @@ describe("the reporters entry point", () => {
   test("exposes the suite reporter classes and helpers", () => {
     expect(ClaritySuiteReporter).toBeTypeOf("function");
     expect(GlossarySuiteReporter).toBeTypeOf("function");
+    expect(ManifestSuiteReporter).toBeTypeOf("function");
     expect(ConsoleSummaryReporter).toBeTypeOf("function");
     expect(collectClarityEntries).toBeTypeOf("function");
     expect(glossaryHarvestEnabled).toBeTypeOf("function");
@@ -30,6 +32,7 @@ describe("the reporters entry point", () => {
   test("instantiates without throwing outside of a test run", () => {
     expect(() => new ClaritySuiteReporter({ outputDir: "/dev/null" })).not.toThrow();
     expect(() => new GlossarySuiteReporter({ enabled: false })).not.toThrow();
+    expect(() => new ManifestSuiteReporter({ outputDir: "/dev/null" })).not.toThrow();
   });
 });
 
@@ -42,8 +45,14 @@ describe('no runtime import of "vitest" reaches the reporters entry point', () =
     "../src/reporters.ts",
     "../src/clarity-suite-reporter.ts",
     "../src/glossary-suite-reporter.ts",
+    "../src/manifest-suite-reporter.ts",
+    "../src/manifest-suite-accumulator.ts",
     "../src/console-summary-reporter.ts",
     "../src/suite-clarity-accumulator.ts",
+    "../src/run-identity-accumulator.ts",
+    "../src/task-meta-walk.ts",
+    "../src/per-process-registry.ts",
+    "../src/suite-artifact-io.ts",
   ];
 
   const RUNTIME_VITEST_IMPORT = /^\s*import\b[^;]*\bfrom\s+["']vitest["']/m;

@@ -14,6 +14,19 @@ function makeContext() {
   return new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
 }
 
+// Every `launch()` body below is synchronous, so `FireAndForgetGroup`'s internal
+// `taskPromise.then(...).catch(...)` settles after a fixed, small number of microtask hops with
+// no real timer of its own involved. `setTimeout(r, 0)` — a macrotask boundary — is a deterministic
+// barrier for that: Node always drains the whole microtask queue before running the next macrotask,
+// so it settles regardless of hop count, without guessing a wall-clock budget. Used to be
+// `setTimeout(r, 10)`, an arbitrary-ms sleep standing in for "let the launched task settle" (family
+// release rule 3, 2026-09-07: wall-clock, GC and scheduler are never test inputs) — flaky-by-design
+// under host load, since a starved event loop has no guarantee 10ms is enough, where one macrotask
+// tick always is.
+async function settle(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 describe("FireAndForgetGroup identity propagation", () => {
   test("launched child spans inherit the parent's request and user metadata", async () => {
     const parent = makeContext();
@@ -26,7 +39,7 @@ describe("FireAndForgetGroup identity propagation", () => {
       ctx.enterMethod("NotificationService", "send", []);
       ctx.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
 
     const child = parent.captureTrace().roots[0]?.children[0];
@@ -53,7 +66,7 @@ describe("FireAndForgetGroup", () => {
       ctx.enterMethod("NotificationService", "send", []);
       ctx.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
     const tree = parent.captureTrace();
     expect(tree.roots).toHaveLength(1);
@@ -69,7 +82,7 @@ describe("FireAndForgetGroup", () => {
       ctx.enterMethod("NotificationService", "send", []);
       ctx.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
     const tree = parent.captureTrace();
     expect(tree.roots[0]?.children[0]?.concurrency?.kind).toBe("fire-and-forget");
@@ -83,7 +96,7 @@ describe("FireAndForgetGroup", () => {
     group.launch(() => {
       ran = true;
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     expect(ran).toBe(true);
   });
 
@@ -96,7 +109,7 @@ describe("FireAndForgetGroup", () => {
       ctx.exitMethodWithReturn('"ok"');
       return "result";
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
     const tree = parent.captureTrace();
     expect(tree.roots[0]?.children[0]?.concurrency?.groupId).toBe(group.groupId);
@@ -115,7 +128,7 @@ describe("FireAndForgetGroup", () => {
       ctx.enterMethod("B", "b", []);
       ctx.exitMethodWithReturn('"ok"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
     const tree = parent.captureTrace();
     expect(tree.roots[0]?.children).toHaveLength(2);
@@ -127,7 +140,7 @@ describe("FireAndForgetGroup", () => {
       ctx.enterMethod("Svc", "op", []);
       ctx.exitMethodWithReturn('"ok"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     // NOOP_CONTEXT produces no trace, but task should not crash
     expect(group.groupId).toMatch(/^fanf-\d+$/);
   });
@@ -139,7 +152,7 @@ describe("FireAndForgetGroup", () => {
     group.launch(() => {
       throw new Error("fire-and-forget error");
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
     const tree = parent.captureTrace();
     expect(tree.roots).toHaveLength(1);
@@ -154,7 +167,7 @@ describe("FireAndForgetGroup", () => {
       ctx.enterMethod("NotificationService", "send", []);
       ctx.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
     const tree = parent.captureTrace();
     expect(tree.roots[0]?.children[0]?.concurrency?.taskLabel).toBe("NotificationService.send");
@@ -170,7 +183,7 @@ describe("FireAndForgetGroup", () => {
       ctx.exitMethodWithReturn('"found"');
       ctx.exitMethodWithReturn('"ok"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
     const tree = parent.captureTrace();
     expect(tree.roots[0]?.children[0]?.children).toHaveLength(1);
@@ -193,7 +206,7 @@ describe("FireAndForgetGroup", () => {
       ctx.enterMethod("Notifier", "send", []);
       ctx.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"done"');
 
     const forkedEnter = received.find(
@@ -227,7 +240,7 @@ describe("FireAndForgetGroup no-poison contract: reset after collection", () => 
       ctx.enterMethod("NotificationService", "send", []);
       ctx.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     parent.exitMethodWithReturn('"ok"');
 
     parent.reset();

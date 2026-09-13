@@ -56,7 +56,13 @@ test("clicking run renders the traced checkout, including the caught failure, in
 
   clickRun();
 
-  expect(traceText()?.split("\n")).toEqual([
+  // Every non-empty tree opens with its own `trace: <phrase> (<7 hex>)` header plus a blank line
+  // (2026-09-13 ruling, item 4) — the id is randomly generated, so only the calculation lines
+  // after it are asserted exactly.
+  const lines = traceText()?.split("\n") ?? [];
+  expect(lines[0]).toMatch(/^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)$/);
+  expect(lines[1]).toBe("");
+  expect(lines.slice(2)).toEqual([
     'ShoppingCart.add(sku: "P1", qty: 2) → 1',
     'ShoppingCart.add(sku: "P2", qty: 1) → 2',
     'ShoppingCart.checkout(coupon: "SPRING") → {"total": 42, "items": 2}',

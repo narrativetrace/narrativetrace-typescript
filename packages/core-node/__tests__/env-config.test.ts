@@ -39,4 +39,19 @@ describe("resolveEnvConfig", () => {
     expect(config.outputDir).toBeUndefined();
     expect(config.format).toBeUndefined();
   });
+
+  test("reads approval, approvedDir and structuralJson", () => {
+    expect(
+      resolveEnvConfig({
+        NARRATIVETRACE_APPROVAL: "true",
+        NARRATIVETRACE_APPROVED_DIR: "narratives",
+        NARRATIVETRACE_STRUCTURAL_JSON: "true",
+      }),
+    ).toEqual({
+      level: "detail",
+      approval: "true",
+      approvedDir: "narratives",
+      structuralJson: "true",
+    });
+  });
 });

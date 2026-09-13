@@ -77,6 +77,12 @@ const KIND_BUILDERS: Record<string, KindBuilder> = {
     new ToStringWrapper(new PasswordToString(sentinel)),
   mapKey: (_c, _payload, sentinel) => new Map([[new PasswordToString(sentinel), "value"]]),
   throwingSummary: (_c, _payload, sentinel) => new ThrowingSummary(sentinel),
+  platformTypeShortValue: () => platformTypeSamples(),
+  platformTypeNameRedacted: (_c, _payload, sentinel) => ({
+    token: new URL(`https://example.com/${sentinel}`),
+  }),
+  platformLookalikeWalked: (_c, _payload, sentinel) => new PlatformLookalike(sentinel),
+  platformSubclassWalked: (_c, _payload, sentinel) => new PlatformSubclass(sentinel),
 };
 
 function byKind(graphCase: GraphCase, payload: unknown, sentinel: string): unknown {
@@ -400,6 +406,50 @@ export class ThrowingSummary {
   }
   narrativeSummary(): string {
     throw new Error(`cannot summarize ${this.#sentinel}`);
+  }
+}
+
+/**
+ * Sample values from every realm platform intrinsic `value-renderer.ts` trusts native
+ * stringification for (2026-09-12 "trusted-leaf" carve-out) — `platform-type-short-value`.
+ * Carries no sentinel: the oracle here is well-formedness (renders without throwing, in bounded
+ * time, idempotently), not containment, since none of these carries a deny-listed field.
+ */
+function platformTypeSamples(): unknown[] {
+  return [
+    new Date("2024-01-01T00:00:00.000Z"),
+    new URL("https://example.com/a?b=1"),
+    /a.*b/g,
+    new Uint8Array([1, 2, 3]),
+  ];
+}
+
+/**
+ * A user class that merely NAMES itself `Date` (`Object.defineProperty(..., "name", ...)`)
+ * without ever touching the real `Date.prototype`, carrying its own deny-listed field
+ * (`platform-lookalike-walked`). Identity is checked by prototype, never by
+ * `constructor.name`, so this renders like any other user type: field-walked and redacted, never
+ * handed to its own `toString()`.
+ */
+export class PlatformLookalike {
+  static readonly notTraced = ["secret"];
+  constructor(readonly secret: string) {}
+  toString(): string {
+    return `Date(secret=${this.secret})`;
+  }
+}
+Object.defineProperty(PlatformLookalike, "name", { value: "Date" });
+
+/**
+ * A genuine subclass of a real platform intrinsic (`Date`), carrying a deny-listed field of its
+ * own (`platform-subclass-walked`). `Object.getPrototypeOf` one level up from an instance is this
+ * subclass's own prototype, never `Date.prototype`, so the identity check fails and the field
+ * walk runs — a subclass is never trusted merely because its superclass is.
+ */
+export class PlatformSubclass extends Date {
+  static readonly notTraced = ["secret"];
+  constructor(readonly secret: string) {
+    super();
   }
 }
 

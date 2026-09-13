@@ -6,9 +6,33 @@ import { concurrencyInfo } from "../src/concurrency-info.js";
 import { methodSignature } from "../src/method-signature.js";
 import { parameterCapture } from "../src/parameter-capture.js";
 import { renderProse } from "../src/prose-renderer.js";
+import { humanName } from "../src/trace-namer.js";
 import { traceNode } from "../src/trace-node.js";
 import { incomplete, returned, threw } from "../src/trace-outcome.js";
 import { traceTree } from "../src/trace-tree.js";
+
+/**
+ * The `The trace <phrase>:` header every non-empty tree now opens with (2026-09-13 ruling, item
+ * 4) — computed from the tree's own randomly generated id, never asserted as a fixed string.
+ */
+function header(tree: ReturnType<typeof traceTree>): string {
+  return `The trace ${humanName(tree.traceId!)}:\n\n`;
+}
+
+describe("renderProse trace header", () => {
+  test("opens with 'The trace <phrase>:' plus a blank line, for a non-empty tree", () => {
+    const tree = traceTree([traceNode(methodSignature("Svc", "op", []), returned('"ok"'), [])]);
+    const result = renderProse(tree);
+    expect(result.startsWith(header(tree))).toBe(true);
+    expect(result).toMatch(/^The trace [a-z]+ [a-z]+ [a-z]+:\n\n/);
+  });
+
+  test("is silent (no header at all) on an empty tree — nothing here is invented", () => {
+    const result = renderProse(traceTree([]));
+    expect(result).toBe("");
+    expect(result).not.toContain("The trace");
+  });
+});
 
 describe("renderProse", () => {
   test("a redacted param renders the [REDACTED] marker, not the captured value", () => {
@@ -29,7 +53,7 @@ describe("renderProse", () => {
     const result = renderProse(tree);
 
     expect(result).toBe(
-      'The order service places order for orderId: "order-42", quantity: 3, returning "OK".',
+      `${header(tree)}The order service places order for orderId: "order-42", quantity: 3, returning "OK".`,
     );
   });
 
@@ -43,7 +67,7 @@ describe("renderProse", () => {
     const result = renderProse(tree);
 
     expect(result).toBe(
-      "The payment service failed to charge for amount: 100 — Error: insufficient funds.",
+      `${header(tree)}The payment service failed to charge for amount: 100 — Error: insufficient funds.`,
     );
   });
 
@@ -54,7 +78,7 @@ describe("renderProse", () => {
 
     const result = renderProse(tree);
 
-    expect(result).toBe('The logger logs for msg: "hello".');
+    expect(result).toBe(`${header(tree)}The logger logs for msg: "hello".`);
   });
 
   test("verb ending in ch adds es suffix", () => {
@@ -180,21 +204,25 @@ describe("renderProse", () => {
     const result = renderProse(tree);
 
     expect(result).toBe(
-      'The order service places order, returning "OK". The inventory service reserves for productId: "P1", returning true.',
+      `${header(tree)}The order service places order, returning "OK". The inventory service reserves for productId: "P1", returning true.`,
     );
   });
 
   // className/methodName/parameter names are trace metadata: unlike a captured value they are not
   // control-escaped upstream, so a hostile one reaching a renderer raw would inject an extra
-  // sentence break (cross-runtime shape F4, 2026-09-02 audit).
+  // sentence break (cross-runtime shape F4, 2026-09-02 audit). The header is fixed, well-formed
+  // text unrelated to this hostile metadata, so it is stripped before counting lines (Java parity:
+  // the header line change updated this same assertion in ProseRendererTest).
   test("a control character in className/methodName/a parameter name does not inject an extra sentence", () => {
     const sig = methodSignature("A\nB", "c\nd", [parameterCapture("e\nf", '"v"', false)]);
     const node = traceNode(sig, returned('"OK"'), []);
+    const tree = traceTree([node]);
 
-    const result = renderProse(traceTree([node]));
+    const result = renderProse(tree);
+    const body = result.slice(header(tree).length);
 
-    expect(result.split("\n")).toHaveLength(1);
-    expect(result).not.toContain("\n");
+    expect(body.split("\n")).toHaveLength(1);
+    expect(body).not.toContain("\n");
   });
 });
 

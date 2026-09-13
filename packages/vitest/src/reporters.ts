@@ -29,3 +29,13 @@ export {
   type GlossarySuiteReporterOptions,
   glossaryHarvestEnabled,
 } from "./glossary-suite-reporter.js";
+export {
+  collectManifestEntries,
+  ManifestSuiteReporter,
+  type ManifestSuiteReporterOptions,
+} from "./manifest-suite-reporter.js";
+export {
+  collectStructuralDeltas,
+  StructuralSuiteReporter,
+  type StructuralSuiteReporterOptions,
+} from "./structural-suite-reporter.js";

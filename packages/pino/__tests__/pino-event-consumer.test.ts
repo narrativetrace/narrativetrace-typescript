@@ -256,6 +256,27 @@ describe("createPinoEventConsumer", () => {
     expect(entries[0]?.["nt.chapterId"]).toBe("OrderService.placeOrder");
   });
 
+  // 2026-09-13 ruling, item 2: nt.runName rides on every line the way nt.traceName already does.
+  test("carries nt.runName on both enter and exit when a runName is given", () => {
+    const { logger, entries } = createTestLogger();
+    const consumer = createPinoEventConsumer(logger, { runName: "bold elk soars" });
+
+    consumer(enterEvent(0, "Svc", "op"));
+    consumer({ type: "exit", spanContext: sc(sid(0)), timestamp: 1, outcome: returned('"OK"') });
+
+    expect(entries[0]?.["nt.runName"]).toBe("bold elk soars");
+    expect(entries[1]?.["nt.runName"]).toBe("bold elk soars");
+  });
+
+  test("omits nt.runName entirely outside a tracked run", () => {
+    const { logger, entries } = createTestLogger();
+    const consumer = createPinoEventConsumer(logger);
+
+    consumer(enterEvent(0, "Svc", "op"));
+
+    expect(entries[0]).not.toHaveProperty("nt.runName");
+  });
+
   test("exit with incomplete outcome logs a warning", () => {
     const { logger, entries } = createTestLogger();
     const consumer = createPinoEventConsumer(logger);

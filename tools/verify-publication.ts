@@ -12,6 +12,7 @@ import {
 } from "./verify-publication-provenance.js";
 import {
   DEFAULT_REGISTRY_BASE,
+  latestDistTagVersion,
   type PresenceVerdict,
   pollPresence,
   type RegistryTarget,
@@ -38,7 +39,10 @@ Options:
   --interval=SECONDS  steady-state polling interval once backoff has ramped up (default: 60).
   -h, --help          print this text and exit 0.
 
-[version] defaults to the latest "v*" git tag, else packages/core/package.json's own version.
+[version] is optional: omitted, the LAST PUBLISHED version is verified — the newest "v*" tag
+reachable from HEAD, else the npm registry's own "latest" dist-tag for @narrativetrace/core —
+never this workspace's own package.json version, which moves on to the next version the instant
+a release is cut. Pass [version] explicitly to verify exactly that version instead.
 `;
 
 interface Args {
@@ -67,16 +71,19 @@ function parseArgs(argv: readonly string[]): Args {
   return { version, dryRun, timeoutMs, maxIntervalMs, help };
 }
 
+/** The newest `v*` tag reachable from HEAD, without the `v` prefix, or `undefined` when none is
+ * reachable (a fresh/shallow checkout with no release yet). `--match 'v*'` is quoted so the shell
+ * never glob-expands it against files in the working directory, and `--abbrev=0` asks for the
+ * bare tag name with no `-N-g<sha>` suffix — the same invocation the Java golden repo's
+ * `scripts/verify-publication.sh` uses for this exact family finding. */
 function latestGitTagVersion(repoRoot: string): string | undefined {
   try {
-    const tags = execSync("git tag --list 'v*' --sort=-version:refname", {
+    const tag = execSync("git describe --tags --abbrev=0 --match 'v*'", {
       cwd: repoRoot,
       encoding: "utf-8",
-    })
-      .trim()
-      .split("\n")
-      .filter(Boolean);
-    return tags[0]?.replace(/^v/, "");
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    return tag ? tag.replace(/^v/, "") : undefined;
   } catch {
     return undefined;
   }
@@ -86,14 +93,48 @@ function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf-8")) as T;
 }
 
-/** No CLI argument names a version under test: fall back to the latest release tag, and if this
- * checkout has none reachable (a shallow clone with no tags fetched), the workspace's own
- * current version — never silently defaulting to "whatever happens to build". */
-function resolveVersion(repoRoot: string, explicit: string | undefined): string {
-  if (explicit) return explicit;
+export interface ResolvedVersion {
+  readonly version: string;
+  readonly source: string;
+}
+
+/**
+ * Resolves the version to verify when none was given on the command line — the case the
+ * scheduled `verify-publication.yml` run always hits. Resolution order, mirroring the Java
+ * golden repo's `scripts/verify-publication.sh resolve_version` fix for the same family finding:
+ *
+ *   1. the newest `v*` tag reachable from HEAD (`latestGitTagVersion`).
+ *   2. the npm registry's own `latest` dist-tag for `@narrativetrace/core`, when no such tag
+ *      exists yet (a scratch checkout rehearsing this tool before any release).
+ *
+ * The workspace's own `packages/*\/package.json` version is NEVER consulted here: it moves on
+ * to the next version the instant a release is cut, so a scheduled run that read it would poll
+ * the registry for artifacts that were never going to exist — the exact bug this fixes. An
+ * explicit `explicit` version always wins outright and this resolution never runs at all.
+ * Throws when neither source answers, rather than silently defaulting to "whatever happens to
+ * build".
+ */
+export async function resolveVersion(
+  repoRoot: string,
+  explicit: string | undefined,
+  registryBase: string = DEFAULT_REGISTRY_BASE,
+): Promise<ResolvedVersion> {
+  if (explicit) return { version: explicit, source: "explicit version argument" };
   const tagged = latestGitTagVersion(repoRoot);
-  if (tagged) return tagged;
-  return readJson<{ version: string }>(join(repoRoot, "packages/core/package.json")).version;
+  if (tagged) {
+    return { version: tagged, source: `newest v* tag reachable from HEAD (v${tagged})` };
+  }
+  const latest = await latestDistTagVersion(registryBase, "@narrativetrace/core");
+  if (latest) {
+    return {
+      version: latest,
+      source: 'npm registry "latest" dist-tag for @narrativetrace/core (no v* tag found)',
+    };
+  }
+  throw new Error(
+    'no version given, no v* tag reachable from HEAD, and the npm registry "latest" dist-tag ' +
+      "for @narrativetrace/core did not answer. Pass a version explicitly.",
+  );
 }
 
 function readVitestRuntimeRange(repoRoot: string): string {
@@ -152,7 +193,12 @@ async function main(): Promise<void> {
   const packages: WorkspacePackage[] = derivePublishablePackages(repoRoot);
   if (packages.length === 0) throw new Error("no publishable packages found in the workspace");
 
-  const version = resolveVersion(repoRoot, args.version);
+  const { version, source } = await resolveVersion(repoRoot, args.version);
+  if (!args.version) {
+    console.error(
+      `>> no version given — verifying the last published version: ${version} (${source})`,
+    );
+  }
   const targets: RegistryTarget[] = packages.map((p) => ({ name: p.name, version }));
 
   if (args.dryRun) {
@@ -190,7 +236,14 @@ async function main(): Promise<void> {
   process.exitCode = allPresent && allProvenanceOk && smoke.verdict === "PASSED" ? 0 : 1;
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exitCode = 1;
-});
+// Guarded: contract-check.ts imports `resolveVersion` from this module for the SAME version-
+// resolution algorithm (docs-vs-published-gate-2026-09-12.md §2) — an unconditional `main()` here
+// would run this script's OWN CLI (parsing the importing script's `process.argv`, polling the
+// registry, running its own smoke test) purely as an import side effect. Only run when this file
+// is the actual entry point.
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch((err) => {
+    console.error(err);
+    process.exitCode = 1;
+  });
+}

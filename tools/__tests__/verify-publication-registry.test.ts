@@ -2,7 +2,12 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, it } from "vitest";
-import { classifyStatus, pollPresence, versionUrl } from "../verify-publication-registry.js";
+import {
+  classifyStatus,
+  latestDistTagVersion,
+  pollPresence,
+  versionUrl,
+} from "../verify-publication-registry.js";
 
 describe("classifyStatus", () => {
   it.each([
@@ -20,6 +25,47 @@ describe("versionUrl", () => {
     expect(versionUrl("https://registry.npmjs.org", "@narrativetrace/core", "0.1.1")).toBe(
       "https://registry.npmjs.org/@narrativetrace/core/0.1.1",
     );
+  });
+});
+
+describe("latestDistTagVersion", () => {
+  it("hits the same URL shape versionUrl builds, substituting the latest tag for the version", async () => {
+    const urls: string[] = [];
+    const fetchJson = async (url: string) => {
+      urls.push(url);
+      return { version: "2.7.1" };
+    };
+
+    const version = await latestDistTagVersion(
+      "https://registry.npmjs.org",
+      "@narrativetrace/core",
+      fetchJson,
+    );
+
+    expect(version).toBe("2.7.1");
+    expect(urls).toEqual(["https://registry.npmjs.org/@narrativetrace/core/latest"]);
+  });
+
+  it("returns undefined — the 'no answer' sentinel — when the registry fetch throws", async () => {
+    const version = await latestDistTagVersion(
+      "https://registry.npmjs.org",
+      "@nt/never-published",
+      async () => {
+        throw new Error("ECONNREFUSED");
+      },
+    );
+
+    expect(version).toBeUndefined();
+  });
+
+  it("returns undefined when the packument body carries no version string", async () => {
+    const version = await latestDistTagVersion(
+      "https://registry.npmjs.org",
+      "@nt/malformed",
+      async () => ({ notVersion: "oops" }),
+    );
+
+    expect(version).toBeUndefined();
   });
 });
 

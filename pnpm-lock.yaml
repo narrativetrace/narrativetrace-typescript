@@ -14,6 +14,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.0.0
         version: 2.4.4
+      '@narrativetrace/skills':
+        specifier: workspace:*
+        version: link:packages/skills
       '@stryker-mutator/core':
         specifier: ^9.6.0
         version: 9.6.0(@types/node@25.5.0)
@@ -29,6 +32,9 @@ importers:
       husky:
         specifier: ^9.1.7
         version: 9.1.7
+      jscpd:
+        specifier: 5.2.0
+        version: 5.2.0
       lint-staged:
         specifier: ^16.3.0
         version: 16.3.0
@@ -50,6 +56,9 @@ importers:
       vitest:
         specifier: ^3.2.7
         version: 3.2.7(@types/node@25.5.0)(jsdom@26.1.0)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0)
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
   examples/browser:
     devDependencies:
@@ -500,6 +509,9 @@ importers:
       '@narrativetrace/clarity':
         specifier: workspace:*
         version: link:../../packages/clarity
+      '@narrativetrace/cli':
+        specifier: workspace:*
+        version: link:../../packages/cli
       '@narrativetrace/core-node':
         specifier: workspace:*
         version: link:../../packages/core-node
@@ -587,6 +599,12 @@ importers:
       '@narrativetrace/core':
         specifier: workspace:*
         version: link:../core
+      '@types/node':
+        specifier: ^25.0.0
+        version: 25.5.0
+
+  packages/cli:
+    devDependencies:
       '@types/node':
         specifier: ^25.0.0
         version: 25.5.0
@@ -886,6 +904,12 @@ importers:
       yaml:
         specifier: ^2.9.0
         version: 2.9.0
+
+  packages/skills:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.0.0
+        version: 25.5.0
 
   packages/standalone:
     devDependencies:
@@ -3736,6 +3760,55 @@ packages:
 
   js-tokens@9.0.1:
     resolution: {integrity: sha512-mxa9E9ITFOt0ban3j6L5MpjwegGz6lBQmM1IJkWeBZGcMxto50+eWdjC/52xDbS2vy0k7vIMK0Fe2wfL9OQSpQ==}
+
+  jscpd-darwin-arm64@5.2.0:
+    resolution: {integrity: sha512-QnEDfTH2MymizVHiEQpqfYEj63k1DW7QC0QBZoevh+o/iHQrHxKlgrakMysUIwIJlnmvqPB6iP/G3dBpFmnmeQ==}
+    cpu: [arm64]
+    os: [darwin]
+
+  jscpd-darwin-x64@5.2.0:
+    resolution: {integrity: sha512-P2lYEK0Yyn+0z7618+9A0NErywjaPrwSYcId3gRSt5l0cyKBwhMmyFLX/2t3G2HRi+GX+OT2A/YpWvvTzLJJ1A==}
+    cpu: [x64]
+    os: [darwin]
+
+  jscpd-linux-arm64-gnu@5.2.0:
+    resolution: {integrity: sha512-UhdX9vvCFwoG1cViNqFyvxfqNtJ+xWbGsgZ5PbcgUx2OLWnvjhkjihPw/fOUM9IoxHaT66AE5pipaV/oQE/76A==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  jscpd-linux-arm64-musl@5.2.0:
+    resolution: {integrity: sha512-13DsZCQ58fOMUX6mU8DZtiTdIk+9Gp2xLu6mtc6fmqqZRJoRHQSSDvMqRVedCqArquxc0I+tqQtZO4n7/8QJxA==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  jscpd-linux-x64-gnu@5.2.0:
+    resolution: {integrity: sha512-p88BpA5QzyZzyF8uYeVCz9ZBoZYg8s6AwcDc3NkIDNTbrrF0sKqgGjclGWAoJvYAiGExiFNqV768pVHsE//l0Q==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  jscpd-linux-x64-musl@5.2.0:
+    resolution: {integrity: sha512-6DgIxJpS7L4bb1DkYrqC0SflMY2/2/3Dl0kZJ1In6SeSENcTaZ12W1zX3kNf7wVUDFgPi94TuSxrw3N2TqRhRg==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  jscpd-windows-arm64-msvc@5.2.0:
+    resolution: {integrity: sha512-DI84oCG+L5sYhmYanXjjydXlFzC194/NJA6F7W8cmOI1rKSnWrgIjUtvTmXumygwTK/eAXkK7rFBqFnyiLEzdw==}
+    cpu: [arm64]
+    os: [win32]
+
+  jscpd-windows-x64-msvc@5.2.0:
+    resolution: {integrity: sha512-EH4chck2EIehosfy7q6hxaKgzlaZv/dZhUHtjBmBf81d5/ZDfa6BsKw2gM8PSoNC0QXznWXv9uQcFWsV+P9v8A==}
+    cpu: [x64]
+    os: [win32]
+
+  jscpd@5.2.0:
+    resolution: {integrity: sha512-6f4qhJGIeR/ZvAkZByfpPw5H28SNEE4fgJ4GXxVuLMiEg7xWrAlUdm0crIJPY6dmykvgdM83ZRrWJXg11fQlYg==}
+    engines: {node: '>=18'}
+    hasBin: true
 
   jsdom@26.1.0:
     resolution: {integrity: sha512-Cvc9WUhxSMEo4McES3P7oK3QaXldCfNWp7pl2NNeiIFlCoLr3kfq9kb1fxftiwk1FLV7CvpvDfonxtzUDeSOPg==}
@@ -6803,14 +6876,6 @@ snapshots:
       chai: 5.3.3
       tinyrainbow: 2.0.0
 
-  '@vitest/mocker@3.2.7(vite@7.3.6(@types/node@25.3.2)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0))':
-    dependencies:
-      '@vitest/spy': 3.2.7
-      estree-walker: 3.0.3
-      magic-string: 0.30.21
-    optionalDependencies:
-      vite: 7.3.6(@types/node@25.3.2)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0)
-
   '@vitest/mocker@3.2.7(vite@7.3.6(@types/node@25.5.0)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0))':
     dependencies:
       '@vitest/spy': 3.2.7
@@ -7836,6 +7901,41 @@ snapshots:
   js-tokens@4.0.0: {}
 
   js-tokens@9.0.1: {}
+
+  jscpd-darwin-arm64@5.2.0:
+    optional: true
+
+  jscpd-darwin-x64@5.2.0:
+    optional: true
+
+  jscpd-linux-arm64-gnu@5.2.0:
+    optional: true
+
+  jscpd-linux-arm64-musl@5.2.0:
+    optional: true
+
+  jscpd-linux-x64-gnu@5.2.0:
+    optional: true
+
+  jscpd-linux-x64-musl@5.2.0:
+    optional: true
+
+  jscpd-windows-arm64-msvc@5.2.0:
+    optional: true
+
+  jscpd-windows-x64-msvc@5.2.0:
+    optional: true
+
+  jscpd@5.2.0:
+    optionalDependencies:
+      jscpd-darwin-arm64: 5.2.0
+      jscpd-darwin-x64: 5.2.0
+      jscpd-linux-arm64-gnu: 5.2.0
+      jscpd-linux-arm64-musl: 5.2.0
+      jscpd-linux-x64-gnu: 5.2.0
+      jscpd-linux-x64-musl: 5.2.0
+      jscpd-windows-arm64-msvc: 5.2.0
+      jscpd-windows-x64-msvc: 5.2.0
 
   jsdom@26.1.0:
     dependencies:
@@ -9183,7 +9283,7 @@ snapshots:
     dependencies:
       '@types/chai': 5.2.3
       '@vitest/expect': 3.2.7
-      '@vitest/mocker': 3.2.7(vite@7.3.6(@types/node@25.3.2)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0))
+      '@vitest/mocker': 3.2.7(vite@7.3.6(@types/node@25.5.0)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0))
       '@vitest/pretty-format': 3.2.7
       '@vitest/runner': 3.2.7
       '@vitest/snapshot': 3.2.7

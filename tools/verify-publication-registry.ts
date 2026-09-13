@@ -45,6 +45,44 @@ function defaultSleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export type FetchJson = (url: string) => Promise<unknown>;
+
+async function defaultFetchJson(url: string): Promise<unknown> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GET ${url} -> ${res.status}`);
+  return res.json();
+}
+
+/**
+ * The version currently tagged `latest` for one package — the npm-registry counterpart of the
+ * Java golden repo's Maven Central `maven-metadata.xml` `<latest>` fallback, used the same way:
+ * only when no release tag is reachable from HEAD yet (see `verify-publication.ts`'s
+ * `resolveVersion`). npm serves a dist-tag packument at the exact URL shape {@link versionUrl}
+ * already builds for a real semver version, substituting the `latest` tag for the version
+ * segment — `GET <base>/<name>/latest` answers with the packument that tag currently points at,
+ * whose own `version` field is what this returns.
+ *
+ * Returns `undefined` — this module's own "no answer" sentinel, the same shape
+ * {@link classifyStatus}'s `MISSING` verdict carries for a fetch that never got a response —
+ * whenever the registry doesn't answer usefully (unreachable, non-2xx, or a body with no
+ * `version` string), so a caller can tell "nothing published under this name yet" apart from a
+ * registry that is merely slow or broken.
+ */
+export async function latestDistTagVersion(
+  registryBase: string,
+  name: string,
+  fetchJson: FetchJson = defaultFetchJson,
+): Promise<string | undefined> {
+  try {
+    const meta = (await fetchJson(versionUrl(registryBase, name, "latest"))) as {
+      version?: string;
+    };
+    return typeof meta.version === "string" ? meta.version : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function checkAll(
   targets: readonly RegistryTarget[],
   registryBase: string,

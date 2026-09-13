@@ -40,8 +40,14 @@ async function runCheckout() {
       className: "NotificationService",
     }).notifyOrderPlaced("C1", "O1");
   });
-  // Let the fire-and-forget task settle so its span is captured.
-  await new Promise((resolve) => setTimeout(resolve, 10));
+  // Let the fire-and-forget task settle so its span is captured. The launched task is an async
+  // function with no real timer of its own, so it settles after a small, fixed number of
+  // microtask hops; `setTimeout(resolve, 0)` — a macrotask boundary — is a deterministic barrier
+  // for that (Node always drains the microtask queue before the next macrotask), unlike the fixed
+  // `setTimeout(resolve, 10)` this replaces, an arbitrary-ms sleep a starved event loop under host
+  // load has no guarantee of honoring (family release rule 3, 2026-09-07: wall-clock, GC and
+  // scheduler are never test inputs).
+  await new Promise((resolve) => setTimeout(resolve, 0));
 
   ctx.exitMethodWithReturn('"placed"');
   return { tree: ctx.captureTrace(), price, reservation };

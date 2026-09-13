@@ -24,10 +24,18 @@ import {
  * fixed secret is findable by a renderer that special-cases it and, worse, is findable by a *test*
  * that passes because some earlier case cleared the same string out. It also checks a prefix of the
  * token, because a partial leak through a truncating emitter is still a leak.
+ *
+ * @llmNote Used to carry a sixth oracle, `withinBudget` — a wall-clock hang detector
+ * (`elapsed < BUDGET_MILLIS`, a generous 10-second budget). Removed 2026-09-13 (family release
+ * rule 3: wall-clock, GC and scheduler are never test inputs; the equivalent budget already
+ * flaked once under host load in the Python port for the identical reason). Every call site
+ * wrapped a property test already covered, elsewhere in the same test, by {@link boundedSize} —
+ * the deterministic property the timing bound stood in for — or carried no output-size or hang
+ * risk of its own once the corpus's own caps applied (`traceparent-parsing.prop.test.ts`,
+ * `scanner.prop.test.ts`, `template-redaction.prop.test.ts`). No call site needed a new
+ * bounded-output test of its own: `value-renderer-redaction.prop.test.ts`'s hostile-graph theory
+ * and `trace-shape-bound.prop.test.ts` already assert {@link boundedSize} for every corpus shape.
  */
-
-/** Wall-clock budget for one input through one emitter — a hang detector, not a benchmark. */
-export const BUDGET_MILLIS = 10_000;
 
 /** Ceiling on one emitter's output; generous, since diagrams and documents legitimately repeat a value. */
 export const MAX_OUTPUT_BYTES = 4 * 1024 * 1024;
@@ -43,17 +51,6 @@ const PARTIAL_LEAK_LENGTH = 12;
  */
 export function freshSentinel(): string {
   return `sentinel${randomBytes(7).toString("hex")}`;
-}
-
-/** Runs `work`, failing when it takes longer than {@link BUDGET_MILLIS}. */
-export function withinBudget<T>(label: string, work: () => T): T {
-  const start = performance.now();
-  const result = work();
-  const elapsedMillis = performance.now() - start;
-  expect(elapsedMillis, `${label} must cost bounded time in the size of its input`).toBeLessThan(
-    BUDGET_MILLIS,
-  );
-  return result;
 }
 
 /** Every emitter's output stays under {@link MAX_OUTPUT_BYTES}. */

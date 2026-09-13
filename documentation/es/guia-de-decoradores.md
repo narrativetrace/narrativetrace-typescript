@@ -1,4 +1,4 @@
-<!-- source: documentation/decorators-guide.md blob b3ec5d04e13e | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob 17190ec2f604 | translated: 2026-09-12 | reviewed: - -->
 
 # Guía de decoradores de NarrativeTrace para TypeScript
 
@@ -272,14 +272,17 @@ Qué se invoca y qué no:
   en una clase vive en el prototipo, nunca se enumera, y nunca se ejecuta durante la
   introspección. (Un accesor definido directamente en un objeto literal *sí* es propio-enumerable
   y se ejecutaría — prefiere getters de clase o marca el campo en `static notTraced`.)
-- **Un `toString()` personalizado (propio, no el predeterminado) solo se invoca para una hoja** —
-  un objeto *sin ningún campo propio en absoluto*. *(since 0.1.3, unreleased)* En cuanto tu tipo tiene un solo campo propio,
-  `toString()` nunca se llama durante el renderizado; en su lugar corre la introspección de
-  campos, sea lo que sea que tu `toString()` hubiera impreso (invariante familiar, 2026-09-11 —
-  consulta [Privacidad y ocultación](privacidad-y-ocultacion.md) para el porqué: confiar en un
-  `toString()` cuidado en un tipo con campos era exactamente la vía por la que el secreto propio
-  de un objeto *anidado* se filtraba, un nivel por debajo de donde llegaba a mirar cualquier
-  comprobación por campo).
+- **Un `toString()` personalizado (propio, no el predeterminado) solo se invoca para un
+  intrínseco de la plataforma del realm** — `Date`, `URL`, `RegExp`, un `BigInt` empaquetado o un
+  array tipado, comprobado por identidad de prototipo, nunca por nombre. *(since 0.1.3,
+  unreleased)* Tus propios tipos ya nunca llegan a esta ruta, tengan campos o no: siempre corre
+  la introspección de campos en su lugar, sea lo que sea que tu `toString()` hubiera impreso
+  (decisión del equipo, 2026-09-12, que estrecha la regla anterior de "cualquier hoja" de
+  2026-09-11 — consulta [Privacidad y ocultación](privacidad-y-ocultacion.md) para el porqué: en
+  esta plataforma, "sin campo propio enumerable" nunca fue prueba de "nada que ocultar" — un
+  campo `#private` verdadero, una clausura, o un `WeakMap` a nivel de módulo indexado por `this`
+  son invisibles para la introspección pero perfectamente legibles desde dentro de tu propio
+  `toString()`).
 - **`@narrativeSummary` se invoca sin importar los campos**, y sigue superando tanto la confianza
   en `toString()` como la introspección de campos — es código que escribiste *para* la traza, así
   que siempre se ejecuta y su salida siempre se prefiere, en cualquier tipo, hoja o no. Su salida
@@ -300,8 +303,9 @@ Qué se invoca y qué no:
 
 Si un miembro no puede ser puro, inclúyelo en `static notTraced` — el valor de un miembro oculto
 nunca se lee — o dale al tipo un `@narrativeSummary` curado para que controles exactamente qué se
-accede; un `toString()` personalizado solo ayuda para un tipo sin ningún campo propio, ya que uno
-con campos siempre se introspecciona sin importar lo que `toString()` devuelva. Con un contexto
+accede; un `toString()` personalizado en tu propio tipo ya nunca se respeta, tenga campos o no —
+solo `Date`/`URL`/`RegExp`/un `BigInt` empaquetado/un array tipado lo obtienen, por identidad de
+plataforma. Con un contexto
 inactivo (nivel `off`, o captura de parámetros desactivada en `summary`), no se renderiza ningún
 argumento en absoluto — no se toca código de usuario en la ruta rápida.
 

@@ -1,0 +1,15 @@
+{
+  "name": "redaction-gap-fixture",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@narrativetrace/core-node": "latest",
+    "@narrativetrace/proxy": "latest"
+  },
+  "devDependencies": {
+    "@narrativetrace/cli": "latest"
+  }
+}

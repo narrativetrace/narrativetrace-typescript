@@ -11,6 +11,7 @@
     "coverage": "vitest run --coverage"
   },
   "devDependencies": {
+    "@narrativetrace/cli": "workspace:*",
     "@narrativetrace/clarity": "workspace:*",
     "@narrativetrace/core-node": "workspace:*",
     "@narrativetrace/diagrams": "workspace:*",

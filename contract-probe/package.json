@@ -1,0 +1,5 @@
+{
+  "name": "contract-probe",
+  "private": true,
+  "description": "Standalone docs-vs-published contract runner. Consumes ONLY the npm registry at a resolved version — never workspace:/link:/file:. Not a pnpm workspace member (pnpm-workspace.yaml globs packages/* and examples/* only); tools/contract-check.ts installs the packages a run needs into this directory's own node_modules at check time, run then removed. No \"type\" field, deliberately: run.ts imports sibling tools/*.ts modules that inherit the ROOT package.json's (also typeless, CommonJS-default) module format — mismatching the two here would put run.ts's named imports through CJS/ESM interop and its cjs-module-lexer named-export detection, which is exactly the gap that silently dropped every named export but \"default\" the one time this was tried."
+}

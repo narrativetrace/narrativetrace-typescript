@@ -14,7 +14,6 @@ import {
   freshSentinel,
   idempotent,
   noHandleLeft,
-  withinBudget,
 } from "../src/oracle/oracles.js";
 
 /**
@@ -38,7 +37,10 @@ function outputsFor(graph: unknown): Record<string, string> {
 
 function assertContained(graphCase: GraphCase, sentinel = freshSentinel()): void {
   const graph = build(graphCase, sentinel);
-  const outputs = withinBudget(`every output for ${graphCase.id}`, () => outputsFor(graph));
+  // Family release rule 3 (2026-09-07): wall-clock, GC and scheduler are never test inputs —
+  // this used to run through a removed `withinBudget` hang detector. `boundedSize` right below,
+  // over the same outputs, is the deterministic property that timing bound stood in for.
+  const outputs = outputsFor(graph);
   containsNoSentinel(outputs, sentinel);
   boundedSize(outputs);
 }
@@ -77,11 +79,19 @@ describe("value renderer redaction", () => {
     }
   });
 
-  test("every hostile graph renders without throwing and in bounded time", () => {
+  // Replaces a removed wall-clock hang detector (family release rule 3, 2026-09-07: wall-clock,
+  // GC and scheduler are never test inputs — `withinBudget` used to wrap both render calls here)
+  // with the deterministic property the timing bound stood in for: `renderValue`/
+  // `renderStructured`'s own string/collection/field/depth caps bound every hostile graph's
+  // rendered size to a small, generous ceiling regardless of the graph's own size, exactly as
+  // sensitive to a caps regression as the removed timing bound was, without depending on host
+  // load to hold.
+  test("every hostile graph renders without throwing and with bounded output", () => {
     for (const graphCase of hostileGraphCases()) {
       const graph = build(graphCase, freshSentinel());
-      withinBudget(`render ${graphCase.id}`, () => renderValue(graph));
-      withinBudget(`renderStructured ${graphCase.id}`, () => renderStructured(graph));
+      const flat = renderValue(graph);
+      const structured = JSON.stringify(renderStructured(graph));
+      boundedSize({ "value:flat": flat, "value:structured": structured });
     }
   });
 

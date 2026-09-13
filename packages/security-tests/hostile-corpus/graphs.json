@@ -55,6 +55,10 @@
     { "id": "curated-tostring-top-level", "description": "a deny-listed field whose native toString interpolates it", "kind": "curatedToString", "payload": "secret-record" },
     { "id": "curated-tostring-nested", "description": "nothing of its own to hide, but its toString interpolates a nested composite that carries the deny-listed field", "kind": "curatedToStringNested", "payload": "secret-record" },
     { "id": "sensitive-map-key", "description": "a deny-listed field used as a Map key rather than a value", "kind": "mapKey", "payload": "secret-record" },
-    { "id": "throwing-summary", "description": "a narrativeSummary() that throws, the secret reachable only through the exception message it must never surface", "kind": "throwingSummary", "payload": "secret-record" }
+    { "id": "throwing-summary", "description": "a narrativeSummary() that throws, the secret reachable only through the exception message it must never surface", "kind": "throwingSummary", "payload": "secret-record" },
+    { "id": "platform-type-short-value", "description": "platform-defined value types (URI, BigDecimal, Path, Instant) with no deny-listed field - each must render its own short native text rather than a field walk", "kind": "platformTypeShortValue" },
+    { "id": "platform-type-name-redacted", "description": "a deny-listed field name holding a trusted platform-type value (a URI) - name-based redaction is not bypassed by a value the renderer would otherwise print verbatim", "kind": "platformTypeNameRedacted", "payload": "secret-record" },
+    { "id": "platform-lookalike-walked", "description": "a user class named after a platform type (Date) with a deny-listed field - trust is decided by defining class loader, never by a class's own name", "kind": "platformLookalikeWalked", "payload": "secret-record" },
+    { "id": "platform-subclass-walked", "description": "a user subclass of a platform type (Date) with a deny-listed field - the most-derived type's own loader decides trust, never its superclass's", "kind": "platformSubclassWalked", "payload": "secret-record" }
   ]
 }

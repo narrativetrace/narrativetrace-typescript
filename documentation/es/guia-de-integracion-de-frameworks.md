@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 3f7fcc64ea54 | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob d98ef22b6dbb | translated: 2026-09-13 | reviewed: - -->
 # Guía de integración de frameworks de NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | **Español** | [Português](../pt-BR/guia-de-integracao-de-frameworks.md) | [简体中文](../zh-CN/框架集成指南.md)
@@ -461,7 +461,7 @@ Cada span se estampa con `nt.trace_id` y otros atributos de esquema `nt.*` (iden
 
 ## 9. Winston y Pino
 
-Los paquetes `@narrativetrace/winston` y `@narrativetrace/pino` transmiten eventos de llamadas a métodos a tu logger como líneas estructuradas por evento (`→ Class.method` al entrar, `← returned: …` / `!! Error` al salir) que llevan `code.*`, `trace_id`, `service.*`, `nt.depth`, y parámetros tipados.
+Los paquetes `@narrativetrace/winston` y `@narrativetrace/pino` transmiten eventos de llamadas a métodos a tu logger como líneas estructuradas por evento (`→ Class.method` al entrar, `← returned: …` / `!! Error` al salir) que llevan `code.*`, `trace_id`, `service.*`, `nt.depth`, y parámetros tipados — más `nt.traceName`, la frase de tres palabras propia de la traza, en cada línea.
 
 ### Winston *(since 0.1.3, unreleased)*
 
@@ -473,8 +473,12 @@ import winston from "winston";
 const logger = winston.createLogger({ format: winston.format.json() });
 
 // Entrada/retorno usan `debug` por defecto, las excepciones `warn` — sobrescribible por evento.
+// `runName` (regla del 2026-09-13): la frase propia de la ejecución de la suite de tests que
+// contiene esta llamada, p. ej. `runIdentity().name` de @narrativetrace/vitest — omítela fuera
+// de una ejecución rastreada.
 const consumer = createWinstonEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
+  runName: "bold elk soars",
 });
 
 // Conserva el consumidor con búfer junto al puente en vivo — es lo que respalda captureTrace()/events().
@@ -482,7 +486,7 @@ const pipeline = new DualPathPipeline(consumer, new BufferedEventConsumer());
 const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pipeline);
 ```
 
-Para estampar la identidad de traza activa en tus *propias* llamadas a `logger.*`, añade `createWinstonFormat()` a la cadena de formato del logger — combina el `LogContext` actual (`trace_id`, `service.*`, `nt.depth`) en cada línea.
+Para estampar la identidad de traza activa en tus *propias* llamadas a `logger.*`, añade `createWinstonFormat()` a la cadena de formato del logger — combina el `LogContext` actual (`trace_id`, `service.*`, `nt.depth`, `nt.runName` cuando se le dio uno a `createEnricherEventConsumer`) en cada línea.
 
 ### Pino *(since 0.1.3, unreleased)*
 
@@ -496,6 +500,7 @@ const logger = pino();
 // Entrada/retorno usan `trace` por defecto (pino tiene un nivel TRACE real), las excepciones `warn`.
 const consumer = createPinoEventConsumer(logger, {
   levels: { enter: "info", return: "info", exception: "error" },
+  runName: "bold elk soars",
 });
 
 // Conserva el consumidor con búfer junto al puente en vivo — es lo que respalda captureTrace()/events().
@@ -508,6 +513,10 @@ Para estampar la identidad de traza activa en tus *propias* llamadas a `logger.*
 ### Niveles por evento
 
 Ambos consumidores aceptan un mapa `levels` indexado por tipo de evento (`enter`, `return`, `exception`), de modo que puedes elevar el ruido de entrada/retorno a `info` o llevar las excepciones a `error` de forma independiente. Winston usa por defecto `debug`/`debug`/`warn`; Pino usa por defecto `trace`/`trace`/`warn`.
+
+### Nombrar la ejecución *(since 0.1.3, unreleased)*
+
+Ambos consumidores, y `createEnricherEventConsumer` de `@narrativetrace/observability`, aceptan un `runName` opcional — la frase propia de tres palabras de la ejecución de la suite de tests (o del proceso) que la contiene, vinculada una sola vez al crear el consumidor en lugar de re-derivada por evento (una ejecución no tiene un id propio del que derivarla, a diferencia de una traza). Cada línea de log lleva entonces `nt.runName` junto a `nt.traceName`; consulta [Guía de configuración § La ejecución tiene un nombre](guia-de-configuracion.md#la-ejecución-tiene-un-nombre-since-013-unreleased) para saber en qué otros sitios aparece el mismo nombre (el pie de página de consola, `manifest.json`, el frontmatter de Markdown).
 
 ## Ver también
 

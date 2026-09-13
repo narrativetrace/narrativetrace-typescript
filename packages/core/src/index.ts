@@ -2,6 +2,19 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 export {
+  type ApprovalTraceOutcome,
+  evaluateApprovalTrace,
+} from "./approval-trace.js";
+export {
+  type ArtifactIdentity,
+  artifactIdentityOfInvocation,
+  artifactIdentityOfMethod,
+  fileSlug,
+  isInvocation,
+  moduleDirectorySlug,
+  structuralScenario,
+} from "./artifact-identity.js";
+export {
   type AttributeTier,
   SPAN_CONTEXT_FIELDS,
   spanContextFieldTier,
@@ -45,6 +58,7 @@ export {
 export { renderIndentedText } from "./indented-text-renderer.js";
 export { isThenable } from "./is-thenable.js";
 export { exportChapter, exportJson, type TraceMetadata } from "./json-export.js";
+export { isSubsequence, unifiedLineDiff } from "./line-diff.js";
 export { MarkdownEscape } from "./markdown-escape.js";
 export {
   type MarkdownDocumentMetadata,
@@ -60,6 +74,12 @@ export {
 } from "./method-signature.js";
 export type { NarrativeContext } from "./narrative-context.js";
 export { NOOP_CONTEXT } from "./noop-context.js";
+export {
+  simpleNameOf,
+  toDirectorySlug,
+  toFileSlug,
+  toInvocationFileSlug,
+} from "./output-directory-resolver.js";
 export { type ParameterCapture, parameterCapture } from "./parameter-capture.js";
 export { PerishableMap } from "./perishable-map.js";
 export { renderProse } from "./prose-renderer.js";
@@ -71,7 +91,14 @@ export {
   renderStructured,
   type StructuredOptions,
 } from "./rendered-value.js";
+export { generateRunIdentity, type RunIdentity } from "./run-identity.js";
+export { type ScenarioDelta, type ScenarioDeltaKind, scenarioDelta } from "./scenario-delta.js";
 export { frameScenario } from "./scenario-framer.js";
+export {
+  renderScenarioManifest,
+  SCENARIO_MANIFEST_FILE_NAME,
+  type ScenarioManifestEntry,
+} from "./scenario-manifest.js";
 export {
   type ScenarioResult,
   scenarioDisplayName,
@@ -87,6 +114,17 @@ export {
   type SpanId,
   type TraceId,
 } from "./span-id-generator.js";
+export { type StructuralDelta, structuralDelta } from "./structural-delta.js";
+export {
+  exportStructuralJson,
+  projectStructural,
+  structuralEntries,
+} from "./structural-projection.js";
+export {
+  renderStructural,
+  renderStructuralDocument,
+  structuralSubtreeKey,
+} from "./structural-trace-renderer.js";
 export { findUnresolved, resolveTemplate } from "./template-parser.js";
 export {
   collectTemplateWarnings,

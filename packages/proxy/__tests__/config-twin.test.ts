@@ -245,6 +245,25 @@ describe("unrecognised option keys are rejected, not silently ignored", () => {
     );
   });
 
+  test("a rejected options shape points at the narrativetrace-doctor skill (self-advertising output, Channel 3)", () => {
+    const ctx = freshContext();
+    // Discovery Channel 3 (skill-design.md §2.1): every doctor-detectable library error names the
+    // skill by its canonical, platform-neutral form — never slash syntax.
+    expect(() =>
+      traceObject(new Svc(), ctx, {
+        className: "Svc",
+        // @ts-expect-error deliberately wrong key for the runtime-rejection test
+        notARealOption: true,
+      }),
+    ).toThrow(/→ narrativetrace-doctor skill$/);
+    expect(() =>
+      traceObject(new Svc(), ctx, {
+        // @ts-expect-error deliberately wrong shape for the runtime-rejection test
+        methods: { notTraced: [0] },
+      }),
+    ).toThrow(/→ narrativetrace-doctor skill$/);
+  });
+
   test("a well-formed config form is unaffected by the new validation", () => {
     const ctx = freshContext();
     const svc = traceObject(new Svc(), ctx, {

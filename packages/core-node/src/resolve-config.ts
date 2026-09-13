@@ -18,7 +18,14 @@ export interface ResolveConfigOptions {
 }
 
 /** String settings carried by both channels, in the shape {@link EnvConfig} exposes them. */
-const STRING_KEYS = ["output", "outputDir", "format"] as const;
+const STRING_KEYS = [
+  "output",
+  "outputDir",
+  "format",
+  "approval",
+  "approvedDir",
+  "structuralJson",
+] as const;
 
 function stringSetting(source: Record<string, unknown>, key: string): string | undefined {
   const value = source[key];

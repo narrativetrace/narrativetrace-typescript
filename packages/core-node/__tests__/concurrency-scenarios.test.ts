@@ -33,6 +33,17 @@ function shippingLookup(ctx: NarrativeContext) {
   return 5.99;
 }
 
+// Every `launch()` body below is synchronous, so `FireAndForgetGroup`'s internal promise chain
+// settles after a fixed, small number of microtask hops. `setTimeout(r, 0)` — a macrotask
+// boundary — is a deterministic barrier for that: Node always drains the whole microtask queue
+// before the next macrotask, so it settles regardless of hop count, without guessing a wall-clock
+// budget. Used to be `setTimeout(r, 10)` (family release rule 3, 2026-09-07: wall-clock, GC and
+// scheduler are never test inputs) — an arbitrary-ms sleep that a starved event loop under host
+// load has no guarantee of honoring, where one macrotask tick always suffices.
+async function settle(): Promise<void> {
+  await new Promise<void>((resolve) => setTimeout(resolve, 0));
+}
+
 describe("concurrency scenarios", () => {
   test("fork-join two tasks produce correct trace", async () => {
     const ctx = makeContext();
@@ -77,7 +88,7 @@ describe("concurrency scenarios", () => {
       isolated.enterMethod("NotificationService", "send", []);
       isolated.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
     ctx.exitMethodWithReturn('"ok"');
 
     const tree = ctx.captureTrace();
@@ -141,7 +152,7 @@ describe("concurrency scenarios", () => {
       isolated.enterMethod("NotificationService", "send", []);
       isolated.exitMethodWithReturn('"sent"');
     });
-    await new Promise((r) => setTimeout(r, 10));
+    await settle();
 
     ctx.exitMethodWithReturn('"order-123"');
 

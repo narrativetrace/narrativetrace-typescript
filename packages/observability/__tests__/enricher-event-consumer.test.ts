@@ -249,4 +249,34 @@ describe("createEnricherEventConsumer", () => {
 
     expect(LogContext.get("nt.eventType")).toBe("method_exit");
   });
+
+  // 2026-09-13 ruling, item 2: nt.runName sits in LogContext alongside nt.traceName, for the whole
+  // run — the port's MDC equivalent of Java's Slf4jRunListener.
+  describe("runName", () => {
+    test("sets nt.runName when given", () => {
+      const consumer = createEnricherEventConsumer("bold elk soars");
+
+      consumer(enterEvent(0, "Svc", "op"));
+
+      expect(LogContext.get("nt.runName")).toBe("bold elk soars");
+    });
+
+    test("is not set at all outside a tracked run", () => {
+      const consumer = createEnricherEventConsumer();
+
+      consumer(enterEvent(0, "Svc", "op"));
+
+      expect(LogContext.get("nt.runName")).toBeUndefined();
+    });
+
+    test("once-only semantics: a later enter never overwrites an already-set nt.runName", () => {
+      const consumer = createEnricherEventConsumer("bold elk soars");
+
+      consumer(enterEvent(0, "A", "a"));
+      LogContext.set("nt.runName", "externally set");
+      consumer(enterEvent(1, "B", "b", 0));
+
+      expect(LogContext.get("nt.runName")).toBe("externally set");
+    });
+  });
 });

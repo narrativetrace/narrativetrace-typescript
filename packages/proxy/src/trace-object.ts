@@ -573,7 +573,8 @@ function validateProxyOptions(options: ProxyOptions): void {
   for (const [methodName, cfg] of Object.entries(options.methods)) {
     if (cfg === null || typeof cfg !== "object" || Array.isArray(cfg)) {
       throw new Error(
-        `traceObject: methods.${methodName} must be an object with keys: ${METHOD_CONFIG_KEYS.join(", ")} (got ${JSON.stringify(cfg)})`,
+        `traceObject: methods.${methodName} must be an object with keys: ${METHOD_CONFIG_KEYS.join(", ")} (got ${JSON.stringify(cfg)}) ` +
+          "→ narrativetrace-doctor skill",
       );
     }
     rejectUnknownKeys(cfg, METHOD_CONFIG_KEYS, `traceObject methods.${methodName}`);
@@ -586,7 +587,8 @@ function rejectUnknownKeys(value: object, accepted: readonly string[], label: st
   );
   if (unknown.length > 0) {
     throw new Error(
-      `${label}: unrecognised key(s) ${unknown.join(", ")} — accepted keys are: ${accepted.join(", ")}`,
+      `${label}: unrecognised key(s) ${unknown.join(", ")} — accepted keys are: ${accepted.join(", ")} ` +
+        "→ narrativetrace-doctor skill",
     );
   }
 }

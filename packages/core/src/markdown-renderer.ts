@@ -18,19 +18,30 @@ import { ValueReferenceIndex } from "./value-reference-index.js";
 
 /**
  * Rendering knobs for the Markdown emitters. `scenarioName` populates the frontmatter `scenario:`
- * key; `slowThresholdMs` is the duration above which a node is flagged ` ⚠️ slow`.
+ * key; `runName` populates the frontmatter `run:` key (the enclosing test-suite run's three-word
+ * phrase, 2026-09-13 ruling — omit it to render outside a tracked run); `slowThresholdMs` is the
+ * duration above which a node is flagged ` ⚠️ slow`.
  *
  * @defaultValue `slowThresholdMs` defaults to 200ms when omitted.
  */
 export type MarkdownOptions = {
   readonly scenarioName?: string;
+  readonly runName?: string;
   readonly slowThresholdMs?: number;
 };
 
-/** Metadata for the Markdown document header (Java `TraceMetadata`). */
+/**
+ * Metadata for the Markdown document header (Java `TraceMetadata`).
+ *
+ * `runName` is the ONLY field {@link renderMarkdownDocument} ever folds into the frontmatter's
+ * `run:` key (2026-09-13 ruling, item 2) — never into `scenario`, never read back by `entry_point`/
+ * `trace_id`/`trace_name`, and never present on the structural `.nt` artifact at all (item 3). Omit
+ * it for a document rendered outside a tracked test-suite execution.
+ */
 export type MarkdownDocumentMetadata = {
   readonly scenario: string;
   readonly result: string;
+  readonly runName?: string;
 };
 
 function traceNameLines(tree: TraceTree): string[] {
@@ -128,6 +139,7 @@ function renderFrontmatter(tree: TraceTree, options?: MarkdownOptions): string[]
   return [
     "---",
     "type: trace",
+    ...(options?.runName !== undefined ? [`run: ${yamlSafe(options.runName)}`] : []),
     ...(options?.scenarioName !== undefined ? [`scenario: ${yamlSafe(options.scenarioName)}`] : []),
     ...entryPointLines(tree),
     ...traceNameLines(tree),
@@ -171,6 +183,17 @@ export function renderMarkdown(tree: TraceTree, options?: MarkdownOptions): stri
 // One escaping decision per sink, never a raw append — mirrors a fix from the Java golden source.
 // `metadata.result` stays raw on purpose: it is caller-controlled but drawn from a small
 // enum-like set, never user-supplied text.
+/**
+ * The trace's own three-word phrase plus a trailing separator (`bold elk soars — `), or empty when
+ * {@link TraceTree.traceId} is absent — the frontmatter already carries the phrase (and the raw id)
+ * as `trace_name:`/`trace_id:`; this is the same phrase in the document's own title line
+ * (2026-09-13 ruling, item 4).
+ */
+function tracePhrasePrefix(tree: TraceTree): string {
+  const { traceId } = tree;
+  return traceId === undefined ? "" : `${humanName(traceId)} — `;
+}
+
 function documentHeader(tree: TraceTree, metadata: MarkdownDocumentMetadata): string[] {
   const root = tree.roots[0];
   if (!root) return [];
@@ -178,7 +201,7 @@ function documentHeader(tree: TraceTree, metadata: MarkdownDocumentMetadata): st
   const methodName = ControlEscape.sanitize(root.signature.methodName);
   return [
     "",
-    `## Trace: ${className}.${methodName}`,
+    `## Trace: ${tracePhrasePrefix(tree)}${className}.${methodName}`,
     "",
     `**Scenario:** ${MarkdownEscape.text(ControlEscape.sanitize(metadata.scenario))}`,
     `**Duration:** ${formatDurationMs(root.durationMs)} | **Result:** ${metadata.result}`,
@@ -197,8 +220,14 @@ export function renderMarkdownDocument(
   metadata: MarkdownDocumentMetadata,
   options?: MarkdownOptions,
 ): string {
+  const runName = metadata.runName ?? options?.runName;
+  const frontmatterOptions: MarkdownOptions = {
+    ...options,
+    scenarioName: metadata.scenario,
+    ...(runName !== undefined && { runName }),
+  };
   return [
-    ...renderFrontmatter(tree, { ...options, scenarioName: metadata.scenario }),
+    ...renderFrontmatter(tree, frontmatterOptions),
     ...documentHeader(tree, metadata),
     ...renderBody(tree, options),
   ].join("\n");

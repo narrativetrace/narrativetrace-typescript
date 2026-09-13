@@ -52,7 +52,17 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Verify the latest release resolves, is provenance-attested, and the recipe traces
         # The dispatch input reaches the tool through the environment, never by template
-        # interpolation into a script body — no path where outside text becomes code.
+        # interpolation into a script body — no path where outside text becomes code. The
+        # schedule always fires with an empty input; the positional <version> argument is
+        # omitted entirely in that case (never passed through as an empty string) so the tool's
+        # own resolveVersion decides — the newest v* tag reachable from HEAD, else the npm
+        # registry's own "latest" dist-tag — rather than verifying against nothing. A manual
+        # workflow_dispatch with a version fills the input and that exact string is used verbatim.
         env:
           INPUT_VERSION: ${{ inputs.version }}
-        run: npx tsx tools/verify-publication.ts "$INPUT_VERSION" --timeout=1800
+        run: |
+          if [ -n "$INPUT_VERSION" ]; then
+            npx tsx tools/verify-publication.ts "$INPUT_VERSION" --timeout=1800
+          else
+            npx tsx tools/verify-publication.ts --timeout=1800
+          fi
