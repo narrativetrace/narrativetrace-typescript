@@ -13,29 +13,32 @@ const MAX_IDENTIFIER_LENGTH = 200;
  * space so a rendered value cannot inject a new diagram statement — e.g. a Mermaid `click` or
  * PlantUML `!include` directive (diagram-injection / SSRF / local-file read). Port of Java
  * `diagrams/DiagramText.message`.
+ *
+ * @remarks Private implementation — {@link DiagramLabel} (`diagram-label.ts`) is the only caller;
+ * a raw trace string reaches a diagram line only through that type's factories.
  */
-export const DiagramText = {
-  message(text: string): string {
-    let out = "";
-    for (const ch of text) {
-      const code = ch.codePointAt(0) ?? 0;
-      out += isIsoControl(code) ? " " : ch;
-    }
-    return out;
-  },
+export function message(text: string): string {
+  let out = "";
+  for (const ch of text) {
+    const code = ch.codePointAt(0) ?? 0;
+    out += isIsoControl(code) ? " " : ch;
+  }
+  return out;
+}
 
-  /**
-   * Sanitizes a structural name (a participant display name, or text an alias token is derived
-   * from) for both Mermaid and PlantUML at once: folds controls like {@link message}, turns `"`
-   * into `'` (neither grammar can escape a quote *inside* a quoted name — the character must stop
-   * being a quote), collapses Mermaid's `%%` comment opener, caps length, and maps an
-   * empty-or-all-control name to `<unnamed>` rather than emitting a bare, malformed statement.
-   * Port of Java `DiagramText.identifier` (cross-runtime shape F4, 2026-09-02 audit).
-   */
-  identifier(text: string): string {
-    const folded = DiagramText.message(text).replace(/"/g, "'").replace(/%%/g, "% %");
-    const capped =
-      folded.length > MAX_IDENTIFIER_LENGTH ? folded.slice(0, MAX_IDENTIFIER_LENGTH) : folded;
-    return capped.trim().length > 0 ? capped : "<unnamed>";
-  },
-};
+/**
+ * Sanitizes a structural name (a participant display name, or text an alias token is derived
+ * from) for both Mermaid and PlantUML at once: folds controls like {@link message}, turns `"`
+ * into `'` (neither grammar can escape a quote *inside* a quoted name — the character must stop
+ * being a quote), collapses Mermaid's `%%` comment opener, caps length, and maps an
+ * empty-or-all-control name to `<unnamed>` rather than emitting a bare, malformed statement.
+ * Port of Java `DiagramText.identifier` (cross-runtime shape F4, 2026-09-02 audit).
+ *
+ * @remarks Private implementation — see {@link message}'s own remark.
+ */
+export function identifier(text: string): string {
+  const folded = message(text).replace(/"/g, "'").replace(/%%/g, "% %");
+  const capped =
+    folded.length > MAX_IDENTIFIER_LENGTH ? folded.slice(0, MAX_IDENTIFIER_LENGTH) : folded;
+  return capped.trim().length > 0 ? capped : "<unnamed>";
+}

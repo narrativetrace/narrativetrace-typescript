@@ -34,8 +34,9 @@
   "scripts": {
     "prepack": "cp ../../LICENSE LICENSE",
     "build": "tsup",
-    "test": "vitest run",
-    "coverage": "vitest run --coverage",
+    "test": "vitest run && pnpm run test:shape",
+    "test:shape": "tsc -p tsconfig.shape-check.json",
+    "coverage": "vitest run --coverage && pnpm run test:shape",
     "mutate": "stryker run"
   },
   "peerDependencies": {
