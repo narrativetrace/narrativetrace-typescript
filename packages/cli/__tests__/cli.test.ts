@@ -20,13 +20,31 @@ describe("runCli", () => {
   test("prints usage and exits 2 with no command", () => {
     const d = deps();
     expect(runCli([], d)).toBe(2);
-    expect(d.error).toHaveBeenCalled();
+    // Distinguishes the "no verb at all" branch from the "unknown command" branch — both exit 2
+    // and both call deps.error, so a mutant that skips the dedicated no-verb branch (falling
+    // through to "Unknown command: undefined") would otherwise still pass a status-only assertion.
+    const [printed] = (d.error as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+    expect(printed).toContain(
+      "narrativetrace — one CLI over NarrativeTrace's open artifact formats",
+    );
+    expect(printed).toContain("Usage:");
+    expect(printed).not.toContain("Unknown command");
   });
 
   test("--help prints usage and exits 0", () => {
     const d = deps();
     expect(runCli(["--help"], d)).toBe(0);
-    expect(d.log).toHaveBeenCalled();
+    expect(d.log).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "narrativetrace — one CLI over NarrativeTrace's open artifact formats",
+      ),
+    );
+  });
+
+  test("-h is an alias for --help at the top level", () => {
+    const d = deps();
+    expect(runCli(["-h"], d)).toBe(0);
+    expect(d.log).toHaveBeenCalledWith(expect.stringContaining("Usage:"));
   });
 
   test("rejects an unknown command with exit 2", () => {
@@ -38,11 +56,30 @@ describe("runCli", () => {
   test("doctor --help exits 0", () => {
     const d = deps();
     expect(runCli(["doctor", "--help"], d)).toBe(0);
+    expect(d.log).toHaveBeenCalledWith(expect.stringContaining("narrativetrace doctor [--json]"));
+    expect(d.log).toHaveBeenCalledWith(expect.stringContaining("Read-only."));
+  });
+
+  test("doctor -h is an alias for doctor --help", () => {
+    const d = deps();
+    expect(runCli(["doctor", "-h"], d)).toBe(0);
+    expect(d.log).toHaveBeenCalledWith(expect.stringContaining("narrativetrace doctor [--json]"));
   });
 
   test("rejects an unknown doctor argument with exit 2", () => {
     const d = deps();
     expect(runCli(["doctor", "--bogus"], d)).toBe(2);
+    expect(d.error).toHaveBeenCalledWith(
+      expect.stringContaining("Unknown argument(s) for doctor: --bogus"),
+    );
+  });
+
+  test("joins multiple unknown doctor arguments with a comma", () => {
+    const d = deps();
+    expect(runCli(["doctor", "--bogus", "--also-bogus"], d)).toBe(2);
+    expect(d.error).toHaveBeenCalledWith(
+      expect.stringContaining("Unknown argument(s) for doctor: --bogus, --also-bogus"),
+    );
   });
 
   test("exits 2 when the target has no readable package.json", () => {

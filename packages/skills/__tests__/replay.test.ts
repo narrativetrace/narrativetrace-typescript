@@ -55,6 +55,26 @@ describe("replaySkill (generic replayer, unit-level)", () => {
     expect(result.error).toContain("boom");
   });
 
+  it("a snippet step WITH a verify still runs the verify command", () => {
+    // A snippet step's body never carries commands — verify is the only thing there is to run,
+    // and pulling "commands" from a snippet body (there are none) must not blow up doing it.
+    const run = vi.fn();
+    const skill = {
+      ...NARRATIVETRACE_DOCTOR,
+      steps: [
+        {
+          title: "show it",
+          body: { kind: "snippet" as const, path: "x.js", language: "js" },
+          verify: "pnpm test",
+        },
+      ],
+    };
+    const [result] = replaySkill(skill, "/fixture", run);
+    expect(result).toEqual({ title: "show it", ran: true, ok: true });
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(run).toHaveBeenCalledWith("pnpm test", "/fixture");
+  });
+
   it("a snippet step with no verify is not-ran (nothing mechanical to replay)", () => {
     const skill = {
       ...NARRATIVETRACE_DOCTOR,

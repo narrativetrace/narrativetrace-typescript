@@ -40,6 +40,13 @@ describe("renderAgentsMdSnippet", () => {
     expect(rendered).toContain("(Pro, in development)");
     expect(rendered).not.toMatch(/\$|price/i);
   });
+
+  it("matches the known-good line-by-line rendering", () => {
+    // Pins the heading text, the blank-line separators, the llms.txt pointer line, and the "\n"
+    // join itself — a piecemeal .toContain() assertion can't tell a real newline-joined document
+    // apart from one long line that merely contains the same substrings.
+    expect(renderAgentsMdSnippet([NARRATIVETRACE_DOCTOR], [LISTING])).toMatchSnapshot();
+  });
 });
 
 describe("spliceAgentsMdSection", () => {
@@ -52,6 +59,24 @@ describe("spliceAgentsMdSection", () => {
   it("appends the section when no markers exist yet", () => {
     const result = spliceAgentsMdSection("existing content", "SECTION");
     expect(result).toBe("existing content\n\nSECTION\n");
+  });
+
+  it("appends when only the begin marker is present without a matching end marker", () => {
+    const content = `before\n${AGENTS_MD_BEGIN}\nunterminated`;
+    const result = spliceAgentsMdSection(content, "SECTION");
+    expect(result).toBe(`${content.trimEnd()}\n\nSECTION\n`);
+  });
+
+  it("appends when only the end marker is present without a matching begin marker", () => {
+    const content = `before\nunopened\n${AGENTS_MD_END}\nafter`;
+    const result = spliceAgentsMdSection(content, "SECTION");
+    expect(result).toBe(`${content.trimEnd()}\n\nSECTION\n`);
+  });
+
+  it("trims trailing whitespace, not leading whitespace, when appending", () => {
+    const content = "  leading spaces kept\nexisting content   \n\n";
+    const result = spliceAgentsMdSection(content, "SECTION");
+    expect(result).toBe("  leading spaces kept\nexisting content\n\nSECTION\n");
   });
 });
 
@@ -66,6 +91,7 @@ describe("extractAgentsMdSection", () => {
   it("returns undefined when either marker is missing", () => {
     expect(extractAgentsMdSection(`no markers here`)).toBeUndefined();
     expect(extractAgentsMdSection(`${AGENTS_MD_BEGIN}\nonly the start marker`)).toBeUndefined();
+    expect(extractAgentsMdSection(`only the end marker\n${AGENTS_MD_END}`)).toBeUndefined();
   });
 
   it("round-trips with spliceAgentsMdSection's own delimited output", () => {

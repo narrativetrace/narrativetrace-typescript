@@ -15,9 +15,201 @@ import {
   stepsWithoutVerify,
   unparseableCommands,
 } from "../src/lints.js";
+import type { ProListing } from "../src/pro-listing.js";
 import { renderClaudeSkill } from "../src/render/claude.js";
 import type { Skill } from "../src/skill.js";
 import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
+
+// Synthetic-fixture unit tests below, independent of REPO_ROOT: the "no planning-note citation"
+// describe block further down skips entirely under Stryker's package-only sandbox (REPO_ROOT is
+// not reachable there — see repo-root.ts), which left citationViolations/proseOf and
+// listingsDisagreeingWithFeatureGuide almost completely uncovered by mutation testing. These run
+// unconditionally, in every environment.
+
+const MINIMAL_SKILL: Skill = {
+  canonicalName: "example-skill",
+  claudeSegment: "example",
+  skillClass: "mechanical",
+  description: "An example skill.",
+  fixture: "examples/sixty-seconds",
+  allowedTools: ["pnpm", "node"],
+  steps: [],
+  always: [],
+  never: [],
+};
+
+describe("catalogueDescriptionChars", () => {
+  it("sums every skill's description length exactly", () => {
+    const skills: Skill[] = [
+      { ...MINIMAL_SKILL, description: "abc" },
+      { ...MINIMAL_SKILL, description: "de" },
+    ];
+    expect(catalogueDescriptionChars(skills)).toBe(5);
+  });
+
+  it("is zero for an empty catalogue", () => {
+    expect(catalogueDescriptionChars([])).toBe(0);
+  });
+});
+
+describe("unparseableCommands", () => {
+  it("is empty when every command has a real first token", () => {
+    const skill: Skill = {
+      ...MINIMAL_SKILL,
+      steps: [{ title: "run it", body: { kind: "commands", commands: ["pnpm test"] } }],
+    };
+    expect(unparseableCommands([skill])).toEqual([]);
+  });
+
+  it("names the skill and the offending (quoted) command for a whitespace-only command", () => {
+    const skill: Skill = {
+      ...MINIMAL_SKILL,
+      steps: [{ title: "run it", body: { kind: "commands", commands: ["   "] } }],
+    };
+    expect(unparseableCommands([skill])).toEqual(["example-skill: '   '"]);
+  });
+});
+
+describe("listingsDisagreeingWithFeatureGuide", () => {
+  const listing: ProListing = {
+    canonicalName: "narrativetrace-mcp",
+    prompt: "ask for trace data as a tool call",
+    delivers: "an MCP server",
+    needs: "a Pro license",
+    comesFrom: "the Java Pro line",
+    status: "in development",
+    featureGuideStatusText: "In development (Pro)",
+  };
+
+  it("is empty when the listing's status text appears verbatim in the feature guide", () => {
+    const guide = "| narrativetrace-mcp | In development (Pro) |";
+    expect(listingsDisagreeingWithFeatureGuide([listing], guide)).toEqual([]);
+  });
+
+  it("names the listing when its status text is missing from the feature guide", () => {
+    const guide = "| narrativetrace-mcp | Shipped |";
+    expect(listingsDisagreeingWithFeatureGuide([listing], guide)).toEqual(["narrativetrace-mcp"]);
+  });
+});
+
+describe("citationViolations (synthetic fixtures)", () => {
+  it("is empty for a skill with no section-mark and no .md filename anywhere", () => {
+    const skill: Skill = { ...MINIMAL_SKILL, description: "Does a thing, cleanly." };
+    expect(citationViolations(skill)).toEqual([]);
+  });
+
+  it("flags a § section-mark citation in the description", () => {
+    const skill: Skill = { ...MINIMAL_SKILL, description: "See skill-design.md §2 for context." };
+    const violations = citationViolations(skill);
+    expect(violations).toContain(
+      'example-skill: section-mark citation in "See skill-design.md §2 for context."',
+    );
+  });
+
+  it("flags a .md filename that is not in the provided repo listing", () => {
+    const skill: Skill = { ...MINIMAL_SKILL, description: "See private-notes.md for context." };
+    const violations = citationViolations(skill, new Set(["readme.md"]));
+    expect(violations).toContain(
+      'example-skill: external filename citation "private-notes.md" in "See private-notes.md for context."',
+    );
+  });
+
+  it("recognizes a two-letter .md basename, not only ones a single-char match would still catch", () => {
+    const skill: Skill = { ...MINIMAL_SKILL, description: "See ci.md for context." };
+    const violations = citationViolations(skill, new Set());
+    expect(violations.some((v) => v.includes('"ci.md"'))).toBe(true);
+  });
+
+  it("does not flag a .md filename that IS in the provided repo listing, case-insensitively", () => {
+    const skill: Skill = { ...MINIMAL_SKILL, description: "See README.md for context." };
+    expect(citationViolations(skill, new Set(["readme.md"]))).toEqual([]);
+  });
+
+  it("checks whenToUse prose, not just description", () => {
+    const skill: Skill = { ...MINIMAL_SKILL, whenToUse: "Use it when reading skill-design.md §2." };
+    expect(citationViolations(skill).length).toBeGreaterThan(0);
+  });
+
+  it("checks a step's title, flag, verify, and commands", () => {
+    const withStep = (overrides: Partial<Skill["steps"][number]>): Skill => ({
+      ...MINIMAL_SKILL,
+      description: "clean",
+      steps: [
+        { title: "clean title", body: { kind: "commands", commands: ["pnpm test"] }, ...overrides },
+      ],
+    });
+    expect(
+      citationViolations(withStep({ title: "See skill-design.md §2" })).length,
+    ).toBeGreaterThan(0);
+    expect(citationViolations(withStep({ flag: "skill-design.md §2" })).length).toBeGreaterThan(0);
+    expect(citationViolations(withStep({ verify: "skill-design.md §2" })).length).toBeGreaterThan(
+      0,
+    );
+    expect(
+      citationViolations(
+        withStep({ body: { kind: "commands", commands: ["echo skill-design.md §2"] } }),
+      ).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("does not scan a snippet step's body — only commands-step bodies are prose", () => {
+    const skill: Skill = {
+      ...MINIMAL_SKILL,
+      description: "clean",
+      steps: [
+        {
+          title: "clean title",
+          body: { kind: "snippet", path: "skill-design.md", language: "md" },
+        },
+      ],
+    };
+    // The snippet step's own path is not prose the lint scans — only its rendered file content
+    // (real source), which citationViolations never sees.
+    expect(citationViolations(skill)).toEqual([]);
+  });
+
+  it("checks failure notes: symptom, cause, and fix", () => {
+    const base = (failure: Skill["steps"][number]["failure"]): Skill => ({
+      ...MINIMAL_SKILL,
+      description: "clean",
+      steps: [
+        {
+          title: "clean title",
+          body: { kind: "commands", commands: ["pnpm test"] },
+          failure,
+        },
+      ],
+    });
+    expect(
+      citationViolations(base([{ symptom: "skill-design.md §2", cause: "x", fix: "y" }])).length,
+    ).toBeGreaterThan(0);
+    expect(
+      citationViolations(base([{ symptom: "x", cause: "skill-design.md §2", fix: "y" }])).length,
+    ).toBeGreaterThan(0);
+    expect(
+      citationViolations(base([{ symptom: "x", cause: "y", fix: "skill-design.md §2" }])).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("checks always and never rules: the rule text and the reason", () => {
+    const skill: Skill = {
+      ...MINIMAL_SKILL,
+      description: "clean",
+      always: [{ rule: "skill-design.md §2", reason: "clean" }],
+      never: [{ rule: "clean", reason: "skill-design.md §2" }],
+    };
+    expect(citationViolations(skill).length).toBeGreaterThan(0);
+  });
+
+  it("never checks canonicalName itself for a citation", () => {
+    const skill: Skill = {
+      ...MINIMAL_SKILL,
+      canonicalName: "skill-design.md",
+      description: "clean",
+    };
+    expect(citationViolations(skill)).toEqual([]);
+  });
+});
 
 // Tier A (skill-harness-design.md §4.1): schema/vocabulary/budget/index-agreement lints. No LLM,
 // seconds, per commit — rides `pnpm run coverage` like every other package's own test suite.

@@ -7,11 +7,15 @@ import { snapshot } from "../fixture.js";
 
 describe("checkOutputEnv", () => {
   test("passes when unset", () => {
-    expect(checkOutputEnv(snapshot({ env: {} })).status).toBe("pass");
+    const finding = checkOutputEnv(snapshot({ env: {} }));
+    expect(finding.status).toBe("pass");
+    expect(finding.id).toBe("config.output-env");
   });
 
   test.each(["true", "false", "TRUE", "False"])("passes for %s", (value) => {
-    expect(checkOutputEnv(snapshot({ env: { NARRATIVETRACE_OUTPUT: value } })).status).toBe("pass");
+    const finding = checkOutputEnv(snapshot({ env: { NARRATIVETRACE_OUTPUT: value } }));
+    expect(finding.status).toBe("pass");
+    expect(finding.message).toBe(`NARRATIVETRACE_OUTPUT=${value}`);
   });
 
   test("fails for a typo'd value", () => {

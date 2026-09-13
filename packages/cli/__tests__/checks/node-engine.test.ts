@@ -11,6 +11,7 @@ describe("checkNodeEngine", () => {
     expect(finding.status).toBe("pass");
     expect(finding.id).toBe("toolchain.node-engine");
     expect(finding.fix).toBe("");
+    expect(finding.message).toBe("Node 20.11.0 satisfies the required >=20");
   });
 
   test("fails when the running Node is below the default floor", () => {

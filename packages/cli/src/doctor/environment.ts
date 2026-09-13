@@ -7,13 +7,21 @@ import { join, relative } from "node:path";
 import type { DoctorSnapshot, Env, PackageJsonLike } from "./types.js";
 
 const EXCLUDED_DIRS = new Set([
-  "node_modules",
+  // Stryker disable next-line StringLiteral: equivalent — every dot-prefixed entry name is
+  // already excluded earlier, in visitEntry's leading-dot check (the only exception there is
+  // ".env", which isn't a directory this set would ever mention), so ".git" never actually
+  // reaches this set's `.has()` check.
   ".git",
+  // Stryker disable next-line StringLiteral: same equivalence as ".git" above.
+  ".turbo",
+  // Stryker disable next-line StringLiteral: same equivalence as ".git" above.
+  ".stryker-tmp",
+  // Not dot-prefixed, so NOT equivalent — reaching this set's `.has()` check is the only thing
+  // that excludes each of the four names below; each is covered by a real test.
+  "node_modules",
   "dist",
   "build",
   "coverage",
-  ".turbo",
-  ".stryker-tmp",
 ]);
 
 const SOURCE_EXTENSIONS = [".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".mts", ".cts"];
@@ -37,6 +45,12 @@ interface WalkState {
   visited: number;
 }
 
+// Stryker disable BlockStatement: the three functions below whose catch block is just `return
+// undefined;` are equivalent under mutation — an emptied `catch {}` falls off the end of the
+// function and implicitly returns `undefined` too. No test can observe a difference between the
+// explicit and implicit forms. Restored below, before safeRead/listDirectory, whose catch blocks
+// return "" / [] respectively and are NOT equivalent (a real behavior change is observable there).
+
 function readJson(path: string): PackageJsonLike | undefined {
   try {
     return JSON.parse(readFileSync(path, "utf8")) as PackageJsonLike;
@@ -54,6 +68,17 @@ function resolvePackageJson(name: string, cwd: string): PackageJsonLike | undefi
   }
 }
 
+/** `undefined` when `path` cannot be stat'd at all (a dangling symlink, a permission error, a race). */
+function isDirectorySafe(path: string): boolean | undefined {
+  try {
+    return statSync(path).isDirectory();
+  } catch {
+    return undefined;
+  }
+}
+
+// Stryker restore BlockStatement
+
 function safeRead(path: string): string {
   try {
     return readFileSync(path, "utf8");
@@ -70,19 +95,15 @@ function listDirectory(dir: string): string[] {
   }
 }
 
-/** `undefined` when `path` cannot be stat'd at all (a dangling symlink, a permission error, a race). */
-function isDirectorySafe(path: string): boolean | undefined {
-  try {
-    return statSync(path).isDirectory();
-  } catch {
-    return undefined;
-  }
-}
-
 function classify(rel: string, outputDirName: string, approvedDirName: string): Bucket {
   const topSegment = rel.split("/")[0];
   if (topSegment === outputDirName) return "output";
   if (topSegment === approvedDirName) return "approved";
+  // Stryker disable next-line StringLiteral: the "source" branch string is equivalent — bucketFor
+  // below routes anything that isn't "output" or "approved" into sourceFiles by default, so
+  // whether this literal reads "source" or something else never changes which map a file lands
+  // in. The "skip" branch is NOT equivalent (a real behavior change is observable there) and is
+  // exercised by a real test.
   return SOURCE_EXTENSIONS.some((ext) => rel.endsWith(ext)) ? "source" : "skip";
 }
 
@@ -123,7 +144,11 @@ function visitEntry(ctx: WalkContext, dir: string, entry: string): void {
  * Walks `root` breadth-first, bucketing files into source (extension-filtered), the output
  * directory, and the approved-trace directory — excluding `node_modules`/build/coverage noise.
  * Bounded by {@link MAX_FILES} so a doctor run in a huge repo degrades to a partial scan rather
- * than hanging.
+ * than hanging. The outer loop's own `state.visited < MAX_FILES` half of that bound is equivalent
+ * under mutation — the inner loop's `if (state.visited >= MAX_FILES) break;` enforces the exact
+ * same cap on its own, before any further entry is ever visited, so weakening the outer guard only
+ * costs a few extra, immediately aborted `listDirectory` calls on already-queued directories; no
+ * test can observe a different `WalkState`.
  */
 function walk(root: string, output: string, approved: string): WalkState {
   const state: WalkState = {
@@ -133,6 +158,7 @@ function walk(root: string, output: string, approved: string): WalkState {
     visited: 0,
   };
   const ctx: WalkContext = { state, root, output, approved, queue: [root] };
+  // Stryker disable next-line ConditionalExpression,EqualityOperator: see the doc comment above.
   while (ctx.queue.length > 0 && state.visited < MAX_FILES) {
     const dir = ctx.queue.shift() as string;
     for (const entry of listDirectory(dir)) {

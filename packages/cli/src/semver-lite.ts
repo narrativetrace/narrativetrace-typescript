@@ -76,6 +76,12 @@ function satisfiesClause(version: Version, trimmed: string): boolean {
 export function satisfiesRange(versionRaw: string, range: string): boolean {
   const version = parseVersion(versionRaw);
   if (!version) return false;
+  // Stryker disable next-line MethodExpression: dropping .filter(Boolean) is equivalent here —
+  // an empty clause (from "||" or a trailing/leading "||") only ever adds a `satisfiesClause(v,
+  // "")` call to the .some() chain, and that always returns false (parseVersion("") is
+  // undefined, and "" matches none of the prefix checks either), so it can never flip the
+  // overall result. The filter is documentation of intent, not a behavior the type checker or a
+  // mutation test can observe.
   return range
     .split("||")
     .map((clause) => clause.trim())

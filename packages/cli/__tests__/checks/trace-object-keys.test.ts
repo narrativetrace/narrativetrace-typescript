@@ -38,5 +38,40 @@ describe("checkTraceObjectKeys", () => {
     );
     expect(finding.status).toBe("fail");
     expect(finding.message).toContain("src/wire.ts");
+    expect(finding.id).toBe("config.trace-object-keys");
+    expect(finding.fix).toContain("Nest the parameter names under params");
+  });
+
+  test("still matches with a space before the colon after 'methods'", () => {
+    const finding = checkTraceObjectKeys(
+      snapshot({
+        sourceFiles: withFiles({
+          "src/wire.ts": `traceObject(service, context, { methods : { placeOrder: ["id"] } });`,
+        }),
+      }),
+    );
+    expect(finding.status).toBe("fail");
+  });
+
+  test("still matches with no space after 'methods:'", () => {
+    const finding = checkTraceObjectKeys(
+      snapshot({
+        sourceFiles: withFiles({
+          "src/wire.ts": `traceObject(service, context, { methods:{ placeOrder: ["id"] } });`,
+        }),
+      }),
+    );
+    expect(finding.status).toBe("fail");
+  });
+
+  test("still matches with no space before the offending array", () => {
+    const finding = checkTraceObjectKeys(
+      snapshot({
+        sourceFiles: withFiles({
+          "src/wire.ts": `traceObject(service, context, { methods: { placeOrder:["id"] } });`,
+        }),
+      }),
+    );
+    expect(finding.status).toBe("fail");
   });
 });

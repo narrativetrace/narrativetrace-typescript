@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderClaudeSkill (full-structure snapshots) > matches the known-good rendering for a fully-populated skill 1`] = `
+"---
+name: example
+description: "An example skill."
+when_to_use: "when it matters"
+allowed-tools: pnpm, node
+---
+
+# example-skill
+
+## 1. Do it
+
+**Flagged:** unstudied
+
+\`\`\`bash
+pnpm test
+pnpm build
+\`\`\`
+
+**verify:** \`pnpm test\`
+
+**failure:** it breaks — bad config. Fix: fix the config
+
+## 2. Show it
+
+<!-- snippet: x.js mask=duration -->
+\`\`\`js
+// x.js content
+\`\`\`
+<!-- /snippet -->
+
+## Always
+
+- Do X (because Y)
+
+## Never
+
+- Don't Z (because W)"
+`;
+
+exports[`renderClaudeSkill (full-structure snapshots) > matches the known-good rendering for a minimal skill (no steps, rules, or whenToUse) 1`] = `
+"---
+name: example
+description: "An example skill."
+allowed-tools: pnpm, node
+---
+
+# example-skill
+
+"
+`;

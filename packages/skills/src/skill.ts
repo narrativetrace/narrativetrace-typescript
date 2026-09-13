@@ -89,6 +89,10 @@ export function commandStrings(skill: Skill): readonly string[] {
 
 /** The first whitespace-separated token of a shell command — what principle 7 checks. */
 export function firstToken(command: string): string {
+  // Stryker disable next-line Regex: `+` vs no `+` is equivalent for this one read of index [0] —
+  // String.split's first element is always the text before the FIRST delimiter match, which
+  // starts at the same position whether the match consumes one whitespace character or a whole
+  // run of them. Only the later array elements (never read here) would differ.
   return command.trim().split(/\s+/)[0] ?? "";
 }
 

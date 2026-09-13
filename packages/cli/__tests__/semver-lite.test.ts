@@ -21,6 +21,22 @@ describe("parseVersion", () => {
   test("returns undefined for unparseable input", () => {
     expect(parseVersion("not-a-version")).toBeUndefined();
   });
+
+  test("returns undefined when the digits are not at the very start", () => {
+    // A digit run appearing later in the string must not match — the leading-digit anchor is
+    // load-bearing, not incidental (a version string never has meaningful text before the number).
+    expect(parseVersion("garbage123")).toBeUndefined();
+  });
+
+  test("trims surrounding whitespace before parsing", () => {
+    expect(parseVersion("  20.11.3  ")).toEqual({ major: 20, minor: 11, patch: 3 });
+  });
+
+  test("strips only a leading v, not one occurring later in the string", () => {
+    // "1v.2.3" is not a real version shape, but it pins down that the leading-v strip is
+    // anchored: a `v` appearing after the major digit must be left alone, not spliced out.
+    expect(parseVersion("1v.2.3")).toEqual({ major: 1, minor: 0, patch: 0 });
+  });
 });
 
 function version(raw: string) {
@@ -51,15 +67,29 @@ describe("satisfiesRange", () => {
     expect(satisfiesRange("2.9.9", "^3.0.0")).toBe(false);
   });
 
+  test("a caret range rejects a version below the floor even within the same major", () => {
+    // 3.2.0 shares a major with the 3.5.0 floor but sits below it — the >= floor check must
+    // reject it before the same-major check ever gets a chance to (wrongly) approve it.
+    expect(satisfiesRange("3.2.0", "^3.5.0")).toBe(false);
+  });
+
   test("0.x caret ranges are minor-locked", () => {
     expect(satisfiesRange("0.2.9", "^0.2.3")).toBe(true);
     expect(satisfiesRange("0.3.0", "^0.2.3")).toBe(false);
+  });
+
+  test("0.x caret ranges reject a non-zero major even when the minor matches", () => {
+    expect(satisfiesRange("1.2.9", "^0.2.3")).toBe(false);
   });
 
   test("0.0.x caret ranges are patch-locked", () => {
     expect(satisfiesRange("0.0.3", "^0.0.3")).toBe(true);
     expect(satisfiesRange("0.0.4", "^0.0.3")).toBe(false);
     expect(satisfiesRange("1.0.0", "^0.0.3")).toBe(false);
+  });
+
+  test("0.0.x caret ranges reject a non-zero minor even when the patch matches", () => {
+    expect(satisfiesRange("0.1.3", "^0.0.3")).toBe(false);
   });
 
   test("an OR'd range matches any clause — the vitest peer shape", () => {
@@ -74,6 +104,13 @@ describe("satisfiesRange", () => {
   test("an .x range matches like a caret at that boundary", () => {
     expect(satisfiesRange("1.4.2", "1.x")).toBe(true);
     expect(satisfiesRange("2.0.0", "1.x")).toBe(false);
+  });
+
+  test("an .x placeholder is replaced with .0, not deleted, when it isn't the trailing segment", () => {
+    // "1.x.2" isn't a range shape this repo emits, but it pins down that `.x` is rewritten to
+    // `.0` in place — deleting it outright would shift the remaining segments and silently
+    // change which component the base's trailing digit binds to.
+    expect(satisfiesRange("1.0.2", "1.x.2")).toBe(true);
   });
 
   test("an exact version matches only itself", () => {

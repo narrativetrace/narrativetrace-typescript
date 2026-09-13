@@ -7,7 +7,12 @@ import { snapshot, withFiles } from "../fixture.js";
 
 describe("checkParameterArg0", () => {
   test("passes when no rendered output exists yet", () => {
-    expect(checkParameterArg0(snapshot()).status).toBe("pass");
+    const finding = checkParameterArg0(snapshot());
+    expect(finding.status).toBe("pass");
+    expect(finding.id).toBe("trap.parameter-arg0");
+    expect(finding.message).toBe(
+      "no rendered output found yet — run your tests or app once to check this",
+    );
   });
 
   test("passes when rendered output carries real parameter names", () => {
@@ -19,6 +24,9 @@ describe("checkParameterArg0", () => {
       }),
     );
     expect(finding.status).toBe("pass");
+    expect(finding.message).toBe(
+      "rendered output carries real parameter names — no arg0 placeholders found",
+    );
   });
 
   test("fails when rendered output shows arg0 placeholders", () => {
@@ -31,5 +39,6 @@ describe("checkParameterArg0", () => {
     );
     expect(finding.status).toBe("fail");
     expect(finding.message).toContain("narrativetrace-output/trace.md");
+    expect(finding.fix).toContain("Pass parameter names explicitly");
   });
 });

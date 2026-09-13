@@ -17,6 +17,38 @@ const BASE: Skill = {
   never: [],
 };
 
+describe("renderClaudeSkill (full-structure snapshots)", () => {
+  // Exact, line-by-line output — every join separator, delimiter, and blank line the piecemeal
+  // .toContain() assertions below don't pin down individually (missing one leaves the rendered
+  // Markdown malformed even though every individual `.toContain()` check still passes).
+  it("matches the known-good rendering for a minimal skill (no steps, rules, or whenToUse)", () => {
+    expect(renderClaudeSkill(BASE, () => "")).toMatchSnapshot();
+  });
+
+  it("matches the known-good rendering for a fully-populated skill", () => {
+    const skill: Skill = {
+      ...BASE,
+      whenToUse: "when it matters",
+      steps: [
+        {
+          title: "Do it",
+          body: { kind: "commands", commands: ["pnpm test", "pnpm build"] },
+          verify: "pnpm test",
+          flag: "unstudied",
+          failure: [{ symptom: "it breaks", cause: "bad config", fix: "fix the config" }],
+        },
+        {
+          title: "Show it",
+          body: { kind: "snippet", path: "x.js", language: "js", mask: "duration" },
+        },
+      ],
+      always: [{ rule: "Do X", reason: "because Y" }],
+      never: [{ rule: "Don't Z", reason: "because W" }],
+    };
+    expect(renderClaudeSkill(skill, (path) => `// ${path} content`)).toMatchSnapshot();
+  });
+});
+
 describe("renderClaudeSkill", () => {
   it("renders frontmatter with name, description, and allowed-tools", () => {
     const rendered = renderClaudeSkill(BASE, () => "");

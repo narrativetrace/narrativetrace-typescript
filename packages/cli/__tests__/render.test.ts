@@ -37,6 +37,15 @@ describe("renderHuman", () => {
     expect(failLine).toBeGreaterThanOrEqual(0);
     expect(failLine).toBeLessThan(passLine);
   });
+
+  test("summarizes a clean report as 'All checks passed.'", () => {
+    const clean: DoctorReport = {
+      exitCode: 0,
+      findings: [{ ...report.findings[0]!, status: "pass" }],
+    };
+    expect(renderHuman(clean)).toContain("All checks passed.");
+    expect(renderHuman(clean)).not.toContain("Exit code");
+  });
 });
 
 describe("renderJson", () => {

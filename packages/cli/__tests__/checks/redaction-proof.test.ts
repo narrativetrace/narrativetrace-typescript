@@ -15,10 +15,48 @@ describe("checkRedactionProof", () => {
       }),
     );
     expect(finding.status).toBe("fail");
+    expect(finding.id).toBe("trap.redaction-proof");
+    expect(finding.message).toBe("no test asserts [REDACTED] — redaction is unproven");
   });
 
   test("fails when there are no test files at all", () => {
     expect(checkRedactionProof(snapshot()).status).toBe("fail");
+  });
+
+  test("a non-test source file containing [REDACTED] does not count as proof", () => {
+    // Only a real *.test.ts/*.spec.ts file proves the redaction — a stray occurrence of the
+    // literal marker in ordinary source (e.g. the string defined in the redaction module itself)
+    // must not be mistaken for a test that asserts it.
+    const finding = checkRedactionProof(
+      snapshot({
+        sourceFiles: withFiles({
+          "src/redact.ts": `export const MARKER = "[REDACTED]";`,
+        }),
+      }),
+    );
+    expect(finding.status).toBe("fail");
+  });
+
+  test("a file that merely contains .test. mid-name (not as its suffix) does not count as a test file", () => {
+    const finding = checkRedactionProof(
+      snapshot({
+        sourceFiles: withFiles({
+          "src/order.test.ts.snap": `expect(rendered).toContain("[REDACTED]");`,
+        }),
+      }),
+    );
+    expect(finding.status).toBe("fail");
+  });
+
+  test("a .cts test file is recognized as a test file", () => {
+    const finding = checkRedactionProof(
+      snapshot({
+        sourceFiles: withFiles({
+          "src/order.test.cts": `expect(rendered).toContain("[REDACTED]");`,
+        }),
+      }),
+    );
+    expect(finding.status).toBe("pass");
   });
 
   test("passes when a test asserts [REDACTED] for a deny-listed name", () => {
@@ -30,5 +68,6 @@ describe("checkRedactionProof", () => {
       }),
     );
     expect(finding.status).toBe("pass");
+    expect(finding.message).toBe("a test asserts [REDACTED] for a deny-listed parameter name");
   });
 });
