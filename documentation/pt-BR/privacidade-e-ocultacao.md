@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 8fc25f9b4abe | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 29b4efaedbb0 | translated: 2026-09-13 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -143,6 +143,20 @@ que quem chama fornece na construção (`new Error(usuario.password)`) —
 exatamente a forma que um campo na lista de negação existe para pegar,
 então um valor `Error` é introspectado campo a campo como qualquer outro
 objeto. *(since 0.1.3, unreleased)*
+
+**`Date` é confiado da mesma forma, mas renderiza via `toISOString()`, nunca
+`toString()`** *(since 0.1.3, unreleased)*: `Date.prototype.toString()`
+embute o locale e o NOME do fuso horário do host na string (ex.:
+`"Tue Jan 01 2024 01:00:00 GMT+0100 (Central European Standard Time)"`),
+então o mesmo instante renderiza como duas strings diferentes e não
+reproduzíveis em duas máquinas — ou na mesma máquina com um `TZ` diferente.
+`toISOString()` é UTC e não carrega nenhum dos dois eixos: um instante, uma
+string, em qualquer lugar, que é exatamente o que um artefato de trace
+pensado para ser comparado ou aprovado entre máquinas exige. Um `Date`
+inválido (`new Date(NaN)`) continua renderizando como o literal
+`Invalid Date` — `toISOString()` lança exceção para ele, então isso é
+checado e retornado diretamente, nunca passando pelo marcador de erro
+tipado abaixo.
 
 Isso estreita uma regra intermediária de vida curta de 2026-09-11 ("confiar
 no `toString()` para qualquer folha — qualquer objeto sem nenhum campo

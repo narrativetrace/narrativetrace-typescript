@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob b81225f5f786 | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 9ab7ae085c19 | translated: 2026-09-13 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -322,6 +322,8 @@ renderValue(someObject, {
 | `function` | `"<function>"` |
 | `Array` | `[1, 2, 3]` |
 | `Object` | `{"key": "value"}` |
+| `Date` | `"2024-01-01T00:00:00.000Z"` (`toISOString()` en UTC, nunca el `toString()` dependiente del locale/huso horario — ver [Privacidad y ocultación](privacidad-y-ocultacion.md#qué-oculta-y-qué-prevalece-sobre-qué)) *(since 0.1.3, unreleased)* |
+| `Date` inválido | `"Invalid Date"` |
 | Referencia circular | `"<circular>"` |
 
 ## 4. Opciones de Markdown

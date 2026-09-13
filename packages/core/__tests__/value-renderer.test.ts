@@ -213,16 +213,29 @@ describe("renderValue", () => {
       expect(renderValue({ a: 1 })).toBe('{"a": 1}');
     });
 
-    // The null-returning / throwing / sanitize-and-truncate toString degrade paths below now only
-    // ever fire for a trusted platform value (2026-09-12 ruling) — see the "platform-defined
-    // types" block, which pins all three against a real Date instance instead of an arbitrary
-    // user leaf class.
+    // The null-returning / throwing / sanitize-and-truncate degrade paths below now only ever
+    // fire for a trusted platform value (2026-09-12 ruling) — see the "platform-defined types"
+    // block, which pins all four against real Date/URL instances instead of an arbitrary user
+    // leaf class.
   });
 
   describe("platform-defined types (2026-09-12 trusted-leaf carve-out)", () => {
-    test("Date renders its own short value, not a field walk", () => {
+    // 2026-09-13 ruling: Date is the one intrinsic on this list rendered via `toISOString()`,
+    // never `toString()` — see `nativeStringMethod` in value-renderer.ts. `toString()` bakes the
+    // host's locale and timezone NAME into the string, so the same instant renders two different,
+    // non-reproducible strings on two machines (or the same machine at a different `TZ`);
+    // `toISOString()` is UTC and carries neither axis.
+    test("Date renders its own short value as UTC ISO-8601, never toString()'s locale/timezone form", () => {
       const d = new Date("2024-01-01T00:00:00.000Z");
-      expect(renderValue(d)).toBe(d.toString());
+      expect(renderValue(d)).toBe(d.toISOString());
+      expect(renderValue(d)).not.toBe(d.toString());
+    });
+
+    // toISOString() throws RangeError for an invalid Date; toString() does not — it already
+    // returns this exact literal. Short-circuiting before any call runs keeps that literal
+    // unchanged rather than routing an invalid timestamp through the typed error marker.
+    test("an invalid Date renders as the literal Invalid Date, never the typed error marker", () => {
+      expect(renderValue(new Date(Number.NaN))).toBe("Invalid Date");
     });
 
     test("URL renders its own short value, not a field walk", () => {
@@ -253,18 +266,22 @@ describe("renderValue", () => {
       expect(rendered).toBe('{"token": [REDACTED]}');
     });
 
-    test("a platform value's null-returning toString falls back to <TypeName>", () => {
+    // Date's own degrade paths run through toISOString() (its native-string method — see
+    // nativeStringMethod), never toString(), so these three pin against an overridden
+    // toISOString(); every other platform value's degrade path is still toString()-based, pinned
+    // separately below against URL.
+    test("Date's null-returning toISOString falls back to <TypeName>", () => {
       const d = new Date();
-      Object.defineProperty(d, "toString", { value: () => null });
+      Object.defineProperty(d, "toISOString", { value: () => null });
       expect(renderValue(d)).toBe("<Date>");
     });
 
     // The typed error marker never shows Error.message — a message can carry the exact value the
     // thrower was refusing to render, which is exactly the shape a naive `<error: ${e.message}>`
     // marker would leak (owner ruling, 2026-09-11).
-    test("a platform value's throwing toString degrades to the typed error marker, never the message", () => {
+    test("Date's throwing toISOString degrades to the typed error marker, never the message", () => {
       const d = new Date();
-      Object.defineProperty(d, "toString", {
+      Object.defineProperty(d, "toISOString", {
         value: () => {
           throw new Error("failed for card 4111-1111-1111-1111");
         },
@@ -276,9 +293,9 @@ describe("renderValue", () => {
     });
 
     // A thrown non-Error value shows its typeof, never its stringified content.
-    test("a platform value's toString throwing a non-Error value shows the typeof marker", () => {
+    test("Date's toISOString throwing a non-Error value shows the typeof marker", () => {
       const d = new Date();
-      Object.defineProperty(d, "toString", {
+      Object.defineProperty(d, "toISOString", {
         value: () => {
           throw "not an Error object";
         },
@@ -286,10 +303,47 @@ describe("renderValue", () => {
       expect(renderValue(d)).toBe("<error: string>");
     });
 
-    test("a platform value's toString output is control-sanitized and truncated with the ellipsis", () => {
+    test("Date's toISOString output is control-sanitized and truncated with the ellipsis", () => {
       const d = new Date();
-      Object.defineProperty(d, "toString", { value: () => "line1\nline2" });
+      Object.defineProperty(d, "toISOString", { value: () => "line1\nline2" });
       expect(renderValue(d)).toBe("line1\\nline2");
+    });
+
+    // The same four degrade paths, pinned against a platform value whose native-string method is
+    // still toString() (every entry on the trusted list except Date — see nativeStringMethod).
+    test("a platform value's null-returning toString falls back to <TypeName>", () => {
+      const u = new URL("https://example.com");
+      Object.defineProperty(u, "toString", { value: () => null });
+      expect(renderValue(u)).toBe("<URL>");
+    });
+
+    test("a platform value's throwing toString degrades to the typed error marker, never the message", () => {
+      const u = new URL("https://example.com");
+      Object.defineProperty(u, "toString", {
+        value: () => {
+          throw new Error("failed for card 4111-1111-1111-1111");
+        },
+      });
+      const rendered = renderValue(u);
+      expect(rendered).toBe("<error: Error>");
+      expect(rendered).not.toContain("4111-1111-1111-1111");
+      expect(rendered).not.toContain("failed for card");
+    });
+
+    test("a platform value's toString throwing a non-Error value shows the typeof marker", () => {
+      const u = new URL("https://example.com");
+      Object.defineProperty(u, "toString", {
+        value: () => {
+          throw "not an Error object";
+        },
+      });
+      expect(renderValue(u)).toBe("<error: string>");
+    });
+
+    test("a platform value's toString output is control-sanitized and truncated with the ellipsis", () => {
+      const u = new URL("https://example.com");
+      Object.defineProperty(u, "toString", { value: () => "line1\nline2" });
+      expect(renderValue(u)).toBe("line1\\nline2");
     });
   });
 

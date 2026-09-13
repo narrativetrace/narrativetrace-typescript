@@ -9,15 +9,16 @@ import { traceObject } from "../src/trace-object.js";
 
 describe("traceObject fast paths", () => {
   // A real Date instance, not a user class: the 2026-09-12 "trusted-leaf" carve-out
-  // (value-renderer.ts) trusts native toString() only for a realm platform intrinsic, checked by
-  // prototype identity — a user class's own toString() is never invoked during rendering any
-  // more, field-less or not. These tests spy on whether rendering fires at all, not on the
-  // redaction invariant, so the fixture must stay a genuine platform value for its toString() to
-  // ever run.
+  // (value-renderer.ts) trusts native stringification only for a realm platform intrinsic,
+  // checked by prototype identity — a user class's own toString() is never invoked during
+  // rendering any more, field-less or not. These tests spy on whether rendering fires at all, not
+  // on the redaction invariant, so the fixture must stay a genuine platform value for its native
+  // string method to ever run. Date's own native-string method is toISOString(), not toString()
+  // (2026-09-13 ruling — see nativeStringMethod in value-renderer.ts), so that is the one spied on.
   function spyArg() {
     const state = { renders: 0 };
     const arg = new Date();
-    Object.defineProperty(arg, "toString", {
+    Object.defineProperty(arg, "toISOString", {
       value: () => {
         state.renders++;
         return "spied";

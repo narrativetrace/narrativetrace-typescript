@@ -194,28 +194,48 @@ fork/fire-and-forget per task.
 
 ### NarrativeContext (interface)
 
-The central interface for recording trace events. All tracing flows through this.
+The central interface for recording trace events. All tracing flows through this. The snippet
+below calls it directly — the same two hooks `traceObject()` wraps around every traced method for
+you:
 
+<!-- snippet: examples/core-api-reference/src/index.ts -->
 ```ts
-interface NarrativeContext {
-  readonly isActive: boolean;
-  enterMethod(
-    className: string,
-    methodName: string,
-    params: readonly ParameterCapture[],
-    options?: { narration?: string; errorContext?: string },
-  ): void;
-  exitMethodWithReturn(renderedValue: string | null): void;
-  exitMethodWithException(error: unknown): void;
-  captureTrace(): TraceTree;
-  reset(): void;
+import { parameterCapture, renderMarkdownBody, renderValue } from "@narrativetrace/core";
+import { NarrativeTraceConfig, SyncNarrativeContext } from "@narrativetrace/core-node";
+
+// Backs the "Core API Reference" section of documentation/llms-full.md (<!-- snippet: -->
+// embedded, checked by `pnpm run snippet-check` — never hand-copied there). This is the raw
+// NarrativeContext surface `traceObject()` calls on your behalf: `enterMethod` returns the
+// SpanId of the frame it just pushed, and both exit calls take that handle back so the context
+// can pop the right frame even when calls interleave (concurrent/async work, a frame entered by
+// one call and exited by another). A framework integration that cannot wrap its target in a
+// Proxy — a decorator, a custom object model — calls this directly instead.
+const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+
+function placeOrder(customerId: string, quantity: number): string {
+  const handle = context.enterMethod("OrderService", "placeOrder", [
+    parameterCapture("customerId", renderValue(customerId), false),
+    parameterCapture("quantity", renderValue(quantity), false),
+  ]);
+  try {
+    const orderId = `ORD-${customerId}-${quantity}`;
+    context.exitMethodWithReturn(renderValue(orderId), handle);
+    return orderId;
+  } catch (error) {
+    context.exitMethodWithException(error, handle);
+    throw error;
+  }
 }
+
+placeOrder("C1", 2);
+console.log(renderMarkdownBody(context.captureTrace()));
 ```
+<!-- /snippet -->
 
 **Key methods:**
-- `enterMethod(className, methodName, params, options)` — push a frame. Must have a matching exit call.
-- `exitMethodWithReturn(rendered)` — pop frame, record success. The value is pre-rendered to string.
-- `exitMethodWithException(error)` — pop frame, record failure.
+- `enterMethod(className, methodName, params, options)` — push a frame and return its `SpanId`. Must have a matching exit call.
+- `exitMethodWithReturn(rendered, handle)` — pop the frame named by `handle`, record success. The value is pre-rendered to string.
+- `exitMethodWithException(error, handle)` — pop the frame named by `handle`, record failure.
 - `captureTrace()` — return the immutable trace tree.
 - `reset()` — clear all state. Call between tests/requests.
 
@@ -223,6 +243,12 @@ interface NarrativeContext {
 - `SyncNarrativeContext` — default, zero-dependency, stack-based
 - `AsyncNarrativeContext` — wraps `AsyncLocalStorage<SyncNarrativeContext>` for per-request isolation
 - `NOOP_CONTEXT` — discards everything (for disabled tracing)
+
+The five members above are the small public subset every integration calls — span handles, live-child
+registration, snapshots, request/user context, and trace-loss accounting are all real, public
+`SyncNarrativeContext` members this subset omits. See
+[SyncNarrativeContext — full member reference](#syncnarrativecontext--full-member-reference) below
+for the complete surface.
 
 ### SyncNarrativeContext
 
@@ -241,6 +267,59 @@ const context = new SyncNarrativeContext(config);
 // Change level at runtime
 config.level = "errors";
 ```
+
+### SyncNarrativeContext — full member reference
+
+Every public member `SyncNarrativeContext` declares, generated from `packages/core/src/context.ts`
+by `tools/context-reference-table.ts` and checked every commit (`pnpm run context-reference-check`,
+wired into `pnpm run check`) so this table cannot drift the way the hand-typed `NarrativeContext`
+interface block above already had — run `pnpm run context-reference-render` to regenerate it after
+changing the class.
+
+<!-- context-reference:begin -->
+| Member | Description |
+|---|---|
+| `readonly config: NarrativeTraceConfig` | — |
+| `readonly eventPipeline: EventPipeline` | — |
+| `get isActive(): boolean` | — |
+| `get capturesParameterValues(): boolean` | — |
+| `get activeSpanId(): SpanId | null` | — |
+| `get storyId(): string | null` | — |
+| `get chapterId(): string | null` | — |
+| `get currentTraceId(): TraceId | null` | — |
+| `traceId(): TraceId` | — |
+| `setRequestContext(httpMethod: string, httpRoute: HttpRoute, clientIp: ClientIp): void` | — |
+| `setUserContext(enduserId?: EnduserId, sessionId?: SessionId, tenantId?: TenantId): void` | — |
+| `knownSpanIds(): ReadonlySet<SpanId>` | — |
+| `reportableSpanIds(): Set<SpanId>` | Everything this context can answer for right now: the spans it opened itself, the ones already |
+| `liveChildSpanIds(): Set<SpanId>` | What every live child can answer for, transitively, pruning registrations whose child has been |
+| `adopt(spanIds: ReadonlySet<SpanId>): void` | Takes over the spans an asynchronous child published under a snapshot of this context. |
+| `discardUnreportable(): void` | Discards this context's own reportable spans because the request that could have reported |
+| `adoptedSpans(): ReadonlySet<SpanId>` | The spans already handed over by finished asynchronous children. |
+| `registerLiveChild(child: SyncNarrativeContext): LiveChildRegistration | null` | Publishes a child context to this one for the lifetime of its scope, so the child's spans are |
+| `unregisterLiveChild(registration: LiveChildRegistration | null): void` | Ends a live registration. A `null` handle is a registration the ceiling refused. |
+| `refusedScopeCount(): number` | Asynchronous scopes whose hand-over the adoption ceiling refused whole. |
+| `refusedSpanCount(): number` | Spans lost to those refusals — the number a reader of the trace is missing. |
+| `traceLoss(): TraceLoss` | What this context's captured trace is missing, and why: events the buffer shed, the |
+| `enterMethod(className: string, methodName: string, params: readonly ParameterCapture[], options?: { narration?: string; errorContext?: string }): SpanId` | — |
+| `exitMethodWithReturn(renderedValue: string | null, handle?: SpanId, structured?: RenderedValue): void` | — |
+| `exitMethodWithException(error: unknown, handle?: SpanId, errorContext: string | null = null): void` | — |
+| `detachFrame(handle: SpanId): void` | — |
+| `parentOf(handle: SpanId): SpanId | null` | — |
+| `run<T>(fn: () => T, _inheritedTraceId?: TraceId): T` | — |
+| `runScoped<T>(_handle: SpanId, fn: () => T): T` | — |
+| `captureTrace(): TraceTree` | — |
+| `reset(): void` | — |
+| `inheritRequestExtras(source: SyncNarrativeContext): void` | — |
+| `exportRequestExtras(): SpanContextExtras` | A copy of the request/user metadata for propagation to forked/background children. |
+| `applyRequestExtras(extras: SpanContextExtras): void` | — |
+| `setSnapshotParent(parentSpanId: SpanId, traceId: TraceId): void` | — |
+| `applySnapshot(traceId: TraceId | null, parentSpanId: SpanId | null, crossesBoundary = true): void` | Adopts a snapshot's captured lineage onto this context for the duration of a scope. |
+| `get isFromSnapshot(): boolean` | True while this context is running work activated from another context's snapshot. |
+| `get generation(): number` | How many times this context has been `reset`. |
+| `beginScope(): ContextScope` | Opens a scope on this context, returning the handle that rolls its stack, trace identity and |
+| `snapshot(): ContextSnapshot` | — |
+<!-- context-reference:end -->
 
 ### AsyncNarrativeContext
 

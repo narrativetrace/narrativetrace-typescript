@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 8fc25f9b4abe | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 29b4efaedbb0 | translated: 2026-09-13 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -145,6 +145,20 @@ llama suministra al construirlo (`new Error(usuario.password)`) —
 exactamente la forma que un campo en la lista de ocultación existe para
 atrapar, así que un valor `Error` se introspecciona campo por campo como
 cualquier otro objeto. *(since 0.1.3, unreleased)*
+
+**`Date` se respeta de la misma forma, pero se renderiza mediante
+`toISOString()`, nunca `toString()`** *(since 0.1.3, unreleased)*:
+`Date.prototype.toString()` incrusta el locale y el NOMBRE de la zona
+horaria del host en la cadena (p. ej. `"Tue Jan 01 2024 01:00:00 GMT+0100
+(Central European Standard Time)"`), así que el mismo instante se renderiza
+como dos cadenas distintas y no reproducibles en dos máquinas — o en la
+misma máquina con un `TZ` diferente. `toISOString()` es UTC y no lleva
+ninguno de los dos ejes: un instante, una cadena, en todas partes, que es
+justo lo que requiere un artefacto de traza pensado para compararse o
+aprobarse entre máquinas. Un `Date` inválido (`new Date(NaN)`) se sigue
+renderizando como el literal `Invalid Date` — `toISOString()` lanza una
+excepción para él, así que esto se comprueba y se devuelve directamente,
+sin pasar nunca por el marcador de error tipado de más abajo.
 
 Esto estrecha una regla intermedia de vida corta de 2026-09-11 ("respetar
 `toString()` para cualquier hoja — cualquier objeto sin ningún campo propio

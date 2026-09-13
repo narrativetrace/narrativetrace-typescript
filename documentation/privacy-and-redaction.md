@@ -127,6 +127,18 @@ interpolates `message` — free text the caller supplies at construction
 to catch, so an `Error` value is field-walked like any other object.
 *(since 0.1.3, unreleased)*
 
+**`Date` is trusted the same way, but renders via `toISOString()`, never
+`toString()`** *(since 0.1.3, unreleased)*: `Date.prototype.toString()` bakes
+the host's locale and timezone NAME into the string (e.g. `"Tue Jan 01 2024
+01:00:00 GMT+0100 (Central European Standard Time)"`), so the identical
+instant renders as two different, non-reproducible strings on two machines —
+or on the same machine at a different `TZ`. `toISOString()` is UTC and
+carries neither axis: one instant, one string, everywhere, which is what a
+trace artifact meant to be diffed or approved across machines requires. An
+invalid `Date` (`new Date(NaN)`) still renders as the literal `Invalid Date`
+— `toISOString()` throws for it, so this is checked and returned directly,
+never routed through the typed error marker below.
+
 This narrows a shorter-lived intermediate rule from 2026-09-11 ("trust
 `toString()` for any leaf — any object with no own enumerable field at all")
 that this port shipped for less than a day: on this platform, "no own

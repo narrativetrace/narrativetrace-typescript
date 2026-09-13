@@ -130,13 +130,15 @@ describe("findUnresolved", () => {
 });
 
 describe("a value whose toString() throws", () => {
-  // 2026-09-12 ruling: native toString() is trusted ONLY for a realm platform intrinsic (see
+  // 2026-09-12 ruling: native stringification is trusted ONLY for a realm platform intrinsic (see
   // value-renderer.test.ts's "platform-defined types" block) — a user class's own toString() is
   // never called any more (it field-walks instead), so these degrade paths are pinned against a
-  // real Date instance with an overridden toString rather than an arbitrary user leaf class.
+  // real Date instance with an overridden native-string method rather than an arbitrary user leaf
+  // class. Date's own native-string method is toISOString(), not toString() (2026-09-13 ruling —
+  // see nativeStringMethod in value-renderer.ts), so that is the one overridden here.
   function rogueDate(): Date {
     const d = new Date();
-    Object.defineProperty(d, "toString", {
+    Object.defineProperty(d, "toISOString", {
       value: () => {
         throw new Error("toString exploded");
       },
@@ -159,10 +161,11 @@ describe("a value whose toString() throws", () => {
     );
   });
 
-  // A toString() returning null degrades to the bare type marker (not an error — nothing threw).
-  test("a toString() returning null degrades to the same marker", () => {
+  // A native-string method returning null degrades to the bare type marker (not an error —
+  // nothing threw). Date's is toISOString(), not toString() — see rogueDate's comment above.
+  test("a toISOString() returning null degrades to the same marker", () => {
     const d = new Date();
-    Object.defineProperty(d, "toString", { value: () => null });
+    Object.defineProperty(d, "toISOString", { value: () => null });
     expect(resolveTemplate("Processing {payload}", { payload: d })).toBe("Processing <Date>");
   });
 
@@ -244,9 +247,16 @@ describe("resolveTemplate — a whole-object placeholder cannot bypass redaction
     expect(resolveTemplate("total {money}", { money: new Money() })).toBe("total {}");
   });
 
-  test("a platform value keeps its own toString byte for byte", () => {
+  test("a platform value keeps its own native string byte for byte", () => {
+    const u = new URL("https://example.com/a?b=1");
+    expect(resolveTemplate("fetched {url}", { url: u })).toBe(`fetched ${u.toString()}`);
+  });
+
+  // Date is the one platform value rendered via toISOString(), not toString() (2026-09-13
+  // ruling) — pinned separately so this doesn't read as every platform value using toString().
+  test("a Date keeps its own toISOString() byte for byte, never toString()'s locale form", () => {
     const d = new Date("2024-01-01T00:00:00.000Z");
-    expect(resolveTemplate("logged at {when}", { when: d })).toBe(`logged at ${d.toString()}`);
+    expect(resolveTemplate("logged at {when}", { when: d })).toBe(`logged at ${d.toISOString()}`);
   });
 
   test("an object with own fields is introspected even when its toString has nothing to hide", () => {

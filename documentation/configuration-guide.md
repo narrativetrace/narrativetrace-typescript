@@ -311,6 +311,8 @@ renderValue(someObject, {
 | `function` | `"<function>"` |
 | `Array` | `[1, 2, 3]` |
 | `Object` | `{"key": "value"}` |
+| `Date` | `"2024-01-01T00:00:00.000Z"` (UTC `toISOString()`, never the locale/timezone-dependent `toString()` — see [Privacy and Redaction](privacy-and-redaction.md#what-redacts-and-what-outranks-what)) *(since 0.1.3, unreleased)* |
+| Invalid `Date` | `"Invalid Date"` |
 | Circular reference | `"<circular>"` |
 
 ## 4. Markdown Options

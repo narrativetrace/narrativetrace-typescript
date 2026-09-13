@@ -1,0 +1,16 @@
+{
+  "name": "@narrativetrace/example-core-api-reference",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@narrativetrace/core": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*"
+  }
+}

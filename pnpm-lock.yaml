@@ -108,6 +108,15 @@ importers:
         specifier: 9.11.0
         version: 9.11.0
 
+  examples/core-api-reference:
+    devDependencies:
+      '@narrativetrace/core':
+        specifier: workspace:*
+        version: link:../../packages/core
+      '@narrativetrace/core-node':
+        specifier: workspace:*
+        version: link:../../packages/core-node
+
   examples/distributed:
     devDependencies:
       '@narrativetrace/core':

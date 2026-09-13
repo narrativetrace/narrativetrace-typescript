@@ -319,10 +319,18 @@ entries:
   - id: probed-platform-type-carveout
     kind: probed-default
     page: "documentation/privacy-and-redaction.md#what-redacts-and-what-outranks-what"
-    claim: "a platform type (Date, URL, RegExp, a boxed BigInt, a typed array) keeps its own toString(), unwalked"
+    claim: "a platform type (URL, RegExp, a boxed BigInt, a typed array) keeps its own toString(), unwalked"
     since: "0.1.3"
     documented_default: "own-tostring-used"
     probe: "contract-probe/probes/platform-type-carveout.mjs"
+
+  - id: probed-date-iso-rendering
+    kind: probed-default
+    page: "documentation/privacy-and-redaction.md#what-redacts-and-what-outranks-what"
+    claim: "a Date renders as its UTC toISOString(), never toString()'s locale/timezone-dependent form; an invalid Date renders as the literal Invalid Date"
+    since: "0.1.3"
+    documented_default: "iso-8601"
+    probe: "contract-probe/probes/date-iso-rendering.mjs"
 
   - id: probed-dual-path-pipeline-default-consumer
     kind: probed-default

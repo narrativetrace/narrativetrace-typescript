@@ -117,8 +117,9 @@ class RenderWalk {
  * Renders any captured value to a single compact, human-readable string for a trace line, applying
  * truncation, cycle detection (`<circular>`), a depth cap (`<max-depth>`), and key redaction.
  * Dispatch order mirrors the Java `ValueRenderer`: array/Set/Map, then `@narrativeSummary`, then a
- * custom `toString()` (realm platform intrinsics only, e.g. `Date`/`URL`/`RegExp`/typed arrays —
- * see `isPlatformValue`), then field introspection.
+ * custom native stringification (realm platform intrinsics only, e.g. `Date`/`URL`/`RegExp`/typed
+ * arrays — see `isPlatformValue`; `Date` renders via `toISOString()`, every other intrinsic via
+ * `toString()` — see `nativeStringMethod`), then field introspection.
  *
  * @param value any argument or return value, including `null`/`undefined` (rendered literally) and
  * cyclic structures.
@@ -353,14 +354,38 @@ function isPlatformValue(value: object): boolean {
   return PLATFORM_PROTOTYPES.has(Object.getPrototypeOf(value));
 }
 
-// An object with its own toString() renders that string (sanitized + truncated) rather than a
-// field dump; a null-returning toString falls back to <TypeName>, a throwing one to the typed
-// error marker (Java renderWithToString). Plain objects (Object.prototype.toString) still
-// introspect. Only ever called for a platform value (see dispatchObject) — every other object,
-// leaf or not, always field-walks instead (2026-09-12 ruling — see isPlatformValue).
+/**
+ * The member that produces a trusted platform value's native string form: `toString()` for every
+ * intrinsic in {@link PLATFORM_PROTOTYPES} except `Date`, which uses `toISOString()` instead
+ * (owner ruling, 2026-09-13). `Date.prototype.toString()` bakes the host's locale and timezone
+ * NAME into the string (`"Tue Jan 01 2024 01:00:00 GMT+0100 (Central European Standard Time)"`) —
+ * two machines (or the same machine at a different `TZ`) render two different strings for the
+ * identical instant, which is exactly what a reproducible trace artifact must never do.
+ * `toISOString()` is UTC and has neither axis: one instant, one string, everywhere. Invoked as an
+ * own-property lookup on `value`, never a bare `Date.prototype.toISOString.call(value)` — an
+ * overridden own method still runs, same as `toString()` does for every other platform value,
+ * so the degrade paths below (null return, throw, sanitize) exercise identically for Date.
+ */
+function nativeStringMethod(value: object): "toString" | "toISOString" {
+  return Object.getPrototypeOf(value) === Date.prototype ? "toISOString" : "toString";
+}
+
+// An object with its own toString() (or, for a Date, toISOString() — see nativeStringMethod)
+// renders that string (sanitized + truncated) rather than a field dump; a null return falls back
+// to <TypeName>, a throw to the typed error marker (Java renderWithToString). Plain objects
+// (Object.prototype.toString) still introspect. Only ever called for a platform value (see
+// dispatchObject) — every other object, leaf or not, always field-walks instead (2026-09-12
+// ruling — see isPlatformValue).
 function renderWithToString(value: object, opts: Required<RenderOptions>): string {
   try {
-    const raw = (value as { toString(): unknown }).toString();
+    const method = nativeStringMethod(value);
+    if (method === "toISOString" && Number.isNaN((value as Date).getTime())) {
+      // An invalid Date's toISOString() throws RangeError; its toString() already returns the
+      // literal "Invalid Date" without throwing, and this keeps that literal unchanged rather
+      // than routing an invalid timestamp through the typed error marker.
+      return "Invalid Date";
+    }
+    const raw = (value as { toISOString(): unknown; toString(): unknown })[method]();
     if (raw == null) return `<${typeName(value)}>`;
     return truncate(ControlEscape.sanitize(String(raw)), opts.maxStringLength);
   } catch (err) {
