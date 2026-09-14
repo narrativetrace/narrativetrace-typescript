@@ -1,4 +1,4 @@
-<!-- source: documentation/agent-skills.md blob 08eec00a160f | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/agent-skills.md blob f6eea9bb71b2 | translated: 2026-09-14 | reviewed: - -->
 # Habilidades de agente
 
 [English](../agent-skills.md) | **Español** | [Português](../pt-BR/habilidades-de-agente.md) | [简体中文](../zh-CN/智能体技能.md)
@@ -33,26 +33,38 @@ doctor solo puede pedirte que añadas hoy).
 ## Instalándolas
 
 - **Claude Code**: en este repositorio hay `SKILL.md` generados en
-  [`.claude/skills/add/`](../../.claude/skills/add/SKILL.md) y
-  [`.claude/skills/doctor/`](../../.claude/skills/doctor/SKILL.md). Copia cualquiera de esos
-  directorios en el `.claude/skills/<nombre>/` de tu propio proyecto y Claude la reconoce por su
-  cuenta, invocable como `/narrativetrace:add` / `/narrativetrace:doctor` una vez empaquetada como
-  plugin, o por nombre (`add-narrative-tracing` / `narrativetrace-doctor`) directamente.
+  [`.claude/skills/add-narrative-tracing/`](../../.claude/skills/add-narrative-tracing/SKILL.md) y
+  [`.claude/skills/narrativetrace-doctor/`](../../.claude/skills/narrativetrace-doctor/SKILL.md),
+  cada directorio con el nombre canónico de su habilidad — el prefijo del plugin de Claude es el
+  único lugar donde un segmento acortado es legítimo, y nada en este repositorio es un plugin.
+  Copia cualquiera de esos directorios en el `.claude/skills/<nombre>/` de tu propio proyecto y
+  Claude la reconoce por su cuenta, invocable por nombre (`add-narrative-tracing` /
+  `narrativetrace-doctor`) directamente.
 - **Cualquier agente, cualquier plataforma**: todo agente que lea `AGENTS.md` ve el señalador
   siempre activo que el propio `AGENTS.md` de este repositorio lleva entre sus marcadores
   `<!-- narrativetrace:skills:start -->` — el nombre y la descripción de las dos habilidades, para
   que un agente que nunca pensó en buscarlas igual sepa que existen.
-- **Codex, Gemini, y un instalador automático** (`npx narrativetrace init` escribiendo estas rutas
-  por ti) están en la hoja de ruta pero todavía no construidos — hoy, copiar los ficheros
-  generados es el camino.
+- **Codex**: los `SKILL.md` generados también viven en
+  [`.agents/skills/add-narrative-tracing/`](../../.agents/skills/add-narrative-tracing/SKILL.md) y
+  [`.agents/skills/narrativetrace-doctor/`](../../.agents/skills/narrativetrace-doctor/SKILL.md) —
+  el layout que la CLI de Codex descubre por sí sola, subiendo desde el directorio de trabajo hasta
+  la raíz del repositorio (y también `~/.agents/skills` para habilidades globales de usuario). Su
+  frontmatter es un subconjunto estricto del de Claude (solo `name` y `description` — sin
+  `when_to_use`, sin `allowed-tools`), así que el mismo cuerpo de página se distribuye bajo ambos
+  layouts. Fuente: developers.openai.com/codex/skills y
+  developers.openai.com/codex/concepts/customization (obtenido el 2026-09-13).
+- **Gemini, y un instalador automático** (`npx narrativetrace init` escribiendo estas rutas por
+  ti) están en la hoja de ruta pero todavía no construidos — hoy, copiar los ficheros generados es
+  el camino.
 
 ## Cómo están construidas
 
 Ninguna habilidad se edita a mano jamás. `packages/skills/src/catalogue/add-narrative-tracing.ts`
 y `packages/skills/src/catalogue/narrativetrace-doctor.ts` son las dos fuentes de verdad; `pnpm
-run skills-render` regenera `.claude/skills/add/SKILL.md`, `.claude/skills/doctor/SKILL.md`, y la
-sección de este mismo `AGENTS.md` a partir de ellas, y `pnpm run skills-check` (integrado en `pnpm
-run check`) rompe la build en cuanto cualquiera de las tres se desvía de la fuente tipada. Cada
+run skills-render` regenera las páginas `.claude/skills/` y `.agents/skills/` de ambas
+habilidades, y la sección de este mismo `AGENTS.md`, a partir de ellas, y `pnpm run skills-check`
+(integrado en `pnpm
+run check`) rompe la build en cuanto cualquier página generada se desvía de la fuente tipada. Cada
 bloque de código que muestra una página generada se embebe desde código fuente real y probado a
 través de la misma convención de marcadores `<!-- snippet: -->` que usan los demás documentos de
 este repositorio — nunca un ejemplo escrito a mano. Un lint de Nivel A mantiene fuera de ambas

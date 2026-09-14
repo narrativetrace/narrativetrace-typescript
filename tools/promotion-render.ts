@@ -16,6 +16,8 @@ export interface LedgerRow {
   readonly model: string;
   readonly trial: number;
   readonly result: "pass" | "fail";
+  /** Present only on a harness bug or an agent crash — tells that apart from an ordinary grader fail (`evals/runner.ts`). */
+  readonly note?: string;
 }
 
 export interface SkillLike {

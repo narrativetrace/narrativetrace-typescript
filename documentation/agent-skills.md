@@ -27,25 +27,35 @@ Either path ends at the doctor — it owns diagnosis from there. A later skill w
 ## Installing them
 
 - **Claude Code**: rendered `SKILL.md` files live at
-  [`.claude/skills/add/`](../.claude/skills/add/SKILL.md) and
-  [`.claude/skills/doctor/`](../.claude/skills/doctor/SKILL.md) in this repository. Copy either
-  directory into your own project's `.claude/skills/<name>/` and Claude picks it up on its own,
-  invokable as `/narrativetrace:add` / `/narrativetrace:doctor` once packaged as a plugin, or by
-  name (`add-narrative-tracing` / `narrativetrace-doctor`) directly.
+  [`.claude/skills/add-narrative-tracing/`](../.claude/skills/add-narrative-tracing/SKILL.md) and
+  [`.claude/skills/narrativetrace-doctor/`](../.claude/skills/narrativetrace-doctor/SKILL.md) in
+  this repository, each directory named after its skill's canonical name — Claude's plugin prefix
+  is the only place a shortened segment is legitimate, and nothing in this repository is a plugin.
+  Copy either directory into your own project's `.claude/skills/<name>/` and Claude picks it up on
+  its own, invokable by name (`add-narrative-tracing` / `narrativetrace-doctor`) directly.
 - **Any agent, any platform**: every agent that reads `AGENTS.md` sees the always-on pointer this
   repository's own `AGENTS.md` carries between its `<!-- narrativetrace:skills:start -->` markers
   — both skills' names and descriptions, so an agent that never thought to look still knows they
   exist.
-- **Codex, Gemini, and an automatic installer** (`npx narrativetrace init` writing these paths for
-  you) are on the roadmap but not built yet — today, copying the rendered files is the path.
+- **Codex**: rendered `SKILL.md` files also live at
+  [`.agents/skills/add-narrative-tracing/`](../.agents/skills/add-narrative-tracing/SKILL.md) and
+  [`.agents/skills/narrativetrace-doctor/`](../.agents/skills/narrativetrace-doctor/SKILL.md) — the
+  layout the Codex CLI discovers on its own, walking from the working directory up to the repo
+  root (and also `~/.agents/skills` for user-global skills). Its frontmatter is a strict subset of
+  Claude's plugin frontmatter (`name` and `description` only — no `when_to_use`, no
+  `allowed-tools`), so the identical page body ships under both layouts. Source:
+  developers.openai.com/codex/skills and developers.openai.com/codex/concepts/customization
+  (fetched 2026-09-13).
+- **Gemini, and an automatic installer** (`npx narrativetrace init` writing these paths for you)
+  are on the roadmap but not built yet — today, copying the rendered files is the path.
 
 ## How they're built
 
 Neither skill is ever hand-edited. `packages/skills/src/catalogue/add-narrative-tracing.ts` and
 `packages/skills/src/catalogue/narrativetrace-doctor.ts` are the two sources of truth; `pnpm run
-skills-render` regenerates `.claude/skills/add/SKILL.md`, `.claude/skills/doctor/SKILL.md`, and
-this repository's own `AGENTS.md` section from them, and `pnpm run skills-check` (wired into `pnpm
-run check`) fails the build the moment any of the three drifts from the typed source. Every code
+skills-render` regenerates both skills' `.claude/skills/` and `.agents/skills/` pages and this
+repository's own `AGENTS.md` section from them, and `pnpm run skills-check` (wired into `pnpm run
+check`) fails the build the moment any rendered page drifts from the typed source. Every code
 block a rendered page shows is embedded from real, tested source through the same
 `<!-- snippet: -->` marker convention this repository's other docs use — never a hand-typed
 example. A Tier A lint keeps private planning-note citations out of both pages: rationale sentences

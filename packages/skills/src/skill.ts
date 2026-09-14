@@ -63,10 +63,15 @@ export interface ReasonedRule {
 }
 
 export interface Skill {
-  /** Globally self-identifying, flat-namespace-safe (skill-design.md §3.1/§6 Q2), e.g. `narrativetrace-doctor`. */
+  /**
+   * Globally self-identifying, flat-namespace-safe (skill-design.md §3.1/§6 Q2) —
+   * `narrativetrace-doctor`, never a bare `doctor`. This is the ONLY name a rendered page ever
+   * carries: every platform's frontmatter `name:` and every platform's directory equal this
+   * string. A shortened segment (`doctor`) is legitimate only inside a plugin whose own prefix
+   * already carries the brand (owner ruling, skills design, 2026-09-04; reaffirmed 2026-09-13) —
+   * nothing this repository renders is that, so there is no shortened-name field here at all.
+   */
   readonly canonicalName: string;
-  /** The Claude plugin's shortened segment, e.g. `doctor` → `/narrativetrace:doctor`. */
-  readonly claudeSegment: string;
   readonly skillClass: SkillClass;
   /** ≤1024 chars, third person, WHAT + WHEN with mined trigger phrasings (skill-design.md §2). */
   readonly description: string;

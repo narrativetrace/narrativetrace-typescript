@@ -158,3 +158,81 @@ describe("a value-shaped secret is redacted regardless of its field name, on eve
     });
   });
 });
+
+// ADV-2026-09-14-1: object/symbol Map keys already route through the full `render()`/`structured()`
+// dispatch (the 2026-09-11 fix above), but a plain string key skipped straight to `String(key)` on
+// both paths — never asking `shouldRedactValue` at all. A `Map<string, unknown>` keyed by a raw
+// bearer token, JWT or card number is exactly the shape a caller reaches for to index metadata by
+// credential, so the key position must be scanned for a secret shape exactly like the value
+// position is: a JWT is a JWT wherever it is printed, key or value.
+describe("a value-shaped secret used AS a map key is redacted, on every render path (ADV-2026-09-14-1)", () => {
+  // Reuses the same synthetic, unsigned JWT vector as redaction-policy.test.ts /
+  // value-renderer.test.ts (.gitleaks.toml allowlist) rather than a fresh one.
+  const BEARER_TOKEN =
+    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.dozjgNryP4J3jVmNHl0w5N_XgL0n3I9PlFUP0THsR8U";
+  const PAN = "4111111111111111";
+
+  describe("renderValue (flat)", () => {
+    test("a bearer/JWT-shaped key is masked, the ordinary value beside it is not", () => {
+      const rendered = renderValue(new Map([[BEARER_TOKEN, "ok"]]));
+      expect(rendered).not.toContain(BEARER_TOKEN);
+      expect(rendered).toBe(`{${RedactionPolicy.MARKER}="ok"}`);
+    });
+
+    test("a PAN-shaped key is masked, the ordinary value beside it is not", () => {
+      const rendered = renderValue(new Map([[PAN, "ok"]]));
+      expect(rendered).not.toContain(PAN);
+      expect(rendered).toBe(`{${RedactionPolicy.MARKER}="ok"}`);
+    });
+
+    test("an ordinary key like 'note' is untouched", () => {
+      expect(renderValue(new Map([["note", "hello"]]))).toBe('{note="hello"}');
+    });
+
+    test("the key-NAME deny-list still wins for a plain 'cardNumber' key", () => {
+      // The key text itself is NOT shape-redacted ("cardNumber" is an ordinary word, not a
+      // secret shape) — the pre-existing name-based check still redacts the VALUE beside it.
+      expect(renderValue(new Map([["cardNumber", "irrelevant-value"]]))).toBe(
+        `{cardNumber=${RedactionPolicy.MARKER}}`,
+      );
+    });
+  });
+
+  describe("renderStructured (typed tree)", () => {
+    test("a bearer/JWT-shaped key is masked, the ordinary value beside it is not", () => {
+      const rendered = renderStructured(new Map([[BEARER_TOKEN, "ok"]]));
+      expect(JSON.stringify(rendered)).not.toContain(BEARER_TOKEN);
+      expect(rendered).toEqual({
+        kind: "object",
+        typeName: "Map",
+        fields: { [RedactionPolicy.MARKER]: { kind: "string", value: "ok" } },
+      });
+    });
+
+    test("a PAN-shaped key is masked, the ordinary value beside it is not", () => {
+      const rendered = renderStructured(new Map([[PAN, "ok"]]));
+      expect(JSON.stringify(rendered)).not.toContain(PAN);
+      expect(rendered).toEqual({
+        kind: "object",
+        typeName: "Map",
+        fields: { [RedactionPolicy.MARKER]: { kind: "string", value: "ok" } },
+      });
+    });
+
+    test("an ordinary key like 'note' is untouched", () => {
+      expect(renderStructured(new Map([["note", "hello"]]))).toEqual({
+        kind: "object",
+        typeName: "Map",
+        fields: { note: { kind: "string", value: "hello" } },
+      });
+    });
+
+    test("the key-NAME deny-list still wins for a plain 'cardNumber' key", () => {
+      expect(renderStructured(new Map([["cardNumber", "irrelevant-value"]]))).toEqual({
+        kind: "object",
+        typeName: "Map",
+        fields: { cardNumber: { kind: "other", text: RedactionPolicy.MARKER } },
+      });
+    });
+  });
+});

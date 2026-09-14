@@ -31,7 +31,17 @@ node -e '
   }
 '
 
-report=$(npx narrativetrace doctor --json)
+# Unlike the narrativetrace-doctor cases, this fixture is modified by the agent before doctor
+# runs (packages installed, a trace rendered), so its exact exit code isn't fixture-documented —
+# but the CLI's own contract still promises 0 or 1, never a crash. Capture the exit code
+# explicitly (`&&`/`||` keeps `set -e` from aborting on a nonzero doctor exit) so a real, expected
+# fail (e.g. trap.redaction-proof, unproven in this fixture too) doesn't skip the toolchain.*
+# assertions below the way a bare `report=$(npx ... --json)` under `set -e` would.
+report=$(npx narrativetrace doctor --json) && exit_code=0 || exit_code=$?
+if [ "$exit_code" -ne 0 ] && [ "$exit_code" -ne 1 ]; then
+  echo "expected doctor to exit 0 or 1, never crash, got $exit_code" >&2
+  exit 1
+fi
 echo "$report" | node -e '
   const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
   const bad = report.findings.filter((f) => f.id.startsWith("toolchain.") && f.status !== "pass");

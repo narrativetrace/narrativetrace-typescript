@@ -18,7 +18,6 @@ import {
 
 const BASE: Skill = {
   canonicalName: "example-skill",
-  claudeSegment: "example",
   skillClass: "mechanical",
   description: "An example skill.",
   fixture: "examples/sixty-seconds",

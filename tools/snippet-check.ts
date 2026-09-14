@@ -34,9 +34,13 @@ interface Drift {
   readonly region: string | undefined;
 }
 
-/** Rendered SKILL.md pages carry the same `<!-- snippet: --> ` markers as docs (agent-skills-2026-09-12.md §3: "never a second hand-copied literal") — checked here, not a second implementation. */
+const SKILL_PLATFORM_ROOTS = [".claude/skills", ".agents/skills"] as const;
+
+/** Rendered SKILL.md pages carry the same `<!-- snippet: --> ` markers as docs (agent-skills-2026-09-12.md §3: "never a second hand-copied literal") — checked here, not a second implementation. Every platform's rendered directory is checked, not just Claude's. */
 function skillPages(): string[] {
-  return SKILLS.flatMap((skill) => englishDocPages(`.claude/skills/${skill.claudeSegment}`));
+  return SKILLS.flatMap((skill) =>
+    SKILL_PLATFORM_ROOTS.flatMap((root) => englishDocPages(`${root}/${skill.canonicalName}`)),
+  );
 }
 
 function findSnippetDrifts(): Drift[] {

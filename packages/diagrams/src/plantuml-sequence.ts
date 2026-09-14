@@ -17,7 +17,7 @@ export function renderPlantUmlSequence(tree: TraceTree): string {
 
   return [
     PLANTUML_GRAMMAR.header,
-    ...declareParticipants(aliases),
+    ...declareParticipants(aliases, PLANTUML_GRAMMAR),
     ...renderInteractions(tree.roots, aliases, PLANTUML_GRAMMAR),
     PLANTUML_GRAMMAR.footer,
   ].join("\n");

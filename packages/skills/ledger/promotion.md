@@ -14,5 +14,5 @@ drift fails `pnpm run check` (`pnpm run promotion-check`; `pnpm run promotion-re
 
 | Skill | Claude | Codex | Gemini |
 |---|---|---|---|
-| `narrativetrace-doctor` | not yet run | not yet run | not yet run |
+| `narrativetrace-doctor` | green (haiku, 2026-09-13) | green (gpt-5.5, 2026-09-14) | not yet run |
 | `add-narrative-tracing` | not yet run | not yet run | not yet run |

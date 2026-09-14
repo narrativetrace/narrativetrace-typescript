@@ -79,6 +79,13 @@ function structured(
   return structuredPrimitive(value, opts);
 }
 
+/** The shared cap for a structured-path scalar string: {@link structuredPrimitive} and
+ * {@link structuredMapKeyText} must keep reading this same line — a key is capped exactly like a
+ * value is, never via a second copy of the truncation rule. */
+function cappedString(value: string, maxStringLength: number): string {
+  return value.length > maxStringLength ? `${value.slice(0, maxStringLength)}…` : value;
+}
+
 // Value-shape masking (RedactionPolicy.shouldRedactValue) is a second, independent redaction axis
 // from field-name matching, checked here so every scalar string reaches it regardless of whether it
 // arrived as a top-level value, a list item, an unredacted Map value, or an ordinarily-named object
@@ -88,8 +95,7 @@ function structuredPrimitive(value: unknown, opts: Required<StructuredOptions>):
   if (type === "string") {
     const s = value as string;
     if (opts.redactionPolicy.shouldRedactValue(s)) return REDACTED;
-    const capped = s.length > opts.maxStringLength ? `${s.slice(0, opts.maxStringLength)}…` : s;
-    return { kind: "string", value: capped };
+    return { kind: "string", value: cappedString(s, opts.maxStringLength) };
   }
   if (type === "number") return { kind: "number", value: value as number };
   if (type === "boolean") return { kind: "boolean", value: value as boolean };
@@ -176,8 +182,14 @@ function structuredMap(
 
 // Objects and symbols route through the same safe `structured()` dispatch every value does, then
 // flatten to a label via {@link renderedValueAsText} — the flattened text is safe by construction
-// because it is built FROM an already-redacted tree. Every other key type's string form can never
-// carry arbitrary text, so it keeps the plain `String(key)` label this renderer has always used.
+// because it is built FROM an already-redacted tree. A string key is data too — the common
+// `Map<string, T>` shape this function exists for is exactly how a caller indexes metadata by
+// credential — so it honours the same value-shape axis (`shouldRedactValue`) every scalar string
+// value goes through, via the same {@link cappedString} cap `structuredPrimitive` applies, before
+// falling back to the plain label (ADV-2026-09-14-1: a string key used to skip straight to
+// `String(key)`, never asking the shape check at all). Every other key type's string form can
+// never carry arbitrary text, so it keeps that bare `String(key)` label this renderer has always
+// used.
 function structuredMapKeyText(
   key: unknown,
   opts: Required<StructuredOptions>,
@@ -186,6 +198,10 @@ function structuredMapKeyText(
 ): string {
   if (key !== null && (typeof key === "object" || typeof key === "symbol")) {
     return renderedValueAsText(structured(key, opts, depth + 1, seen));
+  }
+  if (typeof key === "string") {
+    if (opts.redactionPolicy.shouldRedactValue(key)) return RedactionPolicy.MARKER;
+    return cappedString(key, opts.maxStringLength);
   }
   return String(key);
 }

@@ -5,6 +5,7 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
   PRO_LISTINGS,
   renderAgentsMdSnippet,
+  renderAgentsSkill,
   renderClaudeSkill,
   SKILLS,
   spliceAgentsMdSection,
@@ -25,14 +26,23 @@ function resolveSnippet(path: string): string {
   return stripLicenseHeader(readFileSync(path, "utf-8")).replace(/\n$/, "");
 }
 
-function skillMdPath(claudeSegment: string): string {
-  return `.claude/skills/${claudeSegment}/SKILL.md`;
-}
+/**
+ * Both platforms' SKILL.md render into the same directory shape (`<root>/<canonicalName>/SKILL.md`)
+ * — `.claude/skills/` for Claude's plugin layout, `.agents/skills/` for Codex's own discovered
+ * layout (README.md: "Why `.agents/skills/` and not `.codex/skills/`"). Adding a third platform
+ * means one more entry in this list, never a new file-writing function.
+ */
+const PLATFORM_RENDERERS = [
+  { root: ".claude/skills", render: renderClaudeSkill },
+  { root: ".agents/skills", render: renderAgentsSkill },
+] as const;
 
 function renderedSkillFiles(): ReadonlyMap<string, string> {
   const files = new Map<string, string>();
   for (const skill of SKILLS) {
-    files.set(skillMdPath(skill.claudeSegment), `${renderClaudeSkill(skill, resolveSnippet)}\n`);
+    for (const { root, render } of PLATFORM_RENDERERS) {
+      files.set(`${root}/${skill.canonicalName}/SKILL.md`, `${render(skill, resolveSnippet)}\n`);
+    }
   }
   return files;
 }

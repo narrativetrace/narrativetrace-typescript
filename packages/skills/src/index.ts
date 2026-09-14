@@ -19,6 +19,8 @@ export {
   renderAgentsMdSnippet,
   spliceAgentsMdSection,
 } from "./render/agents-md.js";
+export { renderAgentsSkill } from "./render/agents-skills.js";
+export { renderSkillBody } from "./render/body.js";
 export { renderClaudeSkill } from "./render/claude.js";
 export type { StepReplayResult } from "./replay.js";
 export { replaySkill, runReplayCommand } from "./replay.js";

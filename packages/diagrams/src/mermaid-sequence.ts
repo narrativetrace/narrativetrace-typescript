@@ -16,7 +16,7 @@ export function renderMermaidSequence(tree: TraceTree): string {
 
   return [
     MERMAID_GRAMMAR.header,
-    ...declareParticipants(aliases),
+    ...declareParticipants(aliases, MERMAID_GRAMMAR),
     ...renderInteractions(tree.roots, aliases, MERMAID_GRAMMAR),
   ].join("\n");
 }

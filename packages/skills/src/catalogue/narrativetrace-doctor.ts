@@ -19,7 +19,6 @@ const FIXTURE = "examples/sixty-seconds";
  */
 export const NARRATIVETRACE_DOCTOR: Skill = {
   canonicalName: "narrativetrace-doctor",
-  claudeSegment: "doctor",
   skillClass: "mechanical",
   description:
     "Diagnoses a NarrativeTrace TypeScript install and configuration. Use when nothing is being traced, traces aren't showing up, the vitest config crashes on load, parameter names render as arg0/arg1, or you are not sure NarrativeTrace is wired up correctly. Checks Node/vitest-peer/sibling-package versions, the /reporters subpath, traceObject option shapes, NARRATIVETRACE_OUTPUT, whether any consumer is attached to a traced proxy, whether redaction is proven in a test, and stale approval-trace diffs. Read-only — makes no changes. Say 'check my narrativetrace setup', 'is narrativetrace broken', or 'why isn't anything being traced' to invoke it.",

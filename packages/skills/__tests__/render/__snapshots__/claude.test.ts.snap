@@ -2,7 +2,7 @@
 
 exports[`renderClaudeSkill (full-structure snapshots) > matches the known-good rendering for a fully-populated skill 1`] = `
 "---
-name: example
+name: example-skill
 description: "An example skill."
 when_to_use: "when it matters"
 allowed-tools: pnpm, node
@@ -42,7 +42,7 @@ pnpm build
 
 exports[`renderClaudeSkill (full-structure snapshots) > matches the known-good rendering for a minimal skill (no steps, rules, or whenToUse) 1`] = `
 "---
-name: example
+name: example-skill
 description: "An example skill."
 allowed-tools: pnpm, node
 ---

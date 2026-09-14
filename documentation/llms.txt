@@ -56,7 +56,7 @@ We asked AI agents to build a claims service with NarrativeTrace and write up th
 ## Docs
 
 - [Complete Reference](llms-full.md): Full API reference, 18-package map, configuration, concurrency, integration guides, architecture decisions, and troubleshooting
-- [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — and `narrativetrace-doctor` — a thin, read-only agent skill over `npx narrativetrace doctor`, installable today via `.claude/skills/{add,doctor}/` or the always-on `AGENTS.md` pointer *(since 0.1.3, unreleased)*
+- [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — and `narrativetrace-doctor` — a thin, read-only agent skill over `npx narrativetrace doctor`, installable today via `.claude/skills/{add-narrative-tracing,narrativetrace-doctor}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor}/` (Codex), or the always-on `AGENTS.md` pointer *(since 0.1.3, unreleased)*
 
 ## Sections in Complete Reference
 

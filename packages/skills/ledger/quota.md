@@ -25,3 +25,5 @@ the trial's own date falls in, so a week boundary crossing mid-run is judged the
 
 | date | platform | skill | case | week |
 |---|---|---|---|---|
+| 2026-09-14T08:35:11.963Z | codex | narrativetrace-doctor | happy-path | 2026-W38 |
+| 2026-09-14T08:40:56.096Z | codex | narrativetrace-doctor | happy-path | 2026-W38 |

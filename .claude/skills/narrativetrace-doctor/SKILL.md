@@ -1,5 +1,5 @@
 ---
-name: doctor
+name: narrativetrace-doctor
 description: "Diagnoses a NarrativeTrace TypeScript install and configuration. Use when nothing is being traced, traces aren't showing up, the vitest config crashes on load, parameter names render as arg0/arg1, or you are not sure NarrativeTrace is wired up correctly. Checks Node/vitest-peer/sibling-package versions, the /reporters subpath, traceObject option shapes, NARRATIVETRACE_OUTPUT, whether any consumer is attached to a traced proxy, whether redaction is proven in a test, and stale approval-trace diffs. Read-only — makes no changes. Say 'check my narrativetrace setup', 'is narrativetrace broken', or 'why isn't anything being traced' to invoke it."
 when_to_use: "A project already has NarrativeTrace installed and something about it is not working, or an agent wants a pre-flight check before wiring it into new code."
 allowed-tools: pnpm, npx, node

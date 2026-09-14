@@ -28,6 +28,15 @@ export interface SequenceGrammar {
   readonly header: string;
   /** The diagram's closing line, or `""` when the format has none (Mermaid). */
   readonly footer: string;
+  /**
+   * One participant declaration line. Each grammar composes its own order — Mermaid's documented
+   * syntax is `participant <id> as <label>` (alias first); PlantUML's is
+   * `participant "<label>" as <alias>` (display first, plantuml.com/sequence-diagram, "Declaring
+   * participant" — the label is the primary token, `as` renames it to the alias). Passing the
+   * shared, already-alias-order-agnostic pair lets `sequence-walk.ts`'s `declareParticipants` stay
+   * one function for both formats without hard-coding either order.
+   */
+  participant(alias: DiagramLabel, display: DiagramLabel): string;
   /** One call arrow, caller to target, naming the call signature. */
   callArrow(caller: DiagramLabel, target: DiagramLabel, signature: DiagramLabel): string;
   /** One return arrow, target back to caller, carrying the return message. */

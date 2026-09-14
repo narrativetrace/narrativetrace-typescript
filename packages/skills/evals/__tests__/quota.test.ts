@@ -82,6 +82,26 @@ describe("parseQuotaMarkdown", () => {
   it("returns empty allowances/spend for content with no matching sections", () => {
     expect(parseQuotaMarkdown("# Empty\n")).toEqual({ allowances: [], spend: [] });
   });
+
+  it("defaults every column past a short row's last cell (fewer cells than the header)", () => {
+    const short = `## Allowance
+
+| platform | plan tier | weekly allowance |
+|---|---|---|
+| codex |
+
+## Spend log
+
+| date | platform | skill | case | week |
+|---|---|---|---|---|
+| 2026-09-08T10:00:00.000Z |
+`;
+    const ledger = parseQuotaMarkdown(short);
+    expect(ledger.allowances).toEqual([{ platform: "codex", planTier: "", weeklyAllowance: 0 }]);
+    expect(ledger.spend).toEqual([
+      { date: "2026-09-08T10:00:00.000Z", platform: "", skill: "", caseName: "", week: "" },
+    ]);
+  });
 });
 
 describe("spendCountThisWeek", () => {

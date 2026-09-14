@@ -48,10 +48,16 @@ export function collectParticipants(nodes: readonly TraceNode[]): Map<string, Di
   return aliases;
 }
 
-export function declareParticipants(aliases: Map<string, DiagramLabel>): string[] {
-  return [...aliases].map(
-    ([className, alias]) =>
-      `  participant ${alias} as ${DiagramLabel.quoted(DiagramLabel.identifier(className))}`,
+// Order is each grammar's own call, via `grammar.participant` — Mermaid's `participant <id> as
+// <label>` puts the alias first; PlantUML's `participant "<label>" as <alias>` puts the display
+// name first (plantuml.com/sequence-diagram). Quoting-if-needed happens here, once, shared by
+// both formats; only the ORDER the two already-built tokens print in is per-grammar.
+export function declareParticipants(
+  aliases: Map<string, DiagramLabel>,
+  grammar: SequenceGrammar,
+): string[] {
+  return [...aliases].map(([className, alias]) =>
+    grammar.participant(alias, DiagramLabel.quoted(DiagramLabel.identifier(className))),
   );
 }
 

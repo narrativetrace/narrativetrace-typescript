@@ -37,10 +37,19 @@ export function isReadOnlySkill(skill: string): boolean {
   return skill === "narrativetrace-doctor";
 }
 
-/** Codex `-s/--sandbox`: `read-only` for a read-only skill, `workspace-write` otherwise. */
+/**
+ * Codex `-s/--sandbox`: `read-only` for a read-only skill, `workspace-write` otherwise.
+ * `--skip-git-repo-check` is always present: the runner scaffolds every trial's fixture into a
+ * fresh scratch temp directory (`runner.ts`'s `scaffoldFixture`, outside every repo tree by
+ * design) — never a project registered trusted in `~/.codex/config.toml` and never a git repo, so
+ * Codex's own trust gate ("Not inside a trusted directory and --skip-git-repo-check was not
+ * specified") refuses to start there without this flag (harness defect #4, found running the
+ * first real codex trial, 2026-09-14). The `--sandbox` mode above is the actual safety boundary;
+ * this flag only bypasses the trust *prompt*, not sandboxing.
+ */
 function codexCommand(model: string, skill: string): string {
   const sandbox = isReadOnlySkill(skill) ? "read-only" : "workspace-write";
-  return `codex exec --sandbox ${sandbox} --model ${model} "{prompt}"`;
+  return `codex exec --sandbox ${sandbox} --skip-git-repo-check --model ${model} "{prompt}"`;
 }
 
 /** Gemini `--approval-mode`: `plan` (its read-only mode) for a read-only skill, `auto_edit` otherwise. */

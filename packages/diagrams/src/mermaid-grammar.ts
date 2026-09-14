@@ -14,6 +14,9 @@ import type { SequenceGrammar } from "./sequence-grammar.js";
 export const MERMAID_GRAMMAR: SequenceGrammar = {
   header: "sequenceDiagram",
   footer: "",
+  // Mermaid's documented syntax is `participant <id> as <label>` — alias first. Unchanged by the
+  // 2026-09-13 PlantUML-ordering fix (that grammar's own `participant` hook flips instead).
+  participant: (alias, display) => `  participant ${alias} as ${display}`,
   callArrow: (caller, target, signature) => `  ${caller}->>${target}: ${signature}`,
   returnArrow: (target, caller, message) => `  ${target}-->>${caller}: ${message}`,
   throwArrow: (target, caller, exceptionType) => `  ${target}-x${caller}: ${exceptionType}`,

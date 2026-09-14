@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   findSkill,
   renderAgentsMdSnippet,
+  renderAgentsSkill,
   renderClaudeSkill,
   replaySkill,
   SKILLS,
@@ -21,6 +22,7 @@ describe("public API surface", () => {
     expect(vocabularyViolations(doctor)).toEqual([]);
     expect(renderAgentsMdSnippet(SKILLS, [])).toContain("narrativetrace-doctor");
     expect(renderClaudeSkill(doctor, () => "x")).toContain("narrativetrace-doctor");
+    expect(renderAgentsSkill(doctor, () => "x")).toContain("narrativetrace-doctor");
     const [result] = replaySkill(doctor, "/fixture", () => undefined);
     expect(result?.ran).toBe(true);
   });

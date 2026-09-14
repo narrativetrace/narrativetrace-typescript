@@ -467,12 +467,20 @@ function renderMapEntry(
 }
 
 // Objects and symbols can carry hostile or secret-shaped content reachable only through the safe
-// `render()` dispatch (field introspection, redaction, sanitizing); every other key type's string
-// form can never carry arbitrary text, so it keeps the plain, unquoted `String(key)` display this
-// renderer has always used for map keys.
+// `render()` dispatch (field introspection, redaction, sanitizing). A string key is data too — the
+// common `Map<string, T>` shape this function exists for is exactly how a caller indexes metadata
+// by credential — so it honours the same value-shape axis (`shouldRedactValue`) every scalar string
+// value goes through before falling back to the plain, unquoted key form (ADV-2026-09-14-1: a
+// string key used to skip straight to `String(key)`, never asking the shape check at all). Every
+// other key type's string form can never carry arbitrary text, so it keeps that bare `String(key)`
+// display this renderer has always used.
 function renderMapKey(key: unknown, opts: Required<RenderOptions>, walk: RenderWalk): string {
   if (key !== null && (typeof key === "object" || typeof key === "symbol")) {
     return render(key, opts, walk);
+  }
+  if (typeof key === "string") {
+    if (opts.redactionPolicy.shouldRedactValue(key)) return RedactionPolicy.MARKER;
+    return sanitizeAndCap(key, opts.maxStringLength);
   }
   return String(key);
 }

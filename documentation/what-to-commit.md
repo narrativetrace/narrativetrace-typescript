@@ -24,7 +24,7 @@ is on every other NarrativeTrace runtime.
 | `<approvedDir>/**/*.received.nt` | No | Written on an approval mismatch, or when no approved trace exists yet. Review it, run `pnpm run approve-narratives` (or `narrativetrace-approve`) to promote it, then delete or let the script remove it — never commit the received trace itself |
 | `<approvedDir>/**/*.incomplete.nt` | No | Written instead of `.received.nt` when the run itself was incomplete (a shed event, or a refused async scope) — compared by subsequence containment, never promotable |
 | `glossary.json` / `glossary.md` | **Yes**, if glossary harvesting is used | Committed at the repository root once harvested; the committed file is what clarity scoring and vocabulary checks read back on every subsequent run — "one file, one review workflow" |
-| `.claude/skills/**/SKILL.md`, the `AGENTS.md` `<!-- narrativetrace:skills:* -->` section | **Yes** *(since 0.1.3, unreleased)* | Build output from `packages/skills`' typed catalogue (`pnpm run skills-render`), not test-run output — committed the same way `glossary.json` is: regenerated, reviewed in diffs, and checked against drift (`pnpm run skills-check`, wired into `pnpm run check`) rather than hand-edited |
+| `.claude/skills/**/SKILL.md`, `.agents/skills/**/SKILL.md`, the `AGENTS.md` `<!-- narrativetrace:skills:* -->` section | **Yes** *(since 0.1.3, unreleased)* | Build output from `packages/skills`' typed catalogue (`pnpm run skills-render`), not test-run output — committed the same way `glossary.json` is: regenerated, reviewed in diffs, and checked against drift (`pnpm run skills-check`, wired into `pnpm run check`) rather than hand-edited |
 
 Everything under `narrativetrace-output/` is output. Add it to `.gitignore`
 if you have not already:

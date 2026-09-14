@@ -20,7 +20,6 @@ const FIXTURE = "examples/sixty-seconds";
  */
 export const ADD_NARRATIVE_TRACING: Skill = {
   canonicalName: "add-narrative-tracing",
-  claudeSegment: "add",
   skillClass: "mechanical",
   description:
     "Installs NarrativeTrace into a TypeScript project and gets it to a first trace. Use when NarrativeTrace is not yet installed, a project needs its very first traced call, or traces need to reach a real logger instead of a bare console.log. Installs @narrativetrace/core-node and @narrativetrace/proxy with the project's real package manager, wraps a class with traceObject, renders and runs the first trace, then wires a pino/winston/OpenTelemetry-style consumer so traces reach your logger. Ends by running narrativetrace doctor to confirm the install is correctly wired — narrativetrace-doctor owns diagnosis from there. Say 'add narrative tracing to my service', 'install narrativetrace', 'get a trace in 60 seconds', 'wrap this class so I can see a trace', or 'send my traces to my logger' to invoke it.",

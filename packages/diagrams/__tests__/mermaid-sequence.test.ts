@@ -268,6 +268,113 @@ describe("renderMermaidSequence", () => {
   });
 });
 
+// The alias sits in grammar position — unquoted, on the `participant X as Name` declaration and
+// on every arrow line naming it — unlike the (quotable) display name `identifier()` already made
+// safe. A class named `a->>b` used to produce the bare token `->`, splitting the call arrow into
+// the wrong number of tokens; `a:b` produced `A:`, shifting the arrow's message boundary. Fixed by
+// routing every alias candidate through `DiagramLabel.alias` (see alias-generator.test.ts for the
+// generator-level case table); these prove the same fix end to end, through the renderer.
+describe("participant alias hostile class names (renderMermaidSequence)", () => {
+  const SAFE_ALIAS = /^[\p{L}\p{N}_]+$/u;
+
+  // Excludes the `participant` declaration line — its quoted display name can itself contain
+  // "->>" when the raw class name does, which is exactly the case these tests exercise.
+  function callArrowEndpoints(result: string): [caller: string, target: string] {
+    const arrowLine = result
+      .split("\n")
+      .find((l) => !l.trim().startsWith("participant") && l.includes("->>"));
+    if (arrowLine === undefined) throw new Error("no call arrow line found");
+    const [caller, rest] = arrowLine.trim().split("->>");
+    const [target] = rest.split(": ");
+    return [caller, target];
+  }
+
+  test("an arrow fragment in an all-lowercase class name does not split the call arrow", () => {
+    const benign = renderMermaidSequence(
+      traceTree([traceNode(methodSignature("svc", "m", []), returned('"ok"'), [])]),
+    );
+    const hostile = renderMermaidSequence(
+      traceTree([traceNode(methodSignature("a->>b", "m", []), returned('"ok"'), [])]),
+    );
+
+    expect(hostile.split("\n")).toHaveLength(benign.split("\n").length);
+    const [caller, target] = callArrowEndpoints(hostile);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("a colon in an all-lowercase class name does not shift the arrow's message boundary", () => {
+    const result = renderMermaidSequence(
+      traceTree([traceNode(methodSignature("a:b", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller, target] = callArrowEndpoints(result);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("an @ in an all-lowercase class name does not survive into the bare alias", () => {
+    const result = renderMermaidSequence(
+      traceTree([traceNode(methodSignature("a@b", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller, target] = callArrowEndpoints(result);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("empty className gets a non-blank, grammar-safe bare alias", () => {
+    const result = renderMermaidSequence(
+      traceTree([traceNode(methodSignature("", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller, target] = callArrowEndpoints(result);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("two class names that only differ in a character the alias sanitizer strips still get distinct participant lanes", () => {
+    // `a:b` and `a;b` produce different raw candidates ("A:" / "A;") but the same sanitized token
+    // ("A") — collision detection must run on the sanitized token, or the diagram would show two
+    // distinct classes sharing one lane.
+    const child = traceNode(methodSignature("a;b", "n", []), returned('"y"'), []);
+    const root = traceNode(methodSignature("a:b", "m", []), returned('"x"'), [child]);
+
+    const result = renderMermaidSequence(traceTree([root]));
+    const aliases = result
+      .split("\n")
+      .filter((l) => l.includes("participant"))
+      .map(
+        (l) =>
+          l
+            .trim()
+            .replace(/^participant /, "")
+            .split(" as ")[0],
+      );
+
+    expect(aliases).toHaveLength(2);
+    expect(new Set(aliases).size).toBe(2);
+    for (const alias of aliases) expect(alias).toMatch(SAFE_ALIAS);
+  });
+
+  // Mermaid's own reserved words (`end`, `participant`, ...) as a bare alias are a known
+  // limitation shared by the Java reference, whose no-uppercase fallback is the *entire* raw name
+  // (filtered to the same charset) — a class literally named `end` never had its length reduced,
+  // so it keeps that full reserved word as its alias there. This runtime's alias candidates are
+  // always a 2-character initials/prefix abbreviation, never the whole name, so a 3+ character
+  // reserved word cannot survive intact here — verified below, not merely assumed. Not a
+  // regression from this fix and not claimed fixed either; documented as a genuine cross-runtime
+  // difference in alias-generator.test.ts's own case for this.
+  test("a class literally named 'end' does not alias to the bare reserved word", () => {
+    const result = renderMermaidSequence(
+      traceTree([traceNode(methodSignature("end", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller] = callArrowEndpoints(result);
+    expect(caller).not.toBe("end");
+  });
+});
+
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
 // Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {

@@ -1,4 +1,4 @@
-<!-- source: documentation/what-to-commit.md blob 3f2805e2b04c | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/what-to-commit.md blob 26a616d821b0 | translated: 2026-09-14 | reviewed: - -->
 # Qué commitear
 
 [English](../what-to-commit.md) | **Español** | [Português](../pt-BR/o-que-commitar.md) | [简体中文](../zh-CN/应提交的内容.md)
@@ -26,7 +26,7 @@ baseline de aprobación en cualquier otra implementación de NarrativeTrace.
 | `<approvedDir>/**/*.received.nt` | No | Se escribe ante un desajuste de aprobación, o cuando todavía no existe traza aprobada. Revísala, ejecuta `pnpm run approve-narratives` (o `narrativetrace-approve`) para promoverla, y luego bórrala o deja que el script la elimine — nunca commitees la traza recibida en sí |
 | `<approvedDir>/**/*.incomplete.nt` | No | Se escribe en vez de `.received.nt` cuando la propia ejecución fue incompleta (un evento descartado, o un scope asíncrono rechazado) — se compara por contención de subsecuencia, nunca promovible |
 | `glossary.json` / `glossary.md` | **Sí**, si se usa la recolección del glosario | Se commitea en la raíz del repositorio una vez recolectado; el fichero commiteado es lo que la puntuación de claridad y las comprobaciones de vocabulario leen de vuelta en cada ejecución posterior — "un fichero, un flujo de revisión" |
-| `.claude/skills/**/SKILL.md`, la sección `<!-- narrativetrace:skills:* -->` de `AGENTS.md` | **Sí** *(since 0.1.3, unreleased)* | Salida de compilación del catálogo tipado de `packages/skills` (`pnpm run skills-render`), no salida de una ejecución de test — se commitea igual que `glossary.json`: regenerada, revisada en los diffs, y comprobada contra desviaciones (`pnpm run skills-check`, integrado en `pnpm run check`) en vez de editada a mano |
+| `.claude/skills/**/SKILL.md`, `.agents/skills/**/SKILL.md`, la sección `<!-- narrativetrace:skills:* -->` de `AGENTS.md` | **Sí** *(since 0.1.3, unreleased)* | Salida de compilación del catálogo tipado de `packages/skills` (`pnpm run skills-render`), no salida de una ejecución de test — se commitea igual que `glossary.json`: regenerada, revisada en los diffs, y comprobada contra desviaciones (`pnpm run skills-check`, integrado en `pnpm run check`) en vez de editada a mano |
 
 Todo lo que está bajo `narrativetrace-output/` es salida. Añádelo a
 `.gitignore` si todavía no lo has hecho:

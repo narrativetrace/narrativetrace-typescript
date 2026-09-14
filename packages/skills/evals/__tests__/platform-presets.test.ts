@@ -52,13 +52,19 @@ describe("presetAgentCommand", () => {
 
   it("builds the codex preset in the read-only sandbox for a read-only skill", () => {
     expect(presetAgentCommand("codex", "mini", "narrativetrace-doctor")).toBe(
-      'codex exec --sandbox read-only --model mini "{prompt}"',
+      'codex exec --sandbox read-only --skip-git-repo-check --model mini "{prompt}"',
     );
   });
 
   it("builds the codex preset in the workspace-write sandbox for a non-read-only skill", () => {
     expect(presetAgentCommand("codex", "mini", "add-narrative-tracing")).toBe(
-      'codex exec --sandbox workspace-write --model mini "{prompt}"',
+      'codex exec --sandbox workspace-write --skip-git-repo-check --model mini "{prompt}"',
+    );
+  });
+
+  it("codex preset always skips the git-repo/trust check — the scaffolded fixture is a scratch temp dir, never a trusted project or a git repo", () => {
+    expect(presetAgentCommand("codex", "mini", "narrativetrace-doctor")).toContain(
+      "--skip-git-repo-check",
     );
   });
 

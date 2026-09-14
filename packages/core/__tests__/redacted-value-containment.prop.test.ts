@@ -20,6 +20,13 @@ class Holder {
   readonly secret = SECRET;
 }
 
+// ADV-2026-09-14-1: a second, independent secret this same property pins — not a name-redacted
+// field but a bare string whose SHAPE alone marks it (a PAN, Luhn-valid), placed in a Map KEY
+// position rather than a value position. Cheap to add as one more constant layer rather than
+// reworking the whole stack to carry two distinct leaves: whenever this layer is drawn, the shaped
+// key must render as the marker exactly like the name-redacted leaf does at every other position.
+const SHAPE_SECRET = "4111111111111111";
+
 /** One layer of container wrapping a value, each a distinct dispatch path in the renderer. */
 type Layer = (inner: unknown) => unknown;
 
@@ -28,6 +35,7 @@ const layerArb: fc.Arbitrary<Layer> = fc.constantFrom<Layer>(
   (inner) => new Set([inner]),
   (inner) => new Map([["k", inner]]),
   (inner) => ({ nested: inner }),
+  (inner) => new Map([[SHAPE_SECRET, inner]]),
 );
 
 const stackArb = fc.array(layerArb, { minLength: 0, maxLength: 4 });
@@ -41,6 +49,7 @@ test("renderValue never leaks the secret through any stack of recognized contain
     fc.property(stackArb, (stack) => {
       const rendered = renderValue(wrap(stack, new Holder()));
       expect(rendered).not.toContain(SECRET);
+      expect(rendered).not.toContain(SHAPE_SECRET);
     }),
   );
 });
@@ -52,6 +61,7 @@ test("renderStructured never leaks the secret through any stack of recognized co
         renderStructured(wrap(stack, new Holder()), { maxDepth: stack.length + 3 }),
       );
       expect(rendered).not.toContain(SECRET);
+      expect(rendered).not.toContain(SHAPE_SECRET);
     }),
   );
 });

@@ -42,3 +42,37 @@ export function identifier(text: string): string {
     folded.length > MAX_IDENTIFIER_LENGTH ? folded.slice(0, MAX_IDENTIFIER_LENGTH) : folded;
   return capped.trim().length > 0 ? capped : "<unnamed>";
 }
+
+// A letter or digit in the Unicode sense (mirrors Java's `Character.isLetterOrDigit` and Python's
+// `str.isalnum`) — a non-ASCII letter survives; punctuation, symbols, whitespace and control
+// characters do not.
+const IS_LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
+
+const UNNAMED_ALIAS = "P";
+
+/**
+ * A bare Mermaid/PlantUML participant alias: a single unquotable token, safe unquoted both on a
+ * `participant X as Name` declaration and on every arrow line that names it. Port of Java
+ * `DiagramText.aliasToken`.
+ *
+ * @remarks {@link identifier} is not enough here — an alias sits in grammar position, not text
+ * position, and its output can still carry a space, a colon, an arrow fragment (`->>`) or a quote,
+ * any one of which would split an arrow into the wrong number of tokens or splice a second
+ * participant into the line. This reduces the candidate to letters, digits and `_` and falls back
+ * to {@link UNNAMED_ALIAS} when nothing survives — never an empty token, which would emit a
+ * malformed `participant ` declaration or collapse an arrow's endpoint entirely. A class name with
+ * no uppercase letters and nothing hostile in it keeps its historical alias unchanged.
+ *
+ * @remarks Private implementation — {@link DiagramLabel.alias} (`diagram-label.ts`) is the only
+ * caller. Collision detection must run on this function's *output*, not the raw candidate: two
+ * distinct raw candidates that reduce to the same token (`A:` and `A;` both fold to `A`) are the
+ * same participant unless the caller renumbers them apart.
+ */
+export function aliasToken(raw: string): string {
+  let out = "";
+  for (const ch of raw) {
+    if (out.length >= MAX_IDENTIFIER_LENGTH) break;
+    if (ch === "_" || IS_LETTER_OR_DIGIT.test(ch)) out += ch;
+  }
+  return out.length > 0 ? out : UNNAMED_ALIAS;
+}

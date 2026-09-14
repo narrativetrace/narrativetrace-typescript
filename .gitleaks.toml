@@ -20,13 +20,16 @@ useDefault = true
 # focused unit/integration tests — value-renderer.test.ts's renderCapture
 # suite and parameter-name-redaction.test.ts's new describe block — reuse it
 # a third and fourth time to prove the captured `redacted` flag, not just the
-# rendered text, flips on the same vector).
+# rendered text, flips on the same vector; 2026-09-14: ADV-2026-09-14-1's
+# regression coverage in redacted-value-containment.test.ts reuses it a fifth
+# time to prove a Map key is scanned for the JWT shape too, not just a value).
 [[allowlists]]
 description = "synthetic JWT fixture in redaction tests exists to prove JWT redaction"
 targetRules = ["jwt"]
 paths = [
   '''packages/core/__tests__/redaction-policy\.test\.ts''',
   '''packages/core/__tests__/value-renderer\.test\.ts''',
+  '''packages/core/__tests__/redacted-value-containment\.test\.ts''',
   '''packages/nestjs/__tests__/parameter-redaction\.test\.ts''',
   '''packages/proxy/__tests__/parameter-name-redaction\.test\.ts''',
 ]

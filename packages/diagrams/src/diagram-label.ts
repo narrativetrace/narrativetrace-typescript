@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { identifier as sanitizeIdentifier, message as sanitizeMessage } from "./diagram-text.js";
+import {
+  aliasToken as sanitizeAlias,
+  identifier as sanitizeIdentifier,
+  message as sanitizeMessage,
+} from "./diagram-text.js";
 
 declare const DiagramLabelBrand: unique symbol;
 
@@ -47,19 +51,20 @@ function message(text: string): DiagramLabel {
 }
 
 /**
- * Closes construction for a Mermaid participant alias token already derived from an
- * {@link identifier}-sanitized class name (see `sequence-walk.ts`'s `collectParticipants`, which
- * is `generateAlias`'s only caller).
+ * A bare, unquotable Mermaid/PlantUML participant alias — safe unquoted both on a
+ * `participant X as Name` declaration and on every arrow line naming it, unlike {@link identifier},
+ * which can still carry a space, a colon or an arrow fragment. See `diagram-text.ts`'s
+ * `aliasToken`.
  *
- * @remarks Not a fresh sanitization pass, unlike {@link identifier}/{@link message}: `generateAlias`
- * only ever reads characters out of a name this module already sanitized, so nothing untrusted
- * reaches this factory directly — it exists so the alias generator's plain-`string` output has one
- * documented route into the label type rather than an ad hoc cast at each call site. This is the
- * one factory that does not map to a distinct Java `DiagramText.aliasToken` sanitizer pass — see
- * the mirror brief's report for why TS's alias derivation already differs from Java's.
+ * @remarks A fresh sanitization pass, like {@link identifier}/{@link message}: `generateAlias`
+ * (`alias-generator.ts`, this factory's only caller) builds candidate strings out of a class name
+ * this module already sanitized, but a candidate can still contain characters {@link identifier}
+ * never removes (`->>`, `:`, a space) — an alias sits in grammar position, not text position.
+ * `generateAlias` also dedups on this factory's *output*, not the raw candidate, so two names that
+ * reduce to the same token after sanitization never share an alias.
  */
-function alias(computedAlias: string): DiagramLabel {
-  return computedAlias as DiagramLabel;
+function alias(raw: string): DiagramLabel {
+  return sanitizeAlias(raw) as DiagramLabel;
 }
 
 /**

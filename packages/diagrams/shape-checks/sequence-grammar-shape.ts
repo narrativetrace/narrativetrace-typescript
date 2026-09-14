@@ -19,6 +19,10 @@ const label: DiagramLabel = DiagramLabel.identifier("Svc");
 const stop: TreeWalkStop = "cycle";
 
 // Every hook rejects a raw string in place of a DiagramLabel, in every parameter position.
+// @ts-expect-error participant's alias must be a DiagramLabel, not a raw string
+grammar.participant("alias", label);
+// @ts-expect-error participant's display must be a DiagramLabel, not a raw string
+grammar.participant(label, "display");
 // @ts-expect-error caller must be a DiagramLabel, not a raw string
 grammar.callArrow("caller", label, label);
 // @ts-expect-error target must be a DiagramLabel, not a raw string
@@ -40,6 +44,7 @@ grammar.deactivate?.("target");
 
 // The valid calls compile clean — proves the fixture is exercising a live interface, not one
 // broken in a way that would make every call an error regardless of argument type.
+grammar.participant(label, label);
 grammar.callArrow(label, label, label);
 grammar.returnArrow(label, label, label);
 grammar.throwArrow(label, label, label);

@@ -48,7 +48,11 @@ describe("renderPlantUmlSequence", () => {
     expect(result).toBe(
       [
         "@startuml",
-        "  participant OS as OrderService",
+        // PlantUML's documented syntax is `participant <label> as <alias>` — display name
+        // first (plantuml.com/sequence-diagram, "Declaring participant"), the reverse of
+        // Mermaid's `participant <id> as <label>` (mermaid.js.org, alias first). Quoted only
+        // when the display name needs it (DiagramLabel.quoted) — "OrderService" does not.
+        "  participant OrderService as OS",
         '  OS -> OS : placeOrder(orderId: "order-42")',
         "  activate OS",
         '  OS --> OS : "OK"',
@@ -76,8 +80,8 @@ describe("renderPlantUmlSequence", () => {
     expect(result).toBe(
       [
         "@startuml",
-        "  participant OS as OrderService",
-        "  participant IS as InventoryService",
+        "  participant OrderService as OS",
+        "  participant InventoryService as IS",
         "  OS -> OS : placeOrder()",
         "  activate OS",
         '  OS -> IS : reserve(productId: "P1")',
@@ -130,9 +134,9 @@ describe("renderPlantUmlSequence", () => {
     const participantLines = result.split("\n").filter((l) => l.includes("participant"));
 
     expect(participantLines).toHaveLength(4);
-    expect(result).toContain("CL as");
-    expect(result).toContain("CL2 as");
-    expect(result).toContain("CL3 as");
+    expect(result).toContain("as CL");
+    expect(result).toContain("as CL2");
+    expect(result).toContain("as CL3");
   });
 
   test("multiple calls to same class produce only one participant", () => {
@@ -175,9 +179,9 @@ describe("renderPlantUmlSequence", () => {
     expect(result).toBe(
       [
         "@startuml",
-        "  participant OS as OrderService",
-        "  participant IS as InventoryService",
-        "  participant DA as Database",
+        "  participant OrderService as OS",
+        "  participant InventoryService as IS",
+        "  participant Database as DA",
         "  OS -> OS : placeOrder()",
         "  activate OS",
         "  OS -> IS : reserve()",
@@ -253,7 +257,7 @@ describe("renderPlantUmlSequence", () => {
       traceNode(methodSignature("", "placeOrder", []), returned('"OK"'), []),
     ]);
 
-    expect(renderPlantUmlSequence(tree)).toContain('as "<unnamed>"');
+    expect(renderPlantUmlSequence(tree)).toContain('participant "<unnamed>" as');
   });
 
   // className is trace metadata, not a captured value — unlike a return value or parameter (both
@@ -270,7 +274,7 @@ describe("renderPlantUmlSequence", () => {
     const result = renderPlantUmlSequence(hostile);
 
     expect(result.split("\n")).toHaveLength(renderPlantUmlSequence(benign).split("\n").length);
-    expect(result).toContain('as "A B"');
+    expect(result).toContain('participant "A B" as');
   });
 
   test("a quote in className cannot break out of the quoted display name", () => {
@@ -330,5 +334,101 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
 
   test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
     expect(renderPlantUmlSequence(traceTree([deepChain(50_000)]))).toContain("… (depth limit)");
+  });
+});
+
+// Same fix, same shared sequence-walk traversal, as mermaid-sequence.test.ts's own
+// "participant alias hostile class names" block — see that file for the full rationale.
+describe("participant alias hostile class names (renderPlantUmlSequence)", () => {
+  const SAFE_ALIAS = /^[\p{L}\p{N}_]+$/u;
+
+  // Excludes the `participant` declaration line — its quoted display name can itself contain
+  // "->>" when the raw class name does, which is exactly the case these tests exercise.
+  function callArrowEndpoints(result: string): [caller: string, target: string] {
+    const arrowLine = result
+      .split("\n")
+      .find((l) => !l.trim().startsWith("participant") && l.includes(" -> "));
+    if (arrowLine === undefined) throw new Error("no call arrow line found");
+    const [caller, rest] = arrowLine.trim().split(" -> ");
+    const [target] = rest.split(" : ");
+    return [caller, target];
+  }
+
+  test("an arrow fragment in an all-lowercase class name does not split the call arrow", () => {
+    const benign = renderPlantUmlSequence(
+      traceTree([traceNode(methodSignature("svc", "m", []), returned('"ok"'), [])]),
+    );
+    const hostile = renderPlantUmlSequence(
+      traceTree([traceNode(methodSignature("a->>b", "m", []), returned('"ok"'), [])]),
+    );
+
+    expect(hostile.split("\n")).toHaveLength(benign.split("\n").length);
+    const [caller, target] = callArrowEndpoints(hostile);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("a colon in an all-lowercase class name does not shift the arrow's message boundary", () => {
+    const result = renderPlantUmlSequence(
+      traceTree([traceNode(methodSignature("a:b", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller, target] = callArrowEndpoints(result);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("an @ in an all-lowercase class name does not survive into the bare alias", () => {
+    const result = renderPlantUmlSequence(
+      traceTree([traceNode(methodSignature("a@b", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller, target] = callArrowEndpoints(result);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("empty className gets a non-blank, grammar-safe bare alias", () => {
+    const result = renderPlantUmlSequence(
+      traceTree([traceNode(methodSignature("", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller, target] = callArrowEndpoints(result);
+    expect(caller).toMatch(SAFE_ALIAS);
+    expect(target).toMatch(SAFE_ALIAS);
+  });
+
+  test("two class names that only differ in a character the alias sanitizer strips still get distinct participant lanes", () => {
+    const child = traceNode(methodSignature("a;b", "n", []), returned('"y"'), []);
+    const root = traceNode(methodSignature("a:b", "m", []), returned('"x"'), [child]);
+
+    const result = renderPlantUmlSequence(traceTree([root]));
+    const aliases = result
+      .split("\n")
+      .filter((l) => l.includes("participant"))
+      .map(
+        // Display-name first, then the alias (`participant "<display>" as <alias>`) — the
+        // 2026-09-13 ordering fix; the alias is the second token, not the first.
+        (l) =>
+          l
+            .trim()
+            .replace(/^participant /, "")
+            .split(" as ")[1],
+      );
+
+    expect(aliases).toHaveLength(2);
+    expect(new Set(aliases).size).toBe(2);
+    for (const alias of aliases) expect(alias).toMatch(SAFE_ALIAS);
+  });
+
+  // See mermaid-sequence.test.ts's own version of this test for the full rationale: a genuine,
+  // verified cross-runtime difference from the Java/Python reference, not a claimed fix.
+  test("a class literally named 'end' does not alias to the bare reserved word", () => {
+    const result = renderPlantUmlSequence(
+      traceTree([traceNode(methodSignature("end", "m", []), returned('"ok"'), [])]),
+    );
+
+    const [caller] = callArrowEndpoints(result);
+    expect(caller).not.toBe("end");
   });
 });

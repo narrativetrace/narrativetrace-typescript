@@ -7,7 +7,6 @@ import type { Skill } from "../../src/skill.js";
 
 const BASE: Skill = {
   canonicalName: "example-skill",
-  claudeSegment: "example",
   skillClass: "mechanical",
   description: "An example skill.",
   fixture: "examples/sixty-seconds",
@@ -52,7 +51,7 @@ describe("renderClaudeSkill (full-structure snapshots)", () => {
 describe("renderClaudeSkill", () => {
   it("renders frontmatter with name, description, and allowed-tools", () => {
     const rendered = renderClaudeSkill(BASE, () => "");
-    expect(rendered).toContain("name: example");
+    expect(rendered).toContain("name: example-skill");
     expect(rendered).toContain('description: "An example skill."');
     expect(rendered).toContain("allowed-tools: pnpm, node");
   });

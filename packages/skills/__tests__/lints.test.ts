@@ -16,6 +16,7 @@ import {
   unparseableCommands,
 } from "../src/lints.js";
 import type { ProListing } from "../src/pro-listing.js";
+import { renderAgentsSkill } from "../src/render/agents-skills.js";
 import { renderClaudeSkill } from "../src/render/claude.js";
 import type { Skill } from "../src/skill.js";
 import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
@@ -28,7 +29,6 @@ import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
 
 const MINIMAL_SKILL: Skill = {
   canonicalName: "example-skill",
-  claudeSegment: "example",
   skillClass: "mechanical",
   description: "An example skill.",
   fixture: "examples/sixty-seconds",
@@ -340,17 +340,28 @@ if (REPO_ROOT_REACHABLE) {
 describe.skipIf(!REPO_ROOT_REACHABLE)(
   "rendered SKILL.md matches the typed catalogue (build-step drift check)",
   () => {
-    test.each(SKILLS)("$canonicalName", async (skill) => {
-      // Dynamic, not a top-level import: a top-level `tools/snippet-shared.js` import would be
-      // resolved when this FILE loads, regardless of skipIf — including inside Stryker's
-      // package-only sandbox (see REPO_ROOT_REACHABLE's own comment), where `tools/`, a
-      // repo-root-only directory, is simply not there. Deferred to inside the one test body that
-      // actually needs it, so a skipped run never attempts the resolution at all.
+    // Dynamic, not a top-level import: a top-level `tools/snippet-shared.js` import would be
+    // resolved when this FILE loads, regardless of skipIf — including inside Stryker's
+    // package-only sandbox (see REPO_ROOT_REACHABLE's own comment), where `tools/`, a
+    // repo-root-only directory, is simply not there. Deferred to inside the one test body that
+    // actually needs it, so a skipped run never attempts the resolution at all.
+    async function resolveSnippetFromRepo(): Promise<(p: string) => string> {
       const { stripLicenseHeader } = await import("../../../tools/snippet-shared.js");
-      const path = join(REPO_ROOT, ".claude", "skills", skill.claudeSegment, "SKILL.md");
-      const resolveSnippet = (p: string) =>
+      return (p: string) =>
         stripLicenseHeader(readFileSync(join(REPO_ROOT, p), "utf-8")).replace(/\n$/, "");
+    }
+
+    test.each(SKILLS)("$canonicalName (Claude)", async (skill) => {
+      const resolveSnippet = await resolveSnippetFromRepo();
+      const path = join(REPO_ROOT, ".claude", "skills", skill.canonicalName, "SKILL.md");
       const expected = `${renderClaudeSkill(skill, resolveSnippet)}\n`;
+      expect(readFileSync(path, "utf-8")).toBe(expected);
+    });
+
+    test.each(SKILLS)("$canonicalName (Codex .agents/skills)", async (skill) => {
+      const resolveSnippet = await resolveSnippetFromRepo();
+      const path = join(REPO_ROOT, ".agents", "skills", skill.canonicalName, "SKILL.md");
+      const expected = `${renderAgentsSkill(skill, resolveSnippet)}\n`;
       expect(readFileSync(path, "utf-8")).toBe(expected);
     });
   },
