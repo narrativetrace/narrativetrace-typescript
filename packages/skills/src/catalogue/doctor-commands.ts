@@ -16,14 +16,14 @@
  * working correctly, not a defect in whatever step is running this.
  */
 export const DOCTOR_REPORT_WELL_FORMED =
-  "npx narrativetrace doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==11) process.exit(1);\"";
+  "npx @narrativetrace/cli doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==11) process.exit(1);\"";
 
 /**
  * Every `toolchain.*` finding holds (status `pass`) — the install step's own claim, not a repeat of
  * the install command itself.
  */
 export const TOOLCHAIN_CHECKS_HOLD =
-  "npx narrativetrace doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const bad=r.findings.filter(f=>f.id.startsWith('toolchain.')&&f.status!=='pass'); if(bad.length>0){console.error(JSON.stringify(bad)); process.exit(1);}\"";
+  "npx @narrativetrace/cli doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const bad=r.findings.filter(f=>f.id.startsWith('toolchain.')&&f.status!=='pass'); if(bad.length>0){console.error(JSON.stringify(bad)); process.exit(1);}\"";
 
 /**
  * The `trap.redaction-proof` finding is present and well-formed — the redaction step's own claim.
@@ -32,7 +32,7 @@ export const TOOLCHAIN_CHECKS_HOLD =
  * outcome a still-unwritten test would produce.
  */
 export const REDACTION_PROOF_FINDING_PRESENT =
-  "npx narrativetrace doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const f=r.findings.find(x=>x.id==='trap.redaction-proof'); if(!f||(f.status!=='pass'&&f.status!=='fail')) process.exit(1);\"";
+  "npx @narrativetrace/cli doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const f=r.findings.find(x=>x.id==='trap.redaction-proof'); if(!f||(f.status!=='pass'&&f.status!=='fail')) process.exit(1);\"";
 
 /** Echoes the "write the test" guidance the redaction step asks for — a no-op, always-succeeds command. */
 export const REDACTION_TEST_GUIDANCE =

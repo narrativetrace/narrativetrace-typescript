@@ -21,7 +21,7 @@ Going deeper:
 - [Structural Trace Format](structural-trace-format.md) — the value-free `.nt` artifact, per-invocation identity, and approval traces end to end
 - [What to Commit](what-to-commit.md) — which generated files are run output and which (if any) are reviewed baselines
 - [Troubleshooting](troubleshooting.md) — symptom → cause → fix for the failure modes people actually hit
-- [Agent Skills](agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx narrativetrace doctor`
+- [Agent Skills](agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx @narrativetrace/cli doctor`
 - [Clarity Guide](clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](examples-guide.md) — the `pnpm demo` launcher and the runnable examples

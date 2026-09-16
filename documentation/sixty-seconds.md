@@ -2,11 +2,9 @@
 
 No log statements, no test framework, no file to open afterward. A plain script, one run, and
 the trace prints to your terminal. Everything below was run for real against the published
-`@narrativetrace/core-node` and `@narrativetrace/proxy` packages (0.1.1, the version live on npm
-as of this writing — run `npm view @narrativetrace/core version` for whatever is current when you
-read this) — the output is pasted, not imagined. Needs Node 20+ (the published
-`@narrativetrace/core` package declares it in `engines`); pnpm is shown below, npm works too, with
-one difference called out in step 1.
+`@narrativetrace/core-node` and `@narrativetrace/proxy` packages — the output is pasted, not
+imagined. Needs Node 20+ (the published `@narrativetrace/core` package declares it in `engines`);
+pnpm is shown below, npm works too, with one difference called out in step 1.
 
 ## 1. New project, add the package(s)
 
@@ -63,7 +61,7 @@ Real output, from the run that produced this page:
 
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.4ms
 ```
 <!-- /snippet -->
 
@@ -95,72 +93,85 @@ names, and the value the method returned — the information was already there.
 The console line above is one renderer over the trace; the same trace can stream straight into
 the logger you already run in production. Add the [Pino](https://github.com/pinojs/pino) bridge
 (`@narrativetrace/winston` works the same way if Winston is your logger — swap the import for
-`createWinstonEventConsumer`):
-
-```diff
--import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
-+import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, parseTraceparent, renderMarkdownBody } from "@narrativetrace/core-node";
- import { traceObject } from "@narrativetrace/proxy";
-+import { createPinoEventConsumer } from "@narrativetrace/pino";
-+import pino from "pino";
-
- class OrderService {
-   placeOrder(customerId, productId, quantity) {
-     return `ORD-${customerId}-${productId}-${quantity}`;
-   }
- }
-
-+// A documented constant for THIS example only — never the library default, which always
-+// generates a random trace id — so nt.traceName/trace_id below stay the same phrase every time
-+// this page's output is regenerated.
-+const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
-+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
-+
--const context = new SyncNarrativeContext(new NarrativeTraceConfig());
-+const logger = pino();
-+const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
-+const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-+const context = new SyncNarrativeContext(
-+  new NarrativeTraceConfig(),
-+  undefined,
-+  pipeline,
-+  null,
-+  undefined,
-+  fixedTraceId,
-+);
- const service = traceObject(new OrderService(), context, {
-   placeOrder: ["customerId", "productId", "quantity"],
- });
-
- service.placeOrder("C1", "P1", 2);
- console.log(renderMarkdownBody(context.captureTrace()));
-```
+`createWinstonEventConsumer`). The commented lines below are the change from step 1:
 
 ```bash
 npm add @narrativetrace/pino @narrativetrace/observability pino
-node index.js
+```
+
+<!-- snippet: examples/sixty-seconds/index-with-logger.js -->
+```js
+// index-with-logger.js
+import {
+  NarrativeTraceConfig,
+  SyncNarrativeContext,
+  DualPathPipeline, // fans events out to two consumers: the pino bridge and the in-memory buffer
+  BufferedEventConsumer, // keeps captureTrace() working alongside the logger
+  parseTraceparent, // turns a traceparent header into the trace id fixed below
+  renderMarkdownBody,
+} from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+import { createPinoEventConsumer } from "@narrativetrace/pino"; // bridges trace events into Pino
+import pino from "pino";
+
+class OrderService {
+  placeOrder(customerId, productId, quantity) {
+    return `ORD-${customerId}-${productId}-${quantity}`;
+  }
+}
+
+// A documented constant for THIS example only — never the library default, which always
+// generates a random trace id — so nt.traceName/trace_id below stay the same phrase every time
+// this page's output is regenerated.
+const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
+
+const logger = pino(); // any pino instance works — this one keeps its defaults
+const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
+const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
+const context = new SyncNarrativeContext(
+  new NarrativeTraceConfig(),
+  undefined, // parentResolver — a plain script has no ambient parent span to resolve
+  pipeline, // routes events to both the logger above and the buffer captureTrace() reads
+  null, // rootParentOverride — no inbound parent span for this root call
+  undefined, // serviceIdentity — not needed for this example
+  fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
+);
+const service = traceObject(new OrderService(), context, {
+  placeOrder: ["customerId", "productId", "quantity"],
+});
+
+service.placeOrder("C1", "P1", 2);
+console.log(renderMarkdownBody(context.captureTrace()));
+```
+<!-- /snippet -->
+
+```bash
+node index-with-logger.js
 ```
 
 Real output, from the run that produced this page:
 
+<!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output-with-logger.txt mask=duration -->
 ```text
 {"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
 - `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 2ms
 {"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
 ```
+<!-- /snippet -->
 
-`time`, `pid`, `hostname`, `span_id` and the duration are still a different value on your machine
-and on every run — this example only fixes the trace id, not the span id, the same way a real
-inbound request would carry a trace id but mint its own span. `trace_id` and `nt.traceName` are
-now the same on every run, because the constant above stands in for a `traceparent` header a real
-upstream request would send; see the Framework Integration Guide for reading one from an actual
-request. There is no `nt.runName` field here at all — a plain script run belongs to no test-suite
-execution, so there is no run to name (`createPinoEventConsumer`'s `runName` option is how a
-caller that DOES have one, `@narrativetrace/vitest`'s `runIdentity().name` among them, adds it).
-The shape of the two JSON lines and the markdown line in between does not change. This proves the
-trace lands in the sink you already have, with the console output untouched. Full configuration
-(per-event levels, the `runName` option, the `LogContext` mixin for stamping your own log lines,
-Winston setup): [Framework Integration Guide § Winston & Pino](framework-integration-guide.md#9-winston--pino).
+`time`, `pid`, `hostname` and `span_id` are pinned to a fixed placeholder for this captured
+sample — a real run mints all four fresh, the same as the duration, and yours will show different
+values on your machine and on every run. `trace_id` and `nt.traceName` are the only identifiers
+that really are the same every time, because the `FIXED_TRACEPARENT` constant stands in for a
+`traceparent` header a real upstream request would send; see the Framework Integration Guide for
+reading one from an actual request. There is no `nt.runName` field here at all — a plain script run
+belongs to no test-suite execution, so there is no run to name (`createPinoEventConsumer`'s
+`runName` option is how a caller that DOES have one, `@narrativetrace/vitest`'s `runIdentity().name`
+among them, adds it). This proves the trace lands in the sink you already have, with the console
+output untouched. Full configuration (per-event levels, the `runName` option, the `LogContext`
+mixin for stamping your own log lines, Winston setup): [Framework Integration Guide § Winston &
+Pino](framework-integration-guide.md#9-winston--pino).
 
 ## Next
 

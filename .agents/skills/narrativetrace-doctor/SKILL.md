@@ -8,12 +8,12 @@ description: "Diagnoses a NarrativeTrace TypeScript install and configuration. U
 ## 1. Run the doctor and read its report
 
 ```bash
-npx narrativetrace doctor || true
+npx @narrativetrace/cli doctor || true
 ```
 
-**verify:** `npx narrativetrace doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==11) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==11) process.exit(1);"`
 
-**failure:** the CLI's JSON output does not parse, or is missing findings — the CLI crashed instead of reporting a finding. Fix: re-run `npx narrativetrace doctor --json` directly and read the raw output — a crash here is a doctor bug, never a project finding
+**failure:** the CLI's JSON output does not parse, or is missing findings — the CLI crashed instead of reporting a finding. Fix: re-run `npx @narrativetrace/cli doctor --json` directly and read the raw output — a crash here is a doctor bug, never a project finding
 
 ## 2. Prove redaction in a test
 
@@ -21,7 +21,7 @@ npx narrativetrace doctor || true
 node -e "console.log('Render a call with a deny-listed parameter name (e.g. password or token) in a test and assert the output contains [REDACTED], and that a neighboring non-sensitive value is still present.')"
 ```
 
-**verify:** `npx narrativetrace doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const f=r.findings.find(x=>x.id==='trap.redaction-proof'); if(!f||(f.status!=='pass'&&f.status!=='fail')) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const f=r.findings.find(x=>x.id==='trap.redaction-proof'); if(!f||(f.status!=='pass'&&f.status!=='fail')) process.exit(1);"`
 
 **failure:** a redaction primitive is imported but never asserted on — trusting redaction by inspection instead of proving it in a test. Fix: render a call with a deny-listed parameter name and assert the output contains "[REDACTED]"
 

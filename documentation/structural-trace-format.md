@@ -43,9 +43,9 @@ found under the same name by another:
 - The name is stable across runs, machines and processes, which is what lets
   one invocation's `.approved.nt` be committed at all. Where a name exceeds
   the 255-byte path-element limit the *test* half is truncated and given
-  eight hex characters of the Java-compatible `String#hashCode` of the full
-  slug — specified, therefore identical everywhere; a per-process hash would
-  silently invalidate every baseline it touched.
+  eight hex characters of the canonical `String#hashCode` of the full
+  slug — specified, therefore identical across NarrativeTrace runtimes; a
+  per-process hash would silently invalidate every baseline it touched.
 
 > An invocation's `scenario:` header is **not** its interpolated label. A
 > `.each(cases)` row template like `"finds %s"` interpolates arguments into
@@ -92,7 +92,7 @@ scenario: Weekend trip settles with three transfers
   it started is). Thread/task identity never appears.
 - **Excluded by design:** all argument/return values, exception
   messages, durations, timestamps, thread identity, trace/span ids,
-  trace names, **run ids/names** *(since 0.1.3, unreleased)*, run results, and narration.
+  trace names, **run ids/names** *(since 0.1.3)*, run results, and narration.
 - **Encoding:** UTF-8, LF, trailing newline. Identifiers pass through
   control-character sanitization.
 

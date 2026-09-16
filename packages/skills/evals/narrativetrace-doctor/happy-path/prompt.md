@@ -9,8 +9,8 @@ scratch copy with its workspace dependencies pre-installed.
 > is actually correct. Can you check it and tell me what, if anything, needs fixing?
 
 **Expected trajectory:** the agent recognizes the trigger, loads `narrativetrace-doctor`, runs
-`npx narrativetrace doctor` (never edits a file — doctor is read-only), and reports back using the
-tool's own findings rather than re-deriving them by hand.
+`npx @narrativetrace/cli doctor` (never edits a file — doctor is read-only), and reports back using
+the tool's own findings rather than re-deriving them by hand.
 
 **Grading** (§11.1 split):
 - **Gates** (every model): `graders/verify.sh` — the doctor CLI runs to completion (exit 0 or 1,

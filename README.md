@@ -214,7 +214,7 @@ lockstep with it and are never independently versioned — but `@narrativetrace/
 explicitly because the test below imports `traceObject` from it directly: pnpm only exposes a
 package's own direct dependencies, not a dependency's dependencies, so anything you `import`
 yourself still needs to be your own dependency (npm's flatter `node_modules` doesn't draw this
-line, but pnpm — shown here — does). *(since 0.1.3, unreleased)*
+line, but pnpm — shown here — does). *(since 0.1.3)*
 
 These are the published packages — `npm view @narrativetrace/core version` shows the current
 release (0.1.1 as of this writing; see [Building from source](#building-from-source) if you need
@@ -266,11 +266,11 @@ Tests are where most people start. This is where you go next:
 | Traces in your production log stream | `@narrativetrace/winston` or `@narrativetrace/pino` |
 | OpenTelemetry spans | `@narrativetrace/opentelemetry` |
 
-There is no zero-code, "wrap an app you didn't write" path — no Java-agent equivalent. `Proxy` and
-decorators need a call site or a class you can annotate; a `require`/ESM loader hook was deliberately
-rejected as fragile across Node versions and bypassed entirely by bundlers and browsers. Full
-decision diagram, caveats per path, and the reasoning behind the platform ceiling:
-[Choosing an Integration](documentation/choosing-an-integration.md).
+There is no zero-code, "wrap an app you didn't write" path — instrumentation on this platform is
+always explicit. `Proxy` and decorators need a call site or a class you can annotate; a
+`require`/ESM loader hook was deliberately rejected as fragile across Node versions and bypassed
+entirely by bundlers and browsers. Full decision diagram, caveats per path, and the reasoning
+behind the platform ceiling: [Choosing an Integration](documentation/choosing-an-integration.md).
 
 ## Packages
 
@@ -421,7 +421,7 @@ Going deeper:
 - [Privacy and Redaction](documentation/privacy-and-redaction.md) — the row-by-row redaction contract, verified against the code
 - [What to Commit](documentation/what-to-commit.md) — which generated files are run output and which (if any) are reviewed baselines
 - [Troubleshooting](documentation/troubleshooting.md) — symptom → cause → fix for the failure modes people actually hit
-- [Agent Skills](documentation/agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx narrativetrace doctor` *(since 0.1.3, unreleased)*
+- [Agent Skills](documentation/agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx @narrativetrace/cli doctor` *(since 0.1.3)*
 - [Clarity Guide](documentation/clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](documentation/framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](documentation/examples-guide.md) — the `pnpm demo` launcher and the runnable examples: ecommerce, clarity, Minecraft, plain JavaScript, Express, Hono, distributed (Docker + Jaeger), browser

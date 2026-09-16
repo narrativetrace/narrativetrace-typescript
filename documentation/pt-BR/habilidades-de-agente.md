@@ -1,9 +1,9 @@
-<!-- source: documentation/agent-skills.md blob f6eea9bb71b2 | translated: 2026-09-14 | reviewed: - -->
+<!-- source: documentation/agent-skills.md blob ecf242299f55 | translated: 2026-09-16 | reviewed: - -->
 # Habilidades de agente
 
 [English](../agent-skills.md) | [Español](../es/habilidades-de-agente.md) | **Português** | [简体中文](../zh-CN/智能体技能.md)
 
-*(since 0.1.3, unreleased)*
+*(since 0.1.3)*
 
 O NarrativeTrace distribui **habilidades**: procedimentos carregáveis por um agente que executam
 comandos testados e condicionam sua conclusão a um passo `verify`, em vez de documentação que um
@@ -15,8 +15,8 @@ agir, invocar esse código testado, e interpretar o resultado no contexto.
 
 - **`add-narrative-tracing`** — instala o NarrativeTrace em um projeto e o leva ao primeiro trace:
   instalar com o toolchain real, envolver uma classe, renderizar e rodar o primeiro trace, e então
-  conectar um logger real (equivalente ao SLF4J: pino/winston/OpenTelemetry). Termina rodando
-  `npx narrativetrace doctor` e passando o bastão — a costura entre as duas habilidades.
+  conectar um logger real (pino/winston/OpenTelemetry). Termina rodando
+  `npx @narrativetrace/cli doctor` e passando o bastão — a costura entre as duas habilidades.
 - **`narrativetrace-doctor`** — só diagnóstico, e **somente leitura**: nunca edita, gera ou apaga
   um arquivo. Roda a CLI testada, lê seu relatório, e percorre as partes que uma simples saída de
   CLI não cobre sozinha: provar a ocultação em um teste, ler um trace gerado antes de fazer

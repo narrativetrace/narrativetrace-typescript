@@ -66,7 +66,7 @@ export const ADD_NARRATIVE_TRACING: Skill = {
       title: "Run the doctor and resolve its findings",
       // The seam between the two skills: this step's own claim is "doctor ran and produced a
       // well-formed report to act on" — resolving each finding is narrativetrace-doctor's job.
-      body: { kind: "commands", commands: ["npx narrativetrace doctor || true"] },
+      body: { kind: "commands", commands: ["npx @narrativetrace/cli doctor || true"] },
       verify: DOCTOR_REPORT_WELL_FORMED,
     },
   ],

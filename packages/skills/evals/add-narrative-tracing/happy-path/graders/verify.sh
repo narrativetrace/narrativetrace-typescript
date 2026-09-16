@@ -37,7 +37,7 @@ node -e '
 # explicitly (`&&`/`||` keeps `set -e` from aborting on a nonzero doctor exit) so a real, expected
 # fail (e.g. trap.redaction-proof, unproven in this fixture too) doesn't skip the toolchain.*
 # assertions below the way a bare `report=$(npx ... --json)` under `set -e` would.
-report=$(npx narrativetrace doctor --json) && exit_code=0 || exit_code=$?
+report=$(npx @narrativetrace/cli doctor --json) && exit_code=0 || exit_code=$?
 if [ "$exit_code" -ne 0 ] && [ "$exit_code" -ne 1 ]; then
   echo "expected doctor to exit 0 or 1, never crash, got $exit_code" >&2
   exit 1

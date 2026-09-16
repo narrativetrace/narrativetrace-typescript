@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 9ab7ae085c19 | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 243885e0928d | translated: 2026-09-16 | reviewed: - -->
 # Guia de Configuração do NarrativeTrace TypeScript
 
 [English](../configuration-guide.md) | [Español](../es/guia-de-configuracion.md) | **Português** | [简体中文](../zh-CN/配置指南.md)
@@ -73,15 +73,14 @@ Desligue para uma execução que quer a narrativa no console e os metadados de
 clareza/glossário, mas não os arquivos — `NARRATIVETRACE_OUTPUT=false` (ou
 `outputEnabled: false` no código, ou `"output": "false"` no arquivo de
 configuração do projeto). Qualquer outro valor, inclusive a variável não
-definida, mantém a escrita ativada. *(since 0.1.3, unreleased)*
+definida, mantém a escrita ativada. *(since 0.1.3)*
 A versão atualmente publicada no npm, `@narrativetrace/vitest@0.1.1`, escreve
 os arquivos incondicionalmente — `NARRATIVETRACE_OUTPUT` não tem efeito nela.
 
 ### Layout de saída
 
 Os artefatos são agrupados por *módulo* de teste (o nome-base do arquivo de
-teste — o equivalente, nesta plataforma, ao diretório de classe de teste do
-Java), com os diagramas em uma árvore espelhada:
+teste), com os diagramas em uma árvore espelhada:
 
 ```
 narrativetrace-output/
@@ -138,7 +137,9 @@ O nome do teste é usado como o nome do cenário nos arquivos de saída. Os nome
 - `customer_places_order` → "Customer places order"
 - `test_should_validate_input` → "Should validate input"
 
-### Artefato estrutural, delta e trace aprovados *(since 0.1.3, unreleased)*
+### Artefato estrutural, delta e trace aprovados
+
+*(since 0.1.3)*
 
 Todo cenário do `createNarrativeTest` também escreve um arquivo `.nt` livre
 de valores — apenas nomes, hierarquia de chamadas e tipos de resultado, sem
@@ -187,7 +188,9 @@ configuração do projeto, com a mesma precedência de qualquer outro canal
 abaixo. Veja [O que commitar](o-que-commitar.md) para saber qual desses
 arquivos adicionar ao `.gitignore` e qual commitar.
 
-### A execução tem um nome *(since 0.1.3, unreleased)*
+### A execução tem um nome
+
+*(since 0.1.3)*
 
 Um trace tem uma frase de três palavras (`bold elk soars`) porque um id de
 trace cru é ilegível — uma **execução inteira da suíte de testes**
@@ -326,7 +329,7 @@ renderValue(someObject, {
 | `function` | `"<function>"` |
 | `Array` | `[1, 2, 3]` |
 | `Object` | `{"key": "value"}` |
-| `Date` | `"2024-01-01T00:00:00.000Z"` (`toISOString()` em UTC, nunca o `toString()` dependente de locale/fuso horário — veja [Privacidade e ocultação](privacidade-e-ocultacao.md#o-que-oculta-e-o-que-tem-prioridade-sobre-o-quê)) *(since 0.1.3, unreleased)* |
+| `Date` | `"2024-01-01T00:00:00.000Z"` (`toISOString()` em UTC, nunca o `toString()` dependente de locale/fuso horário — veja [Privacidade e ocultação](privacidade-e-ocultacao.md#o-que-oculta-e-o-que-tem-prioridade-sobre-o-quê)) *(since 0.1.3)* |
 | `Date` inválido | `"Invalid Date"` |
 | Referência circular | `"<circular>"` |
 
@@ -408,8 +411,7 @@ const traced = traceObject(service, context, paramNames, {
 Um objeto de opções carregando uma chave fora desta tabela — um erro de digitação, ou uma forma de
 um `traceObject()` mais novo que esta instalação não tem — **lança uma exceção** nomeando a chave
 não reconhecida e as aceitas, em vez de compilar, rodar e silenciosamente não ocultar ou traçar
-nada. A mesma checagem se aplica dentro de cada entrada `methods` por método. *(since 0.1.3,
-unreleased)*
+nada. A mesma checagem se aplica dentro de cada entrada `methods` por método. *(since 0.1.3)*
 
 ## 7. Padrões recomendados por ambiente
 

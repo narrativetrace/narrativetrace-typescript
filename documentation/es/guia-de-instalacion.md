@@ -1,4 +1,4 @@
-<!-- source: documentation/installation-guide.md blob 888db3e4a9fb | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/installation-guide.md blob 9eb6d470d9ed | translated: 2026-09-12 | reviewed: - -->
 # Guía de instalación de NarrativeTrace TypeScript
 
 [English](../installation-guide.md) | **Español** | [Português](../pt-BR/guia-de-instalacao.md) | [简体中文](../zh-CN/安装指南.md)
@@ -87,7 +87,7 @@ automáticamente con él — se publican al mismo ritmo y nunca se versionan por
 `traceObject` directamente desde ahí: pnpm solo expone las dependencias propias de un paquete, no
 las dependencias de una dependencia, así que cualquier cosa que importes tú mismo sigue
 necesitando ser tu propia dependencia (el `node_modules` más plano de npm no traza esta línea,
-pero pnpm — el que se muestra aquí — sí). *(since 0.1.3, unreleased)*
+pero pnpm — el que se muestra aquí — sí). *(since 0.1.3)*
 
 #### Fixture básico (sin salida a archivo)
 

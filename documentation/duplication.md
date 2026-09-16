@@ -134,20 +134,20 @@ names the specific functions this leaves as a known, unmeasured gap.
  "test":{"...":"same shape"}}
 ```
 
-Two things differ from the Java golden repo's own `duplication.json` (same intent — a family-wide
-report shape — different tool, different native output to normalise):
+This shape follows the family-wide report format shared across NarrativeTrace runtimes, normalised
+from jscpd's native output. Two things are specific to this port's tool:
 
 - **`linesTotal`/`linesDuplicated` are line counts, not token counts.** jscpd reports every
   occurrence as a per-file line range (`startLine`/`endLine`), never a single shared token-index
-  coordinate space the way PMD's CPD does for the Java port — there is no cross-file position to
+  coordinate space — there is no cross-file position to
   union over by token. `percent` is therefore **a union over line ranges, grouped by file first**:
-  the same fix in spirit as the Java repo's "union, not sum" (a shape copied three times reports as
-  three pairwise clusters, each re-covering the same lines — see the next point — and summing every
-  cluster's line count once per occurrence would double- and triple-count those positions), applied
-  to jscpd's per-file line numbers instead of a global token index. `percent` can therefore never
-  exceed 100% for the same reason the Java repo's token-based version cannot.
+  a shape copied three times reports as
+  three pairwise clusters, each re-covering the same lines (see the next point), and summing every
+  cluster's line count once per occurrence would double- and triple-count those positions, so the
+  union is computed over jscpd's per-file line numbers instead of a global token index. `percent`
+  can therefore never exceed 100%.
 - **Every cluster has exactly two occurrences.** jscpd's own `duplicates` array reports duplication
-  as *pairs*: one entry names exactly two copies of a shape, unlike PMD CPD's N-way match groups. A
+  as *pairs*: one entry names exactly two copies of a shape. A
   shape copied three times (A, B, and C all identical) therefore shows up here as two or three
   separate pairwise clusters (A↔B, A↔C, …), never one three-occurrence cluster. Reading the top of
   a report: several clusters sharing one file is the signal that file participates in a

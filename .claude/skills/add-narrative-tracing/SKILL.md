@@ -13,7 +13,7 @@ allowed-tools: pnpm, npx, node
 pnpm install --frozen-lockfile
 ```
 
-**verify:** `npx narrativetrace doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const bad=r.findings.filter(f=>f.id.startsWith('toolchain.')&&f.status!=='pass'); if(bad.length>0){console.error(JSON.stringify(bad)); process.exit(1);}"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const bad=r.findings.filter(f=>f.id.startsWith('toolchain.')&&f.status!=='pass'); if(bad.length>0){console.error(JSON.stringify(bad)); process.exit(1);}"`
 
 **failure:** vitest peer mismatch breaks the library's own build from a clean install — an installed vitest version outside @narrativetrace/vitest's declared peer range. Fix: run the narrativetrace-doctor skill's toolchain.vitest-peer check, then install a version satisfying the printed range
 
@@ -53,13 +53,13 @@ console.log(renderMarkdownBody(context.captureTrace()));
 import {
   NarrativeTraceConfig,
   SyncNarrativeContext,
-  DualPathPipeline,
-  BufferedEventConsumer,
-  parseTraceparent,
+  DualPathPipeline, // fans events out to two consumers: the pino bridge and the in-memory buffer
+  BufferedEventConsumer, // keeps captureTrace() working alongside the logger
+  parseTraceparent, // turns a traceparent header into the trace id fixed below
   renderMarkdownBody,
 } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
-import { createPinoEventConsumer } from "@narrativetrace/pino";
+import { createPinoEventConsumer } from "@narrativetrace/pino"; // bridges trace events into Pino
 import pino from "pino";
 
 class OrderService {
@@ -69,25 +69,21 @@ class OrderService {
 }
 
 // A documented constant for THIS example only — never the library default, which always
-// generates a random trace id — so the "nt.traceName"/"trace_id" fields below stay the same
-// phrase every time this page's output is regenerated (2026-09-13 ruling, item 5).
+// generates a random trace id — so nt.traceName/trace_id below stay the same phrase every time
+// this page's output is regenerated.
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
 const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 
-const logger = pino();
+const logger = pino(); // any pino instance works — this one keeps its defaults
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-// The 6th constructor argument seeds the trace id an inbound "traceparent" header would carry —
-// see the Framework Integration Guide for how a real server reads it from the request instead of
-// a constant. No runName here at all: a plain script run belongs to no test-suite execution, so
-// there is no RunIdentity to pass createPinoEventConsumer — nt.runName is simply absent below.
 const context = new SyncNarrativeContext(
   new NarrativeTraceConfig(),
-  undefined,
-  pipeline,
-  null,
-  undefined,
-  fixedTraceId,
+  undefined, // parentResolver — a plain script has no ambient parent span to resolve
+  pipeline, // routes events to both the logger above and the buffer captureTrace() reads
+  null, // rootParentOverride — no inbound parent span for this root call
+  undefined, // serviceIdentity — not needed for this example
+  fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
 );
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
@@ -103,10 +99,10 @@ console.log(renderMarkdownBody(context.captureTrace()));
 ## 4. Run the doctor and resolve its findings
 
 ```bash
-npx narrativetrace doctor || true
+npx @narrativetrace/cli doctor || true
 ```
 
-**verify:** `npx narrativetrace doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==11) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==11) process.exit(1);"`
 
 ## Always
 

@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 0ea75cc288c5 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob e6e39418b79c | translated: 2026-09-16 | reviewed: - -->
 # Solução de problemas
 
 [English](../troubleshooting.md) | [Español](../es/solucion-de-problemas.md) | **Português** | [简体中文](../zh-CN/故障排查.md)
@@ -11,9 +11,8 @@ aqui — um único lugar por fato.
 ## Parâmetros aparecem como `arg0`, `arg1`
 
 **Causa:** o JavaScript não retém os nomes dos parâmetros em tempo de
-execução — não existe uma flag de compilador que os recupere, ao contrário
-de uma flag `-parameters` de uma JVM. Sem ajuda, `traceObject()` recorre a
-nomes posicionais.
+execução — não existe uma flag de compilador que os recupere. Sem ajuda,
+`traceObject()` recorre a nomes posicionais.
 
 **Correção:** forneça os nomes de uma das duas formas —
 
@@ -112,8 +111,8 @@ caminho](escolhendo-uma-integracao.md#ressalvas-por-caminho).
 
 ## `captureTrace()` retorna uma árvore vazia ou parcial de outra tarefa assíncrona
 
-**Causa:** a captura tem escopo na instância do contexto, não em uma
-thread como em uma implementação para JVM — mas um `SyncNarrativeContext` (navegador)
+**Causa:** a captura tem escopo na instância do contexto, não em nenhuma
+thread ou requisição ambiente — um `SyncNarrativeContext` (navegador)
 não tem nenhuma propagação implícita, então duas chamadas sobrepostas e
 não aguardadas no mesmo contexto corrompem os spans uma da outra, em vez
 de simplesmente perder um deles.

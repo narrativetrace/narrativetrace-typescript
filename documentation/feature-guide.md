@@ -1,17 +1,13 @@
 # NarrativeTrace TypeScript — Feature Guide
 
-What **NarrativeTrace for TypeScript** ships, from a user's perspective. The
-canonical all-platform feature catalog — every NarrativeTrace feature on every
-platform, with the authoritative status vocabulary — lives in
-[the canonical feature guide](https://github.com/narrativetrace/narrativetrace-java/blob/main/documentation/feature-guide.md).
-This file is deliberately thin: it records only what the TypeScript
-packages deliver, where they differ from the canonical catalog, and
-what is coming to this platform next — mechanism *why* (decorators + ES
-Proxy over loader-hook instrumentation, the platform package split, the
-bounded-buffer pipeline) is an internal engineering record, not repeated
-here.
+What **NarrativeTrace for TypeScript** ships, from a user's perspective.
+This file is deliberately thin: it records what the TypeScript
+packages deliver and what is coming to this platform next — mechanism *why*
+(decorators + ES Proxy over loader-hook instrumentation, the platform
+package split, the bounded-buffer pipeline) is an internal engineering
+record, not repeated here.
 
-**Status labels** (same vocabulary as the canonical guide):
+**Status labels:**
 
 - **Free** — shipped in this repository, free and source-available under
   [BSL 1.1](../LICENSE) (SPDX `BUSL-1.1`), converting to Apache 2.0 four
@@ -29,17 +25,17 @@ here.
 |---|---|---|
 | Automatic narrative capture via ES `Proxy` — class, method, arguments, return values, timing, errors; zero log statements | Free | `traceObject(service, context)` from `@narrativetrace/proxy` |
 | Decorators — `@traced` (parameter names), `@narrated` (narration with `{param}` templates), `@onError` (error context templates), `@notTraced` (redaction) | Free | Both decorator dialects (standard TC39 and legacy `experimentalDecorators`), TS 5.0+; [decorators-guide.md](decorators-guide.md) |
-| Programmatic API for plain JS — `traceObject(service, context, { methods: { method: { params, narration, onError, notTraced } } })` per-method config (config twin of every decorator) *(since 0.1.3, unreleased)*, `{ method: ["paramA", …] }` name-map shorthand, and the raw `NarrativeContext` enter/exit API | Free | Full feature set without decorator support |
+| Programmatic API for plain JS — `traceObject(service, context, { methods: { method: { params, narration, onError, notTraced } } })` per-method config (config twin of every decorator) *(since 0.1.3)*, `{ method: ["paramA", …] }` name-map shorthand, and the raw `NarrativeContext` enter/exit API | Free | Full feature set without decorator support |
 | Sensitive data redaction — `@notTraced` indices, `static notTraced` field lists, name-pattern `RedactionPolicy` deny-list, multilingual and always on (`password`, `token`, `contraseña`, `senha`, `motDePasse`, `密码`, …); redacted values cannot leak through narration/error templates | Free | |
-| Five capture levels (`off` → `errors` → `summary` → `narrative` → `detail`), changeable at runtime via `config.level`; `NARRATIVETRACE_LEVEL` env on Node | Free | Level names differ slightly from Java (`summary` vs `FLOW`); `off` short-circuits before any capture work |
+| Five capture levels (`off` → `errors` → `summary` → `narrative` → `detail`), changeable at runtime via `config.level`; `NARRATIVETRACE_LEVEL` env on Node | Free | `off` short-circuits before any capture work |
 | Two-gate levels — capture level independent of logger levels (winston/pino config) | Free | Product ADR-008 |
 | Eager value serialization — values rendered to strings at call time; no object retention, circular-safe, truncation limits | Free | See README FAQ + purity contract in the decorators guide |
 | Trace identity — traceId, human-readable trace names, storyId/chapterId, W3C `traceparent` inheritance across services | Free | Canonical-schema aligned; distributed demo in `examples/` |
 
 **Platform limitation (know this up front).** JavaScript does not
 retain parameter names at runtime — without help, arguments render as
-`arg0`, `arg1`, …. Tier-2 annotations therefore carry more weight here
-than on the JVM: `@traced("customerId", …)` or the `paramNames` map is
+`arg0`, `arg1`, …. Tier-2 annotations therefore carry real weight:
+`@traced("customerId", …)` or the `paramNames` map is
 how traces get real names, and minifiers make this mandatory for
 production bundles. See TS-004 in the platform ADL.
 
@@ -65,7 +61,7 @@ production bundles. See TS-004 in the platform ADL.
 | `angular` — `provideNarrativeTrace()`, HTTP interceptor, DI tracing | Free | |
 | `react` — hooks/provider for component + service traces | Free | |
 | `react-router` — navigation capture | Free | |
-| `vitest` — `narrativeTest` fixture, per-test trace files (`md`/`mmd`/`puml`/`json`/`clarity-json`/`canonical-json`), console summary + clarity reporters, an importable `/reporters` subpath, value-free `.nt` structural artifact + approval traces, `.each` per-invocation identity *(since 0.1.3, unreleased)* | Free | |
+| `vitest` — `narrativeTest` fixture, per-test trace files (`md`/`mmd`/`puml`/`json`/`clarity-json`/`canonical-json`), console summary + clarity reporters, an importable `/reporters` subpath, value-free `.nt` structural artifact + approval traces, `.each` per-invocation identity *(since 0.1.3)* | Free | |
 | Canonical schema 1.2 + writer-validated artifacts | Free | `nt.schemaVersion` `1.2` from one `SCHEMA_VERSION` constant; per-test `.canonical.json` (flat entry list, deterministic for a context-free capture); the schemas live in `schema/` and a conformance test validates the bytes `writeTraceOutput` writes, not hand-built input |
 | `winston` / `pino` — narrative events through your existing logger, typed fields, configurable per-event levels | Free | TS-003 in the platform ADL |
 | `observability` — log-scope enricher (`trace_id`, `code.*`, `service.*`, `nt.depth`) + request middleware | Free | |
@@ -73,14 +69,14 @@ production bundles. See TS-004 in the platform ADL.
 | `browser` — console renderer, network export, traced `fetch` | Free | |
 | `clarity` / `diagrams` — see the sections below | Free | |
 
-Not on this platform: a Java-agent equivalent (loader/require-hook
-auto-instrumentation) is deliberately **not** offered — see TS-004.
+Loader/require-hook auto-instrumentation is deliberately **not** offered on
+this platform — see TS-004.
 
 ## Read the story (outputs)
 
 | Feature | Status | Notes |
 |---|---|---|
-| Indented text, Markdown, and prose renderers | Free | Durations print as `— 3ms` (an integer once the magnitude reaches 1ms, up to two decimals below it — `performance.now()`'s raw sub-millisecond float is never shown); a member that throws while being rendered (`@narrativeSummary`, a leaf's `toString()`, a field getter) shows `<error: ConstructorName>` for that one part, never the exception's message. See [Privacy and Redaction § Errors while rendering](privacy-and-redaction.md#errors-while-rendering) *(since 0.1.3, unreleased)* |
+| Indented text, Markdown, and prose renderers | Free | Durations print as `— 3ms` (an integer once the magnitude reaches 1ms, up to two decimals below it — `performance.now()`'s raw sub-millisecond float is never shown); a member that throws while being rendered (`@narrativeSummary`, a leaf's `toString()`, a field getter) shows `<error: ConstructorName>` for that one part, never the exception's message. See [Privacy and Redaction § Errors while rendering](privacy-and-redaction.md#errors-while-rendering) *(since 0.1.3)* |
 | Trace value references — content-addressed dedup of repeated captured values with readable labels (`‹Hotel›=full` on first emission, `‹Hotel›` after) | Free | Labels come from the structured value's identity field (name/id/description/…), never a redacted one; byte equality certifies sameness; containment inside other captured values counts and is replaced. Markdown only |
 | Intra-trace value deltas — a re-capture of the same entity, changed, renders as a diff against the reference (`‹Dinner›′{amount: 100→92, currency: "USD"→"EUR"}`) | Free | "Same entity" is the same structured type name plus an equal identity field; changed scalar fields only (string, number, boolean, and the pre-stringified `other` kind), never reconstructed from the structured tree. A changed nested object or list, a different field set, or a value with no identity field renders in full exactly as before. A changed variant that itself repeats is defined AS the diff (`‹Dinner·2›=‹Dinner›′{…}`). Markdown only |
 | Canonical JSON export — versioned envelope (`version`, `scenario`, `trace`, `events[]`) with storyId/chapterId fields | Free | `exportJson(tree, { scenario })` |
@@ -105,27 +101,23 @@ auto-instrumentation) is deliberately **not** offered — see TS-004.
 | Feature | Status | Notes |
 |---|---|---|
 | Event-stream aggregation — `@narrativetrace/pro-aggregate` with the `EventAggregator` facade (aggregate trees, hotspots, error paths/rates, method/error frequencies) | Pro | Relocated out of the free core 2026-07-12 (Phase 31a tier split, product ADR-010); buffering/retention stayed free — feed `pipeline.events()` into `EventAggregator` |
-| MCP server — real stdio transport (`@modelcontextprotocol/sdk`), 7 analysis tools, connect Claude Code / Cursor directly | In development (Pro) | Enterprise plan Phase E5; goes beyond Java's handlers-only module |
+| MCP server — real stdio transport (`@modelcontextprotocol/sdk`), 7 analysis tools, connect Claude Code / Cursor directly | In development (Pro) | Enterprise plan Phase E5 |
 | Flow summaries, migration diffs, dependency-graph diagrams | Planned (Pro) | Phases E3–E4, see above |
-| Audit & compliance suite | Planned (Pro) | Gated — see the canonical guide's audit section |
+| Audit & compliance suite | Planned (Pro) | Gated |
 
 ---
 
 ## Keeping this guide honest
 
-Adapted from the canonical guide's rules for a thin platform guide:
-
 1. Every user-visible feature **of this runtime** appears here, exactly
-   once, with a status. Cross-platform feature definitions and the
-   full catalog live only in the canonical guide — this file never
-   restates features this runtime does not ship or plan.
+   once, with a status. This file never restates features this runtime
+   does not ship or plan.
 2. A feature moves to **Free**/**Pro** only when it is merged, tested,
    and documented in the relevant TS repository. "In development"
    means the design is settled and work is scheduled; "Planned" means
    specified only.
 3. Changes that add or promote a feature in this repo must update this
-   file in the same commit — and, when the feature is new to the
-   product (not just to this runtime), the canonical guide too.
-4. Where TS behavior differs from the canonical description (level
-   names, runtime parameter names, no agent-style instrumentation),
-   the difference is stated here, not silently absorbed.
+   file in the same commit.
+4. Any behavior specific to this runtime (level names, runtime
+   parameter names, no agent-style instrumentation) is stated here
+   directly.

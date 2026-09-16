@@ -1,4 +1,4 @@
-<!-- source: README.md blob ad27bcf6bdf2 | translated: 2026-09-13 | reviewed: - -->
+<!-- source: README.md blob 6fcd5106d726 | translated: 2026-09-16 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
@@ -236,7 +236,7 @@ sozinho as outras quatro dependências do NarrativeTrace (core-node, clarity, di
 é listado explicitamente porque o teste abaixo importa `traceObject` diretamente dele: o pnpm só
 expõe as dependências do próprio pacote, não as de uma dependência, então qualquer coisa que você
 importe também precisa ser sua própria dependência (o `node_modules` mais plano do npm não faz
-essa distinção, mas o pnpm — usado aqui — faz). *(since 0.1.3, unreleased)*
+essa distinção, mas o pnpm — usado aqui — faz). *(since 0.1.3)*
 
 Estes são os pacotes publicados — `npm view @narrativetrace/core version` mostra a versão atual
 (0.1.1 no momento em que isto foi escrito; veja [Compilando a partir do
@@ -289,8 +289,8 @@ Os testes são onde a maioria começa. Este é o próximo passo:
 | Traces no seu stream de log de produção | `@narrativetrace/winston` ou `@narrativetrace/pino` |
 | Spans do OpenTelemetry | `@narrativetrace/opentelemetry` |
 
-Não existe um caminho de código zero, "envolva um app que você não escreveu" — não
-há equivalente a um agente Java. `Proxy` e os decorators precisam de um call site
+Não existe um caminho de código zero, "envolva um app que você não escreveu" —
+a instrumentação nesta plataforma é sempre explícita. `Proxy` e os decorators precisam de um call site
 ou de uma classe que você possa anotar; um hook de loader `require`/ESM foi
 deliberadamente descartado por ser frágil entre versões do Node e completamente
 contornado por bundlers e navegadores. Diagrama de decisão completo, ressalvas
@@ -471,7 +471,7 @@ Aprofundando:
 - [Privacidade e ocultação](documentation/pt-BR/privacidade-e-ocultacao.md) — o contrato de ocultação linha por linha, verificado contra o código
 - [O que commitar](documentation/pt-BR/o-que-commitar.md) — quais arquivos gerados são saída de execução e quais (se algum) são baselines revisadas
 - [Solução de problemas](documentation/pt-BR/solucao-de-problemas.md) — sintoma → causa → solução para os modos de falha que as pessoas realmente encontram
-- [Habilidades de agente](documentation/pt-BR/habilidades-de-agente.md) — `narrativetrace-doctor`, uma habilidade de agente fina e somente leitura sobre `npx narrativetrace doctor` *(since 0.1.3, unreleased)*
+- [Habilidades de agente](documentation/pt-BR/habilidades-de-agente.md) — `narrativetrace-doctor`, uma habilidade de agente fina e somente leitura sobre `npx @narrativetrace/cli doctor` *(since 0.1.3)*
 - [Guia de clareza](documentation/pt-BR/guia-de-clareza.md) — modelo de pontuação, componentes de NLP, scanner estático
 - [Guia de integração de frameworks](documentation/pt-BR/guia-de-integracao-de-frameworks.md) — Express, Hono, navegador, AsyncLocalStorage
 - [Guia de exemplos](documentation/pt-BR/guia-de-exemplos.md) — o lançador `pnpm demo` e os exemplos executáveis: ecommerce, clarity, Minecraft, JavaScript puro, Express, Hono, distribuído (Docker + Jaeger), navegador

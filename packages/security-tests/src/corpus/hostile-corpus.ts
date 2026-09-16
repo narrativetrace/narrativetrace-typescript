@@ -106,6 +106,7 @@ function toRedactionCase(node: RawCase): RedactionCase {
     ...(node.value !== undefined && { value: materialize(node, "value") }),
     ...(node.canary !== undefined && { canary: node.canary }),
     expect: node.expect ?? "",
+    ...(node.position !== undefined && { position: node.position }),
   };
 }
 

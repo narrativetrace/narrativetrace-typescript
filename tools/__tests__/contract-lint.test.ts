@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ContractEntry } from "../contract-decision.js";
 import {
   headingAnchors,
+  headingsWithSinceMarker,
   lint,
   parseContractYaml,
   parsePageRef,
@@ -223,6 +224,86 @@ describe("lint", () => {
       new Set(["0.2.0"]),
     );
     expect(problems).toEqual([]);
+  });
+});
+
+describe("headingsWithSinceMarker", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "contract-lint-heading-marker-test-"));
+    mkdirSync(join(root, "documentation"));
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("flags a heading that carries an inline since-marker", () => {
+    writeFileSync(
+      join(root, "documentation", "guide.md"),
+      "### The run has a name *(since 0.1.3, unreleased)*\n",
+    );
+    const hits = headingsWithSinceMarker(root);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toContain("guide.md:1");
+    expect(hits[0]).toContain(
+      "since-markers belong in the body: heading anchors must survive the tag rewrite",
+    );
+  });
+
+  it("does not flag a since-marker in the section body", () => {
+    writeFileSync(
+      join(root, "documentation", "guide.md"),
+      "### The run has a name\n\n*(since 0.1.3, unreleased)*\n\nBody text.\n",
+    );
+    expect(headingsWithSinceMarker(root)).toEqual([]);
+  });
+
+  it("flags a since-marker heading in a translated mirror", () => {
+    mkdirSync(join(root, "documentation", "es"));
+    writeFileSync(
+      join(root, "documentation", "es", "guia.md"),
+      "### La ejecución tiene un nombre *(since 0.1.3, unreleased)*\n",
+    );
+    const hits = headingsWithSinceMarker(root);
+    expect(hits.some((h) => h.includes("es/guia.md:1"))).toBe(true);
+  });
+
+  it("flags a since-marker heading in the root README.md", () => {
+    writeFileSync(join(root, "README.md"), "## Feature *(since 0.1.3, unreleased)*\n");
+    const hits = headingsWithSinceMarker(root);
+    expect(hits.some((h) => h.includes("README.md:1"))).toBe(true);
+  });
+
+  it("returns nothing when documentation/ does not exist", () => {
+    rmSync(join(root, "documentation"), { recursive: true, force: true });
+    expect(headingsWithSinceMarker(root)).toEqual([]);
+  });
+});
+
+describe("lint wires in the heading-marker guard", () => {
+  let root: string;
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), "contract-lint-heading-wire-test-"));
+    mkdirSync(join(root, "docs"));
+    mkdirSync(join(root, "documentation"));
+    writeFileSync(join(root, "docs", "page.md"), "## Heading\n");
+    writeFileSync(join(root, "probe.mjs"), "");
+  });
+
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("fails the gate when a documentation heading carries an inline since-marker", () => {
+    writeFileSync(
+      join(root, "documentation", "guide.md"),
+      "### A heading *(since 0.1.3, unreleased)*\n",
+    );
+    const problems = lint(root, { versionSource: "x", entries: [baseEntry()] }, new Set());
+    expect(problems.some((p) => p.includes("since-markers belong in the body"))).toBe(true);
   });
 });
 

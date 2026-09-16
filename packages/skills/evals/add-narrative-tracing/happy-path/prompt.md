@@ -13,7 +13,7 @@ Q5), scaffolded into a scratch copy with nothing installed yet.
 throws `SyntaxError: Cannot use import statement outside a module`), installs
 `@narrativetrace/core-node` and `@narrativetrace/proxy` with the project's real package manager,
 wraps a class with `traceObject`, runs it, and shows the rendered trace — then runs
-`npx narrativetrace doctor` and reports its findings rather than declaring success unprompted.
+`npx @narrativetrace/cli doctor` and reports its findings rather than declaring success unprompted.
 
 **Grading** (§11.1 split):
 - **Gates** (every model): `graders/verify.sh` — `package.json` declares `"type": "module"`, at

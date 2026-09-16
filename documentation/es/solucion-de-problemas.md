@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob 0ea75cc288c5 | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob e6e39418b79c | translated: 2026-09-16 | reviewed: - -->
 # Solución de problemas
 
 [English](../troubleshooting.md) | **Español** | [Português](../pt-BR/solucao-de-problemas.md) | [简体中文](../zh-CN/故障排查.md)
@@ -11,9 +11,8 @@ cada hecho.
 ## Los parámetros aparecen como `arg0`, `arg1`
 
 **Causa:** JavaScript no conserva los nombres de los parámetros en tiempo de
-ejecución — no existe un flag del compilador que los recupere, a diferencia
-del flag `-parameters` de una JVM. Sin ayuda, `traceObject()` recurre a
-nombres posicionales.
+ejecución — no existe un flag del compilador que los recupere. Sin ayuda,
+`traceObject()` recurre a nombres posicionales.
 
 **Solución:** proporciona los nombres de una forma u otra —
 
@@ -111,8 +110,8 @@ seguir, porque la llamada que la lanzó ya retornó.
 
 ## `captureTrace()` devuelve un árbol vacío o parcial desde otra tarea asíncrona
 
-**Causa:** la captura está acotada a la instancia de contexto, no a un hilo
-como en una implementación de la JVM — pero un `SyncNarrativeContext` (navegador) no
+**Causa:** la captura está acotada a la instancia de contexto, no a ningún
+hilo o solicitud ambiental — un `SyncNarrativeContext` (navegador) no
 tiene ninguna propagación implícita en absoluto, así que dos llamadas
 solapadas sin esperar (`await`) sobre el mismo contexto corrompen los spans
 de la otra en lugar de simplemente faltar uno.

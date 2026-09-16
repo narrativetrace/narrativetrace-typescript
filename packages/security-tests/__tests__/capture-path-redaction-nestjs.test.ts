@@ -8,7 +8,13 @@ import { Injectable, Module } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { hostileRedactions } from "../src/corpus/hostile-corpus.js";
-import { isNameCase, type RedactionCase } from "../src/corpus/types.js";
+import {
+  isMapKeyCase,
+  isNameCase,
+  MAP_KEY_COMPANION_VALUE,
+  payloadOf,
+  type RedactionCase,
+} from "../src/corpus/types.js";
 
 /**
  * The NestJS arm of the corpus replay, VALUE rows only.
@@ -81,24 +87,35 @@ describe("hostile corpus redaction, replayed through wrapPrototypeMethods (NestJ
 
   // Every value-shape detector this runtime has (JWT, PAN, Set-Cookie, and — since 2026-09-10 —
   // all six national-id schemes) applies here exactly as it does under traceObject(), since both
-  // paths render through the same RedactionPolicy.DEFAULT. All 38 value rows run; the 50 NAME rows
+  // paths render through the same RedactionPolicy.DEFAULT. All 39 value rows run; the 50 NAME rows
   // stay excluded for the structural reason in this file's own doc comment above.
   const valueCases = hostileRedactions().filter((c) => !isNameCase(c));
 
   test("row accounting: every value-shape row runs — name rows stay excluded by design", () => {
-    expect(valueCases.length, "value-case rows in the corpus").toBe(38);
+    expect(valueCases.length, "value-case rows in the corpus").toBe(39);
   });
 
   test.each(
     valueCases.map((c) => [c.id, c] as const),
   )("%s", (_id, redactionCase: RedactionCase) => {
     const secret = redactionCase.value as string;
-    const { renderedValue, redacted } = driveThroughAutoWrap(secret);
+    // Bare, or (ADV-2026-09-14-1, `position: "mapKey"`) as the KEY of a one-entry Map.
+    const { renderedValue, redacted } = driveThroughAutoWrap(payloadOf(redactionCase));
     if (redactionCase.expect === "redacted") {
       expect(
         renderedValue,
         `${redactionCase.id}: the captured parameter must not carry the secret`,
       ).not.toContain(secret);
+      if (isMapKeyCase(redactionCase)) {
+        // Family-wide ruling, 2026-09-10 (see `ParameterCapture.redacted`): a masked map KEY is a
+        // per-leaf shape match, not a whole-value withholding — the visible value beside it
+        // survives, and the whole-value flag stays false (clause 6: over-flagging is a defect too).
+        expect(renderedValue, `${redactionCase.id}: the visible value beside the key`).toContain(
+          MAP_KEY_COMPANION_VALUE,
+        );
+        expect(redacted, `${redactionCase.id}: whole-value flag must stay false`).toBe(false);
+        return;
+      }
       // Oracle contract clause 3: names are
       // unrecoverable through this auto-wrap path (every parameter renders as `argN`), so
       // value-shape is the ONLY axis that can flag a NestJS capture. A JWT/PAN/Set-Cookie/

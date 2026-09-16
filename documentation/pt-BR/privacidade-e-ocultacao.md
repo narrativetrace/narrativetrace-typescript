@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 29b4efaedbb0 | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob f0336a04340e | translated: 2026-09-16 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -100,7 +100,7 @@ Três mecanismos independentes se aplicam a todo valor capturado/renderizado:
    lista, um valor de map) ou um bearer token sob um nome não reconhecido
    ainda assim é capturado.
    **A metade deste eixo baseada em parâmetro só se aplica sob
-   `traceObject()`** *(since 0.1.3, unreleased)* — um parâmetro simplesmente *nomeado* como um
+   `traceObject()`** *(since 0.1.3)* — um parâmetro simplesmente *nomeado* como um
    segredo (`paymentToken`, `password`) é ocultado sem nenhum decorator,
    exatamente como um nome de campo é. Sob o `AutoProxyModule` do NestJS
    todo parâmetro é capturado como `arg0`, `arg1`, … (veja a nota de
@@ -125,7 +125,7 @@ Três mecanismos independentes se aplicam a todo valor capturado/renderizado:
 **Um `toString()` personalizado só é confiado para um intrínseco da
 plataforma do realm** — `Date`, `URL`, `RegExp`, um `BigInt` encaixotado ou
 um typed array (decisão do time, 2026-09-12, a exceção da "folha de
-confiança"). *(since 0.1.3, unreleased)* Qualquer outro objeto — uma classe
+confiança"). *(since 0.1.3)* Qualquer outro objeto — uma classe
 comum, um valor em forma de registro, uma "folha" sem campo próprio visível
 — é *sempre* introspectado campo a campo, não importa o que seu `toString()`
 teria impresso. A checagem de identidade é
@@ -142,10 +142,10 @@ typed array, `Error.prototype.toString()` interpola `message` — texto livre
 que quem chama fornece na construção (`new Error(usuario.password)`) —
 exatamente a forma que um campo na lista de negação existe para pegar,
 então um valor `Error` é introspectado campo a campo como qualquer outro
-objeto. *(since 0.1.3, unreleased)*
+objeto. *(since 0.1.3)*
 
 **`Date` é confiado da mesma forma, mas renderiza via `toISOString()`, nunca
-`toString()`** *(since 0.1.3, unreleased)*: `Date.prototype.toString()`
+`toString()`** *(since 0.1.3)*: `Date.prototype.toString()`
 embute o locale e o NOME do fuso horário do host na string (ex.:
 `"Tue Jan 01 2024 01:00:00 GMT+0100 (Central European Standard Time)"`),
 então o mesmo instante renderiza como duas strings diferentes e não
@@ -180,7 +180,7 @@ próprio não encontrava nada para pegar e o segredo aninhado era impresso
 por completo. A mesma regra vale para uma **chave** de `Map`: uma chave que
 é ela própria um objeto passa pela mesma renderização consciente de
 ocultação que um valor, nunca por um `toString()` bruto e incondicional.
-*(since 0.1.3, unreleased)*
+*(since 0.1.3)*
 
 `narrativeSummary()` é texto cuidadosamente escrito pelo autor
 especificamente para o trace, e continua a prevalecer tanto sobre a
@@ -206,7 +206,7 @@ usado pelo resto do trace, incondicionalmente.
 Um membro que esta biblioteca invoca ao renderizar um valor —
 `narrativeSummary()`, o `toString()` de uma folha, ou um getter de campo —
 pode lançar uma exceção, ou (somente `toString()`) retornar `null`.
-*(since 0.1.3, unreleased)* Uma
+*(since 0.1.3)* Uma
 exceção degrada para o marcador de erro tipado só naquela parte,
 `<error: NomeDoConstrutor>` (ex.: `<error: TypeError>`; um valor lançado que
 não é um `Error` mostra seu `typeof`, ex.: `<error: string>`) — **nunca o
@@ -250,7 +250,7 @@ Detalhes completos e exemplos resolvidos:
   Uma captura que perdeu eventos imprime a contagem e para quanto
   aumentar a capacidade, em seu próprio rodapé.
 - **O artefato estrutural `.nt` não carrega nenhum valor em tempo de
-  execução.** *(since 0.1.3, unreleased)* Apenas nomes, hierarquia de chamadas e tipos de resultado —
+  execução.** *(since 0.1.3)* Apenas nomes, hierarquia de chamadas e tipos de resultado —
   zero superfície de injeção de prompt, e isso é uma propriedade do
   renderer, não uma política que alguém pudesse esquecer de aplicar. Seu
   cabeçalho `scenario:` está coberto por isso: uma invocação de uma linha de
@@ -259,14 +259,14 @@ Detalhes completos e exemplos resolvidos:
   (veja [Structural Trace Format](../structural-trace-format.md), ainda não
   traduzido). Como o artefato é *chamado* — seu nome de arquivo, e o próprio
   título do teste — é uma pergunta diferente; veja a não garantia abaixo.
-- **A frase do trace/execução não carrega nenhum dado próprio.** *(since 0.1.3, unreleased)*
+- **A frase do trace/execução não carrega nenhum dado próprio.** *(since 0.1.3)*
   `bold elk soars` é derivada deterministicamente de um id de trace ou de
   execução (`humanName()`, três tabelas de palavras fixas) — ela não é, e
   nunca lê, nada que o código traçado produziu, então é seguro imprimi-la,
   logá-la ou colá-la em um relatório de bug sozinha. Ela nunca chega ao
   artefato estrutural `.nt`, a um trace aprovado ou recebido, ao nome de
   arquivo de um artefato, nem às chaves por cenário do manifest — veja
-  [Guia de Configuração § A execução tem um nome](guia-de-configuracao.md#a-execução-tem-um-nome-since-013-unreleased).
+  [Guia de Configuração § A execução tem um nome](guia-de-configuracao.md#a-execução-tem-um-nome).
 
 ## Não garantias
 
@@ -275,11 +275,11 @@ Detalhes completos e exemplos resolvidos:
 - **Sem tracing de campos privados, mas também sem exigência de
   interface.** Campos de classe `#private` não podem ser interceptados
   por um `Proxy` de jeito nenhum — uma limitação da linguagem
-  JavaScript. Diferente de um proxy dinâmico da JVM, não existe
+  JavaScript. Não existe
   interface para implementar antes; todo método alcançável por meio de
   lookup de propriedade — declarado no próprio objeto ou herdado de sua
   cadeia de protótipos — é visível para `traceObject()`.
-- **Nenhuma ocultação dos nomes dos testes.** *(since 0.1.3, unreleased)* O cabeçalho `scenario:` do
+- **Nenhuma ocultação dos nomes dos testes.** *(since 0.1.3)* O cabeçalho `scenario:` do
   artefato estrutural e seu nome de arquivo são derivados do próprio título
   do teste (e, para uma invocação de `.each`, do rótulo interpolado, que só
   chega ao nome de arquivo — veja
@@ -292,7 +292,7 @@ Detalhes completos e exemplos resolvidos:
   fora dos títulos de teste e dos templates de nome do `.each`, a mesma
   regra de qualquer outro framework de teste.
 - **Nenhum caminho "zero código", de "envolver um app que você não
-  escreveu".** Não existe um equivalente ao Java agent nesta plataforma,
+  escreveu".** A instrumentação nesta plataforma é sempre explícita,
   então o escopo é sempre por call site explícito ou anotação de classe
   — veja
   [Escolhendo uma integração § Limites da plataforma](escolhendo-uma-integracao.md#limites-da-plataforma).

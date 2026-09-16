@@ -77,7 +77,7 @@ recorded once it is.
 ## Caveats per path
 
 - **`traceObject` (proxy)** — wraps one object at a time; there is no
-  interface requirement (unlike a JVM dynamic proxy) because the `Proxy`
+  interface requirement because the `Proxy`
   wraps the concrete object directly. Every method reachable through
   property lookup — own or inherited from the prototype chain — is
   wrapped; a call made directly on the un-wrapped instance bypasses tracing
@@ -107,7 +107,7 @@ recorded once it is.
 ## Platform ceilings
 
 There is no zero-code, "wrap an app you cannot modify" path on this
-platform — no Java-agent equivalent, and none planned. `TC39` decorators and
+platform, and none planned. `TC39` decorators and
 `traceObject()` need a call site or a class you can annotate; a
 `require`/ESM loader hook was deliberately rejected (fragile across Node
 versions, and bypassed entirely by bundlers, browsers and edge runtimes,

@@ -1,4 +1,4 @@
-<!-- source: documentation/choosing-an-integration.md blob b965667a368c | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/choosing-an-integration.md blob 8865ad5d1182 | translated: 2026-09-16 | reviewed: - -->
 # Escolhendo uma integração
 
 [English](../choosing-an-integration.md) | [Español](../es/eligiendo-una-integracion.md) | **Português** | [简体中文](../zh-CN/选择集成方式.md)
@@ -83,7 +83,7 @@ registrado depois que ela é.
 ## Ressalvas por caminho
 
 - **`traceObject` (proxy)** — encapsula um objeto por vez; não há
-  exigência de interface (diferente de um proxy dinâmico da JVM) porque o
+  exigência de interface porque o
   `Proxy` encapsula o objeto concreto diretamente. Todo método alcançável
   por lookup de propriedade — próprio ou herdado da cadeia de protótipos —
   é encapsulado; uma chamada feita diretamente na instância não
@@ -115,8 +115,7 @@ registrado depois que ela é.
 ## Limites da plataforma
 
 Não existe um caminho zero-código, de "encapsular uma aplicação que você
-não pode modificar", nesta plataforma — nenhum equivalente ao agente Java,
-e nenhum está planejado. Os decoradores `TC39` e o `traceObject()` precisam
+não pode modificar", nesta plataforma, e nenhum está planejado. Os decoradores `TC39` e o `traceObject()` precisam
 de um call site ou de uma classe que você possa anotar; um hook de loader
 `require`/ESM foi deliberadamente rejeitado (frágil entre versões do Node,
 e completamente contornado por bundlers, navegadores e edge runtimes, onde

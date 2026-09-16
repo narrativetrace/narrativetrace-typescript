@@ -1,6 +1,6 @@
 # NarrativeTrace TypeScript Decorators Guide
 
-This guide covers method-level trace metadata — parameter names, narration, error context, and redaction. The **default way to declare it is the config form** on `traceObject()`, at the composition root — the decorators below are what npm's currently published `@narrativetrace/proxy@0.1.1` has instead. *(since 0.1.3, unreleased)* The four decorators are the same declarations as nicer syntax for projects that already compile decorators (NestJS, Angular, any TypeScript 5+ app).
+This guide covers method-level trace metadata — parameter names, narration, error context, and redaction. The **default way to declare it is the config form** on `traceObject()`, at the composition root — the decorators below are what npm's currently published `@narrativetrace/proxy@0.1.1` has instead. *(since 0.1.3)* The four decorators are the same declarations as nicer syntax for projects that already compile decorators (NestJS, Angular, any TypeScript 5+ app).
 
 NarrativeTrace follows a **Code is the Log** philosophy: method names, parameter names, and return values should already communicate the runtime story. Keep business logic clean and expressive first, then add metadata exceptionally, not by default — only when it provides concrete additional value, such as targeted narration, error-specific context, or sensitive-data redaction.
 
@@ -265,7 +265,7 @@ What is invoked, and what is not:
   and would run — prefer class getters or mark the field in `static notTraced`.)
 - **A custom `toString()` (own, non-default) is invoked only for a realm platform
   intrinsic** — `Date`, `URL`, `RegExp`, a boxed `BigInt`, or a typed array, checked by
-  prototype identity, never by name. *(since 0.1.3, unreleased)* Your own types never
+  prototype identity, never by name. *(since 0.1.3)* Your own types never
   reach this path any more, field-less or not: field introspection always runs instead,
   whatever your `toString()` would have printed (owner ruling, 2026-09-12, narrowing the
   2026-09-11 "any leaf" rule — see [Privacy and Redaction](privacy-and-redaction.md) for
@@ -282,7 +282,7 @@ What is invoked, and what is not:
   `maxArrayItems`, `maxObjectKeys`); a throwing getter degrades only *that field* to the
   typed error marker `<error: ConstructorName>` (never `.message`, which can carry the
   exact value the member was refusing to render) — sibling fields still render normally.
-  *(since 0.1.3, unreleased)* A
+  *(since 0.1.3)* A
   throwing `toString()` or `@narrativeSummary()` degrades the whole value the same way;
   neither ever fails the traced business call (templates fall back to the literal
   `{placeholder}`). Values render eagerly at the call site, so any side effect happens

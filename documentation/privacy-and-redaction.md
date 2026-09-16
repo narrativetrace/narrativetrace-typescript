@@ -86,7 +86,7 @@ Three independent mechanisms apply to every captured/rendered value:
    unnamed value (a list item, a map value) or a bearer token under an
    unrecognized name is still caught.
    **The parameter half of this axis applies under `traceObject()` only**
-   *(since 0.1.3, unreleased)*
+   *(since 0.1.3)*
    — a parameter merely *named* like a secret (`paymentToken`, `password`)
    is redacted with no decorator anywhere, exactly like a field name is.
    Under NestJS's `AutoProxyModule` every parameter is captured as `arg0`,
@@ -109,7 +109,7 @@ Three independent mechanisms apply to every captured/rendered value:
 
 **A custom `toString()` is trusted only for a realm platform intrinsic** —
 `Date`, `URL`, `RegExp`, a boxed `BigInt`, or a typed array (owner ruling,
-2026-09-12, the "trusted-leaf" carve-out). *(since 0.1.3, unreleased)*
+2026-09-12, the "trusted-leaf" carve-out). *(since 0.1.3)*
 Every other object — a plain class, a record-shaped value, a field-less
 "leaf" with nothing visible to introspect — is *always* introspected
 field-by-field instead, whatever its `toString()` would have printed. The
@@ -125,10 +125,10 @@ timestamp or a typed array's numeric buffer, `Error.prototype.toString()`
 interpolates `message` — free text the caller supplies at construction
 (`new Error(user.password)`) — exactly the shape a deny-listed field exists
 to catch, so an `Error` value is field-walked like any other object.
-*(since 0.1.3, unreleased)*
+*(since 0.1.3)*
 
 **`Date` is trusted the same way, but renders via `toISOString()`, never
-`toString()`** *(since 0.1.3, unreleased)*: `Date.prototype.toString()` bakes
+`toString()`** *(since 0.1.3)*: `Date.prototype.toString()` bakes
 the host's locale and timezone NAME into the string (e.g. `"Tue Jan 01 2024
 01:00:00 GMT+0100 (Central European Standard Time)"`), so the identical
 instant renders as two different, non-reproducible strings on two machines —
@@ -158,7 +158,7 @@ the redacted field's name or annotation never appeared on `Order` itself, so
 the own-field check found nothing to catch and the nested secret rendered
 in full. The same rule applies to a Map **key**: a key that is itself an
 object goes through the identical redaction-aware rendering a value does,
-never a raw, unconditional `toString()`. *(since 0.1.3, unreleased)*
+never a raw, unconditional `toString()`. *(since 0.1.3)*
 
 `narrativeSummary()` is curated text the author wrote specifically for the
 trace, and still outranks both toString-trust and field introspection — but
@@ -181,7 +181,7 @@ unconditionally.
 
 A member this library invokes while rendering a value — `narrativeSummary()`,
 a leaf's `toString()`, or a field getter — can throw, or (`toString()` only)
-return `null`. *(since 0.1.3, unreleased)* A throw degrades to the typed error marker for that one part,
+return `null`. *(since 0.1.3)* A throw degrades to the typed error marker for that one part,
 `<error: ConstructorName>` (e.g. `<error: TypeError>`; a thrown non-`Error`
 value shows its `typeof`, e.g. `<error: string>`) — **never the exception's
 `message`**, which can carry the exact value the member was refusing to
@@ -220,7 +220,7 @@ Full detail and worked examples:
   [Configuration Guide § 8](configuration-guide.md#8-event-pipeline-buffering-bufferedeventconsumer)).
   A capture that lost events prints the count and what to raise the
   capacity to, in its own footer.
-- **The structural `.nt` artifact has no runtime values at all.** *(since 0.1.3, unreleased)* Names,
+- **The structural `.nt` artifact has no runtime values at all.** *(since 0.1.3)* Names,
   call hierarchy and outcome kinds only — zero prompt-injection surface, and
   that is a property of the renderer, not a policy someone could forget to
   apply. Its `scenario:` header is covered by that: one invocation of a
@@ -229,14 +229,14 @@ Full detail and worked examples:
   [Structural Trace Format](structural-trace-format.md)). What the artifact
   is *called* — its filename, and the test title itself — is a different
   question; see the non-guarantee below.
-- **The trace/run phrase carries no data of its own.** *(since 0.1.3, unreleased)*
+- **The trace/run phrase carries no data of its own.** *(since 0.1.3)*
   `bold elk soars` is derived deterministically from a trace or run id
   (`humanName()`, three fixed word tables) — it is not, and never reads,
   anything the traced code produced, so it is safe to print, log, or paste
   into a bug report on its own. It never reaches the structural `.nt`
   artifact, an approved/received trace, an artifact filename, or the
   manifest's per-scenario keys — see
-  [Configuration Guide § The run has a name](configuration-guide.md#the-run-has-a-name-since-013-unreleased).
+  [Configuration Guide § The run has a name](configuration-guide.md#the-run-has-a-name).
 
 ## Non-guarantees
 
@@ -244,11 +244,11 @@ Full detail and worked examples:
   something — see the [README's Performance section](../README.md#performance).
 - **No private-field tracing, but also no interface requirement.**
   `#private` class fields cannot be intercepted by a `Proxy` at all — a
-  JavaScript language limitation. Unlike a JVM dynamic proxy, there is no
+  JavaScript language limitation. There is no
   interface to implement first; every method reachable through property
   lookup — declared on the object itself or inherited from its prototype
   chain — is visible to `traceObject()`.
-- **No redaction of test names.** *(since 0.1.3, unreleased)* The structural artifact's `scenario:`
+- **No redaction of test names.** *(since 0.1.3)* The structural artifact's `scenario:`
   header and filename are derived from the test's own title (and, for a
   `.each` invocation, the interpolated label baked into the filename only —
   see [Structural Trace Format](structural-trace-format.md)) — text the
@@ -257,8 +257,8 @@ Full detail and worked examples:
   (`test("logs in as ${password}", ...)`) puts that secret in the filename
   and the committed `.approved.nt`'s path — keep secrets out of test titles
   and `.each` name templates, the same rule as any other test framework.
-- **No zero-code, "wrap an app you didn't write" path.** There is no
-  Java-agent equivalent on this platform, so scoping is always by explicit
+- **No zero-code, "wrap an app you didn't write" path.** Instrumentation on
+  this platform is always explicit, so scoping is always by explicit
   call site or class annotation — see
   [Choosing an Integration § Platform ceilings](choosing-an-integration.md#platform-ceilings).
 

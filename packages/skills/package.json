@@ -1,8 +1,9 @@
 {
   "name": "@narrativetrace/skills",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "description": "The typed agent-skills catalogue: one skill per capability, rendered to SKILL.md and the AGENTS.md snippet",
   "license": "BUSL-1.1",
+  "private": true,
   "repository": {
     "type": "git",
     "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",

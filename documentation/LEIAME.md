@@ -24,7 +24,7 @@ Aprofundando:
 | [Privacidade e ocultação](pt-BR/privacidade-e-ocultacao.md) | O contrato de ocultação linha por linha, verificado contra o código |
 | [O que commitar](pt-BR/o-que-commitar.md) | Quais arquivos gerados são saída de execução e quais (se algum) são baselines revisadas |
 | [Solução de problemas](pt-BR/solucao-de-problemas.md) | Sintoma → causa → solução para os modos de falha que as pessoas realmente encontram |
-| [Habilidades de agente](pt-BR/habilidades-de-agente.md) | `narrativetrace-doctor`, uma habilidade de agente fina e somente leitura sobre `npx narrativetrace doctor` |
+| [Habilidades de agente](pt-BR/habilidades-de-agente.md) | `narrativetrace-doctor`, uma habilidade de agente fina e somente leitura sobre `npx @narrativetrace/cli doctor` |
 | [Guia de clareza](pt-BR/guia-de-clareza.md) | Modelo de pontuação, componentes de NLP, scanner estático |
 | [Guia de integração de frameworks](pt-BR/guia-de-integracao-de-frameworks.md) | Express, Hono, navegador, AsyncLocalStorage |
 | [Guia de exemplos](pt-BR/guia-de-exemplos.md) | O lançador `pnpm demo` e os exemplos executáveis |

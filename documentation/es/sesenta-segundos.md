@@ -1,13 +1,11 @@
-<!-- source: documentation/sixty-seconds.md blob 686e34f814c5 | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/sixty-seconds.md blob bb2f0edb007e | translated: 2026-09-16 | reviewed: - -->
 # Ve una traza en 60 segundos
 
 [English](../sixty-seconds.md) | **Español** | [Português](../pt-BR/sessenta-segundos.md) | [简体中文](../zh-CN/60秒.md)
 
 Sin sentencias de log, sin framework de pruebas, sin ningún fichero que abrir después. Un script
 sencillo, una ejecución, y la traza aparece en tu terminal. Todo lo de abajo se ejecutó de verdad
-contra los paquetes publicados `@narrativetrace/core-node` y `@narrativetrace/proxy` (0.1.1, la
-versión que está en vivo en npm en el momento de escribir esto — ejecuta
-`npm view @narrativetrace/core version` para ver cuál es la actual cuando tú lo leas) — la salida
+contra los paquetes publicados `@narrativetrace/core-node` y `@narrativetrace/proxy` — la salida
 está pegada tal cual, no es una ilustración. Necesitas Node 20+ (el paquete publicado
 `@narrativetrace/core` lo declara en `engines`); abajo se usa pnpm, pero npm también funciona, con
 una diferencia explicada en el paso 1.
@@ -98,74 +96,84 @@ de tus parámetros y del valor que devolvió el método — la información ya e
 La línea de consola de arriba es solo uno de los renderizadores sobre la traza; la misma traza
 puede fluir directo al logger que ya usas en producción. Añade el puente de
 [Pino](https://github.com/pinojs/pino) (`@narrativetrace/winston` funciona igual si Winston es tu
-logger — cambia el import por `createWinstonEventConsumer`):
-
-```diff
--import { NarrativeTraceConfig, SyncNarrativeContext, renderMarkdownBody } from "@narrativetrace/core-node";
-+import { NarrativeTraceConfig, SyncNarrativeContext, DualPathPipeline, BufferedEventConsumer, parseTraceparent, renderMarkdownBody } from "@narrativetrace/core-node";
- import { traceObject } from "@narrativetrace/proxy";
-+import { createPinoEventConsumer } from "@narrativetrace/pino";
-+import pino from "pino";
-
- class OrderService {
-   placeOrder(customerId, productId, quantity) {
-     return `ORD-${customerId}-${productId}-${quantity}`;
-   }
- }
-
-+// Una constante documentada solo para ESTE ejemplo — nunca el valor por defecto de la librería,
-+// que siempre genera un id de traza aleatorio — para que nt.traceName/trace_id de abajo se
-+// mantengan con la misma frase cada vez que se regenera la salida de esta página.
-+const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
-+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
-+
--const context = new SyncNarrativeContext(new NarrativeTraceConfig());
-+const logger = pino();
-+const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
-+const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-+const context = new SyncNarrativeContext(
-+  new NarrativeTraceConfig(),
-+  undefined,
-+  pipeline,
-+  null,
-+  undefined,
-+  fixedTraceId,
-+);
- const service = traceObject(new OrderService(), context, {
-   placeOrder: ["customerId", "productId", "quantity"],
- });
-
- service.placeOrder("C1", "P1", 2);
- console.log(renderMarkdownBody(context.captureTrace()));
-```
+logger — cambia el import por `createWinstonEventConsumer`). Las líneas comentadas de abajo son el
+cambio respecto al paso 1:
 
 ```bash
 npm add @narrativetrace/pino @narrativetrace/observability pino
-node index.js
+```
+
+```js
+// index-with-logger.js
+import {
+  NarrativeTraceConfig,
+  SyncNarrativeContext,
+  DualPathPipeline, // reparte los eventos entre dos consumidores: el puente de pino y el búfer en memoria
+  BufferedEventConsumer, // mantiene captureTrace() funcionando junto al logger
+  parseTraceparent, // convierte una cabecera traceparent en el id de traza fijado abajo
+  renderMarkdownBody,
+} from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+import { createPinoEventConsumer } from "@narrativetrace/pino"; // conecta los eventos de traza con Pino
+import pino from "pino";
+
+class OrderService {
+  placeOrder(customerId, productId, quantity) {
+    return `ORD-${customerId}-${productId}-${quantity}`;
+  }
+}
+
+// Una constante documentada solo para ESTE ejemplo — nunca el valor por defecto de la librería,
+// que siempre genera un id de traza aleatorio — para que nt.traceName/trace_id de abajo se
+// mantengan con la misma frase cada vez que se regenera la salida de esta página.
+const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
+
+const logger = pino(); // cualquier instancia de pino funciona — esta mantiene sus valores por defecto
+const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
+const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
+const context = new SyncNarrativeContext(
+  new NarrativeTraceConfig(),
+  undefined, // parentResolver — un script sencillo no tiene ningún span padre ambiental que resolver
+  pipeline, // enruta los eventos tanto al logger de arriba como al búfer que lee captureTrace()
+  null, // rootParentOverride — sin span padre entrante para esta llamada raíz
+  undefined, // serviceIdentity — no hace falta para este ejemplo
+  fixedTraceId, // siembra el id de traza que llevaría una cabecera traceparent entrante en una petición real
+);
+const service = traceObject(new OrderService(), context, {
+  placeOrder: ["customerId", "productId", "quantity"],
+});
+
+service.placeOrder("C1", "P1", 2);
+console.log(renderMarkdownBody(context.captureTrace()));
+```
+
+```bash
+node index-with-logger.js
 ```
 
 Salida real, de la ejecución que produjo esta página:
 
 ```text
 {"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 2ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms
 {"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
 ```
 
-`time`, `pid`, `hostname`, `span_id` y la duración siguen siendo un valor distinto en tu máquina y
-en cada ejecución — este ejemplo solo fija el id de traza, no el id de span, del mismo modo que
-una petición entrante real llevaría un id de traza pero acuñaría su propio span. `trace_id` y
-`nt.traceName` ahora son iguales en cada ejecución, porque la constante de arriba hace las veces
-de una cabecera `traceparent` que enviaría una petición real desde upstream; consulta la Guía de
-integración de frameworks para leer una desde una petición real. Aquí no hay ningún campo
-`nt.runName` en absoluto — un script sencillo no pertenece a ninguna ejecución de suite de tests,
-así que no hay ninguna ejecución que nombrar (la opción `runName` de `createPinoEventConsumer` es
-cómo un caller que SÍ tiene una — `runIdentity().name` de `@narrativetrace/vitest`, entre
-otros — la añade). La forma de las dos líneas JSON y de la línea markdown entre ellas no cambia.
-Esto demuestra que la traza llega al destino que ya tienes, sin tocar la salida de consola.
-Configuración completa (niveles por evento, la opción `runName`, el mixin de `LogContext` para
-marcar tus propias líneas de log, configuración de Winston): [Guía de integración de frameworks §
-Winston y Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
+`time`, `pid`, `hostname` y `span_id` están fijados a un valor de relleno para esta muestra
+capturada — una ejecución real acuña los cuatro de nuevo, igual que la duración, y en tu máquina
+verás valores distintos en cada ejecución. `trace_id` y `nt.traceName` son los únicos
+identificadores que de verdad son iguales en cada ejecución, porque la constante
+`FIXED_TRACEPARENT` hace las veces de una cabecera `traceparent` que enviaría una petición real
+desde upstream; consulta la Guía de integración de frameworks para leer una desde una petición
+real. Aquí no hay ningún campo `nt.runName` en absoluto — un script sencillo no pertenece a
+ninguna ejecución de suite de tests, así que no hay ninguna ejecución que nombrar (la opción
+`runName` de `createPinoEventConsumer` es cómo un caller que SÍ tiene una — `runIdentity().name`
+de `@narrativetrace/vitest`, entre otros — la añade). Esto demuestra que la traza llega al destino
+que ya tienes, sin tocar la salida de consola. Configuración completa (niveles por evento, la
+opción `runName`, el mixin de `LogContext` para marcar tus propias líneas de log, configuración de
+Winston): [Guía de integración de frameworks § Winston y
+Pino](guia-de-integracion-de-frameworks.md#9-winston-y-pino).
 
 ## A continuación
 

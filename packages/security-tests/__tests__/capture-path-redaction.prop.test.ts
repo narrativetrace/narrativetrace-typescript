@@ -5,7 +5,14 @@ import { NarrativeTraceConfig, SyncNarrativeContext, type TraceTree } from "@nar
 import { traceObject } from "@narrativetrace/proxy";
 import { describe, expect, test } from "vitest";
 import { hostileRedactions } from "../src/corpus/hostile-corpus.js";
-import { isNameCase, type RedactionCase, secretOf } from "../src/corpus/types.js";
+import {
+  isMapKeyCase,
+  isNameCase,
+  MAP_KEY_COMPANION_VALUE,
+  payloadOf,
+  type RedactionCase,
+  secretOf,
+} from "../src/corpus/types.js";
 import { everyOutput } from "../src/oracle/emitters.js";
 import { boundedSize } from "../src/oracle/oracles.js";
 
@@ -53,7 +60,10 @@ function driveCase(redactionCase: RedactionCase): {
   const paramName = isNameCase(redactionCase)
     ? (redactionCase.name as string)
     : INNOCUOUS_VALUE_PARAM_NAME;
-  const argument = isNameCase(redactionCase) ? redactionCase.canary : redactionCase.value;
+  // A name case is driven through a real parameter NAME (the seam this suite exists for), so its
+  // canary goes in bare; a value case goes in as `payloadOf` builds it — bare, or (ADV-2026-09-14-1,
+  // `position: "mapKey"`) as the KEY of a one-entry Map beside an ordinary visible value.
+  const argument = isNameCase(redactionCase) ? redactionCase.canary : payloadOf(redactionCase);
   const { param, tree } = captureThroughTraceObject(paramName, argument);
   return { renderedValue: param.renderedValue, redacted: param.redacted, tree };
 }
@@ -80,6 +90,18 @@ function skipReason(id: string): string | undefined {
 // Asserted separately from the rendered-text checks below so a flag defect fails distinctly from
 // a leak.
 function assertRedactedFlag(redactionCase: RedactionCase, redacted: boolean): void {
+  if (isMapKeyCase(redactionCase)) {
+    // Family-wide ruling, 2026-09-10 (see `ParameterCapture.redacted`): the flag says the WHOLE
+    // value was withheld. A map-key case masks one leaf — the key — while the visible value beside
+    // it survives, so the parameter is NOT whole-value redacted; a `true` here would be the
+    // over-flagging clause 6 forbids. The leak check below still proves the key itself is gone.
+    expect(
+      redacted,
+      `${redactionCase.id}: a masked map KEY is a per-leaf shape match — the whole-value flag must` +
+        " stay false",
+    ).toBe(false);
+    return;
+  }
   if (redactionCase.expect === "redacted") {
     expect(redacted, `${redactionCase.id}: the captured parameter must be flagged redacted`).toBe(
       true,
@@ -108,6 +130,14 @@ function assertRedactionCase(redactionCase: RedactionCase): void {
     ).not.toContain(secret);
     for (const [emitter, output] of Object.entries(outputs)) {
       expect(output, `${redactionCase.id}: ${emitter} leaked the secret`).not.toContain(secret);
+    }
+    if (isMapKeyCase(redactionCase)) {
+      // The mask must land on the key alone: the ordinary value paired with it survives, or the
+      // key fix has over-reached into blanking the whole entry.
+      expect(
+        renderedValue,
+        `${redactionCase.id}: the visible value beside the masked key must survive`,
+      ).toContain(MAP_KEY_COMPANION_VALUE);
     }
   } else {
     expect(
@@ -146,9 +176,9 @@ describe("hostile corpus redaction, replayed through traceObject() capture", () 
     expect(
       allCases.length,
       "corpus size — update this suite if redaction.json's row count moves",
-    ).toBe(88);
+    ).toBe(89);
     expect(runnable.length + skipped.length).toBe(allCases.length);
-    expect(runnable.length, "rows actually driven through traceObject() capture").toBe(88);
+    expect(runnable.length, "rows actually driven through traceObject() capture").toBe(89);
     expect(skipped.length, "rows skipped — see SKIPPED_UNIMPLEMENTED_NATIONAL_ID_SHAPE").toBe(0);
   });
 

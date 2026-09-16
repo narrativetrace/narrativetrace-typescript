@@ -1,4 +1,4 @@
-<!-- source: documentation/examples-guide.md blob f3ca6de1fcee | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/examples-guide.md blob c6ca59b9f82f | translated: 2026-09-16 | reviewed: - -->
 
 # Guía de ejemplos
 
@@ -56,7 +56,7 @@ renderizado. No hay un renderer por defecto ni nada que configurar: la captura p
 `TraceTree` y tú llamas al renderer que quieras — `renderIndentedText(tree)`, `renderProse`,
 `renderMermaidSequence`, `renderPlantUmlSequence`. Las líneas en vivo `→ ← !!` no son un renderer en
 absoluto: eso es un `EventConsumer` en la ruta en línea del `DualPathPipeline` del ejemplo
-(`tools/demo-stream.ts`, el gemelo del `Slf4jTraceEventListener` de Java) — la única vista que no
+(`tools/demo-stream.ts`) — la única vista que no
 cuesta código de renderizado. La configuración selecciona un renderer en exactamente un lugar, los
 archivos de traza escritos desde las pruebas: `createNarrativeTest` los escribe por su cuenta —
 sin necesidad de ningún flag — y `NARRATIVETRACE_FORMAT=md|mmd|json|puml` elige cuáles. Define
@@ -101,7 +101,7 @@ El buque insignia. Cinco servicios en memoria (customer, catalog, inventory, pay
 están envueltos con `traceObject()`; la orquestación interesante es `DefaultOrderService`. Los
 nombres de los parámetros vienen de `@traced`, la narración de `placeOrder` de `@narrated`, el texto
 de fallo entre corchetes de `@onError`, y el token de la tarjeta se imprime como `[REDACTED]`
-gracias a `@notTraced(2)`. `src/scenarios.ts` ejecuta los seis escenarios de Java, cada uno
+gracias a `@notTraced(2)`. `src/scenarios.ts` ejecuta seis escenarios, cada uno
 imprimiendo `--- Trace tree ---`, `--- Prose ---` y `--- Mermaid ---` (o PlantUML):
 
 1. **Pedido exitoso + notificación asíncrona** — el camino feliz; la notificación esperada (`await`)
@@ -135,7 +135,7 @@ consola de arriba — consulta la
 
 ## Clarity
 
-El `ClarityDemoExample` de Java: un dominio de reservas de hotel en cuatro niveles de calidad de
+Un dominio de reservas de hotel en cuatro niveles de calidad de
 nomenclatura, y luego el informe de claridad sobre los cuatro árboles capturados. El cableado es
 idéntico en todos los niveles — la variable bajo prueba es la nomenclatura, no la configuración.
 
@@ -310,7 +310,7 @@ más sentencias de log.
 
 ```bash
 pnpm run example:minecraft-generic
-pnpm demo -- --example minecraft     # ambas mitades, refactorizada primero, como el único ejemplo de Java
+pnpm demo -- --example minecraft     # ambas mitades, refactorizada primero, como un único ejemplo
 ```
 
 Ambas mitades están cableadas exactamente de la misma manera, byte a byte — `traceObject(impl,
@@ -323,7 +323,7 @@ intercalada con la salida en consola de arriba — consulta la
 
 ## Plain-JS
 
-El análogo de la plataforma al ejemplo `library` en Kotlin de Java: un consumidor ESM en JavaScript
+Un consumidor ESM en JavaScript
 puro (`.mjs`, tipos JSDoc verificados por `tsc --checkJs`, sin decoradores, sin TypeScript) que traza
 un pequeño dominio de préstamo de libros (`CatalogService`, `MemberService`, `LendingService`)
 mediante `traceObject` con mapas `paramNames`. Dos escenarios: un préstamo exitoso (árbol, prosa,

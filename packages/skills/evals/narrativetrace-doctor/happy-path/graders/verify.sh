@@ -12,7 +12,7 @@ set -e
 # `&&`/`||` pair keeps `set -e` from aborting on it) and ASSERT it before the shape assertions
 # below ever run — a bare `report=$(npx ... --json)` under `set -e` would abort the whole script
 # the instant doctor exits 1, silently skipping every assertion that follows.
-report=$(npx narrativetrace doctor --json) && exit_code=0 || exit_code=$?
+report=$(npx @narrativetrace/cli doctor --json) && exit_code=0 || exit_code=$?
 if [ "$exit_code" -ne 1 ]; then
   echo "expected doctor to exit 1 (trap.redaction-proof fails on the unmodified fixture), got $exit_code" >&2
   exit 1

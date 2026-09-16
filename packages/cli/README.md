@@ -12,8 +12,8 @@ against the project in the current directory, and prints a one-liner, a fix, and
 each finding.
 
 ```bash
-npx narrativetrace doctor
-npx narrativetrace doctor --json
+npx @narrativetrace/cli doctor
+npx @narrativetrace/cli doctor --json
 ```
 
 Exit codes: `0` clean, `1` findings, `2` could not run. Zero network — every check reads only

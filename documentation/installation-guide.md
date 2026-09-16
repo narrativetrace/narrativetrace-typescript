@@ -82,7 +82,7 @@ in lockstep and are never independently versioned. `@narrativetrace/proxy` is li
 because the examples below import `traceObject` from it directly: pnpm only exposes a package's
 own direct dependencies, not a dependency's dependencies, so anything you `import` yourself still
 needs to be your own dependency (npm's flatter `node_modules` doesn't draw this line, but pnpm —
-shown here — does). *(since 0.1.3, unreleased)*
+shown here — does). *(since 0.1.3)*
 
 #### Basic fixture (no file output)
 

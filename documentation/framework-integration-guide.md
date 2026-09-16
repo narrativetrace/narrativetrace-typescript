@@ -422,7 +422,7 @@ The callback is optional — omit it to simply reset the trace on each navigatio
 
 ## 8. OpenTelemetry
 
-The `@narrativetrace/opentelemetry` package maps method-call narratives onto OTel spans, so existing Jaeger/Tempo/Datadog views light up without hand-instrumented spans. `createOtelEventConsumer` is the live bridge — it starts/ends spans as methods execute, nesting child spans under their parent. Wire it into a pipeline: *(since 0.1.3, unreleased)*
+The `@narrativetrace/opentelemetry` package maps method-call narratives onto OTel spans, so existing Jaeger/Tempo/Datadog views light up without hand-instrumented spans. `createOtelEventConsumer` is the live bridge — it starts/ends spans as methods execute, nesting child spans under their parent. Wire it into a pipeline: *(since 0.1.3)*
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -453,7 +453,9 @@ Each span is stamped with `nt.trace_id` and other `nt.*` schema attributes (trac
 
 The `@narrativetrace/winston` and `@narrativetrace/pino` packages stream method-call events into your logger as structured, per-event lines (`→ Class.method` on entry, `← returned: …` / `!! Error` on exit) carrying `code.*`, `trace_id`, `service.*`, `nt.depth`, and typed parameters — plus `nt.traceName`, the trace's own three-word phrase, on every line.
 
-### Winston *(since 0.1.3, unreleased)*
+### Winston
+
+*(since 0.1.3)*
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -477,7 +479,9 @@ const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pi
 
 To stamp the active trace identity onto your *own* `logger.*` calls, add `createWinstonFormat()` to the logger's format chain — it merges the current `LogContext` (`trace_id`, `service.*`, `nt.depth`, `nt.runName` when `createEnricherEventConsumer` was given one) into every line.
 
-### Pino *(since 0.1.3, unreleased)*
+### Pino
+
+*(since 0.1.3)*
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -503,9 +507,11 @@ To stamp the active trace identity onto your *own* `logger.*` calls, pass `creat
 
 Both consumers accept a `levels` map keyed by event kind (`enter`, `return`, `exception`), so you can raise entry/return chatter to `info` or push exceptions to `error` independently. Winston defaults to `debug`/`debug`/`warn`; Pino defaults to `trace`/`trace`/`warn`.
 
-### Naming the run *(since 0.1.3, unreleased)*
+### Naming the run
 
-Both consumers, and `@narrativetrace/observability`'s `createEnricherEventConsumer`, accept an optional `runName` — the enclosing test-suite (or process) run's own three-word phrase, bound once at consumer creation rather than re-derived per event (a run has no id of its own to derive it from the way a trace does). Every log line then carries `nt.runName` alongside `nt.traceName`; see [Configuration Guide § The run has a name](configuration-guide.md#the-run-has-a-name-since-013-unreleased) for where else the same name appears (the console footer, `manifest.json`, the Markdown frontmatter).
+*(since 0.1.3)*
+
+Both consumers, and `@narrativetrace/observability`'s `createEnricherEventConsumer`, accept an optional `runName` — the enclosing test-suite (or process) run's own three-word phrase, bound once at consumer creation rather than re-derived per event (a run has no id of its own to derive it from the way a trace does). Every log line then carries `nt.runName` alongside `nt.traceName`; see [Configuration Guide § The run has a name](configuration-guide.md#the-run-has-a-name) for where else the same name appears (the console footer, `manifest.json`, the Markdown frontmatter).
 
 ## See also
 

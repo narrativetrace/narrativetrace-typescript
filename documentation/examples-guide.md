@@ -49,8 +49,8 @@ what pipes and CI get. `NO_COLOR` drops the colors, `FORCE_COLOR` keeps them in 
 There is no default renderer and nothing to configure: capture produces a `TraceTree` and you call
 the renderer you want — `renderIndentedText(tree)`, `renderProse`, `renderMermaidSequence`,
 `renderPlantUmlSequence`. The live `→ ← !!` lines are not a renderer at all: that is an
-`EventConsumer` on the inline path of the example's `DualPathPipeline` (`tools/demo-stream.ts`, the
-twin of Java's `Slf4jTraceEventListener`) — the only view that costs no rendering code.
+`EventConsumer` on the inline path of the example's `DualPathPipeline` (`tools/demo-stream.ts`) —
+the only view that costs no rendering code.
 Configuration selects a renderer in exactly one place, trace files written from tests:
 `createNarrativeTest` writes them on its own — no flag needed — and
 `NARRATIVETRACE_FORMAT=md|mmd|json|puml` picks which formats. Set
@@ -92,7 +92,7 @@ The flagship. Five in-memory services (customer, catalog, inventory, payment, no
 wrapped with `traceObject()`; the interesting orchestration is `DefaultOrderService`. Parameter
 names come from `@traced`, the narration on `placeOrder` from `@narrated`, the bracketed failure
 text from `@onError`, and the card token prints as `[REDACTED]` from `@notTraced(2)`.
-`src/scenarios.ts` runs Java's six scenarios, each printing `--- Trace tree ---`, `--- Prose ---`
+`src/scenarios.ts` runs six scenarios, each printing `--- Trace tree ---`, `--- Prose ---`
 and `--- Mermaid ---` (or PlantUML):
 
 1. **Successful order + async notification** — the happy path; the awaited notification lands in
@@ -124,7 +124,7 @@ logger (`@narrativetrace/pino`), interleaved with the console narration above �
 
 ## Clarity
 
-Java's `ClarityDemoExample`: a hotel-reservation domain at four naming-quality tiers, then the
+A hotel-reservation domain at four naming-quality tiers, then the
 clarity report over the four captured trees. Wiring is identical across the tiers — the variable
 under test is naming, not configuration.
 
@@ -280,7 +280,7 @@ The exact same logic as the minecraft example, but with generic, opaque names (G
 
 ```bash
 pnpm run example:minecraft-generic
-pnpm demo -- --example minecraft     # both halves, refactored first, as Java's one example
+pnpm demo -- --example minecraft     # both halves, refactored first, as one example
 ```
 
 Both halves are wired byte for byte the same way — `traceObject(impl, context, paramNames,
@@ -292,7 +292,7 @@ interleaved with the console output above — see
 
 ## Plain-JS
 
-The platform's analog of Java's Kotlin `library` example: a plain-JavaScript ESM consumer
+A plain-JavaScript ESM consumer
 (`.mjs`, JSDoc types checked by `tsc --checkJs`, no decorators, no TypeScript) tracing a small
 book-lending domain (`CatalogService`, `MemberService`, `LendingService`) through `traceObject`
 with `paramNames` maps. Two scenarios: a successful borrow (tree, prose, Mermaid) and a

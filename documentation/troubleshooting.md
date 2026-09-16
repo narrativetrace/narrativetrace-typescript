@@ -7,8 +7,8 @@ carries it in more detail rather than repeating it here — one home per fact.
 ## Parameters show as `arg0`, `arg1`
 
 **Cause:** JavaScript does not retain parameter names at runtime — there is
-no compiler flag that recovers them, unlike a JVM `-parameters` flag.
-Without help, `traceObject()` falls back to positional names.
+no compiler flag that recovers them. Without help, `traceObject()` falls
+back to positional names.
 
 **Fix:** supply names either way —
 
@@ -99,8 +99,8 @@ graft it by hand with `context.snapshot()` + `snapshot.wrap(fn)`. See
 
 ## `captureTrace()` returns an empty or partial tree from another async task
 
-**Cause:** capture is scoped to the context instance, not to a thread the
-way a JVM runtime's is — but a `SyncNarrativeContext` (browser) has no implicit
+**Cause:** capture is scoped to the context instance, not to any ambient
+thread or request — a `SyncNarrativeContext` (browser) has no implicit
 propagation at all, so two un-awaited overlapping calls on the same context
 corrupt each other's spans rather than merely missing one.
 

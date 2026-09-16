@@ -66,6 +66,15 @@ a deny-list is only as good as the field it does *not* blank, and a default
 that hides `circuitBreaker` is one teams switch off entirely — which leaks
 every field rather than one.
 
+A value case's `value` renders as a bare top-level scalar by default. Optional
+`"position": "mapKey"` places it as the KEY of a one-entry map instead (paired
+with an ordinary visible value), so the value-shape axis is asserted in a map
+KEY position and not only where a value ordinarily sits:
+
+```json
+{ "id": "shape-jwt-map-key", "description": "the same JWT, as a map KEY rather than a value", "value": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZGEifQ.dBjftJeZ4CVPmB92K27uhbUJU1p1r_wW1gFWFOEjXk", "position": "mapKey", "expect": "redacted" }
+```
+
 **Declarative graph** (`graphs.json`) — either `layers`, a stack of wrappers
 built outward around `payload` (index 0 is innermost, so
 `["optional","map","record"]` is a record holding a map holding an `Optional`),

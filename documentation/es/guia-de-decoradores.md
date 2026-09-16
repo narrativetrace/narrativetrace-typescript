@@ -1,10 +1,10 @@
-<!-- source: documentation/decorators-guide.md blob 17190ec2f604 | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob c18d283b01e2 | translated: 2026-09-12 | reviewed: - -->
 
 # Guía de decoradores de NarrativeTrace para TypeScript
 
 [English](../decorators-guide.md) | **Español** | [Português](../pt-BR/guia-de-decoradores.md) | [简体中文](../zh-CN/装饰器指南.md)
 
-Esta guía cubre los metadatos de traza a nivel de método — nombres de parámetros, narración, contexto de error y ocultación. La **forma por defecto de declararlos es la forma de configuración** en `traceObject()`, en la raíz de composición — los decoradores de abajo son lo que tiene en su lugar la versión publicada actualmente en npm, `@narrativetrace/proxy@0.1.1`. *(since 0.1.3, unreleased)* Los cuatro decoradores son las mismas declaraciones con una sintaxis más agradable para proyectos que ya compilan decoradores (NestJS, Angular, cualquier aplicación con TypeScript 5+).
+Esta guía cubre los metadatos de traza a nivel de método — nombres de parámetros, narración, contexto de error y ocultación. La **forma por defecto de declararlos es la forma de configuración** en `traceObject()`, en la raíz de composición — los decoradores de abajo son lo que tiene en su lugar la versión publicada actualmente en npm, `@narrativetrace/proxy@0.1.1`. *(since 0.1.3)* Los cuatro decoradores son las mismas declaraciones con una sintaxis más agradable para proyectos que ya compilan decoradores (NestJS, Angular, cualquier aplicación con TypeScript 5+).
 
 NarrativeTrace sigue la filosofía de **El código es el log**: los nombres de métodos, los nombres de parámetros y los valores de retorno ya deberían comunicar por sí mismos la historia de la ejecución. Mantén primero la lógica de negocio limpia y expresiva, y añade metadatos de forma excepcional, no por defecto — solo cuando aporten un valor adicional concreto, como una narración dirigida, contexto específico de un error o la ocultación de datos sensibles.
 
@@ -274,8 +274,7 @@ Qué se invoca y qué no:
   y se ejecutaría — prefiere getters de clase o marca el campo en `static notTraced`.)
 - **Un `toString()` personalizado (propio, no el predeterminado) solo se invoca para un
   intrínseco de la plataforma del realm** — `Date`, `URL`, `RegExp`, un `BigInt` empaquetado o un
-  array tipado, comprobado por identidad de prototipo, nunca por nombre. *(since 0.1.3,
-  unreleased)* Tus propios tipos ya nunca llegan a esta ruta, tengan campos o no: siempre corre
+  array tipado, comprobado por identidad de prototipo, nunca por nombre. *(since 0.1.3)* Tus propios tipos ya nunca llegan a esta ruta, tengan campos o no: siempre corre
   la introspección de campos en su lugar, sea lo que sea que tu `toString()` hubiera impreso
   (decisión del equipo, 2026-09-12, que estrecha la regla anterior de "cualquier hoja" de
   2026-09-11 — consulta [Privacidad y ocultación](privacidad-y-ocultacion.md) para el porqué: en
@@ -295,7 +294,7 @@ Qué se invoca y qué no:
   `maxArrayItems`, `maxObjectKeys`); un getter que lanza una excepción degrada solo *ese campo* al
   marcador de error tipado `<error: NombreDelConstructor>` (nunca `.message`, que puede llevar el
   valor exacto que el miembro se negaba a renderizar) — los campos hermanos siguen renderizándose
-  con normalidad. *(since 0.1.3, unreleased)* Un `toString()` o `@narrativeSummary()` que lanza excepción degrada el valor
+  con normalidad. *(since 0.1.3)* Un `toString()` o `@narrativeSummary()` que lanza excepción degrada el valor
   completo de la misma forma; ninguno de los dos hace fallar jamás la llamada de negocio trazada
   (las plantillas recurren al literal `{placeholder}`). Los valores se renderizan de forma eager
   en el punto de llamada, así que cualquier efecto secundario ocurre una sola vez, en un punto

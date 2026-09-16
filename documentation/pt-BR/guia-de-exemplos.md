@@ -1,4 +1,4 @@
-<!-- source: documentation/examples-guide.md blob f3ca6de1fcee | translated: 2026-09-11 | reviewed: - -->
+<!-- source: documentation/examples-guide.md blob c6ca59b9f82f | translated: 2026-09-16 | reviewed: - -->
 # Guia de exemplos
 
 [English](../examples-guide.md) | [Español](../es/guia-de-ejemplos.md) | **Português** | [简体中文](../zh-CN/示例指南.md)
@@ -53,8 +53,8 @@ mantém em um pipe.
 Não existe renderer padrão nem nada para configurar: a captura produz uma `TraceTree` e você chama
 o renderer que quiser — `renderIndentedText(tree)`, `renderProse`, `renderMermaidSequence`,
 `renderPlantUmlSequence`. As linhas ao vivo `→ ← !!` não são um renderer: isso é um
-`EventConsumer` no caminho inline do `DualPathPipeline` do exemplo (`tools/demo-stream.ts`, o
-gêmeo do `Slf4jTraceEventListener` do Java) — a única visão que não custa nenhum código de renderização.
+`EventConsumer` no caminho inline do `DualPathPipeline` do exemplo (`tools/demo-stream.ts`) —
+a única visão que não custa nenhum código de renderização.
 A configuração seleciona um renderer em exatamente um lugar, os arquivos de trace escritos pelos testes:
 o `createNarrativeTest` os escreve por conta própria — sem precisar de nenhuma flag — e
 `NARRATIVETRACE_FORMAT=md|mmd|json|puml` escolhe quais. Defina `NARRATIVETRACE_OUTPUT=false` para
@@ -97,7 +97,7 @@ O carro-chefe. Cinco serviços em memória (customer, catalog, inventory, paymen
 envolvidos com `traceObject()`; a orquestração interessante é a `DefaultOrderService`. Os nomes dos
 parâmetros vêm de `@traced`, a narração em `placeOrder` vem de `@narrated`, o texto de falha entre
 colchetes vem de `@onError`, e o token do cartão é impresso como `[REDACTED]` graças a `@notTraced(2)`.
-`src/scenarios.ts` executa os seis cenários do Java, cada um imprimindo `--- Trace tree ---`, `--- Prose ---`
+`src/scenarios.ts` executa seis cenários, cada um imprimindo `--- Trace tree ---`, `--- Prose ---`
 e `--- Mermaid ---` (ou PlantUML):
 
 1. **Pedido bem-sucedido + notificação assíncrona** — o caminho feliz; a notificação aguardada (`await`)
@@ -130,7 +130,7 @@ Pino](guia-de-integracao-de-frameworks.md#9-winston--pino).
 
 ## Clareza
 
-O `ClarityDemoExample` do Java: um domínio de reserva de hotel em quatro níveis de qualidade de
+Um domínio de reserva de hotel em quatro níveis de qualidade de
 nomenclatura, seguido pelo relatório de clareza sobre as quatro árvores capturadas. O wiring é idêntico
 entre os níveis — a variável sob teste é a nomenclatura, não a configuração.
 
@@ -287,7 +287,7 @@ Exatamente a mesma lógica do exemplo minecraft, mas com nomes genéricos e opac
 
 ```bash
 pnpm run example:minecraft-generic
-pnpm demo -- --example minecraft     # as duas metades, a refatorada primeiro, como no exemplo único do Java
+pnpm demo -- --example minecraft     # as duas metades, a refatorada primeiro, como um único exemplo
 ```
 
 As duas metades usam exatamente o mesmo wiring, byte a byte — `traceObject(impl, context, paramNames,
@@ -299,7 +299,7 @@ intercalado com a saída de console acima — veja
 
 ## Plain-JS
 
-O análogo, nesta plataforma, do exemplo Kotlin `library` do Java: um consumidor ESM em JavaScript puro
+Um consumidor ESM em JavaScript puro
 (`.mjs`, tipos JSDoc verificados por `tsc --checkJs`, sem decoradores, sem TypeScript) fazendo tracing de um
 pequeno domínio de empréstimo de livros (`CatalogService`, `MemberService`, `LendingService`) via
 `traceObject` com mapas `paramNames`. Dois cenários: um empréstimo bem-sucedido (tree, prose, Mermaid) e uma

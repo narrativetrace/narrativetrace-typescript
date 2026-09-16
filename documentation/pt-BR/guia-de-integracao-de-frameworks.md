@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob d98ef22b6dbb | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 3eebd614ea2d | translated: 2026-09-13 | reviewed: - -->
 # Guia de Integração de Frameworks do NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | [Español](../es/guia-de-integracion-de-frameworks.md) | **Português** | [简体中文](../zh-CN/框架集成指南.md)
@@ -429,7 +429,7 @@ O callback é opcional — omita-o para simplesmente resetar o trace a cada nave
 
 ## 8. OpenTelemetry
 
-O pacote `@narrativetrace/opentelemetry` mapeia narrativas de chamadas de método para spans do OTel, de modo que visualizações existentes no Jaeger/Tempo/Datadog passam a funcionar sem spans instrumentados manualmente. `createOtelEventConsumer` é a ponte ao vivo — ela inicia/encerra spans conforme os métodos são executados, aninhando spans filhos sob seus pais. Conecte-a a um pipeline: *(since 0.1.3, unreleased)*
+O pacote `@narrativetrace/opentelemetry` mapeia narrativas de chamadas de método para spans do OTel, de modo que visualizações existentes no Jaeger/Tempo/Datadog passam a funcionar sem spans instrumentados manualmente. `createOtelEventConsumer` é a ponte ao vivo — ela inicia/encerra spans conforme os métodos são executados, aninhando spans filhos sob seus pais. Conecte-a a um pipeline: *(since 0.1.3)*
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -460,7 +460,9 @@ Cada span é estampado com `nt.trace_id` e outros atributos de schema `nt.*` (id
 
 Os pacotes `@narrativetrace/winston` e `@narrativetrace/pino` transmitem eventos de chamada de método para o seu logger como linhas estruturadas por evento (`→ Class.method` na entrada, `← returned: …` / `!! Error` na saída) carregando `code.*`, `trace_id`, `service.*`, `nt.depth` e parâmetros tipados — mais `nt.traceName`, a frase de três palavras própria do trace, em cada linha.
 
-### Winston *(since 0.1.3, unreleased)*
+### Winston
+
+*(since 0.1.3)*
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -485,7 +487,9 @@ const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pi
 
 Para estampar a identidade do trace ativo nas suas *próprias* chamadas `logger.*`, adicione `createWinstonFormat()` à cadeia de formatação do logger — ele mescla o `LogContext` atual (`trace_id`, `service.*`, `nt.depth`, `nt.runName` quando um foi passado a `createEnricherEventConsumer`) em cada linha.
 
-### Pino *(since 0.1.3, unreleased)*
+### Pino
+
+*(since 0.1.3)*
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -511,9 +515,11 @@ Para estampar a identidade do trace ativo nas suas *próprias* chamadas `logger.
 
 Ambos os consumers aceitam um mapa `levels` indexado pelo tipo de evento (`enter`, `return`, `exception`), permitindo elevar o ruído de entrada/retorno para `info` ou direcionar exceções para `error` de forma independente. O Winston usa `debug`/`debug`/`warn` por padrão; o Pino usa `trace`/`trace`/`warn` por padrão.
 
-### Nomeando a execução *(since 0.1.3, unreleased)*
+### Nomeando a execução
 
-Ambos os consumers, e o `createEnricherEventConsumer` de `@narrativetrace/observability`, aceitam um `runName` opcional — a frase própria de três palavras da execução da suíte de testes (ou do processo) que a contém, vinculada uma única vez na criação do consumer em vez de re-derivada por evento (uma execução não tem um id próprio do qual derivá-la, diferente de um trace). Cada linha de log carrega então `nt.runName` ao lado de `nt.traceName`; veja [Guia de Configuração § A execução tem um nome](guia-de-configuracao.md#a-execução-tem-um-nome-since-013-unreleased) para saber onde mais o mesmo nome aparece (o rodapé do console, o `manifest.json`, o frontmatter do Markdown).
+*(since 0.1.3)*
+
+Ambos os consumers, e o `createEnricherEventConsumer` de `@narrativetrace/observability`, aceitam um `runName` opcional — a frase própria de três palavras da execução da suíte de testes (ou do processo) que a contém, vinculada uma única vez na criação do consumer em vez de re-derivada por evento (uma execução não tem um id próprio do qual derivá-la, diferente de um trace). Cada linha de log carrega então `nt.runName` ao lado de `nt.traceName`; veja [Guia de Configuração § A execução tem um nome](guia-de-configuracao.md#a-execução-tem-um-nome) para saber onde mais o mesmo nome aparece (o rodapé do console, o `manifest.json`, o frontmatter do Markdown).
 
 ## Veja também
 

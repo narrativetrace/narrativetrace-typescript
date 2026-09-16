@@ -1,6 +1,6 @@
 # Agent skills
 
-*(since 0.1.3, unreleased)*
+*(since 0.1.3)*
 
 NarrativeTrace ships **skills**: agent-loadable procedures that run tested commands and gate
 completion on a `verify` step, rather than docs an agent might or might not read. A skill is thin
@@ -11,7 +11,7 @@ own job is knowing when to act, invoking that tested code, and interpreting the 
 
 - **`add-narrative-tracing`** — installs NarrativeTrace into a project and gets it to a first
   trace: install with the real toolchain, wrap a class, render and run the first trace, then wire
-  a real logger (SLF4J-equivalent: pino/winston/OpenTelemetry). Ends by running `npx narrativetrace
+  a real logger (pino/winston/OpenTelemetry). Ends by running `npx @narrativetrace/cli
   doctor` and handing off — the seam between the two skills.
 - **`narrativetrace-doctor`** — diagnosis only, and **read-only**: it never edits, generates, or
   deletes a file. Runs the tested CLI, reads its report, and walks through the parts a plain CLI

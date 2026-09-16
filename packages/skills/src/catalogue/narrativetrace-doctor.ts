@@ -32,13 +32,13 @@ export const NARRATIVETRACE_DOCTOR: Skill = {
       // `|| true`: a failing finding is doctor working correctly (there is something to act on),
       // never a crash — the mechanical floor this step's own verify checks is well-formedness,
       // not that every finding passed.
-      body: { kind: "commands", commands: ["npx narrativetrace doctor || true"] },
+      body: { kind: "commands", commands: ["npx @narrativetrace/cli doctor || true"] },
       verify: DOCTOR_REPORT_WELL_FORMED,
       failure: [
         {
           symptom: "the CLI's JSON output does not parse, or is missing findings",
           cause: "the CLI crashed instead of reporting a finding",
-          fix: "re-run `npx narrativetrace doctor --json` directly and read the raw output — a crash here is a doctor bug, never a project finding",
+          fix: "re-run `npx @narrativetrace/cli doctor --json` directly and read the raw output — a crash here is a doctor bug, never a project finding",
         },
       ],
     },

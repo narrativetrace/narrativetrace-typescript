@@ -1,4 +1,4 @@
-<!-- source: documentation/choosing-an-integration.md blob b965667a368c | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/choosing-an-integration.md blob 8865ad5d1182 | translated: 2026-09-16 | reviewed: - -->
 # Eligiendo una integración
 
 [English](../choosing-an-integration.md) | **Español** | [Português](../pt-BR/escolhendo-uma-integracao.md) | [简体中文](../zh-CN/选择集成方式.md)
@@ -83,7 +83,7 @@ registra una vez envuelta.
 ## Salvedades por camino
 
 - **`traceObject` (proxy)** — envuelve un objeto a la vez; no hay requisito
-  de interfaz (a diferencia de un proxy dinámico de la JVM) porque el
+  de interfaz porque el
   `Proxy` envuelve directamente el objeto concreto. Se envuelve todo método
   alcanzable mediante búsqueda de propiedad — propio o heredado de la
   cadena de prototipos —; una llamada hecha directamente sobre la instancia
@@ -114,7 +114,7 @@ registra una vez envuelta.
 ## Límites de la plataforma
 
 No existe en esta plataforma un camino de cero código, «envolver una app
-que no puedes modificar» — no hay equivalente al agente de Java, ni está
+que no puedes modificar», ni está
 planeado. Los decoradores `TC39` y `traceObject()` necesitan un punto de
 llamada o una clase que puedas anotar; se rechazó deliberadamente un hook
 de loader `require`/ESM (frágil entre versiones de Node, y completamente

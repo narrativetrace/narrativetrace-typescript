@@ -14,7 +14,7 @@ dependencies (core-node, clarity, diagrams, glossary) install automatically with
 since they release in lockstep and are never independently versioned. `@narrativetrace/proxy` is
 listed explicitly because the example below imports `traceObject` from it directly: pnpm only
 exposes a package's own direct dependencies, not a dependency's dependencies, so anything you
-`import` yourself still needs to be your own dependency. *(since 0.1.3, unreleased)*
+`import` yourself still needs to be your own dependency. *(since 0.1.3)*
 
 ## Usage
 
@@ -58,7 +58,7 @@ For suite-wide clarity, register `ClaritySuiteReporter` in your Vitest config,
 importing it from the `/reporters` subpath — **not** the package root, which
 also loads the `narrativeTest` fixture and, with it, `vitest` itself; importing
 `vitest` from inside `vitest.config.ts` fails with "Vitest failed to access
-its internal state" on every Vitest version *(since 0.1.3, unreleased)*:
+its internal state" on every Vitest version *(since 0.1.3)*:
 
 ```ts
 // vitest.config.ts

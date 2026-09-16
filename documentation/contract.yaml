@@ -269,7 +269,7 @@ entries:
 
   - id: config-shape-narrativetrace-approve-bin
     kind: config-shape
-    page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces-since-013-unreleased"
+    page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces"
     claim: "@narrativetrace/vitest publishes a narrativetrace-approve executable"
     since: "0.1.3"
     expected_effect: "resolves"
@@ -277,7 +277,7 @@ entries:
 
   - id: config-shape-approval-traces
     kind: config-shape
-    page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces-since-013-unreleased"
+    page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces"
     claim: "createNarrativeTest's approval mode writes a value-free .nt structural artifact"
     since: "0.1.3"
     expected_effect: "writes-nt-artifact"
@@ -342,7 +342,7 @@ entries:
 
   - id: probed-run-name-console-footer
     kind: probed-default
-    page: "documentation/configuration-guide.md#the-run-has-a-name-since-013-unreleased"
+    page: "documentation/configuration-guide.md#the-run-has-a-name"
     claim: "once ClaritySuiteReporter is registered, the suite footer names the enclosing run ('run: <phrase>') with no further configuration"
     since: "0.1.3"
     documented_default: "true"
@@ -350,7 +350,7 @@ entries:
 
   - id: probed-run-name-manifest-field
     kind: probed-default
-    page: "documentation/configuration-guide.md#the-run-has-a-name-since-013-unreleased"
+    page: "documentation/configuration-guide.md#the-run-has-a-name"
     claim: "once ManifestSuiteReporter is registered, manifest.json carries a top-level run object ({id, name}) with no further configuration"
     since: "0.1.3"
     documented_default: "true"

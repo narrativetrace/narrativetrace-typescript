@@ -1,4 +1,4 @@
-<!-- source: documentation/what-to-commit.md blob 26a616d821b0 | translated: 2026-09-14 | reviewed: - -->
+<!-- source: documentation/what-to-commit.md blob e301471ab2c3 | translated: 2026-09-14 | reviewed: - -->
 # Qué commitear
 
 [English](../what-to-commit.md) | **Español** | [Português](../pt-BR/o-que-commitar.md) | [简体中文](../zh-CN/应提交的内容.md)
@@ -7,7 +7,7 @@ NarrativeTrace escribe ficheros que describen una ejecución de test, por
 defecto — una suite que usa `createNarrativeTest` no necesita configurar
 nada para obtenerlos. La mayoría son salida generada, no un contrato
 revisado. La única excepción deliberada además de `glossary.json` es la
-traza aprobada (`.approved.nt`) *(since 0.1.3, unreleased)* — actívala con `approval: true` (consulta la
+traza aprobada (`.approved.nt`) *(since 0.1.3)* — actívala con `approval: true` (consulta la
 [Guía de configuración](guia-de-configuracion.md#2-configuración-de-vitest))
 y se convierte en un contrato revisado y escrito a mano, igual que una
 baseline de aprobación en cualquier otra implementación de NarrativeTrace.
@@ -21,12 +21,12 @@ baseline de aprobación en cualquier otra implementación de NarrativeTrace.
 | `narrativetrace-output/**/*.clarity-json` | No | Puntuaciones de claridad por escenario — se regenera en cada ejecución |
 | `narrativetrace-output/clarity-report.md` / `clarity-results.json` | No | El agregado de toda la suite (vía `ClaritySuiteReporter`) — un informe generado, no una decisión |
 | `narrativetrace-output/structural/**/*.nt` | No | La baseline *local* de último-verde con la que compara el delta de consola y los informes de fallo — no la traza aprobada de abajo |
-| `narrativetrace-output/manifest.json` | No | Índice escenario → artefactos, además del `id`/`name` propios de la ejecución *(since 0.1.3, unreleased)* — se regenera en cada ejecución |
+| `narrativetrace-output/manifest.json` | No | Índice escenario → artefactos, además del `id`/`name` propios de la ejecución *(since 0.1.3)* — se regenera en cada ejecución |
 | `<approvedDir>/**/*.approved.nt` | **Sí** | La traza aprobada revisada (solo existe una vez definido `approval: true`) — el único artefacto de esta lista que es una decisión deliberada, no salida |
 | `<approvedDir>/**/*.received.nt` | No | Se escribe ante un desajuste de aprobación, o cuando todavía no existe traza aprobada. Revísala, ejecuta `pnpm run approve-narratives` (o `narrativetrace-approve`) para promoverla, y luego bórrala o deja que el script la elimine — nunca commitees la traza recibida en sí |
 | `<approvedDir>/**/*.incomplete.nt` | No | Se escribe en vez de `.received.nt` cuando la propia ejecución fue incompleta (un evento descartado, o un scope asíncrono rechazado) — se compara por contención de subsecuencia, nunca promovible |
 | `glossary.json` / `glossary.md` | **Sí**, si se usa la recolección del glosario | Se commitea en la raíz del repositorio una vez recolectado; el fichero commiteado es lo que la puntuación de claridad y las comprobaciones de vocabulario leen de vuelta en cada ejecución posterior — "un fichero, un flujo de revisión" |
-| `.claude/skills/**/SKILL.md`, `.agents/skills/**/SKILL.md`, la sección `<!-- narrativetrace:skills:* -->` de `AGENTS.md` | **Sí** *(since 0.1.3, unreleased)* | Salida de compilación del catálogo tipado de `packages/skills` (`pnpm run skills-render`), no salida de una ejecución de test — se commitea igual que `glossary.json`: regenerada, revisada en los diffs, y comprobada contra desviaciones (`pnpm run skills-check`, integrado en `pnpm run check`) en vez de editada a mano |
+| `.claude/skills/**/SKILL.md`, `.agents/skills/**/SKILL.md`, la sección `<!-- narrativetrace:skills:* -->` de `AGENTS.md` | **Sí** *(since 0.1.3)* | Salida de compilación del catálogo tipado de `packages/skills` (`pnpm run skills-render`), no salida de una ejecución de test — se commitea igual que `glossary.json`: regenerada, revisada en los diffs, y comprobada contra desviaciones (`pnpm run skills-check`, integrado en `pnpm run check`) en vez de editada a mano |
 
 Todo lo que está bajo `narrativetrace-output/` es salida. Añádelo a
 `.gitignore` si todavía no lo has hecho:

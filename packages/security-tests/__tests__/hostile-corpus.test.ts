@@ -17,7 +17,7 @@ import {
 } from "../src/corpus/hostile-corpus.js";
 import { build, templateValues } from "../src/corpus/hostile-graphs.js";
 import { build as buildTraceShape } from "../src/corpus/trace-shapes.js";
-import { isNameCase, secretOf } from "../src/corpus/types.js";
+import { isMapKeyCase, isNameCase, secretOf } from "../src/corpus/types.js";
 
 /**
  * The corpus is data copied verbatim from the shared master copy, so its shape is a contract in
@@ -151,6 +151,20 @@ describe("hostile corpus", () => {
       ).toBe(true);
       expect(["redacted", "visible"], `${c.id} must declare which way it goes`).toContain(c.expect);
     }
+  });
+
+  // ADV-2026-09-14-1: `position` only ever means "as a map key", and only a value case may declare
+  // it — a name case already renders as a map, under its own field name, so a second map position
+  // on top of that would test nothing new. Mirrors Java's `everyRedactionPositionIsWellFormed`.
+  test("every redaction position is well-formed", () => {
+    for (const c of hostileRedactions()) {
+      if (c.position === undefined) continue;
+      expect(c.position, `${c.id} declares an unknown position`).toBe("mapKey");
+      expect(isNameCase(c), `${c.id}: only a value case may declare a map-key position`).toBe(
+        false,
+      );
+    }
+    expect(hostileRedactions().some(isMapKeyCase)).toBe(true);
   });
 
   // A name case whose canary is itself secret-shaped would pass the hidden assertion for the

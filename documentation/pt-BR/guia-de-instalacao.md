@@ -1,4 +1,4 @@
-<!-- source: documentation/installation-guide.md blob 888db3e4a9fb | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/installation-guide.md blob 9eb6d470d9ed | translated: 2026-09-12 | reviewed: - -->
 
 # Guia de instalação do NarrativeTrace TypeScript
 
@@ -87,7 +87,7 @@ automaticamente com ele — elas são lançadas em conjunto e nunca são version
 `@narrativetrace/proxy` é listado explicitamente porque os exemplos abaixo importam `traceObject`
 diretamente dele: o pnpm só expõe as dependências do próprio pacote, não as dependências de uma
 dependência, então qualquer coisa que você importe também precisa ser sua própria dependência (o
-`node_modules` mais plano do npm não faz essa distinção, mas o pnpm — usado aqui — faz). *(since 0.1.3, unreleased)*
+`node_modules` mais plano do npm não faz essa distinção, mas o pnpm — usado aqui — faz). *(since 0.1.3)*
 
 #### Fixture básica (sem saída em arquivo)
 
