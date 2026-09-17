@@ -16,7 +16,7 @@ for (const exemption of report.exempt) {
   console.log(`EXEMPT  ${exemption.pkg}: ${exemption.reason}`);
 }
 for (const pkg of report.ok) {
-  console.log(`OK      ${pkg}: mutate script + stryker.config.json`);
+  console.log(`OK      ${pkg}: mutate script + stryker.config.json/.mjs`);
 }
 
 if (report.gaps.length > 0) {
@@ -25,7 +25,7 @@ if (report.gaps.length > 0) {
   );
   for (const gap of report.gaps) console.error(`  [${gap.kind}] ${gap.pkg}: ${gap.detail}`);
   console.error(
-    '\nFix: add a "mutate" script (`stryker run`) backed by a stryker.config.json, or add the ' +
+    '\nFix: add a "mutate" script (`stryker run`) backed by a stryker.config.json/.mjs, or add the ' +
       "package to MUTATION_EXEMPTIONS in tools/verify-mutation-completeness.ts with a written " +
       "reason — for a double-classified package, remove it from whichever of the two no longer applies.",
   );

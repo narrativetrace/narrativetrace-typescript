@@ -69,9 +69,26 @@ export function isApplicable(since: string, installedVersion: string): boolean {
 }
 
 /**
- * `observed` is `undefined` when the probe itself could not even run (registry unreachable,
- * artifact missing) — treated as a failure with its own explaining message, never silently
- * skipped; only a `since` later than `installedVersion` is ever skipped.
+ * The sentinel a probe prints, in place of an observed value, when it could not run at all — an
+ * unresolvable import, a fixture that never executed, a CLI that answered "could not run". It is
+ * still a FAILURE (release-retrospective-2026-09-07 rule 2: a check that finds nothing to check is
+ * red, never a false verdict), but it is a failure of the harness, and {@link decide} must not
+ * dress it up as a finding about the published package.
+ */
+export const COULD_NOT_PROBE = "could-not-probe";
+
+/** A probe that could not run reports its reason, never a verdict about the package. */
+function couldNotProbeMessage(entry: ContractEntry, observed: string): string {
+  return (
+    `documentation/contract.yaml: ${entry.id} COULD NOT BE PROBED — the harness never ` +
+    `observed the published package, so this is not a verdict about it: ${observed}`
+  );
+}
+
+/**
+ * `observed` is `undefined` when the probe produced no answer at all, and starts with
+ * {@link COULD_NOT_PROBE} when it produced an explained non-answer; both fail, with their own
+ * message. Only a `since` later than `installedVersion` is ever skipped.
  */
 export function decide(
   entry: ContractEntry,
@@ -87,6 +104,9 @@ export function decide(
   }
   if (observed === entry.expect) {
     return { entry, verdict: "holds", message: `"${entry.id}": holds` };
+  }
+  if (observed?.startsWith(COULD_NOT_PROBE)) {
+    return { entry, verdict: "fails", message: couldNotProbeMessage(entry, observed) };
   }
   const coordinate = entry.coordinate ?? entry.id;
   return {

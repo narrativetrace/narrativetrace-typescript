@@ -133,6 +133,12 @@ describe("walkPreOrder", () => {
     expect(stops).toEqual([undefined, undefined, "cycle"]);
   });
 
+  // Builds and walks a 50,000-deep chain — measured 2026-09-17: ~21ms run alone, ~21ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs. 100ms
+  // is ~5x the measured contended run.
   test("a 50,000-deep chain terminates without a stack overflow, bounded at the depth limit", () => {
     let root = node("leaf");
     for (let i = 0; i < 50_000; i++) root = node(`n${i}`, [root]);
@@ -146,7 +152,7 @@ describe("walkPreOrder", () => {
     }).not.toThrow();
     expect(count).toBe(10_001);
     expect(stopReasons).toBe(1);
-  });
+  }, 100);
 
   test("a diamond (shared, non-cyclic) node is visited in full at both occurrences", () => {
     const shared = node("shared", [node("leaf")]);

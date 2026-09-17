@@ -11,8 +11,8 @@ import { byKey } from "./text-order.js";
  * Quotes and escapes one string as a JSON string literal.
  *
  * @llmNote Do not hand-roll an escaper here. `JSON.stringify` of a string is the platform's own
- * RFC 8259 escaper — it matches the Java runtime's `JsonEscape` output for every input the
- * glossary can hold, and it additionally repairs lone surrogates.
+ * RFC 8259 escaper — it matches every NarrativeTrace runtime's `JsonEscape` output for every input
+ * the glossary can hold, and it additionally repairs lone surrogates.
  */
 function quoted(value: string): string {
   return JSON.stringify(value);

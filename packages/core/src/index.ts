@@ -91,6 +91,7 @@ export {
   renderStructured,
   type StructuredOptions,
 } from "./rendered-value.js";
+export { isRenderingInProgress } from "./rendering-guard.js";
 export { generateRunIdentity, type RunIdentity } from "./run-identity.js";
 export { type ScenarioDelta, type ScenarioDeltaKind, scenarioDelta } from "./scenario-delta.js";
 export { frameScenario } from "./scenario-framer.js";
@@ -154,4 +155,9 @@ export { type TraceTree, traceTree } from "./trace-tree.js";
 export { formatTraceparent, parseTraceparent } from "./traceparent.js";
 export { isActiveLevel, isEnabled, parseTracingLevel, type TracingLevel } from "./tracing-level.js";
 export { TREE_WALK_MARKER, TreeWalk, type TreeWalkStop, walkPreOrder } from "./tree-walk.js";
-export { type RenderOptions, renderCapture, renderValue } from "./value-renderer.js";
+export {
+  NARRATIVE_ELEMENTS,
+  type RenderOptions,
+  renderCapture,
+  renderValue,
+} from "./value-renderer.js";

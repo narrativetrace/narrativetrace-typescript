@@ -137,6 +137,72 @@ export class AccessorThrowing {
 }
 
 /**
+ * An accessor with a side effect instead of a failure — counts its own calls, for the rendering
+ * rule "rendering reads state, never runs behaviour" (see `render-reads-state.test.ts` in
+ * `packages/core`): a renderer that reads state must never invoke this, so the counter must stay
+ * at zero.
+ *
+ * @remarks `calls` is `static notTraced` so its own rendered text stays the constant
+ * `[REDACTED]` marker rather than the live count — otherwise two renders of the same instance
+ * would print two different numbers and this row would counterfeit a failure of the unrelated
+ * "rendering is idempotent for every hostile graph" property, which renders every corpus row
+ * twice and compares the text.
+ */
+export class CountingAccessor {
+  static readonly notTraced = ["calls"];
+  calls = 0;
+  #held: Secret;
+  constructor(held: Secret) {
+    this.#held = held;
+    Object.defineProperty(this, "held", {
+      enumerable: true,
+      get: (): Secret => {
+        this.calls++;
+        return this.#held;
+      },
+    });
+  }
+}
+
+/**
+ * A platform-collection (`Array`) subclass whose overridden `[Symbol.iterator]` both counts its
+ * own calls and refuses — same rule as {@link CountingAccessor}: the target reads `Array`'s own
+ * indexed state through the platform ancestor (`renderArray`'s `slice`/`map`), never this
+ * override.
+ */
+export class SideEffectingIteratorList extends Array<unknown> {
+  iteratorCalls = 0;
+  constructor(held: Secret) {
+    super();
+    this.push(held);
+  }
+  [Symbol.iterator](): never {
+    this.iteratorCalls++;
+    throw new Error("iterator() must never be called by rendering");
+  }
+}
+
+/**
+ * A user collection implemented from scratch — not a platform-collection subclass, so it carries
+ * no platform ancestor state to fall back on. Same rule: the target must never enumerate it by
+ * calling its own `[Symbol.iterator]`; it renders as an object instead.
+ */
+export class LookalikeCollection {
+  iteratorCalls = 0;
+  #backing: unknown[];
+  constructor(held: Secret) {
+    this.#backing = [held];
+  }
+  get size(): number {
+    return this.#backing.length;
+  }
+  [Symbol.iterator](): never {
+    this.iteratorCalls++;
+    throw new Error("iterator() must never be called by rendering");
+  }
+}
+
+/**
  * Hostile *names*, where names actually come from data: object keys.
  *
  * The deny-list matches on the rendered key text, so a key carrying an invisible code point reads

@@ -1,4 +1,4 @@
-<!-- source: README.md blob 6fcd5106d726 | translated: 2026-09-16 | reviewed: - -->
+<!-- source: README.md blob 19230be916f8 | translated: 2026-09-17 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
@@ -152,6 +152,8 @@ Cada linha `console.log(...)` ou `logger.trace(...)`/`logger.debug(...)`/`logger
 
 Isso não é um benefício vago — é mensurável em tokens.
 
+Um estudo empírico independente, "Do AI Coding Agents Log Like Humans? An Empirical Study" (arXiv 2604.09409, https://arxiv.org/abs/2604.09409), mediu como os agentes de codificação com IA lidam com logging em 81 repositórios reais e 4.550 pull requests agênticos. Constatou que os agentes alteram o logging com menos frequência do que humanos em 58,4% dos repositórios estudados, que apenas 20,7% dos PRs agênticos tocam em logging, e que os agentes deixam de cumprir solicitações explícitas de logging 67% das vezes — enquanto humanos escrevem 72,5% das correções de logging pós-geração em PRs agênticos, e o fazem em commits posteriores, não durante a revisão. Lido sem rodeios, o estudo mede que os agentes não escrevem logging de forma confiável nem obedecem de forma confiável a instruções para adicioná-lo, e que são os humanos que acabam reparando essa lacuna em silêncio, depois do fato. Esse é exatamente o modo de falha em torno do qual o NarrativeTrace foi construído: como o código é o log, não existe uma etapa de logging separada que um agente possa pular, esquecer ou fazer errado, e os traces de aprovação transformam a observabilidade em um portão determinístico — a classe de salvaguarda que as próprias recomendações do estudo pedem. (Citar este estudo não é uma afirmação de que seus autores endossam o NarrativeTrace.)
+
 ## Pontuação de clareza
 
 Se o trace *é* o código, então a qualidade do trace *é* a qualidade do código. O NarrativeTrace inclui um analisador de clareza que pontua os nomes dos seus métodos, classes e parâmetros:
@@ -239,9 +241,8 @@ importe também precisa ser sua própria dependência (o `node_modules` mais pla
 essa distinção, mas o pnpm — usado aqui — faz). *(since 0.1.3)*
 
 Estes são os pacotes publicados — `npm view @narrativetrace/core version` mostra a versão atual
-(0.1.1 no momento em que isto foi escrito; veja [Compilando a partir do
-código-fonte](#compilando-a-partir-do-código-fonte) se precisar de uma mudança ainda não
-publicada).
+— veja [Compilando a partir do código-fonte](#compilando-a-partir-do-código-fonte) se precisar
+de uma mudança ainda não publicada.
 
 ```ts
 // order-service.test.ts

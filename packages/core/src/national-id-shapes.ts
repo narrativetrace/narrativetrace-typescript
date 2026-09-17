@@ -5,7 +5,7 @@
  * Recognises national identity numbers by their own check digits, whatever the field is called —
  * the fourth {@link isSecretShaped | secret-value-shapes} axis, kept in its own module because it
  * is six checksums (plus one structural-rule exception) rather than one matcher. Port of Java's
- * `NationalIdShapes`, landed the same day across Java/Swift/.NET/Python (2026-09-10).
+ * `NationalIdShapes`, kept in parity across every runtime.
  *
  * INTENT: `secret-value-shapes.ts` already answers "are these bytes a credential?" for a JWT, a
  * card number and a `Set-Cookie` string. A national identity number is the same question in a

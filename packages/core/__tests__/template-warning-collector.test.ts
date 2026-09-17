@@ -127,7 +127,14 @@ describe("bounded tree walk (cyclic and very deep trees)", () => {
     expect(() => collectTemplateWarnings(traceTree([cyclicRoot()]))).not.toThrow();
   });
 
+  // Builds and walks a 50,000-deep chain — measured 2026-09-17: ~139ms run alone, ~129ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs. 700ms
+  // is ~5x the measured contended run (and above the idle run too, since this one showed no
+  // contention penalty on the day it was measured).
   test("does not stack-overflow on a very deep chain", () => {
     expect(() => collectTemplateWarnings(traceTree([deepChain(50_000)]))).not.toThrow();
-  });
+  }, 700);
 });

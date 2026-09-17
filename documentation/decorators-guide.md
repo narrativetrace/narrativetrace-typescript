@@ -259,10 +259,15 @@ counters, cache population, or I/O — exactly as you would for a debugger or a 
 
 What is invoked, and what is not:
 
-- **Introspection enumerates own enumerable properties** (`Object.keys`). A getter defined
-  on a class lives on the prototype, is never enumerated, and never runs during
-  introspection. (An accessor defined directly on an object literal *is* own-enumerable
-  and would run — prefer class getters or mark the field in `static notTraced`.)
+- **Introspection enumerates own enumerable properties** (`Object.keys`), and reads each one
+  through its own property descriptor. A getter defined on a class lives on the prototype, is
+  never enumerated, and never runs during introspection. *(since 0.1.4, owner ruling
+  2026-09-17, "rendering reads state, never runs behaviour")* An accessor defined directly on
+  an object literal (or promoted to an own property via `Object.defineProperty`, as a
+  record-like class's backing accessor sometimes is) is own-enumerable but is **never invoked
+  any more, not even as a fallback** — it renders the dedicated `<inaccessible>` marker instead,
+  distinct from the typed `<error: Type>` marker, which stays reserved for a value that was
+  genuinely read and failed. Only a plain data property's stored value is ever read.
 - **A custom `toString()` (own, non-default) is invoked only for a realm platform
   intrinsic** — `Date`, `URL`, `RegExp`, a boxed `BigInt`, or a typed array, checked by
   prototype identity, never by name. *(since 0.1.3)* Your own types never
@@ -278,11 +283,27 @@ What is invoked, and what is not:
   secret-shaped value (a JWT, a card number, …) as defense in depth.
 - Any property path you name in a `@narrated`/`@onError` template is invoked too —
   `{order.total}` resolves via property access, so a getter named there *will* run.
+- **Collections enumerate through the platform ancestor's own state, keyed on origin.**
+  *(since 0.1.4, owner ruling 2026-09-17)* A plain `Array`/`Set`/`Map` (or a subclass that has
+  not overridden the relevant method) reads exactly as before. A subclass that HAS overridden
+  the method the renderer would otherwise call (`[Symbol.iterator]` on an `Array`, `entries()`
+  on a `Map`, `values()`/`[Symbol.iterator]` on a `Set`) is read through the platform base's own
+  method instead (`Array.prototype`'s indexed access already worked this way; `Map`/`Set` now
+  do too) — the override is never invoked. A hand-rolled type with no platform ancestor at all
+  is never enumerated through its own iterator either: it renders by field introspection like
+  any other object, and — only when it has literally no own-enumerable field to show — as its
+  bare type name rather than a misleadingly-empty `{}`. See [The elements hook](#the-elements-hook--narrative_elements)
+  below for the one way to opt a type's own iteration back in.
+- **The elements hook (`NARRATIVE_ELEMENTS`) is invoked when a type declares it** — the one
+  case a collection-shaped type's own code runs during rendering, because the type's author
+  explicitly declared it safe. See [The elements hook](#the-elements-hook--narrative_elements) below.
 - **Invocation is bounded and isolated.** Output is capped (`maxStringLength`,
-  `maxArrayItems`, `maxObjectKeys`); a throwing getter degrades only *that field* to the
-  typed error marker `<error: ConstructorName>` (never `.message`, which can carry the
-  exact value the member was refusing to render) — sibling fields still render normally.
-  *(since 0.1.3)* A
+  `maxArrayItems`, `maxObjectKeys`); a data field that fails to read (or, recursively, a nested
+  value that fails to render) degrades only *that field* to the typed error marker
+  `<error: ConstructorName>` (never `.message`, which can carry the exact value the member was
+  refusing to render) — sibling fields still render normally; an accessor field never reaches
+  that path at all any more (see above — it degrades to `<inaccessible>` instead, without ever
+  running). *(since 0.1.3)* A
   throwing `toString()` or `@narrativeSummary()` degrades the whole value the same way;
   neither ever fails the traced business call (templates fall back to the literal
   `{placeholder}`). Values render eagerly at the call site, so any side effect happens
@@ -295,6 +316,48 @@ fields or not — only `Date`/`URL`/`RegExp`/a boxed `BigInt`/a typed array get 
 platform identity. With
 an inactive context (level `off`, or parameter capture disabled at `summary`), no argument
 rendering happens at all — no user code is touched on the fast path.
+
+## The elements hook — `NARRATIVE_ELEMENTS`
+
+*(since 0.1.4, owner ruling 2026-09-17, "rendering reads state, never runs behaviour")* The
+third sanctioned rendering hook, alongside `@narrativeSummary` and a platform leaf's own
+`toString()`: a well-known symbol, exported as `NARRATIVE_ELEMENTS` from `@narrativetrace/core`,
+that a hand-rolled collection-shaped type implements to declare its own elements safe to
+enumerate.
+
+```ts
+import { NARRATIVE_ELEMENTS, renderValue } from "@narrativetrace/core";
+
+class Basket {
+  #parts: string[];
+  constructor(parts: string[]) {
+    this.#parts = parts;
+  }
+  [NARRATIVE_ELEMENTS](): Iterable<string> {
+    return this.#parts;
+  }
+}
+
+renderValue(new Basket(["sku-1", "sku-2"])); // '["sku-1", "sku-2"]'
+```
+
+Without the hook, `Basket` has no own-enumerable field (`#parts` is a true private field), so it
+would render as a bare, misleadingly-empty `{}` — or, if it also had visible fields, as an object
+dump of those fields alone. Declaring `NARRATIVE_ELEMENTS` opts a type's own iteration back in,
+deliberately: rendering enumerates through the up-to-`maxCollectionItems` elements the method
+returns, truncating with the same `(N total)` marker every other collection uses.
+
+The hook is invoked — that is the point of it, an explicit author declaration that doing so is
+safe — but only from inside the same rendering guard every other hook runs behind
+(`isRenderingInProgress()`), so a `traceObject`-wrapped call reached from inside it records no
+span. A throwing hook (or one whose return value is not actually iterable) degrades the whole
+value to the typed error marker `<error: ConstructorName>`, exactly like a throwing
+`@narrativeSummary()` or `toString()`. The symbol is looked up via `Symbol.for("narrativetrace.elements")`
+under the hood, so it resolves identically across module boundaries and package copies.
+
+Takes precedence over every other collection dispatch (including `Array`/`Set`/`Map`'s own), so
+a type that both extends a platform collection and declares the hook is enumerated through the
+hook.
 
 ## Combining Decorators
 

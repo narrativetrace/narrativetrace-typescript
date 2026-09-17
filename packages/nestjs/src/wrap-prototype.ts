@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import {
   getRedactedParams,
+  isRenderingInProgress,
   isThenable,
   parameterCapture,
   RedactionPolicy,
@@ -132,7 +133,11 @@ function createWrapper(
 ) {
   const wrapper = function (this: unknown, ...args: unknown[]) {
     const ctx = storage.current();
-    if (!ctx) return Reflect.apply(original, this, args);
+    // No context, or this call is itself a side effect of rendering a value (a
+    // narrativeSummary() invoked while capturing some OTHER traced call's parameter/return —
+    // rendering must never re-enter tracing, a cross-runtime finding): run untraced, before
+    // any capture/span work can start.
+    if (!ctx || isRenderingInProgress()) return Reflect.apply(original, this, args);
     return tracedCall(ctx, original, this, args, className, methodName);
   };
   Object.defineProperty(wrapper, WRAPPED, { value: true });

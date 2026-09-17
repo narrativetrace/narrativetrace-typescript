@@ -61,6 +61,24 @@ describe("decide", () => {
     expect(outcome.message).toContain("<no answer>");
   });
 
+  it("fails a could-not-probe observation without blaming the published package", () => {
+    const observed = "could-not-probe: Vitest never reached test execution — Error: not found";
+    const outcome = decide(entry({ coordinate: "@narrativetrace/x" }), "0.1.3", observed);
+    expect(outcome.verdict).toBe("fails");
+    expect(outcome.message).toContain("COULD NOT BE PROBED");
+    expect(outcome.message).toContain("Error: not found");
+    // The whole point of the distinction: no "(published) reads <off value>" claim about the
+    // package the harness never actually managed to drive.
+    expect(outcome.message).not.toContain("(published) reads");
+  });
+
+  it("still reports a real off-value observation as a verdict about the package", () => {
+    const outcome = decide(entry({ coordinate: "@narrativetrace/x" }), "0.1.3", "false");
+    expect(outcome.verdict).toBe("fails");
+    expect(outcome.message).toContain("(published) reads");
+    expect(outcome.message).not.toContain("COULD NOT BE PROBED");
+  });
+
   it("is not-applicable-before-since — never fails — when since is later than installed", () => {
     const outcome = decide(entry({ since: "0.2.0" }), "0.1.3", "anything at all");
     expect(outcome.verdict).toBe("not-applicable-before-since");

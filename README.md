@@ -132,6 +132,8 @@ Every `console.log(...)` or `logger.trace(...)`/`logger.debug(...)`/`logger.info
 
 That's not a vague benefit — it's measurable in tokens.
 
+An independent empirical study, "Do AI Coding Agents Log Like Humans? An Empirical Study" (arXiv 2604.09409, https://arxiv.org/abs/2604.09409), measured how AI coding agents handle logging across 81 real-world repositories and 4,550 agentic pull requests. It found that agents change logging less often than humans in 58.4% of the repositories studied, that only 20.7% of the agentic PRs touch logging at all, and that agents fail to comply with explicit logging requests 67% of the time — while humans write 72.5% of the post-generation logging fixes on agentic PRs, and do it in later commits rather than in review. Read plainly, the paper measures that agents neither reliably write logging nor reliably obey instructions to add it, and that humans are left to repair the gap silently, after the fact. That is the exact failure mode NarrativeTrace is built around: because the code is the log, there is no separate logging step for an agent to skip, forget, or get wrong, and approval traces turn observability into a deterministic gate — the class of guardrail the paper's own recommendations call for. (Citing this study is not a claim that its authors endorse NarrativeTrace.)
+
 ## Clarity scoring
 
 If the trace *is* the code, then trace quality *is* code quality. NarrativeTrace includes a clarity analyzer that scores your method, class, and parameter names:
@@ -217,8 +219,8 @@ yourself still needs to be your own dependency (npm's flatter `node_modules` doe
 line, but pnpm — shown here — does). *(since 0.1.3)*
 
 These are the published packages — `npm view @narrativetrace/core version` shows the current
-release (0.1.1 as of this writing; see [Building from source](#building-from-source) if you need
-an unreleased change instead).
+release; see [Building from source](#building-from-source) if you need an unreleased change
+instead.
 
 ```ts
 // order-service.test.ts

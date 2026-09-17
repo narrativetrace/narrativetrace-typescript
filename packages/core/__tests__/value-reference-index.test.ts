@@ -37,7 +37,13 @@ describe("ValueReferenceIndex.build", () => {
     expect(() => ValueReferenceIndex.build(traceTree([cyclicRoot()]))).not.toThrow();
   });
 
+  // Builds and walks a 50,000-deep chain — measured 2026-09-17: ~48ms run alone, ~408ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs.
+  // 2000ms is ~4.9x the measured contended run.
   test("does not stack-overflow on a very deep chain", () => {
     expect(() => ValueReferenceIndex.build(traceTree([deepChain(50_000)]))).not.toThrow();
-  });
+  }, 2_000);
 });

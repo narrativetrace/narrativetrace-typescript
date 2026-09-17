@@ -36,6 +36,15 @@
 #     preflight, because a publish must never ship drifted legal text.
 #     Golden repo absent -> (b) is skipped with a note; (a) still runs and
 #     can still fail in strict mode.
+#
+# GOLDEN_REPO resolution (rule-2 class, 2026-09-17 corpus-mirror finding: the dev container mounts
+# the golden repo at /workspace-java, never at legal.properties' legal.goldenRepo host-relative
+# default, so a hardcoded default silently no-oped (b) inside the container with no visible line
+# saying so): an explicit $GOLDEN_REPO env override wins outright; otherwise both
+# defaults are tried in turn — the container mount, then the host sibling checkout from
+# legal.properties. Absence prints a loud "SKIPPED:" line and (b) no-ops, same as before, UNLESS
+# REQUIRE_GOLDEN_REPO=1, which turns that absence itself into a failure — for a context (CI, a
+# publish preflight) that must never silently run (a) alone and call it done.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -46,13 +55,28 @@ prop() {
     sed -n "s/^$1=\\(.*\\)\$/\\1/p" "$PROPS" | head -1
 }
 
-GOLDEN_REPO="$(prop legal.goldenRepo)"
+PROPS_GOLDEN_REPO="$(prop legal.goldenRepo)"
 LICENSED_WORK="$(prop legal.licensedWork)"
-[ -n "$GOLDEN_REPO" ] || { echo "ERROR: legal.goldenRepo not set in $PROPS."; exit 1; }
+[ -n "$PROPS_GOLDEN_REPO" ] || { echo "ERROR: legal.goldenRepo not set in $PROPS."; exit 1; }
 [ -n "$LICENSED_WORK" ] || { echo "ERROR: legal.licensedWork not set in $PROPS."; exit 1; }
 
 STRICT="${LEGAL_CHECK_STRICT:-0}"
+REQUIRE_GOLDEN_REPO="${REQUIRE_GOLDEN_REPO:-0}"
 FAILED=0
+
+if [ -n "${GOLDEN_REPO:-}" ]; then
+    GOLDEN_REPO_CANDIDATES=("$GOLDEN_REPO")
+else
+    GOLDEN_REPO_CANDIDATES=("/workspace-java" "$PROPS_GOLDEN_REPO")
+fi
+
+GOLDEN_REPO=""
+for candidate in "${GOLDEN_REPO_CANDIDATES[@]}"; do
+    if [ -d "$candidate" ]; then
+        GOLDEN_REPO="$candidate"
+        break
+    fi
+done
 
 warn_or_fail() {
     if [ "$STRICT" = "1" ]; then
@@ -132,7 +156,7 @@ for file in $FILES; do
 done
 echo ">>   done."
 
-if [ -d "$GOLDEN_REPO" ]; then
+if [ -n "$GOLDEN_REPO" ]; then
     echo ">> Golden repo found at $GOLDEN_REPO — comparing against golden copies ..."
 
     GOLDEN_LICENSE="$GOLDEN_REPO/LICENSE"
@@ -184,11 +208,20 @@ if [ -d "$GOLDEN_REPO" ]; then
     done
     echo ">>   done."
 else
-    echo "NOTE: golden repo not found at $GOLDEN_REPO — skipping golden-copy comparison (CI without the sibling stays green)."
+    tried="$(
+        IFS=', '
+        echo "${GOLDEN_REPO_CANDIDATES[*]}"
+    )"
+    if [ "$REQUIRE_GOLDEN_REPO" = "1" ]; then
+        echo "ERROR: golden repo not found at $tried — required by REQUIRE_GOLDEN_REPO=1, skipping golden-copy comparison is not allowed here."
+        FAILED=1
+    else
+        echo "SKIPPED: golden repo not found at $tried — skipping golden-copy comparison (CI without the sibling stays green; set REQUIRE_GOLDEN_REPO=1 to fail instead)."
+    fi
 fi
 
 if [ "$FAILED" -eq 1 ]; then
-    echo "legal-check: FAILED (LEGAL_CHECK_STRICT=1)"
+    echo "legal-check: FAILED (LEGAL_CHECK_STRICT=${STRICT}, REQUIRE_GOLDEN_REPO=${REQUIRE_GOLDEN_REPO})"
     exit 1
 fi
 echo "legal-check: OK$( [ "$STRICT" != "1" ] && echo ' (warn mode — set LEGAL_CHECK_STRICT=1 to enforce)')"

@@ -38,9 +38,9 @@ const ES_PLURAL_ENDINGS = ["ses", "xes", "zes", "ches", "shes"];
  *
  * @remarks Also the only way an `s`-final `-es` stem is accepted (`gases` → "gas", `statuses` →
  * "status"); an unlisted `s`-final stem means the plural was built as `-se` + `s` (`clauses` →
- * "clause"). Shared verbatim with the Java runtime's `S_FINAL_SINGULARS`, because a normalized
- * phrase is term identity in a committed glossary — a list that differed per port would split the
- * vocabulary of one repository.
+ * "clause"). Shared verbatim across every NarrativeTrace runtime's `S_FINAL_SINGULARS`, because a
+ * normalized phrase is term identity in a committed glossary — a list that differed per runtime
+ * would split the vocabulary of one repository.
  * @remarks Exported for the test that walks it: the list is data, and a word added to it without
  * a test would otherwise be an untested branch of the singularizer.
  */
@@ -125,7 +125,7 @@ function singularize(token: string): string {
 /**
  * Whether a token reads as a verb.
  *
- * @remarks Divergence from the Java runtime, which asks only its suffix-based morphology
+ * @remarks Divergence from other NarrativeTrace runtimes, which ask only a suffix-based morphology
  * analyzer. This runtime's clarity module keeps verb knowledge in a curated dictionary
  * (`classifyVerb`) and leaves `analyzeMorphology` a thin suffix heuristic, so both are consulted:
  * the dictionary recognizes `open`/`charge`/`check`, the suffixes recognize `normalize`/`notify`.

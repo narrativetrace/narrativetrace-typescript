@@ -5,8 +5,8 @@
  * Every grammatical shape a glossary term may take, in the order the Markdown view renders them.
  *
  * @remarks The literals are the `glossary.json` labels verbatim, so no name mapping exists to
- * drift — the Java runtime needs `TermKind.jsonName()` only because its enum constants are
- * upper-case.
+ * drift — some NarrativeTrace runtimes need a `TermKind.jsonName()`-style mapping only because
+ * their enum constants are upper-case.
  */
 export const TERM_KINDS = ["word", "noun-phrase", "verb-phrase", "template"] as const;
 

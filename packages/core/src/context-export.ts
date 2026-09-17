@@ -18,8 +18,7 @@ const MAX_LENGTH = 256;
  * INTENT: an *export* concern, not a capture one — the raw value stays in the trace model (ADR-002:
  * capture faithful, project last) and is normalized only where a sink's own rules require it. Escaping
  * runs before capping so a multi-character mnemonic escape (`\n` → `\\n`) cannot be cut in half
- * exactly at the length boundary. Port of Java `ai.narrativetrace.core.context.ContextExport`
- * (cross-runtime shape F6, 2026-09-02 audit).
+ * exactly at the length boundary. Port of Java `ai.narrativetrace.core.context.ContextExport`.
  */
 export const ContextExport = {
   sanitize(value: string): string {

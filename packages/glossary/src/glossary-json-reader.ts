@@ -24,12 +24,11 @@ import { isTermStatus, type TermStatus } from "./term-status.js";
  * Ceiling on `glossary.json`'s own JSON object/array nesting, checked directly on the value
  * `JSON.parse` produced — before any field is narrowed to its schema type.
  *
- * @remarks The family-wide constant (owner ruling, 2026-09-08): every port converges on 16,
- * independent of how each one's JSON reader is built. The hand-curated shape this schema actually
- * uses never legitimately nests past a handful of levels (contexts → terms → translations/synonyms
- * tops out around 4), so 16 is headroom, not a realistic ceiling — its job is to turn a
- * pathologically deep document (hostile, or simply corrupted) into one clean, named error instead
- * of an unbounded validation walk.
+ * @remarks The family-wide constant: every port converges on 16, independent of how each one's
+ * JSON reader is built. The hand-curated shape this schema actually uses never legitimately nests
+ * past a handful of levels (contexts → terms → translations/synonyms tops out around 4), so 16 is
+ * headroom, not a realistic ceiling — its job is to turn a pathologically deep document (hostile,
+ * or simply corrupted) into one clean, named error instead of an unbounded validation walk.
  */
 const MAX_GLOSSARY_NESTING_DEPTH = 16;
 

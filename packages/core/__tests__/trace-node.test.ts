@@ -120,9 +120,15 @@ describe("hasAnyError", () => {
     expect(hasAnyError([cyclicNode()])).toBe(false);
   });
 
+  // Builds and walks a 50,000-deep chain — measured 2026-09-17: ~54ms run alone, ~295ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs.
+  // 1500ms is ~5x the measured contended run.
   test("does not stack-overflow on a very deep chain", () => {
     expect(hasAnyError([deepChain(50_000)])).toBe(false);
-  });
+  }, 1_500);
 });
 
 describe("firstSpanContext", () => {
@@ -130,7 +136,13 @@ describe("firstSpanContext", () => {
     expect(firstSpanContext([cyclicNode()])).toBeUndefined();
   });
 
+  // Builds and walks a 50,000-deep chain — measured 2026-09-17: ~55ms run alone, ~245ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs.
+  // 1200ms is ~4.9x the measured contended run.
   test("does not stack-overflow on a very deep chain", () => {
     expect(firstSpanContext([deepChain(50_000)])).toBeUndefined();
-  });
+  }, 1_200);
 });

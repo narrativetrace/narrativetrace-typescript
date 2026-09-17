@@ -42,7 +42,7 @@ const MAX_ADOPTED_SPANS = 10_000;
  * and a collected child simply contributes nothing and frees its slot against the ceiling.
  *
  * @remarks {@link clear} is the collector's effect made testable — the same `WeakReference.clear()`
- * the Java runtime exposes — not a second lifetime mechanism.
+ * shape every NarrativeTrace runtime exposes — not a second lifetime mechanism.
  */
 export class LiveChildRegistration {
   private ref: WeakRef<SyncNarrativeContext> | null;

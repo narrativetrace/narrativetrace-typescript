@@ -27,8 +27,8 @@ export interface CommandStep {
 
 /**
  * A step that shows real, current source rather than a hand-typed example — rendered through the
- * same `<!-- snippet: path -->` marker convention `snippet-check` already enforces for docs
- * (agent-skills-2026-09-12.md §3: "never a second hand-copied literal"). `path` is repo-root-relative.
+ * same `<!-- snippet: path -->` marker convention `snippet-check` already enforces for docs: never
+ * a second hand-copied literal. `path` is repo-root-relative.
  */
 export interface SnippetStep {
   readonly kind: "snippet";
@@ -52,7 +52,7 @@ export interface SkillStep {
   /** A `commands`-vocabulary string proving the step succeeded. Omitted only for a judgmental step. */
   readonly verify?: string;
   readonly failure?: readonly FailureNote[];
-  /** e.g. `"unstudied — eval cell pending"` (agent-skills-2026-09-12.md §7 ruling 4). */
+  /** e.g. `"unstudied — eval cell pending"`. */
   readonly flag?: string;
 }
 
@@ -68,8 +68,8 @@ export interface Skill {
    * `narrativetrace-doctor`, never a bare `doctor`. This is the ONLY name a rendered page ever
    * carries: every platform's frontmatter `name:` and every platform's directory equal this
    * string. A shortened segment (`doctor`) is legitimate only inside a plugin whose own prefix
-   * already carries the brand (owner ruling, skills design, 2026-09-04; reaffirmed 2026-09-13) —
-   * nothing this repository renders is that, so there is no shortened-name field here at all.
+   * already carries the brand — nothing this repository renders is that, so there is no
+   * shortened-name field here at all.
    */
   readonly canonicalName: string;
   readonly skillClass: SkillClass;

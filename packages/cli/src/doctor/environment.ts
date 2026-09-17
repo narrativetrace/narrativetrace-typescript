@@ -2,8 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { createRequire } from "node:module";
-import { join, relative } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import type { DoctorSnapshot, Env, PackageJsonLike } from "./types.js";
 
 const EXCLUDED_DIRS = new Set([
@@ -59,13 +58,40 @@ function readJson(path: string): PackageJsonLike | undefined {
   }
 }
 
-function resolvePackageJson(name: string, cwd: string): PackageJsonLike | undefined {
-  try {
-    const require = createRequire(join(cwd, "package.json"));
-    return readJson(require.resolve(`${name}/package.json`));
-  } catch {
-    return undefined;
+/** Every `node_modules` directory a consumer rooted at `cwd` resolves through, nearest first. */
+function* nodeModulesChain(cwd: string): Generator<string> {
+  let dir = resolve(cwd);
+  for (;;) {
+    yield join(dir, "node_modules");
+    const parent = dirname(dir);
+    if (parent === dir) return;
+    dir = parent;
   }
+}
+
+/**
+ * Reads an installed package's own `package.json` WITHOUT going through its `exports` map.
+ *
+ * INTENT: every published `@narrativetrace/*` package declares `exports` and none of them list
+ * `"./package.json"`, so `require.resolve("<name>/package.json")` throws
+ * `ERR_PACKAGE_PATH_NOT_EXPORTED` for all of them in a real consumer project. That silently turned
+ * every `installedPackages`-driven check — `toolchain.vitest-peer`, `toolchain.sibling-packages`,
+ * and `toolchain.node-engine`'s engines lookup — into its own "not installed — nothing to check"
+ * pass against every real install: a graceful skip that had never once run. The unit fixtures
+ * declare no `exports`, so resolution succeeded there and the gap was invisible; the defect lived
+ * entirely in an environment the tests had structurally never exercised.
+ *
+ * Walking the `node_modules` chain upward from `cwd` is also exactly the semantics
+ * `toolchain.sibling-packages` wants: resolvable from the CONSUMER's own root, never from inside
+ * a dependency's own nested tree.
+ */
+function resolvePackageJson(name: string, cwd: string): PackageJsonLike | undefined {
+  const segments = name.split("/");
+  for (const modules of nodeModulesChain(cwd)) {
+    const pkg = readJson(join(modules, ...segments, "package.json"));
+    if (pkg) return pkg;
+  }
+  return undefined;
 }
 
 /** `undefined` when `path` cannot be stat'd at all (a dangling symlink, a permission error, a race). */

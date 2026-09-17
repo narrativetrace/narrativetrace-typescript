@@ -36,7 +36,6 @@ const DEFAULT_PATTERNS = [
   "account_number",
   "routingnumber",
   "routing_number",
-  // Family-wide audit (2026-09): absent from every runtime, this one included.
   "passphrase",
   "bearer",
   "accesskey",
@@ -52,7 +51,7 @@ const DEFAULT_PATTERNS = [
   "contrasena",
   "tarjeta",
   "cedula",
-  // Spanish: bare "clave" was narrowed away (family ruling 2026-09-03) — it matched
+  // Spanish: bare "clave" is deliberately narrowed away — it matched
   // clavePrimaria and claveForanea, ordinary database terms, not credentials. These two
   // compounds are the unit instead; both spellings, because the underscore is part of the name
   // being matched.
@@ -65,7 +64,7 @@ const DEFAULT_PATTERNS = [
   // French: both spellings, because the underscore is part of the name being matched
   "motdepasse",
   "mot_de_passe",
-  // French: bare "carte" was narrowed away (family ruling 2026-09-03) — it matched
+  // French: bare "carte" is deliberately narrowed away — it matched
   // carteGraphique and carteRoutiere, ordinary identifiers, not credentials. These two
   // compounds are the unit instead; both spellings, same reason as above.
   "cartebancaire",
@@ -97,7 +96,7 @@ const DEFAULT_PATTERNS = [
  * `cuit` inside `circuit` and `biscuit`; `dni` inside `midnight`; `nir` inside `nirvana`; `mima`
  * inside `semiMajorAxis` once the case boundary is lower-cased away. `senha` is the subtle one —
  * no English word contains it, but `chosenHash` and `frozenHash` do, across the camelCase seam.
- * `cpf` and `cnpj` are here for length alone. `otp` (2026-09 family-wide audit addition) is here
+ * `cpf` and `cnpj` are here for length alone. `otp` is here
  * for the identical reason `pan`/`iban` are: `"footprint".includes("otp")`,
  * `"hotplate".includes("otp")`, `"hotpot".includes("otp")` and `"footpath".includes("otp")` are
  * all true, and every one is an ordinary field a codebase can plausibly carry (`carbonFootprintId`

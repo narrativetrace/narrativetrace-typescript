@@ -787,6 +787,12 @@ describe("bounded tree walk (cyclic and very deep trees)", () => {
     expect(truncated.length).toBeGreaterThan(0);
   });
 
+  // Builds, exports, and parses a 50,000-deep chain — measured 2026-09-17: ~172ms run alone,
+  // ~477ms under `turbo run coverage`'s full cross-package concurrency (an 8-core dev container
+  // running all packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a
+  // wall-clock budget, and release retrospective rule 3 says that budget must never be implicit —
+  // a test whose legitimate cost varies with scheduler contention declares what it actually
+  // needs. 2400ms is ~5x the measured contended run.
   test("exportJson does not stack-overflow on a very deep chain", () => {
     const json = exportJson(traceTree([deepChain(50_000)]), { scenario: "Test" });
     const parsed = JSON.parse(json);
@@ -794,7 +800,7 @@ describe("bounded tree walk (cyclic and very deep trees)", () => {
       (e: { truncated?: string }) => e.truncated === "depth-limit",
     );
     expect(truncated.length).toBe(1);
-  });
+  }, 2_400);
 
   test("exportChapter does not crash on a cyclic tree", () => {
     expect(() => exportChapter(traceTree([cyclicRoot()]), { scenario: "Test" })).not.toThrow();

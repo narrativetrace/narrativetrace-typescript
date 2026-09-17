@@ -4,17 +4,37 @@
 // config-shape-approval-traces: with approval mode on and no approved trace committed yet, the
 // test fails (expected — nothing is approved) but must still write a value-free .nt "received"
 // structural artifact for review.
-import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+//
+// Two corrections over the first version of this probe, both of which made it report
+// "no-nt-artifact" against a package that writes the artifact exactly as documented:
+//
+//   * the fixture's body was `() => {}`. Vitest's `test.extend` fixtures are lazy, so
+//     `narrativeContext` was never constructed, and an empty trace deliberately writes nothing —
+//     the probe measured its own fixture, not the package. The body now destructures the fixture
+//     and traces a real call, the shape the Installation Guide documents.
+//   * it looked in `narrativetrace-approved`. The approved-trace directory is `narratives`
+//     (`NARRATIVETRACE_APPROVED_DIR`'s default, the same one `narrativetrace doctor` reads), with
+//     the received artifact written beside it.
+import { existsSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { assertFixtureRan, runVitest } from "./probe-support.mjs";
 
 const TEST_FILE = "contract-probe-approval.test.ts";
-rmSync("narrativetrace-approved", { recursive: true, force: true });
+const APPROVED_DIR = "narratives";
+const OUTPUT_DIR = "narrativetrace-output";
+const scrub = () => {
+  for (const dir of [APPROVED_DIR, OUTPUT_DIR]) rmSync(dir, { recursive: true, force: true });
+};
+scrub();
 
 writeFileSync(
   TEST_FILE,
   `import { createNarrativeTest } from "@narrativetrace/vitest";
+import { traceObject } from "@narrativetrace/proxy";
 const test = createNarrativeTest({ approval: true });
-test("contract probe approval trace", () => {});
+class OrderService { placeOrder(customerId) { return { customerId }; } }
+test("contract probe approval trace", ({ narrativeContext }) => {
+  traceObject(new OrderService(), narrativeContext).placeOrder("C1");
+});
 `,
 );
 
@@ -27,16 +47,15 @@ function findsReceivedNt(dir) {
 
 let observed = "no-nt-artifact";
 try {
-  execFileSync("npx", ["vitest", "run", TEST_FILE], { stdio: "ignore" });
-} catch {
-  // The first run is EXPECTED to fail — nothing is approved yet. What matters is the artifact.
-} finally {
+  // `expectPass` is false here and nowhere else: this run is SUPPOSED to fail — nothing is
+  // approved yet. The artifact it leaves behind is the whole claim.
+  assertFixtureRan(runVitest([TEST_FILE]), 1, false);
   observed =
-    findsReceivedNt("narrativetrace-approved") || findsReceivedNt(".")
+    findsReceivedNt(APPROVED_DIR) || findsReceivedNt(OUTPUT_DIR)
       ? "writes-nt-artifact"
       : "no-nt-artifact";
+} finally {
   rmSync(TEST_FILE, { force: true });
-  rmSync("narrativetrace-approved", { recursive: true, force: true });
-  rmSync("narrativetrace-output", { recursive: true, force: true });
+  scrub();
 }
 console.log(observed);

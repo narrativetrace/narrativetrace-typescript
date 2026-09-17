@@ -13,7 +13,7 @@ type Segment = (values: Record<string, unknown>) => string;
  * `index.ts`), so its `template` argument is caller-supplied, not limited in practice to the
  * finite set of literal `@narrated`/`@onError` decorator strings a codebase happens to declare —
  * without a bound, a caller (or a future call site) feeding it per-request text would grow the
- * cache for the life of the process (cross-runtime shape F2, 2026-09-02 audit).
+ * cache for the life of the process.
  */
 const MAX_CACHED_TEMPLATES = 512;
 
@@ -32,8 +32,7 @@ const cache = new Map<string, Segment[]>();
  * missing, or whose getter throws is preserved verbatim (so unresolved tokens are visible
  * and can be flagged). Values interpolate unquoted. A `{obj.prop}` path that names a redacted
  * member resolves to {@link RedactionPolicy.MARKER} instead of the value — naming a path never
- * weakens the rules that apply to the value directly (owner decision 2026-08-31, TODO 46). Port
- * of Java `template/TemplateParser`.
+ * weakens the rules that apply to the value directly. Port of Java `template/TemplateParser`.
  */
 export function resolveTemplate(template: string, values: Record<string, unknown>): string {
   const segments = cachedSegments(template);
@@ -121,9 +120,9 @@ function placeholder(key: string): Segment {
  * `{password}` names the parameter `password`. That makes the deny-list applicable to exactly the
  * same input {@link isRedactedMember} feeds it for the property form, and it is asked the same
  * way — {@link RedactionPolicy.isRedacted} — so one rule answers both productions of the grammar.
- * Before 2026-09-04 (family security fix) this production asked nothing at all, and
- * `@narrated("login {password}")` printed the password that `{user.password}` beside it answered
- * `[REDACTED]` for. `explicit` is `false`: a bare key has no owning object whose `static notTraced`
+ * A bare-key production that skipped this check would print the password that `{user.password}`
+ * beside it answered `[REDACTED]` for — `@narrated("login {password}")` must redact exactly as
+ * `{user.password}` does. `explicit` is `false`: a bare key has no owning object whose `static notTraced`
  * could list it, so only the name-based deny-list applies.
  *
  * @remarks The name is asked only once a value exists. A placeholder naming no parameter stays
@@ -161,18 +160,42 @@ function resolveProperty(root: unknown, property: string, fallback: string): str
  * @remarks A property that does not exist on `root` is not a redaction decision — it is an
  * authoring typo (a placeholder naming nothing), so it must stay literal and still raise the
  * unresolved-placeholder warning that exists to catch it. Nothing can leak either way: a path
- * that names nothing resolves to nothing. Existence is checked with `in` rather than by reading
- * the value, so a throwing getter cannot be mistaken for a missing member.
+ * that names nothing resolves to nothing. Existence is checked by walking OWN property
+ * descriptors up the prototype chain by hand (see {@link ownDescriptorAcrossChain}) rather than
+ * with `in` — `in` triggers a Proxy's `has` trap, a side effect that has nothing to do with the
+ * field itself and that the rendering rule ("rendering reads state, never runs behaviour")
+ * forbids just as it forbids invoking an accessor. A throwing getter still cannot be mistaken for
+ * a missing member: the descriptor walk never invokes one.
  */
 function isRedactedMember(root: unknown, property: string): boolean {
   if (root == null || (typeof root !== "object" && typeof root !== "function")) return false;
+  let exists: boolean;
   try {
-    if (!(property in root)) return false;
+    exists = ownDescriptorAcrossChain(root, property) !== undefined;
   } catch {
     return false;
   }
+  if (!exists) return false;
   const explicit = notTracedFields(root as object).has(property);
   return RedactionPolicy.DEFAULT.isRedacted(property, explicit);
+}
+
+/**
+ * Walks the prototype chain looking up `property`'s OWN descriptor at each level — the
+ * side-effect-free equivalent of `property in root` for an object that may be a Proxy: `in`
+ * triggers the `has` trap even when nothing ever reads the property's value, which is exactly the
+ * hazard {@link isRedactedMember} exists to avoid. `Object.getPrototypeOf` on a Proxy triggers its
+ * own (`getPrototypeOf`) trap rather than `has`, so a Proxy with only a `has` trap defined (the
+ * common case — guarding property existence, not the prototype chain) is walked correctly.
+ */
+function ownDescriptorAcrossChain(root: object, property: string): PropertyDescriptor | undefined {
+  let level: object | null = root;
+  while (level !== null) {
+    const descriptor = Object.getOwnPropertyDescriptor(level, property);
+    if (descriptor !== undefined) return descriptor;
+    level = Object.getPrototypeOf(level);
+  }
+  return undefined;
 }
 
 function stringifyOrLiteral(value: unknown, fallback: string): string {
@@ -194,9 +217,9 @@ function stringifyOrLiteral(value: unknown, fallback: string): string {
  * renderer never saw the whole value: truncated at `value-renderer`'s field/collection-item cap,
  * cut at its depth cap, or stopped at a cycle. "No marker" meant "nothing is hidden" and "the
  * renderer did not look" alike, and the second reading printed the secret in full — the exact
- * shape Java's `TemplateParser.renderValue` fixed for the identical inference (Java fuzz finding,
- * 2026-09-02: a whole-object placeholder whose redacted component sat past the renderer's field
- * cap). A narration that was never leaking keeps the same bytes either way: `value-renderer`
+ * shape Java's `TemplateParser.renderValue` guards against too: a whole-object placeholder whose
+ * redacted component sat past the renderer's field cap. A narration that was never leaking keeps
+ * the same bytes either way: `value-renderer`
  * already trusts a class's own `toString()` whenever nothing on it is a redaction target (an
  * author's `Money.toString()` still reads `EUR 10.00`), so this delegation costs nothing on the
  * cases that were already safe.
@@ -204,9 +227,9 @@ function stringifyOrLiteral(value: unknown, fallback: string): string {
  * @llmNote Text is not a fast path. A string carries the one shape the value axis exists for — a
  * bearer token, a card number, a `Set-Cookie` string arriving under a name nothing suspects — so
  * it goes to {@link renderNarrationText}, which applies exactly what the renderer applies to a
- * captured string minus the quotation marks a narration must not carry. It used to take the
- * `String(value)` shortcut below, which meant a JWT rendered `[REDACTED]` as an argument and in
- * full through `@narrated("issued {token}")` (2026-09-04, family security fix). A boxed `String`
+ * captured string minus the quotation marks a narration must not carry. The `String(value)`
+ * shortcut this replaces would render a JWT `[REDACTED]` as an argument but in full through
+ * `@narrated("issued {token}")` — the two must redact identically. A boxed `String`
  * object is text too — nothing but its wrapper distinguishes its bytes from the primitive's, so it
  * takes the same route rather than the object path, whose `toString()` trust knows nothing about
  * value shapes. Numbers, booleans and bigints keep `String(value)`: their string forms cannot

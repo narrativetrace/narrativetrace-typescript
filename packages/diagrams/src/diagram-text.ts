@@ -43,9 +43,8 @@ export function identifier(text: string): string {
   return capped.trim().length > 0 ? capped : "<unnamed>";
 }
 
-// A letter or digit in the Unicode sense (mirrors Java's `Character.isLetterOrDigit` and Python's
-// `str.isalnum`) — a non-ASCII letter survives; punctuation, symbols, whitespace and control
-// characters do not.
+// A letter or digit in the Unicode sense — Unicode general category L (letter) or N (number) — a
+// non-ASCII letter survives; punctuation, symbols, whitespace and control characters do not.
 const IS_LETTER_OR_DIGIT = /[\p{L}\p{N}]/u;
 
 const UNNAMED_ALIAS = "P";

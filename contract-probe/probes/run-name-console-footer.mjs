@@ -4,8 +4,8 @@
 // probed-run-name-console-footer: once ClaritySuiteReporter is registered, the suite footer must
 // name the run ("run: <phrase>") right after the header — the documented default shape
 // (2026-09-13 ruling, item 2), with no configuration beyond registering the reporter itself.
-import { execFileSync } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
+import { assertFixtureRan, runVitest } from "./probe-support.mjs";
 
 const TEST_FILE = "contract-probe-run-name-footer.test.ts";
 const CONFIG_FILE = "contract-probe-run-name-footer.vitest.config.ts";
@@ -34,12 +34,12 @@ export default defineConfig({
 
 let observed = "false";
 try {
-  const out = execFileSync("npx", ["vitest", "run", "--config", CONFIG_FILE], {
-    encoding: "utf-8",
-  });
-  observed = /\n {2}run: [a-z]+ [a-z]+ [a-z]+\n/.test(out) ? "true" : "false";
-} catch {
-  observed = "false";
+  // The guard matters even though this entry is green: without it a fixture that stopped running
+  // at all would report "false" — a defect report about the package, sourced from a harness that
+  // never reached it.
+  const run = runVitest(["--config", CONFIG_FILE]);
+  assertFixtureRan(run, 1, true);
+  observed = /\n {2}run: [a-z]+ [a-z]+ [a-z]+\n/.test(run.output) ? "true" : "false";
 } finally {
   rmSync(TEST_FILE, { force: true });
   rmSync(CONFIG_FILE, { force: true });

@@ -76,7 +76,19 @@ export interface MutationCompletenessReport {
  * `stryker run` needs to find anything to mutate.
  */
 function isWired(repoRoot: string, pkg: WorkspacePackage): boolean {
-  return "mutate" in pkg.scripts && existsSync(join(repoRoot, pkg.dir, "stryker.config.json"));
+  return "mutate" in pkg.scripts && hasStrykerConfig(repoRoot, pkg);
+}
+
+/**
+ * Whether `pkg` carries a Stryker config in either supported form: the static
+ * `stryker.config.json`, or the `stryker.config.mjs` that reads `NT_MUTATION_WORKERS`/the cgroup
+ * quota for `concurrency` (`tools/mutation-workers.mjs`, 2026-09-17 F3 finding).
+ */
+function hasStrykerConfig(repoRoot: string, pkg: WorkspacePackage): boolean {
+  return (
+    existsSync(join(repoRoot, pkg.dir, "stryker.config.json")) ||
+    existsSync(join(repoRoot, pkg.dir, "stryker.config.mjs"))
+  );
 }
 
 /**
@@ -93,11 +105,11 @@ function gapFor(repoRoot: string, pkg: WorkspacePackage): MutationGap | undefine
       detail: `${pkg.dir}/package.json defines no "mutate" script`,
     };
   }
-  if (!existsSync(join(repoRoot, pkg.dir, "stryker.config.json"))) {
+  if (!hasStrykerConfig(repoRoot, pkg)) {
     return {
       pkg: slug,
       kind: "missing-config",
-      detail: `${pkg.dir} has a "mutate" script but no stryker.config.json`,
+      detail: `${pkg.dir} has a "mutate" script but no stryker.config.json/.mjs`,
     };
   }
   return undefined;
@@ -135,7 +147,7 @@ export function checkMutationCompleteness(
         pkg: slug,
         kind: "double-classified",
         detail:
-          `${pkg.dir} is both wired for mutation testing (mutate script + stryker.config.json) ` +
+          `${pkg.dir} is both wired for mutation testing (mutate script + stryker.config.json/.mjs) ` +
           `and listed in MUTATION_EXEMPTIONS ("${exemption.reason}") — remove one`,
       });
       continue;

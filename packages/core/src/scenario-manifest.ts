@@ -49,8 +49,8 @@ function renderEntry(entry: ScenarioManifestEntry): string {
 
 /**
  * The `"run": {...},\n` object naming the test-suite run that produced the manifest, or empty text
- * when `run` is `undefined` — a caller that has not adopted `RunIdentity` (2026-09-13 ruling, item
- * 2; Java `ScenarioManifest.renderRun`).
+ * when `run` is `undefined` — a caller that has not adopted `RunIdentity` (Java
+ * `ScenarioManifest.renderRun`).
  */
 function renderRun(run: RunIdentity | undefined): string {
   if (run === undefined) return "";
@@ -59,8 +59,8 @@ function renderRun(run: RunIdentity | undefined): string {
 
 /**
  * Renders the `manifest.json` document: one row per traced scenario, in execution order, plus a
- * top-level `run` object (`id`, `name`) naming the enclosing test-suite run when `run` is given
- * (2026-09-13 ruling, item 2). Port of Java `output.ScenarioManifest.render`.
+ * top-level `run` object (`id`, `name`) naming the enclosing test-suite run when `run` is given.
+ * Port of Java `output.ScenarioManifest.render`.
  */
 export function renderScenarioManifest(
   entries: readonly ScenarioManifestEntry[],

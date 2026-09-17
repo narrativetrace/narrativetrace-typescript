@@ -63,6 +63,15 @@ const REDACTED: RenderedValue = other(RedactionPolicy.MARKER);
  *
  * @param value any runtime value, including `null`, functions, collections, and cyclic graphs.
  * @param options optional bounds/redaction overrides; defaults apply per field when omitted.
+ * @remarks Unlike the flat renderer (`value-renderer.ts`'s `renderValue`/`renderCapture`), this
+ * path never invokes a `narrativeSummary()` method or a custom `toString()` — `dispatchObject`
+ * below only recurses into Array/Set/Map or walks own-enumerable fields (`structuredFields`), and a
+ * field read that happens to be a getter is never itself a traced method under either wrapping
+ * scheme (`traceObject`, `wrapPrototypeMethods` both skip accessor properties). So this function
+ * structurally cannot re-enter tracing and does not need `rendering-guard.ts`'s guard — see
+ * `withRenderingGuard`'s own doc comment for the full reasoning, and
+ * `packages/proxy/__tests__/render-reentrancy.test.ts` / `packages/nestjs/__tests__/render-reentrancy.test.ts`
+ * for the positive assertions this claim rests on.
  */
 export function renderStructured(value: unknown, options?: StructuredOptions): RenderedValue {
   return structured(value, { ...DEFAULTS, ...options }, 0, new Set());
@@ -160,11 +169,11 @@ function structuredList(
 // toString() interpolates such a field — so `RenderedValue.object.fields` (a flat
 // `Record<string, RenderedValue>`, which has no room for a key that is itself a typed tree) must
 // still get that key through the redaction-aware `structured()` dispatch before it is flattened
-// into a label, never via a raw `String(key)` (2026-09-11 family security fix, the structured-path
-// analog of the flat renderer's `renderMapEntry`: `String(key)` on an object calls its toString()
-// unconditionally and bypasses every redaction rule `structured()` would otherwise apply). The
-// "does this key's NAME look like a secret" check that decides whether to redact the associated
-// VALUE stays scoped to string keys, the common `Map<string, T>` shape it exists for.
+// into a label, never via a raw `String(key)`: that would call the key's toString()
+// unconditionally and bypass every redaction rule `structured()` would otherwise apply — the
+// structured-path analog of the flat renderer's `renderMapEntry`. The "does this key's NAME look
+// like a secret" check that decides whether to redact the associated VALUE stays scoped to string
+// keys, the common `Map<string, T>` shape it exists for.
 function structuredMap(
   value: Map<unknown, unknown>,
   opts: Required<StructuredOptions>,
@@ -186,8 +195,8 @@ function structuredMap(
 // `Map<string, T>` shape this function exists for is exactly how a caller indexes metadata by
 // credential — so it honours the same value-shape axis (`shouldRedactValue`) every scalar string
 // value goes through, via the same {@link cappedString} cap `structuredPrimitive` applies, before
-// falling back to the plain label (ADV-2026-09-14-1: a string key used to skip straight to
-// `String(key)`, never asking the shape check at all). Every other key type's string form can
+// falling back to the plain label — skipping straight to `String(key)` without that shape check
+// is exactly the gap this closes. Every other key type's string form can
 // never carry arbitrary text, so it keeps that bare `String(key)` label this renderer has always
 // used.
 function structuredMapKeyText(

@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import type { NarrativeContext, ParameterCapture, SpanId } from "@narrativetrace/core";
 import {
+  isRenderingInProgress,
   isThenable,
   NOOP_CONTEXT,
   parameterCapture,
@@ -381,8 +382,11 @@ function buildEntry(
 function wrapMethod(fn: AnyFn, obj: object, methodName: string, config: TracingConfig) {
   const { context: ctx, includeReturnValues } = config;
   return function (this: unknown, ...args: unknown[]) {
-    // Inactive context: invoke the target with zero capture/metadata/template work.
-    if (!ctx.isActive) return invokeTarget(fn, obj, args);
+    // Inactive context, or this call is itself a side effect of rendering a value (a
+    // narrativeSummary() invoked while capturing some OTHER traced call's parameter/return —
+    // rendering must never re-enter tracing, a cross-runtime finding): invoke the target
+    // with zero capture/metadata/template work, before any of it can run.
+    if (!ctx.isActive || isRenderingInProgress()) return invokeTarget(fn, obj, args);
     const entry = buildEntry(fn, methodName, args, config);
     if (!entry) return invokeTarget(fn, obj, args);
     const { handle, onError } = entry;

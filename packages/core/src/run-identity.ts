@@ -6,7 +6,7 @@ import { humanName } from "./trace-namer.js";
 
 /**
  * A test-suite execution's own identity: a W3C-shaped id and the three-word phrase derived from it
- * (Java `output.RunIdentity`, 2026-09-13 ruling).
+ * (Java `output.RunIdentity`).
  *
  * INTENT: A trace has a name because a trace id is unreadable; a whole SUITE RUN needs the same
  * thing for a different reason — before this type, nothing named "this execution" at all, so a
@@ -19,11 +19,11 @@ import { humanName } from "./trace-namer.js";
  * @remarks Deliberately NOT a `TraceId`: a run is not a trace, has no spans, and must never be
  * confused with one in an exporter or a schema. `generateTraceId` is reused only because a run id
  * needs the same shape (32 lowercase hex) and the same generator's entropy — borrowing the
- * primitive, not the concept. `humanName` is reused outright: the whole point of the ruling is that
- * a run's phrase and a trace's phrase come from the same three tables, so a reader who has learned
+ * primitive, not the concept. `humanName` is reused outright: a run's phrase and a trace's phrase
+ * come from the same three tables, so a reader who has learned
  * to read one learns to read both.
  *
- * @remarks Cross-cutting invariant (ruling item 3): a `RunIdentity` must never reach the structural
+ * @remarks Cross-cutting invariant: a `RunIdentity` must never reach the structural
  * `.nt` text, an approved/received trace, an artifact filename, a manifest per-scenario key, or a
  * `ScenarioDelta` — every function that computes one of those takes no `RunIdentity` parameter at
  * all, so the omission is structural, not a discipline someone has to remember.

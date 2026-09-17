@@ -22,7 +22,7 @@ describe("checkMutationCompleteness", () => {
   function writePackage(
     slug: string,
     scripts: Record<string, string>,
-    withStrykerConfig = false,
+    strykerConfig: "json" | "mjs" | false = false,
   ): WorkspacePackage {
     const dir = join("packages", slug);
     mkdirSync(join(repoRoot, dir), { recursive: true });
@@ -30,19 +30,30 @@ describe("checkMutationCompleteness", () => {
       join(repoRoot, dir, "package.json"),
       JSON.stringify({ name: `@nt/${slug}`, scripts }),
     );
-    if (withStrykerConfig) {
+    if (strykerConfig === "json") {
       writeFileSync(join(repoRoot, dir, "stryker.config.json"), "{}");
+    } else if (strykerConfig === "mjs") {
+      writeFileSync(join(repoRoot, dir, "stryker.config.mjs"), "export default {};");
     }
     return { dir, name: `@nt/${slug}`, scripts };
   }
 
   it("passes a package with a mutate script and its own stryker.config.json", () => {
-    const pkg = writePackage("clean", { mutate: "stryker run" }, true);
+    const pkg = writePackage("clean", { mutate: "stryker run" }, "json");
 
     const report = checkMutationCompleteness(repoRoot, [pkg], []);
 
     expect(report.gaps).toEqual([]);
     expect(report.ok).toEqual(["clean"]);
+  });
+
+  it("passes a package with a mutate script and its own stryker.config.mjs — the env/cgroup-fed form", () => {
+    const pkg = writePackage("clean-mjs", { mutate: "stryker run" }, "mjs");
+
+    const report = checkMutationCompleteness(repoRoot, [pkg], []);
+
+    expect(report.gaps).toEqual([]);
+    expect(report.ok).toEqual(["clean-mjs"]);
   });
 
   it("flags omission: a package with no mutate script at all", () => {
@@ -59,7 +70,7 @@ describe("checkMutationCompleteness", () => {
     ]);
   });
 
-  it("flags a mutate script with no stryker.config.json to back it", () => {
+  it("flags a mutate script with no stryker.config.json/.mjs to back it", () => {
     const pkg = writePackage("noconfig", { mutate: "stryker run" });
 
     const report = checkMutationCompleteness(repoRoot, [pkg], []);
@@ -68,7 +79,7 @@ describe("checkMutationCompleteness", () => {
       {
         pkg: "noconfig",
         kind: "missing-config",
-        detail: 'packages/noconfig has a "mutate" script but no stryker.config.json',
+        detail: 'packages/noconfig has a "mutate" script but no stryker.config.json/.mjs',
       },
     ]);
   });
@@ -104,7 +115,7 @@ describe("checkMutationCompleteness", () => {
   });
 
   it("RED OBSERVATION (b): flags a package classified both wired AND exempt", () => {
-    const pkg = writePackage("stale-exemption", { mutate: "stryker run" }, true);
+    const pkg = writePackage("stale-exemption", { mutate: "stryker run" }, "json");
 
     const report = checkMutationCompleteness(
       repoRoot,
@@ -118,7 +129,7 @@ describe("checkMutationCompleteness", () => {
         kind: "double-classified",
         detail:
           "packages/stale-exemption is both wired for mutation testing (mutate script + " +
-          'stryker.config.json) and listed in MUTATION_EXEMPTIONS ("used to have no logic worth ' +
+          'stryker.config.json/.mjs) and listed in MUTATION_EXEMPTIONS ("used to have no logic worth ' +
           'mutating") — remove one',
       },
     ]);
@@ -127,7 +138,7 @@ describe("checkMutationCompleteness", () => {
   it("reports one gap per offending package without short-circuiting the sweep", () => {
     const a = writePackage("a", { build: "tsup" });
     const b = writePackage("b", { mutate: "stryker run" }); // missing config
-    const clean = writePackage("clean", { mutate: "stryker run" }, true);
+    const clean = writePackage("clean", { mutate: "stryker run" }, "json");
 
     const report = checkMutationCompleteness(repoRoot, [a, b, clean], []);
 

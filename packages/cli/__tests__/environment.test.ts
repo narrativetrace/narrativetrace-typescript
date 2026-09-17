@@ -247,4 +247,34 @@ describe("buildSnapshot", () => {
     const snapshot = buildSnapshot(dir, {});
     expect(snapshot.installedPackages.get("@narrativetrace/proxy")?.version).toBe("0.1.3");
   });
+
+  // Regression: every published @narrativetrace/* package declares `exports` and none of them list
+  // "./package.json", so the previous `require.resolve("<name>/package.json")` threw
+  // ERR_PACKAGE_PATH_NOT_EXPORTED against every real install — and every installedPackages-driven
+  // check silently took its "not installed — nothing to check" pass. The fixtures above declare no
+  // `exports`, which is exactly why they never saw it; this one reproduces the published shape.
+  test("resolves an installed package whose exports map omits ./package.json", () => {
+    write("package.json", JSON.stringify({ name: "consumer" }));
+    write(
+      "node_modules/@narrativetrace/vitest/package.json",
+      JSON.stringify({
+        name: "@narrativetrace/vitest",
+        version: "0.1.3",
+        exports: { ".": { import: "./dist/index.js", require: "./dist/index.cjs" } },
+        peerDependencies: { vitest: "^3.0.0" },
+        dependencies: { "@narrativetrace/proxy": "0.1.3" },
+      }),
+    );
+    write(
+      "node_modules/@narrativetrace/proxy/package.json",
+      JSON.stringify({
+        name: "@narrativetrace/proxy",
+        version: "0.1.3",
+        exports: { ".": { import: "./dist/index.js" } },
+      }),
+    );
+    const snapshot = buildSnapshot(dir, {});
+    expect(snapshot.installedPackages.get("@narrativetrace/vitest")?.version).toBe("0.1.3");
+    expect(snapshot.installedPackages.get("@narrativetrace/proxy")?.version).toBe("0.1.3");
+  });
 });

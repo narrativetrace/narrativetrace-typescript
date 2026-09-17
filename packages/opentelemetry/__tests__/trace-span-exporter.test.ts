@@ -193,9 +193,15 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(truncated).toBe(true);
   });
 
+  // Builds and exports a 50,000-deep chain — measured 2026-09-17: ~171ms run alone, ~723ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs.
+  // 3600ms is ~5x the measured contended run.
   test("does not stack-overflow on a very deep chain", () => {
     expect(() =>
       new TraceSpanExporter(provider.getTracer("test")).export([deepChain(50_000)]),
     ).not.toThrow();
-  });
+  }, 3_600);
 });

@@ -1,4 +1,4 @@
-<!-- source: README.md blob 6fcd5106d726 | translated: 2026-09-16 | reviewed: - -->
+<!-- source: README.md blob 19230be916f8 | translated: 2026-09-17 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -153,6 +153,8 @@ Cada línea `console.log(...)` o `logger.trace(...)`/`logger.debug(...)`/`logger
 
 No es un beneficio vago — es medible en tokens.
 
+Un estudio empírico independiente, "Do AI Coding Agents Log Like Humans? An Empirical Study" (arXiv 2604.09409, https://arxiv.org/abs/2604.09409), midió cómo los agentes de codificación con IA manejan el logging en 81 repositorios reales y 4.550 pull requests agénticos. Encontró que los agentes cambian el logging con menos frecuencia que los humanos en el 58,4 % de los repositorios estudiados, que solo el 20,7 % de los PR agénticos tocan el logging, y que los agentes no cumplen las solicitudes explícitas de logging el 67 % de las veces — mientras que los humanos escriben el 72,5 % de las correcciones de logging posteriores a la generación en PR agénticos, y lo hacen en commits posteriores en lugar de en la revisión. Leído sin rodeos, el estudio mide que los agentes ni escriben el logging de forma fiable ni obedecen de forma fiable las instrucciones para añadirlo, y que son los humanos quienes terminan reparando esa brecha en silencio, después del hecho. Ese es exactamente el fallo alrededor del cual está construido NarrativeTrace: como el código es el log, no hay un paso de logging separado que un agente pueda saltarse, olvidar o hacer mal, y las trazas de aprobación convierten la observabilidad en una puerta determinista — la clase de salvaguarda que las propias recomendaciones del estudio piden. (Citar este estudio no implica que sus autores respalden NarrativeTrace.)
+
 ## Puntuación de claridad
 
 Si la traza *es* el código, entonces la calidad de la traza *es* la calidad del código. NarrativeTrace incluye un analizador de claridad que puntúa los nombres de tus métodos, clases y parámetros:
@@ -238,8 +240,8 @@ cosa que importes tú mismo sigue necesitando ser tu propia dependencia (el `nod
 plano de npm no traza esta línea, pero pnpm — el que se muestra aquí — sí). *(since 0.1.3)*
 
 Estos son los paquetes publicados — `npm view @narrativetrace/core version` muestra la versión
-actual (0.1.1 en el momento de escribir esto; consulta [Compilar desde el código
-fuente](#compilar-desde-el-código-fuente) si necesitas un cambio todavía no publicado).
+actual; consulta [Compilar desde el código fuente](#compilar-desde-el-código-fuente) si
+necesitas un cambio todavía no publicado.
 
 ```ts
 // order-service.test.ts

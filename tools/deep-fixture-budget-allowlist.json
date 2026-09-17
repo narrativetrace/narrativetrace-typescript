@@ -1,0 +1,7 @@
+[
+  {
+    "file": "packages/glossary/__tests__/glossary-json-reader.test.ts",
+    "testName": "rejects a pathologically deep document cleanly, never a stack overflow",
+    "reason": "documentNesting(50_000) builds a string, not a walked tree — the reader fails fast at its own depth-17 guard before any recursion (14-17ms measured, no contention sensitivity). Deliberately left without a budget by the 2026-09-17 deep-tree budget work: see that commit's own note on packages/glossary's three genuine stack-safety tests getting explicit budgets instead."
+  }
+]

@@ -4,8 +4,8 @@
 // probed-run-name-manifest-field: manifest.json must carry a top-level `run` object ({id, name})
 // once ManifestSuiteReporter is registered — the documented default shape (2026-09-13 ruling, item
 // 2), with no configuration beyond registering the reporter itself.
-import { execFileSync } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
+import { assertFixtureRan, runVitest } from "./probe-support.mjs";
 
 const TEST_FILE = "contract-probe-run-name-manifest.test.ts";
 const CONFIG_FILE = "contract-probe-run-name-manifest.vitest.config.ts";
@@ -34,7 +34,11 @@ export default defineConfig({
 
 let observed = "false";
 try {
-  execFileSync("npx", ["vitest", "run", "--config", CONFIG_FILE], { stdio: "ignore" });
+  // The guard matters even though this entry is green: without it a fixture that stopped running
+  // at all would report "false" — a defect report about the package, sourced from a harness that
+  // never reached it. A missing manifest.json, by contrast, IS an observation about the package,
+  // so it stays a plain "false".
+  assertFixtureRan(runVitest(["--config", CONFIG_FILE]), 1, true);
   const manifest = JSON.parse(readFileSync("narrativetrace-output/manifest.json", "utf-8"));
   observed =
     typeof manifest.run?.id === "string" && typeof manifest.run?.name === "string"

@@ -663,10 +663,16 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(result).toContain("… (cycle)");
   });
 
+  // Builds and renders a 50,000-deep chain — measured 2026-09-17: ~235ms run alone, ~501ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs.
+  // 2500ms is ~5x the measured contended run.
   test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
     const result = renderMarkdownBody(traceTree([deepChain(50_000)]));
     expect(result).toContain("… (depth limit)");
-  });
+  }, 2_500);
 
   test("an ordinary tree well within the bound renders exactly as before", () => {
     const child = traceNode(methodSignature("Repo", "find", []), returned('"found"'), []);
@@ -680,7 +686,13 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(() => renderMarkdown(traceTree([cyclicRoot()]))).not.toThrow();
   });
 
+  // Builds and renders a 50,000-deep chain for frontmatter's method_count/error_count — measured
+  // 2026-09-17: ~150ms run alone, ~334ms under `turbo run coverage`'s full cross-package
+  // concurrency (an 8-core dev container running all packages' vitest+coverage at once). vitest's
+  // default 5000ms per-test timeout is a wall-clock budget, and release retrospective rule 3 says
+  // that budget must never be implicit — a test whose legitimate cost varies with scheduler
+  // contention declares what it actually needs. 1700ms is ~5.1x the measured contended run.
   test("frontmatter's method_count/error_count do not stack-overflow on a very deep chain", () => {
     expect(() => renderMarkdown(traceTree([deepChain(50_000)]))).not.toThrow();
-  });
+  }, 1_700);
 });

@@ -33,6 +33,32 @@ export interface ProvenanceCheck {
   readonly digestMatches: boolean;
   readonly ok: boolean;
   readonly detail: string;
+  /** True only for a package/version this check let through despite carrying no provenance, via
+   * {@link PROVENANCE_EXEMPT} — see that constant for why an exemption can ever be legitimate. */
+  readonly exempt: boolean;
+}
+
+/**
+ * Package/version pairs REVIEWED and pinned as exempt from the provenance requirement, because
+ * npm's trusted publishing cannot cover a package's own first publish: the trusted-publisher
+ * config on npmjs.com names an existing package, so the very first version has to land by some
+ * other route before that config can even be created. `@narrativetrace/cli@0.1.3` shipped that
+ * bootstrap publish by hand with `npm publish --no-provenance` on 2026-09-16 (see the release
+ * checklist's first-publish bootstrap steps); the trusted publisher is configured now, so every
+ * version from 0.1.4 on carries provenance exactly like every other package.
+ *
+ * An entry here is a fact about ONE already-published version, never a standing waiver for a
+ * package going forward — this map is never extended to cover a later version of the same
+ * package, only reviewed, one entry at a time, for a version that has already shipped this way.
+ */
+const PROVENANCE_EXEMPT: Readonly<Record<string, readonly string[]>> = {
+  "@narrativetrace/cli": ["0.1.3"],
+};
+
+/** Whether `name`@`version` is a reviewed, version-pinned provenance exemption — see
+ * {@link PROVENANCE_EXEMPT}. */
+export function isProvenanceExempt(name: string, version: string): boolean {
+  return (PROVENANCE_EXEMPT[name] ?? []).includes(version);
 }
 
 interface DsseAttestation {
@@ -91,6 +117,20 @@ async function defaultFetchBuffer(url: string): Promise<Buffer> {
 }
 
 function notAdvertised(name: string, version: string): ProvenanceCheck {
+  const detail = "registry metadata carries no dist.attestations — published without provenance";
+  if (isProvenanceExempt(name, version)) {
+    return {
+      name,
+      version,
+      attestationsAdvertised: false,
+      predicateTypesFound: [],
+      subjectNameMatches: false,
+      digestMatches: false,
+      ok: true,
+      exempt: true,
+      detail: `${detail} — EXEMPT (reviewed, version-pinned bootstrap publish; see PROVENANCE_EXEMPT)`,
+    };
+  }
   return {
     name,
     version,
@@ -99,10 +139,17 @@ function notAdvertised(name: string, version: string): ProvenanceCheck {
     subjectNameMatches: false,
     digestMatches: false,
     ok: false,
-    detail: "registry metadata carries no dist.attestations — published without provenance",
+    exempt: false,
+    detail,
   };
 }
 
+// No PROVENANCE_EXEMPT check here on purpose: an exemption covers "this version was published
+// with no attestations at all" (notAdvertised, above) — a bootstrap-publish fact. It never covers
+// attestations that ARE present but wrong (a subject naming the wrong package, a digest that
+// doesn't match the actual tarball, a missing predicate) — that shape is a real integrity finding
+// on a package this repo already trusts to carry provenance, and must keep failing regardless of
+// any exemption entry.
 function evaluatePayloads(
   name: string,
   version: string,
@@ -130,6 +177,7 @@ function evaluatePayloads(
     subjectNameMatches,
     digestMatches,
     ok,
+    exempt: false,
     detail,
   };
 }

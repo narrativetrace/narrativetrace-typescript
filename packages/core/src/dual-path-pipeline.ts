@@ -22,7 +22,7 @@ import type { TraceEvent } from "./trace-event.js";
  * `new DualPathPipeline(consumer, new BufferedEventConsumer())`, not `new
  * DualPathPipeline(consumer, null)`. Pass an explicit {@link BufferedEventConsumer} instance
  * (e.g. sized for your workload) when the default capacity does not fit; there is no way to
- * disable buffering from this constructor, by design. *(since 0.1.3, unreleased)*
+ * disable buffering from this constructor, by design.
  *
  * @remarks Fail-safe posture: both delivery paths are wrapped in try/catch, so a buggy listener or
  * a full buffer can never break the traced business call.

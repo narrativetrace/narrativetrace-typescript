@@ -64,8 +64,9 @@ export default function narrativeTraceGlobalSetup(): void {
 
 /**
  * Test-only: clears the cached identity and the environment handoff, so the next call to
- * {@link runIdentity} generates a fresh one — mirrors Java's package-visible
- * `resetGlobalAccumulator` reset hook, used so a test can prove two runs get two different names.
+ * {@link runIdentity} generates a fresh one — the same package-visible
+ * `resetGlobalAccumulator`-style reset hook every NarrativeTrace runtime carries, used so a test
+ * can prove two runs get two different names.
  */
 export function resetRunIdentityForTest(): void {
   cached = undefined;

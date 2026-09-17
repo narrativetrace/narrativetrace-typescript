@@ -94,7 +94,8 @@ export function secretOf(redactionCase: RedactionCase): string {
 
 /**
  * The object to hand the capture path: the value alone, the value as a map key, or a one-entry map
- * under the sensitive field name — mirrors the Java golden source's `RedactionCase.payload()`.
+ * under the sensitive field name — the same shape as every runtime's `RedactionCase.payload()` in
+ * the shared corpus.
  *
  * @llmNote A `Map` is the vehicle for name cases because these names are data — including two
  * spellings of the same Spanish word that differ only by Unicode normalization form. A value case

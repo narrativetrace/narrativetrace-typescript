@@ -42,8 +42,8 @@ export function rootCallName(roots: readonly TraceNode[]): string {
  *
  * INTENT: identity is generated *eagerly and always*, so no artifact ever ships an empty or
  * synthetic `trace_id`. Resolution lives here rather than in each exporter because two exporters
- * reading one tree must be unable to name two different traces — the defect Java found when it left
- * generation to the exporters (owner decision 2026-08-30, product ADR-014).
+ * reading one tree must be unable to name two different traces — leaving generation to the
+ * exporters cannot guarantee that.
  *
  * - `traceId` — the id the tree carries (assigned by its capturing context, or resolved once at
  *   construction), else the first span context found anywhere in the tree depth-first, else a fresh

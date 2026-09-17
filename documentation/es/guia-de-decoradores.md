@@ -1,4 +1,4 @@
-<!-- source: documentation/decorators-guide.md blob c18d283b01e2 | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob 189475c77df7 | translated: 2026-09-17 | reviewed: - -->
 
 # Guía de decoradores de NarrativeTrace para TypeScript
 
@@ -268,10 +268,16 @@ de acceso, poblado de cachés o E/S — exactamente igual que lo harías para un
 
 Qué se invoca y qué no:
 
-- **La introspección enumera las propiedades propias enumerables** (`Object.keys`). Un getter definido
-  en una clase vive en el prototipo, nunca se enumera, y nunca se ejecuta durante la
-  introspección. (Un accesor definido directamente en un objeto literal *sí* es propio-enumerable
-  y se ejecutaría — prefiere getters de clase o marca el campo en `static notTraced`.)
+- **La introspección enumera las propiedades propias enumerables** (`Object.keys`), y lee cada una
+  a través de su propio descriptor de propiedad. Un getter definido en una clase vive en el
+  prototipo, nunca se enumera, y nunca se ejecuta durante la introspección. *(since 0.1.4,
+  decisión del equipo, 2026-09-17, "el renderizado lee el estado, nunca ejecuta comportamiento")*
+  Un accesor definido directamente en un objeto literal (o promovido a propiedad propia mediante
+  `Object.defineProperty`, como a veces ocurre con el accesor de respaldo de una clase de tipo
+  registro) es propio-enumerable pero **ya nunca se invoca, ni siquiera como alternativa** — en su
+  lugar renderiza el marcador dedicado `<inaccessible>`, distinto del marcador tipado
+  `<error: Tipo>`, que sigue reservado para un valor que realmente se leyó y falló. Solo el valor
+  almacenado de una propiedad de datos se lee jamás.
 - **Un `toString()` personalizado (propio, no el predeterminado) solo se invoca para un
   intrínseco de la plataforma del realm** — `Date`, `URL`, `RegExp`, un `BigInt` empaquetado o un
   array tipado, comprobado por identidad de prototipo, nunca por nombre. *(since 0.1.3)* Tus propios tipos ya nunca llegan a esta ruta, tengan campos o no: siempre corre
@@ -290,11 +296,29 @@ Qué se invoca y qué no:
 - Cualquier ruta de propiedad que nombres en una plantilla `@narrated`/`@onError` también se
   invoca — `{order.total}` se resuelve mediante acceso a la propiedad, así que un getter nombrado
   ahí *sí* se ejecuta.
+- **Las colecciones se enumeran a través del estado propio del ancestro de la plataforma, según
+  su origen.** *(since 0.1.4, decisión del equipo, 2026-09-17)* Un `Array`/`Set`/`Map` normal (o
+  una subclase que no ha sobrescrito el método relevante) se lee exactamente igual que antes. Una
+  subclase que SÍ ha sobrescrito el método que el renderizador llamaría de otro modo
+  (`[Symbol.iterator]` en un `Array`, `entries()` en un `Map`, `values()`/`[Symbol.iterator]` en
+  un `Set`) se lee en su lugar a través del propio método de la base de la plataforma — la
+  sobrescritura nunca se invoca. Un tipo hecho a mano sin ningún ancestro de plataforma tampoco se
+  enumera nunca a través de su propio iterador: se renderiza mediante introspección de campos como
+  cualquier otro objeto y — solo cuando no tiene ningún campo propio-enumerable que mostrar — como
+  su nombre de tipo desnudo en lugar de un `{}` engañosamente vacío. Consulta
+  [El hook de elementos](#el-hook-de-elementos--narrative_elements) más abajo para la única forma
+  de reactivar la propia iteración de un tipo.
+- **El hook de elementos (`NARRATIVE_ELEMENTS`) se invoca cuando un tipo lo declara** — el único
+  caso en el que el propio código de un tipo con forma de colección se ejecuta durante el
+  renderizado, porque el autor del tipo lo declaró explícitamente seguro. Consulta
+  [El hook de elementos](#el-hook-de-elementos--narrative_elements) más abajo.
 - **La invocación está acotada y aislada.** La salida tiene un límite (`maxStringLength`,
-  `maxArrayItems`, `maxObjectKeys`); un getter que lanza una excepción degrada solo *ese campo* al
-  marcador de error tipado `<error: NombreDelConstructor>` (nunca `.message`, que puede llevar el
-  valor exacto que el miembro se negaba a renderizar) — los campos hermanos siguen renderizándose
-  con normalidad. *(since 0.1.3)* Un `toString()` o `@narrativeSummary()` que lanza excepción degrada el valor
+  `maxArrayItems`, `maxObjectKeys`); un campo de datos que no se puede leer (o, recursivamente, un
+  valor anidado que falla al renderizarse) degrada solo *ese campo* al marcador de error tipado
+  `<error: NombreDelConstructor>` (nunca `.message`, que puede llevar el valor exacto que el
+  miembro se negaba a renderizar) — los campos hermanos siguen renderizándose con normalidad; un
+  campo accesor ya nunca llega a esa ruta (ver arriba — degrada a `<inaccessible>` en su lugar, sin
+  ejecutarse jamás). *(since 0.1.3)* Un `toString()` o `@narrativeSummary()` que lanza excepción degrada el valor
   completo de la misma forma; ninguno de los dos hace fallar jamás la llamada de negocio trazada
   (las plantillas recurren al literal `{placeholder}`). Los valores se renderizan de forma eager
   en el punto de llamada, así que cualquier efecto secundario ocurre una sola vez, en un punto
@@ -307,6 +331,50 @@ solo `Date`/`URL`/`RegExp`/un `BigInt` empaquetado/un array tipado lo obtienen, 
 plataforma. Con un contexto
 inactivo (nivel `off`, o captura de parámetros desactivada en `summary`), no se renderiza ningún
 argumento en absoluto — no se toca código de usuario en la ruta rápida.
+
+## El hook de elementos — `NARRATIVE_ELEMENTS`
+
+*(since 0.1.4, decisión del equipo, 2026-09-17, "el renderizado lee el estado, nunca ejecuta
+comportamiento")* El tercer hook de renderizado sancionado, junto a `@narrativeSummary` y el
+propio `toString()` de una hoja de la plataforma: un símbolo bien conocido, exportado como
+`NARRATIVE_ELEMENTS` desde `@narrativetrace/core`, que un tipo hecho a mano con forma de
+colección implementa para declarar que sus propios elementos son seguros de enumerar.
+
+```ts
+import { NARRATIVE_ELEMENTS, renderValue } from "@narrativetrace/core";
+
+class Basket {
+  #parts: string[];
+  constructor(parts: string[]) {
+    this.#parts = parts;
+  }
+  [NARRATIVE_ELEMENTS](): Iterable<string> {
+    return this.#parts;
+  }
+}
+
+renderValue(new Basket(["sku-1", "sku-2"])); // '["sku-1", "sku-2"]'
+```
+
+Sin el hook, `Basket` no tiene ningún campo propio-enumerable (`#parts` es un campo privado
+verdadero), así que se renderizaría como un `{}` desnudo y engañosamente vacío — o, si también
+tuviera campos visibles, como un volcado de solo esos campos. Declarar `NARRATIVE_ELEMENTS`
+reactiva deliberadamente la propia iteración de un tipo: el renderizado enumera hasta
+`maxCollectionItems` elementos que devuelve el método, truncando con el mismo marcador
+`(N total)` que usa cualquier otra colección.
+
+El hook se invoca — ese es su propósito, una declaración explícita del autor de que hacerlo es
+seguro — pero solo desde dentro de la misma guarda de renderizado que corre detrás de cualquier
+otro hook (`isRenderingInProgress()`), así que una llamada envuelta con `traceObject` alcanzada
+desde dentro de él no registra ningún span. Un hook que lanza una excepción (o cuyo valor de
+retorno no es realmente iterable) degrada el valor completo al marcador de error tipado
+`<error: NombreDelConstructor>`, igual que un `@narrativeSummary()` o `toString()` que lanza
+excepción. El símbolo se busca internamente mediante `Symbol.for("narrativetrace.elements")`, así
+que se resuelve de forma idéntica entre límites de módulos y copias del paquete.
+
+Tiene prioridad sobre cualquier otro despacho de colecciones (incluido el propio de
+`Array`/`Set`/`Map`), así que un tipo que a la vez extiende una colección de la plataforma y
+declara el hook se enumera a través del hook.
 
 ## Combinando decoradores
 

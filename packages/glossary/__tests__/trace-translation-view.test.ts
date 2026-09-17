@@ -270,8 +270,16 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(markdown).toContain("… (cycle)");
   });
 
+  // Builds and renders a 50,000-node chain — measured 2026-09-17: ~250ms run alone, ~1350ms under
+  // `turbo run coverage`'s full cross-package concurrency (a 2-core dev container running all
+  // packages' vitest+coverage at once — this is the worst-contended of the three deep-chain tests
+  // in this package, ~5-10x its own idle time). vitest's default 5000ms per-test timeout is a
+  // wall-clock budget, and release retrospective rule 3 says that budget must never be implicit —
+  // a test whose legitimate cost varies with scheduler contention declares what it actually needs.
+  // 6000ms is ~4.5x the measured contended run and deliberately above the 5000ms default itself:
+  // this is the test that hit it this morning.
   test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
     const { markdown } = render(modelOf(), traceOf(deepChain(50_000)));
     expect(markdown).toContain("… (depth limit)");
-  });
+  }, 6_000);
 });

@@ -156,8 +156,8 @@ export type NarrativeTestOptions = {
   /**
    * Whether {@link createNarrativeTest} writes artifact files at all, default `true`.
    *
-   * @remarks The artifact IS the payoff (owner ruling, 2026-09-11): a suite that wraps a service and
-   * traces it should see files without configuring anything. Set `false` — or the env/config-file
+   * @remarks The artifact IS the payoff: a suite that wraps a service and traces it should see
+   * files without configuring anything. Set `false` — or the env/config-file
    * `output` channel to `"false"` — for the rare run that wants the console narrative and clarity/
    * glossary metadata but not the files, e.g. a read-only CI job. Any other value, including unset,
    * writes.
@@ -208,10 +208,10 @@ const FORMAT_ALIASES: Record<string, TraceFormat> = {
 /**
  * `output` channel value → whether artifact files should be written.
  *
- * @remarks Inverted-default opt-out (owner ruling, 2026-09-11): everything writes except the exact
- * string `"false"` (case-insensitive, trimmed) — `undefined`, `"true"`, and legacy values like
- * `"console"` all keep writing on, so an existing `NARRATIVETRACE_OUTPUT=true` in a project's env
- * keeps working unchanged.
+ * @remarks Inverted-default opt-out: everything writes except the exact string `"false"`
+ * (case-insensitive, trimmed) — `undefined`, `"true"`, and legacy values like `"console"` all keep
+ * writing on, so an existing `NARRATIVETRACE_OUTPUT=true` in a project's env keeps working
+ * unchanged.
  */
 function parseOutputEnabled(raw?: string): boolean {
   return raw?.trim().toLowerCase() !== "false";
@@ -261,9 +261,9 @@ export interface ResolvedFixtureConfig {
  *
  * @remarks `bufferCapacity` has only the options channel — it is a property of the *fixture*, not
  * of the project's tracing configuration, and a suite-wide env override would push every test past
- * the allocation cliff the default exists to stay under. `outputEnabled` defaults to `true`
- * (owner ruling, 2026-09-11: file writing is on by default, opt out with `NARRATIVETRACE_OUTPUT=false`
- * or the config file's `output: "false"`) — see {@link parseOutputEnabled}.
+ * the allocation cliff the default exists to stay under. `outputEnabled` defaults to `true` — file
+ * writing is on by default, opt out with `NARRATIVETRACE_OUTPUT=false` or the config file's
+ * `output: "false"` — see {@link parseOutputEnabled}.
  * @throws {DuplicateConfigurationError} when the project root declares more than one config
  * source — a misconfigured project fails the run instead of silently picking one.
  */
@@ -465,7 +465,7 @@ function recordAndEnforce(
  * trace, or a real structural difference); never for an already-failed test, whose structure is
  * mid-flight and must not churn the received files.
  * @returns the last-green baseline's path relative to `outputDir` (the manifest's `structural`
- * role — 2026-09-13 ruling), or `undefined` for an empty trace, which writes nothing.
+ * role), or `undefined` for an empty trace, which writes nothing.
  */
 interface StructuralArtifactCall {
   readonly testName: string;
@@ -542,9 +542,8 @@ function structuralCall(
  * Records this scenario's manifest row — the humanized scenario name, its `ArtifactIdentity`, and
  * every artifact it actually owns — on both suite-reporter channels (`task.meta`, cross-worker
  * safe, for {@link ManifestSuiteReporter}; the per-process registry, the single-process fallback),
- * the same dual write {@link recordTestClarity} uses. 2026-09-13 ruling, item 2 closed a
- * pre-existing gap: this port shipped `renderScenarioManifest` in `core` but nothing here ever
- * called it. Silent on an empty trace, matching every other per-test emission's contract.
+ * the same dual write {@link recordTestClarity} uses. Silent on an empty trace, matching every
+ * other per-test emission's contract.
  */
 function recordManifestRow(
   tree: TraceTree,
@@ -762,9 +761,8 @@ function recordTestGlossary(tree: TraceTree, meta: object | undefined): void {
   (meta as { narrativeGlossary?: TraceSite[] }).narrativeGlossary = traceSites(tree);
 }
 
-// Only the Markdown format's frontmatter carries `run:` (2026-09-13 ruling, item 2 scopes the run
-// name to "the Markdown frontmatter of every value-bearing artifact" — never JSON, never a diagram)
-// — every other renderer here stays exactly as it was.
+// Only the Markdown format's frontmatter carries `run:` — the run name is scoped to "the Markdown
+// frontmatter of every value-bearing artifact", never JSON, never a diagram.
 const RENDERERS: Record<TraceFormat, (t: TraceTree, name: string) => string> = {
   md: (t, name) => renderMarkdown(t, { scenarioName: name, runName: runIdentity().name }),
   mmd: (t) => renderMermaidSequence(t),
@@ -817,10 +815,6 @@ const SHED_MARKER = "⚠️";
  * contract; `canonical-json` and `clarity-json` are the same kind of artifact. Their consumers are
  * schema validators and cross-runtime fixtures, which read the events, not a footer — the humans who
  * need the warning read the Markdown and the console.
- *
- * That gap is closing: the chapter-tree schema will gain an optional `nt.shed` object across the
- * runtimes before 0.2.0 freezes the format. When it lands, `json` stops needing a
- * footer and starts carrying the count as data.
  */
 const NOTICE_SYNTAX: Partial<Record<TraceFormat, string>> = {
   md: `> ${SHED_MARKER} `,
@@ -864,11 +858,11 @@ const MAX_SEGMENT_LENGTH = 100;
  * test's trace. The family scheme every NarrativeTrace runtime converges on (Java's and Swift's
  * `OutputDirectoryResolver`) truncates to the budget and appends an eight-hex-digit hash of the
  * whole slug, so two names differing only past the cut still resolve to different artifacts.
- * Unified onto Java's own formula (owner ruling, 2026-09-08: the family hash is Java's
- * JLS-stable `String#hashCode`, not each port improvising its own — dotnet hand-reimplements the
- * identical formula for the same reason `javaStringHashCodeHex` below does) rather than FNV-1a:
- * not a security boundary, only a cross-port collision-avoidance one, but a *shared* one is only
- * useful if every port derives the same suffix from the same slug. This runtime ASCII-folds every
+ * Unified onto Java's own formula rather than FNV-1a — the family hash is Java's JLS-stable
+ * `String#hashCode`, not each port improvising its own; dotnet hand-reimplements the identical
+ * formula for the same reason `javaStringHashCodeHex` below does. Not a security boundary, only a
+ * cross-port collision-avoidance one, but a *shared* one is only useful if every port derives the
+ * same suffix from the same slug. This runtime ASCII-folds every
  * segment before length is ever measured (see `sanitizeFileName` below), so a byte cap and a
  * character cap are the same number here — the family scheme's multibyte/astral
  * read-buffer-boundary care is structurally moot.
@@ -970,7 +964,7 @@ export interface TraceOutputTarget {
  * @param tree the captured trace; no roots means no output.
  * @param target destination and formats; see {@link TraceOutputTarget}.
  * @returns `manifest.json` role → path relative to `outputDir`, one entry per format actually
- * written (2026-09-13 ruling, item 2's manifest wiring); empty for an empty trace.
+ * written; empty for an empty trace.
  */
 /** Writes one format's file and returns its manifest role → relative-path entry. */
 function writeOneFormat(

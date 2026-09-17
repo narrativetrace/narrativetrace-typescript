@@ -31,7 +31,7 @@ function thirdPerson(verb: string): string {
 
 // className/methodName/parameter names are trace metadata, not captured values — unlike
 // renderedValue (already control-escaped by value-renderer), nothing sanitizes them upstream, so
-// each is escaped here before humanizing (cross-runtime shape F4, 2026-09-02 audit).
+// each is escaped here before humanizing.
 function humanizeClassName(name: string): string {
   return splitCamelCase(ControlEscape.sanitize(name));
 }
@@ -147,8 +147,8 @@ function renderConcurrentBlock(members: readonly TraceNode[], sentences: string[
 
 /**
  * Opens in this renderer's own voice — `The trace bold elk soars: ` — before the first sentence,
- * whenever {@link TraceTree.traceId} is present (2026-09-13 ruling, item 4); empty on an empty tree,
- * or a hand-built one that opted out of identity — nothing here is invented. This is the trace's
+ * whenever {@link TraceTree.traceId} is present; empty on an empty tree, or a hand-built one that
+ * opted out of identity — nothing here is invented. This is the trace's
  * OWN name, unrelated to a test-suite run's name (see `RunIdentity`); neither ever reaches the
  * structural `.nt` text.
  */

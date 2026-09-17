@@ -44,6 +44,25 @@ function sinceMarkerFor(version: string): RegExp {
 }
 
 /**
+ * Rewrites every `since VERSION, unreleased)*` marker in `file` to `since VERSION)*`, in place,
+ * whole-file and whitespace-tolerant (see module doc). Shared by {@link rewriteSinceMarkers}
+ * (which walks a whole tree) and the post-release settle step (`tools/settle-since-markers.ts`),
+ * which rewrites the same way over a different, narrower file list — same regex, same semantics,
+ * one place either caller can drift from if it ever changes.
+ *
+ * @returns whether `file`'s content actually changed.
+ */
+export function rewriteSinceMarkersInFile(file: string, version: string): boolean {
+  const pattern = sinceMarkerFor(version);
+  const replacement = `since ${version})*`;
+  const before = readFileSync(file, "utf-8");
+  const after = before.replace(pattern, replacement);
+  if (after === before) return false;
+  writeFileSync(file, after, "utf-8");
+  return true;
+}
+
+/**
  * Rewrites every `since VERSION, unreleased)*` marker under `root` to `since VERSION)*`, in place,
  * whole-file and whitespace-tolerant (see module doc) — never in-tree, only ever against a staged
  * snapshot directory.
@@ -53,16 +72,9 @@ function sinceMarkerFor(version: string): RegExp {
  * translated mirrors' staleness hash needs restamping.
  */
 export function rewriteSinceMarkers(root: string, version: string): string[] {
-  const pattern = sinceMarkerFor(version);
-  const replacement = `since ${version})*`;
   const changed: string[] = [];
   for (const file of markdownAndLlmsFiles(root)) {
-    const before = readFileSync(file, "utf-8");
-    const after = before.replace(pattern, replacement);
-    if (after !== before) {
-      writeFileSync(file, after, "utf-8");
-      changed.push(relative(root, file));
-    }
+    if (rewriteSinceMarkersInFile(file, version)) changed.push(relative(root, file));
   }
   return changed;
 }

@@ -5,18 +5,30 @@ import { ControlEscape } from "./control-escape.js";
 import { errorTypeName } from "./error-display.js";
 import { isThenable } from "./is-thenable.js";
 import { notTracedFields, RedactionPolicy } from "./redaction-policy.js";
+import { withRenderingGuard } from "./rendering-guard.js";
 
 /**
  * The typed error marker: a member that throws while `renderValue`/`renderStructured` reads it
  * (`narrativeSummary()`, a leaf's `toString()`, a field getter) never shows past the thrower's
  * TYPE name — never {@link Error.message}, which can carry the exact value the member was
- * refusing to render (owner ruling, 2026-09-11). {@link errorTypeName} already resolves the
+ * refusing to render. {@link errorTypeName} already resolves the
  * cross-runtime name (constructor name for an `Error`/object, `typeof` for a thrown primitive)
  * and sanitizes it, so this is the one place every throwing hazard in the renderer converges on.
  */
 function errorMarker(thrown: unknown): string {
   return `<error: ${errorTypeName(thrown)}>`;
 }
+
+/**
+ * Rendered form of an own-enumerable member that IS an accessor (a getter, defined via
+ * `Object.defineProperty`/`class { get x() {} }` promoted to an own property) rather than a data
+ * property holding a value directly. Introspection reads a value's own STATE, so an accessor is
+ * never invoked, not even as a fallback when nothing else can supply the value — this is the
+ * honest answer for a member that was never actually unreadable, only deliberately not read, and
+ * is deliberately distinct from {@link errorMarker}, which is reserved for a member that a *read*
+ * (not an invocation) genuinely failed on.
+ */
+const INACCESSIBLE = "<inaccessible>";
 
 /**
  * Truncation and redaction budgets for {@link renderValue}. Omitted fields fall back to conservative
@@ -136,7 +148,7 @@ class RenderWalk {
  */
 export function renderValue(value: unknown, options?: RenderOptions): string {
   const opts = { ...DEFAULTS, ...options };
-  return render(value, opts, new RenderWalk());
+  return withRenderingGuard(() => render(value, opts, new RenderWalk()));
 }
 
 /**
@@ -145,7 +157,7 @@ export function renderValue(value: unknown, options?: RenderOptions): string {
  *
  * INTENT: a capture site needs to flip its `ParameterCapture.redacted` boolean when the
  * value-shape axis alone (no field name involved) redacted the whole parameter — see
- * `RedactionPolicy.shouldRedactValue` and the family-wide ruling that `redacted === true` iff the
+ * `RedactionPolicy.shouldRedactValue`; `redacted === true` iff the
  * parameter's WHOLE value was withheld. Only a top-level scalar string can make that true: a JWT
  * nested inside an object's field is masked in the rendered text by the same
  * `shouldRedactValue` check ({@link renderString}), but the parameter still carries other,
@@ -164,8 +176,10 @@ export function renderCapture(
   options?: RenderOptions,
 ): { readonly rendered: string; readonly shapeRedacted: boolean } {
   const opts = { ...DEFAULTS, ...options };
-  if (typeof value === "string") return renderStringResult(value, opts);
-  return { rendered: render(value, opts, new RenderWalk()), shapeRedacted: false };
+  return withRenderingGuard(() => {
+    if (typeof value === "string") return renderStringResult(value, opts);
+    return { rendered: render(value, opts, new RenderWalk()), shapeRedacted: false };
+  });
 }
 
 type TypeRenderer = (value: any, opts: Required<RenderOptions>, walk: RenderWalk) => string;
@@ -230,11 +244,11 @@ function renderString(value: string, opts: Required<RenderOptions>): string {
  * {@link RedactionPolicy.shouldRedactValue} (a JWT is a JWT wherever it is printed), the
  * control-character escape, and the string cap. Only the quotes are dropped.
  *
- * @llmNote The one caller is `template-parser.ts`, which used to answer a text placeholder with
- * `String(value)` — no redaction, no escaping, no cap — so `@narrated("issued {token}")` printed a
- * bearer token that the identical value answered `[REDACTED]` for as a captured parameter
- * (2026-09-04, family security fix). Keep this function and {@link renderString} reading the same
- * two lines: a secret must not depend on whether the value was narrated or captured.
+ * @llmNote The one caller is `template-parser.ts`. A text placeholder answered with plain
+ * `String(value)` — no redaction, no escaping, no cap — would let `@narrated("issued {token}")`
+ * print a bearer token that the identical value answers `[REDACTED]` for as a captured parameter.
+ * Keep this function and {@link renderString} reading the same two lines: a secret must not
+ * depend on whether the value was narrated or captured.
  *
  * @param text any string destined for narration.
  * @param options truncation and redaction budgets; see {@link RenderOptions} for defaults.
@@ -267,9 +281,9 @@ function typeName(value: object): string {
 // this renderer invokes — is scanned for a value shape (JWT/PAN/SSN/…) as defense-in-depth: the
 // method is the author's own curated text, but curated text can still accidentally interpolate a
 // secret-shaped value the same way a hostile toString does. A throwing summary is NOT ignored:
-// the owner ruling is that the whole rendering degrades to the typed error marker rather than
-// silently falling through to toString/field introspection, which could reintroduce exactly the
-// leak a summary method was written to prevent. Returns undefined only when there is no
+// rendering degrades to the typed error marker rather than silently falling through to
+// toString/field introspection, which could reintroduce exactly the leak a summary method was
+// written to prevent. Returns undefined only when there is no
 // `narrativeSummary` method at all, so dispatch can fall through to the next rule.
 function renderSummary(value: object, opts: Required<RenderOptions>): string | undefined {
   const fn = (value as { narrativeSummary?: unknown }).narrativeSummary;
@@ -289,8 +303,8 @@ function hasCustomToString(value: object): boolean {
 }
 
 /**
- * The realm intrinsic prototypes {@link isPlatformValue} trusts native stringification for (owner
- * ruling, 2026-09-12 "trusted-leaf" carve-out). `Map`/`Set` are deliberately absent: `dispatchObject`
+ * The realm intrinsic prototypes {@link isPlatformValue} trusts native stringification for — the
+ * "trusted-leaf" carve-out. `Map`/`Set` are deliberately absent: `dispatchObject`
  * routes both to their own renderer before this check is ever consulted, so they never reach here.
  *
  * @remarks `Error` is deliberately NOT included, despite being a realm intrinsic. Every other entry
@@ -333,14 +347,12 @@ const PLATFORM_PROTOTYPES: ReadonlySet<unknown> = new Set<unknown>(
  * Whether `value` IS, by identity, one of the realm's platform-defined intrinsics this renderer
  * trusts native stringification for.
  *
- * @remarks Owner ruling, 2026-09-12: after the 2026-09-11 fix (trust `toString()` only for a
- * leaf — no own enumerable key), a field-less user class was STILL trusted merely for having
- * nothing `Object.keys` could see — but "no own enumerable key" was never proof of "nothing to
- * hide" the way it looked: a true `#private` class field, a closure variable, or a module-level
- * `WeakMap` keyed by `this` are all invisible to `Object.keys` yet freely readable from inside the
- * class's own `toString()`. That is a strictly JS-shaped hole the 2026-09-11 fix didn't close, and
- * closing it means narrowing trust from "any leaf" to "a leaf this library itself ships and can
- * vouch for" — a realm intrinsic, checked by IDENTITY.
+ * @remarks Trust is scoped to "a leaf this library itself ships and can vouch for" — a realm
+ * intrinsic, checked by IDENTITY — never "any leaf with no own enumerable key". "No own enumerable
+ * key" is not proof of "nothing to hide": a true `#private` class field, a closure variable, or a
+ * module-level `WeakMap` keyed by `this` are all invisible to `Object.keys` yet freely readable
+ * from inside a field-less user class's own `toString()`, so trusting emptiness alone would trust
+ * exactly the classes with the most to hide.
  *
  * The check is `Object.getPrototypeOf(value) === <Intrinsic>.prototype`, never
  * `value.constructor?.name` or any other name-based test: a user class can freely name itself
@@ -356,8 +368,8 @@ function isPlatformValue(value: object): boolean {
 
 /**
  * The member that produces a trusted platform value's native string form: `toString()` for every
- * intrinsic in {@link PLATFORM_PROTOTYPES} except `Date`, which uses `toISOString()` instead
- * (owner ruling, 2026-09-13). `Date.prototype.toString()` bakes the host's locale and timezone
+ * intrinsic in {@link PLATFORM_PROTOTYPES} except `Date`, which uses `toISOString()` instead.
+ * `Date.prototype.toString()` bakes the host's locale and timezone
  * NAME into the string (`"Tue Jan 01 2024 01:00:00 GMT+0100 (Central European Standard Time)"`) —
  * two machines (or the same machine at a different `TZ`) render two different strings for the
  * identical instant, which is exactly what a reproducible trace artifact must never do.
@@ -374,8 +386,8 @@ function nativeStringMethod(value: object): "toString" | "toISOString" {
 // renders that string (sanitized + truncated) rather than a field dump; a null return falls back
 // to <TypeName>, a throw to the typed error marker (Java renderWithToString). Plain objects
 // (Object.prototype.toString) still introspect. Only ever called for a platform value (see
-// dispatchObject) — every other object, leaf or not, always field-walks instead (2026-09-12
-// ruling — see isPlatformValue).
+// dispatchObject) — every other object, leaf or not, always field-walks instead (see
+// isPlatformValue).
 function renderWithToString(value: object, opts: Required<RenderOptions>): string {
   try {
     const method = nativeStringMethod(value);
@@ -408,11 +420,15 @@ function renderObject(value: object, opts: Required<RenderOptions>, walk: Render
   }
 }
 
-// Render order mirrors Java ValueRenderer: Array, Set, Map, @narrativeSummary, custom toString
+// Render order is the same across every NarrativeTrace runtime: the declared elements hook (an
+// explicit author declaration, so it wins even over Array/Set/Map's own dispatch), then Array,
+// Set, Map, @narrativeSummary, custom toString
 // (realm platform intrinsics only — see isPlatformValue), then field introspection. A custom
 // toString() on any object that is NOT a platform value is never trusted, fields or not — see
 // isPlatformValue's doc for the private-field/closure leak this closes.
 function dispatchObject(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
+  const declaredElements = renderDeclaredElements(value, opts, walk);
+  if (declaredElements !== undefined) return declaredElements;
   if (Array.isArray(value)) return renderArray(value, opts, walk);
   if (value instanceof Set) return renderSet(value, opts, walk);
   if (value instanceof Map) return renderMap(value, opts, walk);
@@ -424,8 +440,43 @@ function dispatchObject(value: object, opts: Required<RenderOptions>, walk: Rend
   return renderPlainObject(value, opts, walk);
 }
 
+/**
+ * The third sanctioned rendering hook, alongside `@narrativeSummary`
+ * and a platform leaf's own `toString()`: a type declares its own elements safe to enumerate by
+ * implementing this well-known symbol as a method returning an `Iterable`. Unlike every other
+ * collection path in this file, the declared method itself IS invoked — that is the point of the
+ * hook, the author's own explicit declaration that doing so is safe — but only ever from inside
+ * `renderValue`'s rendering guard (already active for the whole call, see `withRenderingGuard`),
+ * so a `traceObject`-wrapped call reached from inside it records no span. Elements are collected
+ * eagerly (`[...iterable]`) so the total count is known for the same `(N total)` truncation
+ * marker every other collection path uses; a throwing hook, or a hook whose returned value is not
+ * actually iterable, propagates out of this function and is caught by {@link renderObject}'s
+ * outer try/catch, degrading the whole value to the typed error marker like any other hook.
+ */
+export const NARRATIVE_ELEMENTS: unique symbol = Symbol.for("narrativetrace.elements");
+
+function renderDeclaredElements(
+  value: object,
+  opts: Required<RenderOptions>,
+  walk: RenderWalk,
+): string | undefined {
+  const hook = (value as Record<symbol, unknown>)[NARRATIVE_ELEMENTS];
+  if (typeof hook !== "function") return undefined;
+  const elements = [...(hook.call(value) as Iterable<unknown>)];
+  const items = elements.slice(0, opts.maxCollectionItems).map((item) => render(item, opts, walk));
+  if (elements.length > opts.maxCollectionItems) {
+    items.push(`... (${elements.length} total)`);
+  }
+  return `[${items.join(", ")}]`;
+}
+
+// A user Set subclass can override values()/[Symbol.iterator] (the spread operator's own
+// dispatch target), so members are read through Set.prototype.values, called on the instance —
+// the platform ancestor's own state, identity-checked, never the subclass's override. A
+// non-subclassed Set is unaffected: Set.prototype.values.call(value) reads the identical state
+// value.values() would have.
 function renderSet(value: Set<unknown>, opts: Required<RenderOptions>, walk: RenderWalk): string {
-  const members = [...value];
+  const members = [...Set.prototype.values.call(value)];
   const items = members.slice(0, opts.maxCollectionItems).map((v) => render(v, opts, walk));
   if (members.length > opts.maxCollectionItems) {
     items.push(`… (${members.length} total)`);
@@ -433,12 +484,16 @@ function renderSet(value: Set<unknown>, opts: Required<RenderOptions>, walk: Ren
   return `[${items.join(", ")}]`;
 }
 
+// A user Map subclass can override entries() with a side-effecting or throwing implementation —
+// the rendering rule requires entries to come from the platform ancestor's own state instead:
+// Map.prototype.entries, called on the instance, bypassing whatever the subclass declared. A
+// non-subclassed Map is unaffected, for the same reason as renderSet above.
 function renderMap(
   value: Map<unknown, unknown>,
   opts: Required<RenderOptions>,
   walk: RenderWalk,
 ): string {
-  const entries = [...value.entries()];
+  const entries = [...(Map.prototype.entries.call(value) as IterableIterator<[unknown, unknown]>)];
   const shown = entries
     .slice(0, opts.maxCollectionItems)
     .map(([k, v]) => renderMapEntry(k, v, opts, walk));
@@ -449,11 +504,11 @@ function renderMap(
 // A Map key can be an arbitrary object — including one carrying a redacted field, or one whose
 // own toString() is the exact private-state hazard `isPlatformValue` guards against — so the key is
 // rendered through the same total, redaction-aware `render()` every value goes through, never via
-// a raw `String(key)` (2026-09-11 family security fix: `String(key)` on an object silently calls
-// its toString() unconditionally, bypassing dispatch entirely). The "does this key's NAME look
-// like a secret" check that decides whether to redact the associated VALUE stays scoped to
-// string keys only — the common `Map<string, T>` shape it exists for — rather than reaching for
-// an object key's rendered text, which is display output, not a field name to pattern-match.
+// a raw `String(key)`: that would call the key's toString() unconditionally, bypassing dispatch
+// entirely. The "does this key's NAME look like a secret" check that decides whether to redact
+// the associated VALUE stays scoped to string keys only — the common `Map<string, T>` shape it
+// exists for — rather than reaching for an object key's rendered text, which is display output,
+// not a field name to pattern-match.
 function renderMapEntry(
   key: unknown,
   value: unknown,
@@ -470,8 +525,8 @@ function renderMapEntry(
 // `render()` dispatch (field introspection, redaction, sanitizing). A string key is data too — the
 // common `Map<string, T>` shape this function exists for is exactly how a caller indexes metadata
 // by credential — so it honours the same value-shape axis (`shouldRedactValue`) every scalar string
-// value goes through before falling back to the plain, unquoted key form (ADV-2026-09-14-1: a
-// string key used to skip straight to `String(key)`, never asking the shape check at all). Every
+// value goes through before falling back to the plain, unquoted key form — skipping straight to
+// `String(key)` without that shape check is exactly the gap this closes. Every
 // other key type's string form can never carry arbitrary text, so it keeps that bare `String(key)`
 // display this renderer has always used.
 function renderMapKey(key: unknown, opts: Required<RenderOptions>, walk: RenderWalk): string {
@@ -495,6 +550,9 @@ function renderArray(value: unknown[], opts: Required<RenderOptions>, walk: Rend
 
 function renderPlainObject(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
   const keys = Object.keys(value);
+  if (keys.length === 0 && hasOwnIteratorMethod(value)) {
+    return `${typeName(value)}<size unknown>`;
+  }
   const explicit = notTracedFields(value);
   const entries = keys
     .slice(0, opts.maxObjectKeys)
@@ -503,6 +561,28 @@ function renderPlainObject(value: object, opts: Required<RenderOptions>, walk: R
     entries.push(`... (${keys.length} total)`);
   }
   return `{${entries.join(", ")}}`;
+}
+
+// A hand-rolled iterable with at least one own-enumerable field already renders through the
+// entries loop above — "object introspection of its own fields" is the correct, unmodified
+// behaviour for that shape (a wrapper's own array field still renders as that array, and a
+// LookalikeCollection's own counter field still renders as itself). Only the shape with ZERO
+// own-enumerable state — otherwise indistinguishable from a genuinely empty object, "{}" — is
+// mishandled today: it hides that the value actually holds data behind private fields or a
+// closure. A type name (with no element count, since by construction there is no own-enumerable
+// "length"/"size" data property free to read here) is the honest, non-misleading answer instead,
+// checked without ever calling the iterator: `Symbol.iterator` is looked up by OWN property
+// descriptor at each level of the prototype chain, walked by hand rather than `in`/instanceof, so
+// an ACCESSOR named `[Symbol.iterator]` (vanishingly rare, but possible) is never invoked either
+// — found-as-accessor answers `false`, the same safe default as "not iterable at all".
+function hasOwnIteratorMethod(value: object): boolean {
+  let level: object | null = value;
+  while (level !== null) {
+    const descriptor = Object.getOwnPropertyDescriptor(level, Symbol.iterator);
+    if (descriptor !== undefined) return typeof descriptor.value === "function";
+    level = Object.getPrototypeOf(level);
+  }
+  return false;
 }
 
 function renderEntry(
@@ -521,18 +601,27 @@ function renderEntry(
   return `"${key}": ${renderFieldValue(value, key, opts, walk)}`;
 }
 
-// A field can be a getter that throws while being read (own-enumerable accessors are the one
-// shape the renderer's introspection actually invokes — see the RenderOptions remarks). That
-// throw is scoped to this one field: siblings still render normally, and the failing field shows
-// the typed error marker rather than losing the whole object to a single hostile getter.
+// Rendering reads a value's own STATE, never runs its code: a field is
+// read through its OWN property descriptor rather than a plain `value[key]` access, so a data
+// property's stored value is read directly and an accessor property's getter is never invoked —
+// not even once, not even as a fallback. `Object.keys(value)` (renderPlainObject's key source)
+// only ever yields own-enumerable keys, so the descriptor always exists here; the `undefined`
+// branch is unreachable in practice and kept only so a future caller with a looser key source
+// fails safely rather than throwing. A data property's stored value can itself be an object whose
+// OWN rendering throws (e.g. a nested getter this same function already refuses, surfaced through
+// a differently-shaped path) — that render() call is still guarded, scoped to this one field, so a
+// sibling field never loses its own value to it.
 function renderFieldValue(
   value: object,
   key: string,
   opts: Required<RenderOptions>,
   walk: RenderWalk,
 ): string {
+  const descriptor = Object.getOwnPropertyDescriptor(value, key);
+  if (descriptor === undefined) return render(undefined, opts, walk);
+  if (!("value" in descriptor)) return INACCESSIBLE;
   try {
-    return render((value as Record<string, unknown>)[key], opts, walk);
+    return render(descriptor.value, opts, walk);
   } catch (err) {
     return errorMarker(err);
   }

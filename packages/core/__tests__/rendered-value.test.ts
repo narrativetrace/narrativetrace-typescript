@@ -4,6 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { RedactionPolicy } from "../src/redaction-policy.js";
 import { renderStructured } from "../src/rendered-value.js";
+import { isRenderingInProgress } from "../src/rendering-guard.js";
 
 describe("renderStructured", () => {
   test("primitives keep their type", () => {
@@ -160,5 +161,41 @@ describe("renderStructured", () => {
       typeName: "Hostile",
       fields: {},
     });
+  });
+});
+
+// Cross-port check for a cross-runtime finding: value rendering must never re-enter tracing.
+// renderStructured's own doc comment (rendered-value.ts) claims this path structurally cannot
+// reach a traced member — no narrativeSummary() call, no custom toString(), only own-enumerable
+// field/getter reads — and so is never wrapped in rendering-guard.ts's guard. These are the
+// positive assertions that claim rests on (see also packages/proxy/__tests__/render-reentrancy.test.ts
+// and packages/nestjs/__tests__/render-reentrancy.test.ts, which prove the end-to-end "no spurious
+// span" property for the flat renderer's own guard through both tracing implementations).
+describe("renderStructured never re-enters tracing", () => {
+  test("a narrativeSummary() member is never invoked, even though it is an own field's sibling", () => {
+    let summaryCalls = 0;
+    class Summarized {
+      narrativeSummary(): string {
+        summaryCalls++;
+        return "should never be called";
+      }
+      readonly sku = "SKU-1";
+    }
+    renderStructured(new Summarized());
+    expect(summaryCalls).toBe(0);
+  });
+
+  test("the rendering guard never reports active during a structured render", () => {
+    let observedDuringRender: boolean | undefined;
+    // An object-literal getter is own-enumerable (unlike a class getter, which lives on the
+    // prototype) — the one accessor shape structuredFields' `Object.keys` walk actually visits.
+    const probed = {
+      get sku(): string {
+        observedDuringRender = isRenderingInProgress();
+        return "SKU-1";
+      },
+    };
+    renderStructured(probed);
+    expect(observedDuringRender).toBe(false);
   });
 });

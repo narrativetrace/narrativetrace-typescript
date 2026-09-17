@@ -332,9 +332,15 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(renderPlantUmlSequence(traceTree([cyclicRoot()]))).toContain("… (cycle)");
   });
 
+  // Builds and renders a 50,000-deep chain — measured 2026-09-17: ~67ms run alone, ~301ms under
+  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
+  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
+  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
+  // whose legitimate cost varies with scheduler contention declares what it actually needs.
+  // 1500ms is ~5x the measured contended run.
   test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
     expect(renderPlantUmlSequence(traceTree([deepChain(50_000)]))).toContain("… (depth limit)");
-  });
+  }, 1_500);
 });
 
 // Same fix, same shared sequence-walk traversal, as mermaid-sequence.test.ts's own

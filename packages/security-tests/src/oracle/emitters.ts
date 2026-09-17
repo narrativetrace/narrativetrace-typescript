@@ -121,8 +121,8 @@ export function treeIncomplete(): TraceTree {
  * scenario name, each with its own escaping decision. Defaults to {@link SCENARIO} so every
  * existing caller that fixed the scenario to a benign constant is unaffected; a caller fuzzing the
  * scenario route passes the hostile value here instead of only through a tree's captured
- * values/narration — a Markdown body-header escaping gap in the Java golden source was reachable
- * only through this parameter.
+ * values/narration — a Markdown body-header escaping gap found via the shared hostile corpus was
+ * reachable only through this parameter.
  */
 export function renderers(tree: TraceTree, scenario: string = SCENARIO): Record<string, string> {
   const metadata = { scenario };

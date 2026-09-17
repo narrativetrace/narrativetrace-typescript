@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import { renderValue } from "@narrativetrace/core";
 import { describe, expect, test } from "vitest";
 import {
   hostileGraphCases,
@@ -16,8 +17,14 @@ import {
   hostileTracestates,
 } from "../src/corpus/hostile-corpus.js";
 import { build, templateValues } from "../src/corpus/hostile-graphs.js";
+import type {
+  CountingAccessor,
+  LookalikeCollection,
+  SideEffectingIteratorList,
+} from "../src/corpus/hostile-members.js";
 import { build as buildTraceShape } from "../src/corpus/trace-shapes.js";
 import { isMapKeyCase, isNameCase, secretOf } from "../src/corpus/types.js";
+import { resolveMasterGraphsPath } from "./master-corpus-path.js";
 
 /**
  * The corpus is data copied verbatim from the shared master copy, so its shape is a contract in
@@ -177,4 +184,79 @@ describe("hostile corpus", () => {
       );
     }
   });
+
+  // Corpus replay for the three graphs.json rows added for the rule copied into the repository's
+  // agent guide (owner ruling 2026-09-17, "rendering reads state, never runs behaviour"):
+  // record-accessor-with-counter, platform-collection-side-effecting-iterator and
+  // lookalike-collection-not-platform-defined. Each row's expected outcome is "rendered without
+  // executing" — the renderer must never invoke the fixture's own overridden member. Reuses the
+  // fixture idioms already pinned in `packages/core/__tests__/render-reads-state.test.ts`; mirrors
+  // land the same three ids in every other runtime's corpus copy, per the cross-port rule.
+  describe("the rendering rule: rendering reads state, never runs behaviour", () => {
+    function graphOf(id: string): unknown {
+      const graphCase = hostileGraphCases().find((c) => c.id === id);
+      if (graphCase === undefined) throw new Error(`no corpus case with id ${id}`);
+      return build(graphCase, "sentinel-probe");
+    }
+
+    // pending: rendering reads state, never runs behaviour — see the rendering rule in the repository's agent guide
+    // Today, `renderPlainObject` (value-renderer.ts) reads an own-enumerable field with a plain
+    // property access, which invokes an accessor's getter — the same documented gap
+    // `render-reads-state.test.ts` pins for a plain getter. Observed red today: "expected 1 to be
+    // +0" (the accessor ran once).
+    test("record-accessor-with-counter renders without invoking the accessor", () => {
+      const fixture = graphOf("record-accessor-with-counter") as CountingAccessor;
+      renderValue(fixture);
+      expect(fixture.calls).toBe(0);
+    });
+
+    // Live regression guard, not pending: `renderArray` (value-renderer.ts) reads elements via
+    // `value.slice(0, n).map(...)`, defined over indexed access, never the iterator protocol — so
+    // an `Array` subclass's overridden `[Symbol.iterator]` is already never reached
+    // (`render-reads-state.test.ts` pins the same property directly against value-renderer.ts).
+    test("platform-collection-side-effecting-iterator renders without executing the override", () => {
+      const fixture = graphOf(
+        "platform-collection-side-effecting-iterator",
+      ) as SideEffectingIteratorList;
+      renderValue(fixture);
+      expect(fixture.iteratorCalls).toBe(0);
+    });
+
+    // Live regression guard, not pending: `renderPlainObject` walks `Object.keys(value)` only — a
+    // string-keyed, own-enumerable field, never a Symbol-keyed member — so a hand-rolled
+    // `[Symbol.iterator]` is never touched, whether or not the type's rendered shape (a bare
+    // structural dump today, see `render-reads-state.test.ts`) is itself pending.
+    test("lookalike-collection-not-platform-defined renders without executing its own iterator", () => {
+      const fixture = graphOf("lookalike-collection-not-platform-defined") as LookalikeCollection;
+      renderValue(fixture);
+      expect(fixture.iteratorCalls).toBe(0);
+    });
+  });
 });
+
+/**
+ * §6.7 rule: `graphs.json` is a byte-identical copy of the master corpus, found via
+ * `master-corpus-path.ts`'s search order (env override, dev-container mount, host sibling
+ * checkout). An absent master skips loudly rather than passing silently: a checkout without the
+ * sibling repo — most checkouts, most of the time — must stay green, but with a printed line, not
+ * a quiet no-op that looks the same as "checked and matched".
+ */
+const MASTER_GRAPHS_PATH = resolveMasterGraphsPath();
+if (MASTER_GRAPHS_PATH === undefined) {
+  console.warn(
+    "SKIPPED: master corpus not mounted — set JAVA_REPO, or mount the golden Java repo at " +
+      "/workspace-java or check it out as a host sibling, to run the graphs.json " +
+      "byte-diff-against-master check",
+  );
+}
+
+describe.skipIf(MASTER_GRAPHS_PATH === undefined)(
+  "graphs.json byte-diff against the master corpus",
+  () => {
+    test("the whole file matches the master copy byte-for-byte", () => {
+      const master = readFileSync(MASTER_GRAPHS_PATH as string, "utf-8");
+      const local = readFileSync(`${CORPUS_DIR}graphs.json`, "utf-8");
+      expect(local).toBe(master);
+    });
+  },
+);

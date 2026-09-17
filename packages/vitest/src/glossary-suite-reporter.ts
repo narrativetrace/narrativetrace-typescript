@@ -28,7 +28,8 @@ interface TaskLike {
 /**
  * Whether glossary harvesting was switched on for this run.
  *
- * INTENT: harvesting is off by default, exactly as in the Java runtime, because it writes
+ * INTENT: harvesting is off by default, matching every NarrativeTrace runtime's default, because
+ * it writes
  * `glossary.json` and `glossary.md` **outside** the build directory — into files a repository
  * commits. Nothing that rewrites tracked files may happen because someone ran the tests.
  *

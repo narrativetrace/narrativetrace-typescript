@@ -256,7 +256,14 @@ describe("bounded call-tree walk (a very deep stored trace)", () => {
     return JSON.stringify({ scenario: { name: "deep" }, events });
   }
 
+  // Builds a 50,000-event JSON document and reads it back — measured 2026-09-17: ~150ms run
+  // alone, ~580ms under `turbo run coverage`'s full cross-package concurrency (a 2-core dev
+  // container running all packages' vitest+coverage at once). vitest's default 5000ms per-test
+  // timeout is a wall-clock budget, and release retrospective rule 3 says that budget must never
+  // be implicit — a test whose legitimate cost varies with scheduler contention declares what it
+  // actually needs. 3000ms is ~5x the measured contended run, comfortably past the noise this
+  // suite showed today without padding it to the point of hiding a real regression.
   test("does not stack-overflow reading a very deep parentSpanId chain", () => {
     expect(() => readTraceExport(deepChainJson(50_000))).not.toThrow();
-  });
+  }, 3_000);
 });

@@ -77,12 +77,12 @@ const KIND_BUILDERS: Record<string, KindBuilder> = {
     new ToStringWrapper(new PasswordToString(sentinel)),
   mapKey: (_c, _payload, sentinel) => new Map([[new PasswordToString(sentinel), "value"]]),
   throwingSummary: (_c, _payload, sentinel) => new ThrowingSummary(sentinel),
-  platformTypeShortValue: () => platformTypeSamples(),
-  platformTypeNameRedacted: (_c, _payload, sentinel) => ({
+  platformValue: () => platformTypeSamples(),
+  platformNameRedacted: (_c, _payload, sentinel) => ({
     token: new URL(`https://example.com/${sentinel}`),
   }),
-  platformLookalikeWalked: (_c, _payload, sentinel) => new PlatformLookalike(sentinel),
-  platformSubclassWalked: (_c, _payload, sentinel) => new PlatformSubclass(sentinel),
+  platformLookalike: (_c, _payload, sentinel) => new PlatformLookalike(sentinel),
+  platformSubclass: (_c, _payload, sentinel) => new PlatformSubclass(sentinel),
 };
 
 function byKind(graphCase: GraphCase, payload: unknown, sentinel: string): unknown {
@@ -226,6 +226,9 @@ const HOSTILE_MEMBERS: Record<string, (held: Secret) => unknown> = {
   getterThrows: (held) => new Members.GetterThrowing(held),
   accessorThrows: (held) => new Members.AccessorThrowing(held),
   hostileKeyNames: (held) => Members.hostileKeyNames(held),
+  countingAccessor: (held) => new Members.CountingAccessor(held),
+  sideEffectingIteratorList: (held) => new Members.SideEffectingIteratorList(held),
+  lookalikeCollection: (held) => new Members.LookalikeCollection(held),
 };
 
 function hostile(member: string, sentinel: string): unknown {
@@ -338,11 +341,11 @@ export class Unicode {
 
 /**
  * A record-shaped class whose own `toString()` prints every component, past `value-renderer`'s
- * default five-key field cap — mirrors Java's `Wide` record (`HostileGraphs.java`), which relies
- * on a record's auto-generated `toString()` doing the same. Found the security-fuzz-suite way
- * (Java `fuzzTemplate`, 2026-09-02, minimized): the safe rendering of this shape truncates the
- * redacted 6th field away entirely and so never carries the marker; template resolution reading
- * "no marker" as "nothing hidden" printed `six` in full.
+ * default five-key field cap — same shape as every runtime's `Wide` record (`HostileGraphs.java`
+ * in the shared corpus), which relies on a record's auto-generated `toString()` doing the same.
+ * Found the security-fuzz-suite way (Java `fuzzTemplate`, 2026-09-02, minimized): the safe
+ * rendering of this shape truncates the redacted 6th field away entirely and so never carries the
+ * marker; template resolution reading "no marker" as "nothing hidden" printed `six` in full.
  */
 export class Wide {
   static readonly notTraced = ["six"];
@@ -454,10 +457,10 @@ export class PlatformSubclass extends Date {
 }
 
 /**
- * One link of a chain longer than `value-renderer`'s 32-level depth cap — mirrors Java's `Link`
- * record. Deliberately carries no `toString()` of its own: unlike a Java record, a plain TS
- * object's default `toString()` is inert (it does not echo fields), so this shape has no route to
- * leak on this platform, before or after the fix — see `templates.json`'s
+ * One link of a chain longer than `value-renderer`'s 32-level depth cap — the same shape as every
+ * runtime's `Link` record. Deliberately carries no `toString()` of its own: unlike a Java record,
+ * a plain TS object's default `toString()` is inert (it does not echo fields), so this shape has
+ * no route to leak on this platform, before or after the fix — see `templates.json`'s
  * `whole-object-redacted-below-the-depth-cap` case and the corpus README for why it is still
  * carried, for corpus parity with the shared master copy.
  */

@@ -3,7 +3,11 @@
 // Copyright (c) 2026 Empower Agile
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { expectedSubjectName, verifyProvenance } from "../verify-publication-provenance.js";
+import {
+  expectedSubjectName,
+  isProvenanceExempt,
+  verifyProvenance,
+} from "../verify-publication-provenance.js";
 
 describe("expectedSubjectName", () => {
   it("percent-encodes the @ before a scope, keeps the slash literal", () => {
@@ -117,5 +121,87 @@ describe("verifyProvenance", () => {
     });
     expect(result.ok).toBe(false);
     expect(result.subjectNameMatches).toBe(false);
+  });
+});
+
+describe("isProvenanceExempt", () => {
+  it("is true for exactly the reviewed, version-pinned bootstrap publish", () => {
+    expect(isProvenanceExempt("@narrativetrace/cli", "0.1.3")).toBe(true);
+  });
+
+  it("is false for a later version of the same package — the exemption is never open-ended", () => {
+    expect(isProvenanceExempt("@narrativetrace/cli", "0.1.4")).toBe(false);
+  });
+
+  it("is false for a different package at the exempt version", () => {
+    expect(isProvenanceExempt("@narrativetrace/core", "0.1.3")).toBe(false);
+  });
+
+  it("is false for an unrelated package/version pair", () => {
+    expect(isProvenanceExempt("left-pad", "1.0.0")).toBe(false);
+  });
+});
+
+describe("verifyProvenance — PROVENANCE_EXEMPT", () => {
+  const noAttestations = async () => ({ dist: { tarball: "https://example/t.tgz" } });
+  const tarball = Buffer.from("pretend-tarball-bytes");
+
+  it("lets the reviewed, version-pinned bootstrap publish through as ok + exempt when no attestations are advertised", async () => {
+    const result = await verifyProvenance("@narrativetrace/cli", "0.1.3", {
+      fetchJson: noAttestations,
+      fetchBuffer: async () => tarball,
+    });
+    expect(result.ok).toBe(true);
+    expect(result.exempt).toBe(true);
+    expect(result.detail).toContain("EXEMPT");
+  });
+
+  it("still fails a LATER version of the exempt package with no attestations — the exemption is never open-ended", async () => {
+    const result = await verifyProvenance("@narrativetrace/cli", "0.1.4", {
+      fetchJson: noAttestations,
+      fetchBuffer: async () => tarball,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.exempt).toBe(false);
+  });
+
+  it("still fails every OTHER package at the exempt version with no attestations", async () => {
+    const result = await verifyProvenance("@narrativetrace/core", "0.1.3", {
+      fetchJson: noAttestations,
+      fetchBuffer: async () => tarball,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.exempt).toBe(false);
+  });
+
+  it("does NOT exempt the bootstrap publish from a real integrity mismatch when attestations ARE advertised but wrong", async () => {
+    const name = "@narrativetrace/cli";
+    const version = "0.1.3";
+    const wrongSubject = {
+      name: expectedSubjectName("@narrativetrace/proxy", version),
+      digest: { sha512: createHash("sha512").update(tarball).digest("hex") },
+    };
+    const result = await verifyProvenance(name, version, {
+      fetchJson: async (url) =>
+        url.includes("/-/npm/v1/attestations/")
+          ? {
+              attestations: [
+                dsseAttestation(
+                  "https://github.com/npm/attestation/tree/main/specs/publish/v0.1",
+                  wrongSubject,
+                ),
+                dsseAttestation("https://slsa.dev/provenance/v1", wrongSubject),
+              ],
+            }
+          : {
+              dist: {
+                tarball: "https://example/t.tgz",
+                attestations: { url: "https://registry.npmjs.org/-/npm/v1/attestations/x" },
+              },
+            },
+      fetchBuffer: async () => tarball,
+    });
+    expect(result.ok).toBe(false);
+    expect(result.exempt).toBe(false);
   });
 });

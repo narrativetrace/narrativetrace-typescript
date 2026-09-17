@@ -18,8 +18,8 @@ import { ValueReferenceIndex } from "./value-reference-index.js";
 
 /**
  * Rendering knobs for the Markdown emitters. `scenarioName` populates the frontmatter `scenario:`
- * key; `runName` populates the frontmatter `run:` key (the enclosing test-suite run's three-word
- * phrase, 2026-09-13 ruling — omit it to render outside a tracked run); `slowThresholdMs` is the
+ * key; `runName` populates the frontmatter `run:` key with the enclosing test-suite run's
+ * three-word phrase — omit it to render outside a tracked run; `slowThresholdMs` is the
  * duration above which a node is flagged ` ⚠️ slow`.
  *
  * @defaultValue `slowThresholdMs` defaults to 200ms when omitted.
@@ -34,8 +34,8 @@ export type MarkdownOptions = {
  * Metadata for the Markdown document header (Java `TraceMetadata`).
  *
  * `runName` is the ONLY field {@link renderMarkdownDocument} ever folds into the frontmatter's
- * `run:` key (2026-09-13 ruling, item 2) — never into `scenario`, never read back by `entry_point`/
- * `trace_id`/`trace_name`, and never present on the structural `.nt` artifact at all (item 3). Omit
+ * `run:` key — never into `scenario`, never read back by `entry_point`/
+ * `trace_id`/`trace_name`, and never present on the structural `.nt` artifact at all. Omit
  * it for a document rendered outside a tracked test-suite execution.
  */
 export type MarkdownDocumentMetadata = {
@@ -70,9 +70,9 @@ function containsYamlUnsafeCodePoint(value: string): boolean {
 // containsYamlUnsafeCodePoint and used to pass through raw as a well-formed surrogate pair. A raw
 // pair is spec-valid, but a mainstream YAML parser reading fixed-size character chunks can land its
 // buffer boundary between the two halves and crash on valid input — the same crash SnakeYAML's own
-// 1024-char StreamReader chunks hit in the Java golden source. Frontmatter is a machine-readable
-// interoperability contract, so this forces quoting whenever one is present; yamlEscapeChar then
-// emits it BMP-only.
+// 1024-char StreamReader chunks hit, first found against the shared hostile corpus. Frontmatter
+// is a machine-readable interoperability contract, so this forces quoting whenever one is
+// present; yamlEscapeChar then emits it BMP-only.
 function containsSupplementaryCodePoint(value: string): boolean {
   for (const ch of value) {
     if ((ch.codePointAt(0) ?? 0) > 0xffff) return true;
@@ -113,9 +113,9 @@ function yamlSafe(value: string): string {
   return `"${[...value].map(yamlEscapeChar).join("")}"`;
 }
 
-// className/methodName are trace metadata, not a captured value — this was the one frontmatter
-// field that bypassed yamlSafe entirely, so a hostile class/method name injected sibling YAML
-// keys (cross-runtime shape F4, 2026-09-02 audit — the most serious instance Java's own audit found).
+// className/methodName are trace metadata, not a captured value, and go through yamlSafe like
+// every other frontmatter field: skipping it here would let a hostile class/method name inject
+// sibling YAML keys.
 function entryPointLines(tree: TraceTree): string[] {
   const root = tree.roots[0];
   if (!root) return [];
@@ -180,14 +180,14 @@ export function renderMarkdown(tree: TraceTree, options?: MarkdownOptions): stri
 // pairing every other body sink in this file uses (see pushNodeLine's narration line) — a raw
 // newline is document structure here (it can open a heading of its own), so control characters are
 // neutralized first, then `&`/`<`/`>` are HTML-escaped so the value cannot inject active markup.
-// One escaping decision per sink, never a raw append — mirrors a fix from the Java golden source.
+// One escaping decision per sink, never a raw append — the same fix applied across every
+// NarrativeTrace runtime.
 // `metadata.result` stays raw on purpose: it is caller-controlled but drawn from a small
 // enum-like set, never user-supplied text.
 /**
  * The trace's own three-word phrase plus a trailing separator (`bold elk soars — `), or empty when
  * {@link TraceTree.traceId} is absent — the frontmatter already carries the phrase (and the raw id)
- * as `trace_name:`/`trace_id:`; this is the same phrase in the document's own title line
- * (2026-09-13 ruling, item 4).
+ * as `trace_name:`/`trace_id:`; this is the same phrase in the document's own title line.
  */
 function tracePhrasePrefix(tree: TraceTree): string {
   const { traceId } = tree;
@@ -386,7 +386,7 @@ function paramDisplay(param: ParameterCapture, refs: ValueReferenceIndex): strin
 
 // className/methodName/parameter names are trace metadata, not captured values — MarkdownEscape
 // .code only widens the backtick fence, it does not fold control characters, so a raw newline
-// here would still break out of the code span (cross-runtime shape F4, 2026-09-02 audit).
+// here would still break out of the code span.
 function formatCall(node: TraceNode, refs: ValueReferenceIndex): string {
   const { className, methodName, parameters } = node.signature;
   const params = parameters

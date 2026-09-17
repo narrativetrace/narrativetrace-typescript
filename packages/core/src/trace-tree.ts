@@ -28,7 +28,7 @@ export interface TraceTree {
  * @remarks Generation is eager and yields a real, unique W3C-shaped id. The retired alternative — a
  * fixed synthetic constant — made two unrelated captures indistinguishable, which is precisely the
  * job `trace_id` exists to do; byte-comparison of unique fields belongs in the conformance
- * normalizer, not the emitter (owner decision 2026-08-30, product ADR-014).
+ * normalizer, not the emitter.
  */
 function assignedTraceId(roots: readonly TraceNode[]): TraceId {
   return firstSpanContext(roots)?.traceId ?? generateTraceId();

@@ -309,3 +309,31 @@ export function currentVersionBanner(llmsTxt: string): string | undefined {
   const next = h1 === -1 ? undefined : lines[h1 + 1];
   return next !== undefined && BANNER_LINE.test(next) ? next : undefined;
 }
+
+/**
+ * Recomputes {@link countUnreleasedMarkers} against `repoRoot`'s current on-disk state and
+ * rewrites `documentation/llms.txt`'s banner clause to match, in place. The single regeneration
+ * step both the in-tree settle (`settle-since-markers.ts`) and the publish script's staged
+ * `--tag` transform call — extracted here so both share one implementation instead of each
+ * shelling out to its own copy. A repo with no `documentation/llms.txt`, or one that has never
+ * carried a banner line yet, is a no-op (`undefined`): not every tree or snapshot ships one.
+ */
+export function refreshBannerCount(repoRoot: string): number | undefined {
+  const llmsPath = join(repoRoot, "documentation/llms.txt");
+  let text: string;
+  try {
+    text = readFileSync(llmsPath, "utf-8");
+  } catch {
+    return undefined;
+  }
+
+  const banner = currentVersionBanner(text);
+  if (banner === undefined) return undefined;
+
+  const count = countUnreleasedMarkers(repoRoot);
+  const updated = refreshUnreleasedClauseInBanner(banner, count);
+  if (updated !== banner) {
+    writeFileSync(llmsPath, applyVersionBanner(text, updated), "utf-8");
+  }
+  return count;
+}

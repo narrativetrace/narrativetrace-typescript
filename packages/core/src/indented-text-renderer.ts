@@ -19,8 +19,8 @@ import { TREE_WALK_MARKER, TreeWalk } from "./tree-walk.js";
  *
  * INTENT: a dependency-free, terminal-friendly view for logs or console output. Opens with the
  * trace's own three-word phrase (`trace: bold elk soars (a1b2c3d)` — the phrase plus the first 7
- * hex characters of its id) whenever {@link TraceTree.traceId} is present (2026-09-13 ruling, item
- * 4); silent on an empty tree, or a hand-built one that opted out of identity — nothing here is
+ * hex characters of its id) whenever {@link TraceTree.traceId} is present; silent on an empty
+ * tree, or a hand-built one that opted out of identity — nothing here is
  * invented. This is the trace's OWN name, unrelated to a test-suite run's name (see
  * `RunIdentity`); neither ever reaches the structural `.nt` text.
  *
@@ -148,7 +148,7 @@ function sortMembers(members: readonly TraceNode[]): readonly TraceNode[] {
 
 // className/methodName/parameter names are trace metadata, not captured values — unlike
 // renderedValue (already control-escaped by value-renderer), nothing sanitizes them upstream, so
-// each is escaped here (cross-runtime shape F4, 2026-09-02 audit).
+// each is escaped here.
 function formatCall(node: TraceNode): string {
   const { className, methodName, parameters } = node.signature;
   const params = parameters

@@ -6,7 +6,7 @@
  * a second, independent redaction axis: what a string *is*, not what its field is named.
  * Deliberately narrow — no entropy/"looks random" heuristics — because a value blanked by
  * guesswork is a hole in the narrative the reader cannot see and cannot switch off per-value. Port
- * of the cross-runtime shape from Java's `SecretValueShapes` (2026-09-02 audit finding F3).
+ * of the cross-runtime shape from Java's `SecretValueShapes`.
  *
  * @remarks The fourth axis, national identity numbers (Chilean RUT, Brazilian CPF/CNPJ, Spanish
  * DNI/NIE, French NIR, Chinese resident id, and the US SSN's structural-rule exception), lives in

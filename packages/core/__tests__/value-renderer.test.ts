@@ -213,6 +213,39 @@ describe("renderValue", () => {
       expect(renderValue({ a: 1 })).toBe('{"a": 1}');
     });
 
+    // Extends this describe block's toString coverage (owner ruling 2026-09-17, "rendering reads
+    // state, never runs behaviour"): a composite's OTHER stringification/coercion hooks are never
+    // invoked either. Rendering never calls `JSON.stringify` on a user object (the canonical/JSON
+    // export renderers only ever serialize already-safe `TraceNode`/`RenderedValue` data), never
+    // coerces a value with `Number()`/unary `+`, and never reads `Symbol.toPrimitive` the way a
+    // template literal or `String(value)` on the object itself would — `renderPlainObject` only
+    // ever walks own-enumerable DATA fields (`cents` here), so these three methods (all on the
+    // prototype, hence never enumerated) are simply never reached.
+    test("a composite's toJSON/valueOf/Symbol.toPrimitive are never invoked by rendering", () => {
+      let toJSONCalled = false;
+      let valueOfCalled = false;
+      let toPrimitiveCalled = false;
+      class Money {
+        constructor(private readonly cents: number) {}
+        toJSON(): number {
+          toJSONCalled = true;
+          return this.cents;
+        }
+        valueOf(): number {
+          valueOfCalled = true;
+          return this.cents;
+        }
+        [Symbol.toPrimitive](_hint: string): number {
+          toPrimitiveCalled = true;
+          return this.cents;
+        }
+      }
+      expect(renderValue(new Money(1234))).toBe('{"cents": 1234}');
+      expect(toJSONCalled).toBe(false);
+      expect(valueOfCalled).toBe(false);
+      expect(toPrimitiveCalled).toBe(false);
+    });
+
     // The null-returning / throwing / sanitize-and-truncate degrade paths below now only ever
     // fire for a trusted platform value (2026-09-12 ruling) — see the "platform-defined types"
     // block, which pins all four against real Date/URL instances instead of an arbitrary user
@@ -431,17 +464,21 @@ describe("renderValue", () => {
   });
 
   describe("failure/edge", () => {
-    // Owner ruling, 2026-09-11: a throwing getter degrades only the ONE field it backs, to the
-    // typed error marker — not the whole object. A hostile or buggy accessor on one field must
-    // not cost every sibling field its rendering.
-    test("a throwing getter degrades only that field to the typed error marker", () => {
+    // Updated 2026-09-17 for the rendering rule ("rendering reads state, never runs behaviour",
+    // owner ruling 2026-09-17): a field is read through its own property descriptor, so an
+    // accessor property is never invoked at all — not even as the fallback this test used to pin.
+    // A throwing getter therefore never throws in the first place, and degrades to the dedicated
+    // `<inaccessible>` marker rather than the typed `<error: Type>` marker, which is reserved for
+    // a value that was actually read and failed. See render-reads-state.test.ts for the pinned
+    // rule and its sibling-field-still-renders guarantee.
+    test("an accessor property degrades only that field to the <inaccessible> marker, never invoking it", () => {
       const obj = {
         ok: 1,
         get bad(): never {
           throw new Error("getter throws");
         },
       };
-      expect(renderValue(obj)).toBe('{"ok": 1, "bad": <error: Error>}');
+      expect(renderValue(obj)).toBe('{"ok": 1, "bad": <inaccessible>}');
     });
 
     test("cycle detection → '<circular>'", () => {
@@ -576,14 +613,22 @@ describe("renderValue", () => {
       return node;
     }
 
+    // Builds and renders a 10,000-node plain-object chain — measured 2026-09-17: ~1ms run alone,
+    // ~3ms under `turbo run coverage`'s full cross-package concurrency (an 8-core dev container
+    // running all packages' vitest+coverage at once); the depth cap (32) stops the walk almost
+    // immediately, so this never showed real contention sensitivity. Release retrospective rule 3
+    // still says the budget must be explicit, not the implicit 5000ms default — 200ms is a floor
+    // well above measurement noise rather than a literal multiple of a single-digit-millisecond
+    // sample, which would be meaningless.
     test("a 10,000-node chain renders without throwing", () => {
       expect(() => renderValue(chain(10_000))).not.toThrow();
-    });
+    }, 200);
 
+    // Same fixture and rationale as the test above (~1ms alone, ~5ms contended) — see its comment.
     test("a 10,000-node chain renders identically twice", () => {
       const deep = chain(10_000);
       expect(renderValue(deep)).toBe(renderValue(deep));
-    });
+    }, 200);
 
     test("a graph exactly at the cap renders whole", () => {
       // 32 nested `{ held: ... }` wrappers around the leaf is depth 32 exactly.

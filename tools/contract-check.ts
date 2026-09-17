@@ -82,10 +82,17 @@ function installEach(specs: readonly string[], cwd: string, env: NodeJS.ProcessE
 function parseArgs(argv: readonly string[]): {
   readonly version?: string;
   readonly dryRun: boolean;
+  readonly keep: boolean;
 } {
   const dryRun = argv.includes("--dry-run");
+  // A failing entry is a claim about a scratch project that no longer exists by the time anyone
+  // reads the report, which makes a false verdict from a mis-wired harness indistinguishable from
+  // a real docs-vs-published defect until someone rebuilds the project by hand. --keep leaves the
+  // consumer project and its npm cache on disk, named in the output, so the next question can be
+  // asked of the thing that actually produced the answer.
+  const keep = argv.includes("--keep");
   const version = argv.find((arg) => !arg.startsWith("-"));
-  return { version, dryRun };
+  return { version, dryRun, keep };
 }
 
 async function main(): Promise<void> {
@@ -146,8 +153,12 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     if (!(error as { status?: number }).status) throw error;
   } finally {
-    rmSync(cache, { recursive: true, force: true });
-    rmSync(scratch, { recursive: true, force: true });
+    if (args.keep) {
+      console.log(`>> --keep: consumer project left at ${scratch} (npm cache ${cache})`);
+    } else {
+      rmSync(cache, { recursive: true, force: true });
+      rmSync(scratch, { recursive: true, force: true });
+    }
   }
 }
 
