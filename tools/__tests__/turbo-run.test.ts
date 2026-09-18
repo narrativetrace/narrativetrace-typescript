@@ -51,6 +51,36 @@ describe("turboPlan concurrency", () => {
       "--output-logs=errors-only",
     ]);
   });
+
+  test("a cgroup memory ceiling caps the CPU-derived concurrency — the 2026-09-18 finding", () => {
+    // No CPU quota (8 workers), 3 GB memory / 700 MiB -> 4: the ts nightly's own container.
+    const plan = turboPlan("mutate", [], {}, NO_QUOTA, 8, String(3 * 1024 * 1024 * 1024));
+
+    expect(plan.workers).toBe(4);
+    expect(plan.args).toContain("--concurrency=4");
+    expect(plan.source).toBe("cgroup memory.max ceiling");
+  });
+
+  test("`max` memory applies no bound — the CPU-derived count is unchanged", () => {
+    const plan = turboPlan("mutate", [], {}, QUOTA_FOUR_CPUS, 8, "max");
+
+    expect(plan.workers).toBe(4);
+    expect(plan.source).toBe("cgroup cpu.max quota");
+  });
+
+  test("a memory ceiling caps even an explicit worker budget", () => {
+    const plan = turboPlan(
+      "mutate",
+      [],
+      { NT_MUTATION_WORKERS: "8" },
+      NO_QUOTA,
+      8,
+      String(3 * 1024 * 1024 * 1024),
+    );
+
+    expect(plan.workers).toBe(4);
+    expect(plan.source).toBe("cgroup memory.max ceiling");
+  });
 });
 
 describe("turboPlan test-worker pools", () => {

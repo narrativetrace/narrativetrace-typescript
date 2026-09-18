@@ -22,7 +22,7 @@ export interface RunCommandOptions {
  * Runs `command` to completion, capturing combined stdout+stderr, and always writes the full
  * output to `logFile` — a summary line on the console is not enough to diagnose a failure, and
  * this is the one place a category's output would otherwise be lost once `verify:all` has moved
- * on to the next one (mirrors the Java golden repo's `runGradleSubprocess`).
+ * on to the next one (mirrors the Java canonical repo's `runGradleSubprocess`).
  */
 export function runCommand(
   command: string,

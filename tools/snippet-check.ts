@@ -17,6 +17,7 @@ import {
   englishDocPages,
   parseSnippetBlocks,
   resolveSnippetSource,
+  rootReadmePage,
 } from "./snippet-shared.js";
 
 // Per-commit gate (wired into `pnpm run check`, after `pnpm run coverage`: the sixty-seconds
@@ -45,7 +46,7 @@ function skillPages(): string[] {
 
 function findSnippetDrifts(): Drift[] {
   const drifts: Drift[] = [];
-  for (const page of [...englishDocPages(), ...skillPages()]) {
+  for (const page of [...englishDocPages(), ...rootReadmePage(), ...skillPages()]) {
     const text = readFileSync(page, "utf-8");
     for (const block of parseSnippetBlocks(page, text)) {
       const embedded = applyMask(block.contentLines.join("\n"), block.mask);

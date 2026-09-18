@@ -126,7 +126,7 @@ describe("flush()'s post-condition under a burst that exceeds the ring's capacit
 
   /**
    * The same invariant under the heaviest interleaving this single-threaded runtime allows
-   * (2026-09-08 concurrency-parity re-verification against the Java golden spec's
+   * (2026-09-08 concurrency-parity re-verification against the Java canonical spec's
    * `synchronized flush()` — see that method's `@llmNote` and `BoundedEventBuffer.drain()`'s).
    * The sequential test above accepts everything, *then* flushes once; this one runs several
    * async "producer" tasks and a "flusher" task concurrently, interleaved via real microtask and

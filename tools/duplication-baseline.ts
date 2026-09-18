@@ -142,7 +142,7 @@ export function isExempt(
 }
 
 /** Percentage-point slack absorbing token-count noise between runs (owner ruling 2026-09-12,
- * mirroring the Java golden repo's own tolerance). */
+ * mirroring the Java canonical repo's own tolerance). */
 export const PERCENT_TOLERANCE = 0.3;
 
 export interface DuplicationCheckResult {

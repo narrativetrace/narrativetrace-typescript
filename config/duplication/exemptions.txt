@@ -4,7 +4,7 @@
 # documentation/duplication.md. A cluster is exempt only when every one of its occurrences matches
 # one of the pair's two globs.
 
-# Data tables, not logic (owner ruling 2026-09-12, mirroring the Java golden repo's own
+# Data tables, not logic (owner ruling 2026-09-12, mirroring the Java canonical repo's own
 # `*Dictionary.java` exemption): the clarity module's word-list dictionaries are rows of
 # structurally identical entries, so with identifiers and literals ignored every row matches every
 # other row and the same handful of shapes recur throughout each file. Exempt the dictionaries
@@ -63,7 +63,7 @@ packages/core/src/attribute-tier.ts :: packages/core/src/attribute-tier.ts
 # no glossary of its own.
 packages/glossary/src/scaffolding-bundle.ts :: packages/glossary/src/scaffolding-bundle.ts
 
-# Wide-record builders (owner ruling 2026-09-12, item 3, mirroring the Java golden repo's
+# Wide-record builders (owner ruling 2026-09-12, item 3, mirroring the Java canonical repo's
 # CanonicalEntry/SpanContext exemption): SpanContext/SpanContextExtras and their
 # spreadService/spreadExtras merge helpers in span-context.ts, and CanonicalEntry's wide flat
 # export interface in canonical-entry.ts, are one field/one conditional-spread line per component

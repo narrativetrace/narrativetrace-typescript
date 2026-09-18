@@ -5,8 +5,8 @@
 #
 # Verifies the legal:* marked regions in README.md and its root translations
 # are well-formed, and — when the sibling repository holding the canonical
-# legal text (legal.properties' legal.goldenRepo) is checked out next to this
-# one — that those regions and LICENSE still match the canonical copies.
+# legal text (legal.properties' legal.canonicalRepo) is checked out next to
+# this one — that those regions and LICENSE still match the canonical copies.
 #
 # The marker set is exactly {plain-words, trademark} — never `exclusion`:
 # a marker line inside a GFM table row terminates the table, and the
@@ -16,35 +16,36 @@
 # (a) Marker well-formedness: every legal:* marker in README.md, LEAME.md,
 #     LEIAME.md and 自述文件.md has exactly one begin/end pair, in order.
 #     Runs unconditionally — no sibling required.
-# (b) Golden comparison, only when $GOLDEN_REPO exists:
-#       - LICENSE: golden LICENSE with its "Licensed Work:" line's work
+# (b) Canonical comparison, only when $LEGAL_CANONICAL_REPO exists:
+#       - LICENSE: canonical LICENSE with its "Licensed Work:" line's work
 #         description swapped for legal.licensedWork must byte-match this
 #         repo's LICENSE exactly (placeholders included).
-#       - each legal:* region: extracted from the matching-name golden file
-#         (README.md <-> README.md, LEAME.md <-> LEAME.md, ...) and compared
-#         to the local region with whitespace collapsed.
-#       - of those regions, only `plain-words` is a true golden mirror (the
-#         one text every runtime copies verbatim) and can fail the build.
-#         `trademark` stays each runtime's own accurate sentence — this one has
-#         a single LICENSE file where the Java runtime has two, so the wording
-#         differs — its comparison is printed for review but never gates,
-#         not even in strict mode.
+#       - each legal:* region: extracted from the matching-name canonical
+#         file (README.md <-> README.md, LEAME.md <-> LEAME.md, ...) and
+#         compared to the local region with whitespace collapsed.
+#       - of those regions, only `plain-words` is a true canonical mirror
+#         (the one text every runtime copies verbatim) and can fail the
+#         build. `trademark` stays each runtime's own accurate sentence —
+#         this one has a single LICENSE file where the Java runtime has two,
+#         so the wording differs — its comparison is printed for review but
+#         never gates, not even in strict mode.
 # (c) A mismatch always prints a diff. Default mode WARNs and exits 0 (same
 #     convention as translation-check: a checkout without the sibling stays
 #     green). Set LEGAL_CHECK_STRICT=1 to fail instead on a LICENSE or
 #     plain-words mismatch — the publish pipeline uses strict mode as a
 #     preflight, because a publish must never ship drifted legal text.
-#     Golden repo absent -> (b) is skipped with a note; (a) still runs and
-#     can still fail in strict mode.
+#     Canonical repo absent -> (b) is skipped with a note; (a) still runs
+#     and can still fail in strict mode.
 #
-# GOLDEN_REPO resolution (rule-2 class, 2026-09-17 corpus-mirror finding: the dev container mounts
-# the golden repo at /workspace-java, never at legal.properties' legal.goldenRepo host-relative
-# default, so a hardcoded default silently no-oped (b) inside the container with no visible line
-# saying so): an explicit $GOLDEN_REPO env override wins outright; otherwise both
-# defaults are tried in turn — the container mount, then the host sibling checkout from
-# legal.properties. Absence prints a loud "SKIPPED:" line and (b) no-ops, same as before, UNLESS
-# REQUIRE_GOLDEN_REPO=1, which turns that absence itself into a failure — for a context (CI, a
-# publish preflight) that must never silently run (a) alone and call it done.
+# LEGAL_CANONICAL_REPO resolution (rule-2 class, 2026-09-17 corpus-mirror finding: the dev
+# container mounts the canonical repo at /workspace-java, never at legal.properties'
+# legal.canonicalRepo host-relative default, so a hardcoded default silently no-oped (b) inside
+# the container with no visible line saying so): an explicit $LEGAL_CANONICAL_REPO env override
+# wins outright; otherwise both defaults are tried in turn — the container mount, then the host
+# sibling checkout from legal.properties. Absence prints a loud "SKIPPED:" line and (b) no-ops,
+# same as before, UNLESS NARRATIVETRACE_REQUIRE_LEGAL=1, which turns that absence itself into a
+# failure — for a context (CI, a publish preflight) that must never silently run (a) alone and
+# call it done.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -55,25 +56,25 @@ prop() {
     sed -n "s/^$1=\\(.*\\)\$/\\1/p" "$PROPS" | head -1
 }
 
-PROPS_GOLDEN_REPO="$(prop legal.goldenRepo)"
+PROPS_CANONICAL_REPO="$(prop legal.canonicalRepo)"
 LICENSED_WORK="$(prop legal.licensedWork)"
-[ -n "$PROPS_GOLDEN_REPO" ] || { echo "ERROR: legal.goldenRepo not set in $PROPS."; exit 1; }
+[ -n "$PROPS_CANONICAL_REPO" ] || { echo "ERROR: legal.canonicalRepo not set in $PROPS."; exit 1; }
 [ -n "$LICENSED_WORK" ] || { echo "ERROR: legal.licensedWork not set in $PROPS."; exit 1; }
 
 STRICT="${LEGAL_CHECK_STRICT:-0}"
-REQUIRE_GOLDEN_REPO="${REQUIRE_GOLDEN_REPO:-0}"
+NARRATIVETRACE_REQUIRE_LEGAL="${NARRATIVETRACE_REQUIRE_LEGAL:-0}"
 FAILED=0
 
-if [ -n "${GOLDEN_REPO:-}" ]; then
-    GOLDEN_REPO_CANDIDATES=("$GOLDEN_REPO")
+if [ -n "${LEGAL_CANONICAL_REPO:-}" ]; then
+    CANONICAL_REPO_CANDIDATES=("$LEGAL_CANONICAL_REPO")
 else
-    GOLDEN_REPO_CANDIDATES=("/workspace-java" "$PROPS_GOLDEN_REPO")
+    CANONICAL_REPO_CANDIDATES=("/workspace-java" "$PROPS_CANONICAL_REPO")
 fi
 
-GOLDEN_REPO=""
-for candidate in "${GOLDEN_REPO_CANDIDATES[@]}"; do
+LEGAL_CANONICAL_REPO=""
+for candidate in "${CANONICAL_REPO_CANDIDATES[@]}"; do
     if [ -d "$candidate" ]; then
-        GOLDEN_REPO="$candidate"
+        LEGAL_CANONICAL_REPO="$candidate"
         break
     fi
 done
@@ -90,7 +91,7 @@ warn_or_fail() {
 # Same message, never gates the build — used where content is expected to
 # legitimately diverge per runtime (see legal:trademark above).
 warn_info() {
-    echo "WARN: $1 (informational — this marker is not a golden mirror)"
+    echo "WARN: $1 (informational — this marker is not a canonical mirror)"
 }
 
 # Exactly {plain-words, trademark}. Never `exclusion`: a marker line inside a
@@ -156,52 +157,52 @@ for file in $FILES; do
 done
 echo ">>   done."
 
-if [ -n "$GOLDEN_REPO" ]; then
-    echo ">> Golden repo found at $GOLDEN_REPO — comparing against golden copies ..."
+if [ -n "$LEGAL_CANONICAL_REPO" ]; then
+    echo ">> Canonical repo found at $LEGAL_CANONICAL_REPO — comparing against canonical copies ..."
 
-    GOLDEN_LICENSE="$GOLDEN_REPO/LICENSE"
-    if [ -f "$GOLDEN_LICENSE" ]; then
+    CANONICAL_LICENSE="$LEGAL_CANONICAL_REPO/LICENSE"
+    if [ -f "$CANONICAL_LICENSE" ]; then
         EXPECTED_LICENSE="$(mktemp)"
         trap 'rm -f "$EXPECTED_LICENSE"' EXIT
         # The one line the two repos' LICENSE files are allowed to differ on:
         # the Licensed Work's description. Everything else — placeholders
         # included — must come through byte-for-byte.
         sed -E "s/^(Licensed Work:[[:space:]]*).*( version \\{\\{VERSION\\}\\}\\..*)\$/\\1${LICENSED_WORK}\\2/" \
-            "$GOLDEN_LICENSE" > "$EXPECTED_LICENSE"
+            "$CANONICAL_LICENSE" > "$EXPECTED_LICENSE"
         if [ -f LICENSE ]; then
             if ! diff -q "$EXPECTED_LICENSE" LICENSE >/dev/null 2>&1; then
-                echo "--- LICENSE differs from the golden-derived expectation ---"
+                echo "--- LICENSE differs from the canonical-derived expectation ---"
                 diff "$EXPECTED_LICENSE" LICENSE || true
-                warn_or_fail "LICENSE has drifted from the golden repo's LICENSE"
+                warn_or_fail "LICENSE has drifted from the canonical repo's LICENSE"
             fi
         else
-            warn_or_fail "no local LICENSE to compare against the golden repo"
+            warn_or_fail "no local LICENSE to compare against the canonical repo"
         fi
     else
-        warn_or_fail "golden repo has no LICENSE at $GOLDEN_LICENSE"
+        warn_or_fail "canonical repo has no LICENSE at $CANONICAL_LICENSE"
     fi
 
     for file in $FILES; do
         [ -f "$file" ] || continue
-        golden_file="$GOLDEN_REPO/$file"
-        if [ ! -f "$golden_file" ]; then
-            warn_or_fail "no matching golden file for $file at $golden_file"
+        canonical_file="$LEGAL_CANONICAL_REPO/$file"
+        if [ ! -f "$canonical_file" ]; then
+            warn_or_fail "no matching canonical file for $file at $canonical_file"
             continue
         fi
         for marker in $MARKERS; do
-            if ! check_marker_shape "$golden_file" "$marker" >/dev/null 2>&1; then
-                warn_or_fail "$golden_file: legal:$marker missing/malformed in golden copy — cannot compare $file against it"
+            if ! check_marker_shape "$canonical_file" "$marker" >/dev/null 2>&1; then
+                warn_or_fail "$canonical_file: legal:$marker missing/malformed in canonical copy — cannot compare $file against it"
                 continue
             fi
             local_norm="$(extract_region "$file" "$marker" | normalize_ws)"
-            golden_norm="$(extract_region "$golden_file" "$marker" | normalize_ws)"
-            if [ "$local_norm" != "$golden_norm" ]; then
-                echo "--- legal:$marker region differs (whitespace-normalized): $file vs $golden_file ---"
-                diff <(printf '%s\n' "$golden_norm") <(printf '%s\n' "$local_norm") || true
+            canonical_norm="$(extract_region "$canonical_file" "$marker" | normalize_ws)"
+            if [ "$local_norm" != "$canonical_norm" ]; then
+                echo "--- legal:$marker region differs (whitespace-normalized): $file vs $canonical_file ---"
+                diff <(printf '%s\n' "$canonical_norm") <(printf '%s\n' "$local_norm") || true
                 if is_mirrored_marker "$marker"; then
-                    warn_or_fail "$file: legal:$marker region text differs from golden $golden_file"
+                    warn_or_fail "$file: legal:$marker region text differs from canonical $canonical_file"
                 else
-                    warn_info "$file: legal:$marker region text differs from golden $golden_file"
+                    warn_info "$file: legal:$marker region text differs from canonical $canonical_file"
                 fi
             fi
         done
@@ -210,18 +211,18 @@ if [ -n "$GOLDEN_REPO" ]; then
 else
     tried="$(
         IFS=', '
-        echo "${GOLDEN_REPO_CANDIDATES[*]}"
+        echo "${CANONICAL_REPO_CANDIDATES[*]}"
     )"
-    if [ "$REQUIRE_GOLDEN_REPO" = "1" ]; then
-        echo "ERROR: golden repo not found at $tried — required by REQUIRE_GOLDEN_REPO=1, skipping golden-copy comparison is not allowed here."
+    if [ "$NARRATIVETRACE_REQUIRE_LEGAL" = "1" ]; then
+        echo "ERROR: canonical repo not found at $tried — required by NARRATIVETRACE_REQUIRE_LEGAL=1, skipping canonical-copy comparison is not allowed here."
         FAILED=1
     else
-        echo "SKIPPED: golden repo not found at $tried — skipping golden-copy comparison (CI without the sibling stays green; set REQUIRE_GOLDEN_REPO=1 to fail instead)."
+        echo "SKIPPED: canonical repo not found at $tried — skipping canonical-copy comparison (CI without the sibling stays green; set NARRATIVETRACE_REQUIRE_LEGAL=1 to fail instead)."
     fi
 fi
 
 if [ "$FAILED" -eq 1 ]; then
-    echo "legal-check: FAILED (LEGAL_CHECK_STRICT=${STRICT}, REQUIRE_GOLDEN_REPO=${REQUIRE_GOLDEN_REPO})"
+    echo "legal-check: FAILED (LEGAL_CHECK_STRICT=${STRICT}, NARRATIVETRACE_REQUIRE_LEGAL=${NARRATIVETRACE_REQUIRE_LEGAL})"
     exit 1
 fi
 echo "legal-check: OK$( [ "$STRICT" != "1" ] && echo ' (warn mode — set LEGAL_CHECK_STRICT=1 to enforce)')"

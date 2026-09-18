@@ -107,6 +107,7 @@ function toRedactionCase(node: RawCase): RedactionCase {
     ...(node.canary !== undefined && { canary: node.canary }),
     expect: node.expect ?? "",
     ...(node.position !== undefined && { position: node.position }),
+    ...(node.kind !== undefined && { kind: node.kind }),
   };
 }
 

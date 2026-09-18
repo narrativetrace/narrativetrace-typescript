@@ -133,15 +133,19 @@ describe("walkPreOrder", () => {
     expect(stops).toEqual([undefined, undefined, "cycle"]);
   });
 
-  // Builds and walks a 50,000-deep chain — measured 2026-09-17: ~21ms run alone, ~21ms under
-  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
-  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
-  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
-  // whose legitimate cost varies with scheduler contention declares what it actually needs. 100ms
-  // is ~5x the measured contended run.
-  test("a 50,000-deep chain terminates without a stack overflow, bounded at the depth limit", () => {
+  // Shrunk from a 50,000-deep chain to just past the walker's own depth limit (10,000): the walk
+  // is non-recursive and stops at the limit regardless of how much chain lies beyond it, so a
+  // chain one link longer than the limit exercises the identical code path and produces the
+  // identical count/stop assertions below — measured ~11ms run alone in the dev container.
+  // vitest's default 5000ms per-test timeout is a wall-clock budget, and release retrospective
+  // rule 3 says that budget must never be implicit — a test whose legitimate cost varies with
+  // scheduler contention declares what it actually needs, and a hang guard on a non-timing test
+  // takes a seconds-scale floor, never a millisecond-scale tolerance close enough to the measured
+  // run to mistake ordinary contention for a hang. 3000ms is both well past 5x the measured idle
+  // run and the floor itself.
+  test("a chain just past the depth limit terminates without a stack overflow, bounded at the depth limit", () => {
     let root = node("leaf");
-    for (let i = 0; i < 50_000; i++) root = node(`n${i}`, [root]);
+    for (let i = 0; i < 10_001; i++) root = node(`n${i}`, [root]);
     let count = 0;
     let stopReasons = 0;
     expect(() => {
@@ -152,7 +156,7 @@ describe("walkPreOrder", () => {
     }).not.toThrow();
     expect(count).toBe(10_001);
     expect(stopReasons).toBe(1);
-  }, 100);
+  }, 3_000);
 
   test("a diamond (shared, non-cyclic) node is visited in full at both occurrences", () => {
     const shared = node("shared", [node("leaf")]);

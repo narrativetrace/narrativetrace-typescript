@@ -28,7 +28,7 @@ import { sameStructuralShape } from "../src/oracle/oracles.js";
  * renderers show them as prose — so the oracle there is the structural one only: the text may add
  * lines, but it may never add a field, a statement, a heading or a frontmatter key. The scenario
  * is caller-supplied text that reaches the YAML frontmatter, the Markdown body header and the
- * JSON scenario name — the route a body-header escaping gap in the Java golden source came in
+ * JSON scenario name — the route a body-header escaping gap in the Java canonical source came in
  * through.
  */
 

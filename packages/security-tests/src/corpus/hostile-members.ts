@@ -203,6 +203,93 @@ export class LookalikeCollection {
 }
 
 /**
+ * A hand-rolled Map-like type — not a `Map` subclass — whose enumeration method (`entries()`)
+ * both counts its own calls and refuses, for the rendering rule's 2026-09-18 refinement: the
+ * ABSTRACT-platform-base row (Java's `AbstractMap`/`AbstractCollection`).
+ *
+ * @remarks TypeScript has no abstract platform collection base, so this is not a `Map` subclass
+ * on purpose. `Map` here is concrete: a `Map` subclass still carries the platform ancestor's own
+ * internal slots, so `renderMap` already reads real state through
+ * `Map.prototype.entries.call(value)`, bypassing any subclass override — the identical shape
+ * {@link SideEffectingIteratorList} above already pins for `Array`. Java's `AbstractMap` is
+ * different: it is ABSTRACT and owns no state of its own, so a subclass's override is the *only*
+ * path to its data — there is no honest ancestor read to fall back on. Extending `Map` would not
+ * reproduce that; it would just retest the already-live `Array`/`Map`-subclass shape under a new
+ * name. The honest twin instead implements a Map-like interface entirely from scratch, so it is
+ * never `instanceof Map` and `dispatchObject` (value-renderer.ts) never reaches `renderMap` at
+ * all — it falls through to `renderPlainObject`, which reads `held`/`entriesCalls` by
+ * introspection and never calls `entries()`.
+ */
+export class AbstractMapSubclassOverride {
+  entriesCalls = 0;
+  constructor(readonly held: Secret) {}
+  entries(): never {
+    this.entriesCalls++;
+    throw new Error("entries() must never be called by rendering");
+  }
+}
+
+/**
+ * Same rule, for the Set/Collection shape: a hand-rolled type — not a `Set` subclass — whose
+ * `[Symbol.iterator]` both counts its own calls and refuses.
+ *
+ * @remarks Structurally the same "implemented from scratch, no platform ancestor" fixture as
+ * {@link LookalikeCollection} above — TypeScript's `Set` is concrete (extending it would carry
+ * real ancestor state, the same non-match reasoning as {@link AbstractMapSubclassOverride}), so
+ * the honest twin of Java's ABSTRACT `AbstractCollection` row is the same "from scratch" shape as
+ * the earlier "not platform-defined" row, not a `Set` subclass. Kept as its own class, not reused
+ * from {@link LookalikeCollection}, so this row's id and member key (`abstract-collection-
+ * subclass-override` / `abstractCollectionSubclassOverride`) stay independently traceable to the
+ * byte-identical master corpus row, per §6.7. `held` is a plain own-enumerable field, not a
+ * private backing field behind a getter (unlike {@link LookalikeCollection}'s `#backing`), so
+ * "object-introspected" — the master row's stated expected outcome — is literally what happens:
+ * `renderPlainObject` finds and renders `held` directly, the same way Java's field-reflection
+ * reaches a `private final` field without calling any accessor.
+ */
+export class AbstractCollectionSubclassOverride {
+  iteratorCalls = 0;
+  constructor(readonly held: Secret) {}
+  [Symbol.iterator](): never {
+    this.iteratorCalls++;
+    throw new Error("iterator() must never be called by rendering");
+  }
+}
+
+/**
+ * A FIELDLESS user type whose own `toString()` delegates to an overridden `[Symbol.iterator]` —
+ * the honest twin of Java's `FieldlessAbstractSubclassToStringDoor` (a fieldless subclass of the
+ * ABSTRACT platform base `AbstractCollection`, whose only path to its data is the INHERITED
+ * `toString()`, which walks `iterator()` internally — the "toString door" Java's
+ * `rendersItsOwnString` still trusts because a fieldless type has no field to make it distrustful).
+ *
+ * @remarks TypeScript has no abstract platform collection base to subclass (same reasoning as
+ * {@link AbstractCollectionSubclassOverride} above), and — unlike Java, where any composite's own
+ * `toString()` is trusted once it has no instance field — `dispatchObject` (value-renderer.ts) only
+ * ever trusts a custom `toString()` for a value identity-checked as a realm platform intrinsic
+ * (`isPlatformValue`, by prototype identity). This fixture's prototype is never one of those, so
+ * `hasCustomToString(value) && isPlatformValue(value)` is false regardless of field count and its
+ * `toString()` is never reached at all — there is no door here to begin with, by construction of
+ * the dispatch itself rather than by a fieldless-specific carve-out. Carried for corpus
+ * completeness (§6.7), not because it reproduces a bypass on this runtime — same reasoning as
+ * {@link NumberHostileToString} above. `held` is deliberately absent, matching Java's fixture (no
+ * constructor argument, unlike every other `hostileMember` shape): accepting one only to discard it
+ * would still read as a stored field to a careless refactor, and the whole point of this fixture is
+ * to carry zero. The counter is `static`, not instance, for the same reason Java's is: an instance
+ * field would defeat the fieldless precondition the fixture exists to hold. Callers reset it before
+ * use, since it is shared across every instance.
+ */
+export class FieldlessAbstractSubclassToStringDoor {
+  static iteratorCalls = 0;
+  [Symbol.iterator](): never {
+    FieldlessAbstractSubclassToStringDoor.iteratorCalls++;
+    throw new Error("iterator() must never be called by rendering");
+  }
+  toString(): string {
+    return [...this].join(",");
+  }
+}
+
+/**
  * Hostile *names*, where names actually come from data: object keys.
  *
  * The deny-list matches on the rendered key text, so a key carrying an invisible code point reads

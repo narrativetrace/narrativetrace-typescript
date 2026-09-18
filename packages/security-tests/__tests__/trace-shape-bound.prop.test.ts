@@ -22,7 +22,7 @@ import { boundedSize } from "../src/oracle/oracles.js";
  * list), scoped to the tree-shape corpus rather than the value corpus: those hostile-corpus
  * strings cases exercise a hostile *value* inside an otherwise ordinary one-node tree; this one
  * exercises a hostile *tree structure* around an ordinary value. Cross-runtime mirror of the
- * 2026-09-03 unbounded-tree-walk finding (Java golden source).
+ * 2026-09-03 unbounded-tree-walk finding (Java canonical source).
  */
 
 describe("trace shape bound", () => {

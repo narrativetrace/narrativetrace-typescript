@@ -15,7 +15,7 @@ import { termKey } from "./term-key.js";
 import {
   classCandidate,
   exceptionCandidate,
-  normalizePhrase,
+  normalizePhraseOrUndefined,
   parameterCandidate,
 } from "./term-normalizer.js";
 import { compareText } from "./text-order.js";
@@ -124,6 +124,19 @@ function renderOutcome(rendering: Rendering, context: string, call: Translatable
   return value === null || value === undefined || value === "undefined" ? "" : ` → \`${value}\``;
 }
 
+/**
+ * The method name's phrase, or `undefined` when it carries no readable word.
+ *
+ * @remarks `code.function` is a required string with no shape constraint, so a valid canonical
+ * entry may carry a name that normalizes to nothing — blank, all punctuation, all digits. A view a
+ * live subscriber drives must be total over its own input format, so such a name renders verbatim
+ * (via {@link glossed}, which already falls back to the identifier when the phrase is undefined),
+ * exactly as an uncovered name already does, instead of throwing.
+ */
+function methodPhrase(methodName: string): string | undefined {
+  return methodName.trim() === "" ? undefined : normalizePhraseOrUndefined(methodName);
+}
+
 // The node's own line prints regardless of the guard ("contributes itself"); a stopped call gets
 // a marker line in place of its children.
 function pushCallLine(
@@ -135,7 +148,7 @@ function pushCallLine(
 ): void {
   const context = contextOfClass(rendering.model, rendering.sourcePathOf, call.className);
   const owner = glossed(rendering, context, call.className, classCandidate(call.className)?.phrase);
-  const method = glossed(rendering, context, call.methodName, normalizePhrase(call.methodName));
+  const method = glossed(rendering, context, call.methodName, methodPhrase(call.methodName));
   const head = `${owner}.${method}(${renderParameters(rendering, context, call)})`;
   lines.push(
     `${"  ".repeat(depth)}- ${MarkdownEscape.code(head)}${renderOutcome(rendering, context, call)}`,

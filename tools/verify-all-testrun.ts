@@ -115,7 +115,7 @@ function runRootTests(
  * The single real invocation set every test/coverage-derived category is sliced from: a fresh
  * `turbo run build`, then every package's own `vitest run --coverage` (JSON reporter + coverage
  * summary, one worker per package up to `concurrency`), then the root suite (architecture,
- * tooling self-tests). Mirrors the Java golden repo's one `./gradlew test` run that `unit-tests`,
+ * tooling self-tests). Mirrors the Java canonical repo's one `./gradlew test` run that `unit-tests`,
  * `property`, `fuzz-tier-a`, `architecture`, and `conformance` all slice — paying for test
  * execution exactly once.
  */

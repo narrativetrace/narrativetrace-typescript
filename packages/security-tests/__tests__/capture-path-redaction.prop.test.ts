@@ -5,7 +5,9 @@ import { NarrativeTraceConfig, SyncNarrativeContext, type TraceTree } from "@nar
 import { traceObject } from "@narrativetrace/proxy";
 import { describe, expect, test } from "vitest";
 import { hostileRedactions } from "../src/corpus/hostile-corpus.js";
+import { build } from "../src/corpus/hostile-graphs.js";
 import {
+  isKindCase,
   isMapKeyCase,
   isNameCase,
   MAP_KEY_COMPANION_VALUE,
@@ -166,7 +168,10 @@ function isNamingQualityOnly(emitter: string): boolean {
 }
 
 describe("hostile corpus redaction, replayed through traceObject() capture", () => {
-  const allCases = hostileRedactions();
+  // Kind rows replay through the "composite-shape kind rows" describe block below: their argument
+  // is the composite object `build()` constructs, not `payloadOf`'s bare-value/one-entry-Map
+  // shapes, so this loop — like Java's `corpus()` — excludes them.
+  const allCases = hostileRedactions().filter((c) => !isKindCase(c));
   const runnable = allCases.filter((c) => skipReason(c.id) === undefined);
   const skipped = allCases.filter((c) => skipReason(c.id) !== undefined);
 
@@ -175,7 +180,8 @@ describe("hostile corpus redaction, replayed through traceObject() capture", () 
   test("row accounting: every corpus row is either run or loudly skipped, none silently dropped", () => {
     expect(
       allCases.length,
-      "corpus size — update this suite if redaction.json's row count moves",
+      "corpus size (name/value rows only, kind rows excluded) — update this suite if" +
+        " redaction.json's row count moves",
     ).toBe(89);
     expect(runnable.length + skipped.length).toBe(allCases.length);
     expect(runnable.length, "rows actually driven through traceObject() capture").toBe(89);
@@ -189,5 +195,88 @@ describe("hostile corpus redaction, replayed through traceObject() capture", () 
   test.each(skipped.map((c) => [c.id, c] as const))("%s — SKIPPED LOUDLY", (id, redactionCase) => {
     console.warn(`SKIPPED ${id}: ${skipReason(redactionCase.id)}`);
     expect(skipReason(redactionCase.id)).toBeDefined();
+  });
+});
+
+/**
+ * The typed error marker a failing `narrativeSummary()` must render, and never its message —
+ * mirrors Java's `THROWING_SUMMARY_MARKER`. `errorTypeName` resolves a thrown `Error`'s
+ * `constructor.name`, and `ThrowingSummary#narrativeSummary` (`hostile-graphs.ts`) throws a plain
+ * `Error`, so the marker names that constructor, not `IllegalStateException` as in Java.
+ */
+const THROWING_SUMMARY_MARKER = "<error: Error>";
+
+/** `narrativeSummary()`'s own message — must never reach any output, only its typed marker. */
+const THROWING_SUMMARY_OWN_MESSAGE = "cannot summarize";
+
+class KindProbe {
+  method(_data: unknown): string {
+    return "ok";
+  }
+}
+
+/**
+ * Replays a `kind` row's composite through a real `traceObject()` call. `data` is not a
+ * deny-listed name — the row's own composite is what must be caught, not the parameter name.
+ */
+function driveKindCase(redactionCase: RedactionCase): { result: unknown; tree: TraceTree } {
+  const payload = build(
+    {
+      id: redactionCase.id,
+      description: redactionCase.description,
+      kind: redactionCase.kind,
+      layers: [],
+      payload: "secret-record",
+      n: 0,
+    },
+    redactionCase.canary as string,
+  );
+  const context = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
+  const traced = traceObject(new KindProbe(), context, { method: ["data"] });
+  const result = traced.method(payload);
+  const tree = context.captureTrace();
+  return { result, tree };
+}
+
+// Mirrors Java's `kindRowHoldsAtCapture`: a kind row's assertion never claims the whole captured
+// parameter is flagged redacted — only a component of the composite is — so containment and call
+// success are what the row actually declares.
+describe("composite-shape kind rows, replayed through traceObject() capture", () => {
+  const kindCases = hostileRedactions().filter(isKindCase);
+
+  test("row accounting: every kind row in redaction.json is driven through this suite", () => {
+    expect(
+      kindCases.length,
+      "kind rows — update this suite if redaction.json's row count moves",
+    ).toBe(4);
+  });
+
+  test.each(kindCases.map((c) => [c.id, c] as const))("%s", (_id, redactionCase) => {
+    const secret = secretOf(redactionCase);
+    const { result, tree } = driveKindCase(redactionCase);
+
+    expect(
+      result,
+      `${redactionCase.id}: a hostile composite must not change what the traced method returns`,
+    ).toBe("ok");
+
+    const outputs = everyOutput(tree);
+    boundedSize(outputs);
+    for (const [emitter, output] of Object.entries(outputs)) {
+      expect(output, `${redactionCase.id}: ${emitter} leaked the secret`).not.toContain(secret);
+    }
+
+    if (redactionCase.id === "throwing-summary") {
+      expect(
+        Object.values(outputs).some((output) => output.includes(THROWING_SUMMARY_MARKER)),
+        `${redactionCase.id}: a failing summary must render the typed marker somewhere`,
+      ).toBe(true);
+      for (const [emitter, output] of Object.entries(outputs)) {
+        expect(
+          output,
+          `${redactionCase.id}: ${emitter} leaked the exception's own message`,
+        ).not.toContain(THROWING_SUMMARY_OWN_MESSAGE);
+      }
+    }
   });
 });

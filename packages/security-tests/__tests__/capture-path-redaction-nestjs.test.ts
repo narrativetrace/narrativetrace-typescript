@@ -9,6 +9,7 @@ import { Test } from "@nestjs/testing";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { hostileRedactions } from "../src/corpus/hostile-corpus.js";
 import {
+  isKindCase,
   isMapKeyCase,
   isNameCase,
   MAP_KEY_COMPANION_VALUE,
@@ -88,8 +89,11 @@ describe("hostile corpus redaction, replayed through wrapPrototypeMethods (NestJ
   // Every value-shape detector this runtime has (JWT, PAN, Set-Cookie, and — since 2026-09-10 —
   // all six national-id schemes) applies here exactly as it does under traceObject(), since both
   // paths render through the same RedactionPolicy.DEFAULT. All 39 value rows run; the 50 NAME rows
-  // stay excluded for the structural reason in this file's own doc comment above.
-  const valueCases = hostileRedactions().filter((c) => !isNameCase(c));
+  // stay excluded for the structural reason in this file's own doc comment above, and the 4 KIND
+  // rows (composite shapes, not bare values — see `capture-path-redaction.prop.test.ts`'s kind-row
+  // describe block, the proxy arm this auto-wrap path has no parameter-name-free equivalent for)
+  // stay excluded too: `payloadOf` has no branch for them.
+  const valueCases = hostileRedactions().filter((c) => !isNameCase(c) && !isKindCase(c));
 
   test("row accounting: every value-shape row runs — name rows stay excluded by design", () => {
     expect(valueCases.length, "value-case rows in the corpus").toBe(39);

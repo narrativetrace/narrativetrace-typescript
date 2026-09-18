@@ -74,7 +74,7 @@ function parseArgs(argv: readonly string[]): Args {
 /** The newest `v*` tag reachable from HEAD, without the `v` prefix, or `undefined` when none is
  * reachable (a fresh/shallow checkout with no release yet). `--match 'v*'` is quoted so the shell
  * never glob-expands it against files in the working directory, and `--abbrev=0` asks for the
- * bare tag name with no `-N-g<sha>` suffix — the same invocation the Java golden repo's
+ * bare tag name with no `-N-g<sha>` suffix — the same invocation the Java canonical repo's
  * `scripts/verify-publication.sh` uses for this exact family finding. */
 function latestGitTagVersion(repoRoot: string): string | undefined {
   try {
@@ -101,7 +101,7 @@ export interface ResolvedVersion {
 /**
  * Resolves the version to verify when none was given on the command line — the case the
  * scheduled `verify-publication.yml` run always hits. Resolution order, mirroring the Java
- * golden repo's `scripts/verify-publication.sh resolve_version` fix for the same family finding:
+ * canonical repo's `scripts/verify-publication.sh resolve_version` fix for the same family finding:
  *
  *   1. the newest `v*` tag reachable from HEAD (`latestGitTagVersion`).
  *   2. the npm registry's own `latest` dist-tag for `@narrativetrace/core`, when no such tag

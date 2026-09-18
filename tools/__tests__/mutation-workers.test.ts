@@ -7,7 +7,10 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   CGROUP_CPU_MAX_PATH,
+  CGROUP_MEMORY_MAX_PATH,
   explicitCount,
+  MEASURED_PEAK_RUNNER_BYTES,
+  memoryCount,
   quotaCount,
   resolveStrykerConcurrency,
   resolveWorkerCount,
@@ -19,8 +22,8 @@ import {
 /**
  * `tools/mutation-workers.mjs`: the worker-pool size every package's `stryker.config.mjs` runs
  * Stryker with. Mirrors the analogous `scripts/mutation_workers.py` test suite (mutmut's
- * `--max-children`) so both runtimes pin the same precedence: `NT_MUTATION_WORKERS` > cgroup
- * quota > host CPU count.
+ * `--max-children`) so both runtimes pin the same precedence: `NT_MUTATION_WORKERS` > cgroup CPU
+ * quota > host CPU count, then capped by the cgroup memory ceiling (2026-09-18 finding).
  */
 
 describe("workerCount from the environment", () => {
@@ -98,6 +101,53 @@ describe("explicitCount", () => {
   });
 });
 
+describe("memoryCount", () => {
+  it("returns undefined for a ceiling that sets no limit", () => {
+    expect(memoryCount("max\n")).toBeUndefined();
+  });
+
+  it("returns undefined for content that doesn't parse as bytes", () => {
+    expect(memoryCount("garbage\n")).toBeUndefined();
+  });
+
+  it("floors the per-runner-byte division so the pool is never oversized", () => {
+    // 3 GiB / 700 MiB = 4.39... -> 4, the nightly's own 3 GB container.
+    expect(memoryCount(String(3 * 1024 * 1024 * 1024))).toBe(4);
+  });
+
+  it("floors at one worker so the pool is never empty", () => {
+    expect(memoryCount(String(1024 * 1024))).toBe(1);
+  });
+
+  it("uses the measured constant, not a rounder number", () => {
+    expect(MEASURED_PEAK_RUNNER_BYTES).toBe(700 * 1024 * 1024);
+  });
+});
+
+describe("workerCount capped by the cgroup memory ceiling", () => {
+  it("a quota'd memory ceiling below the CPU-derived count wins — the smaller count", () => {
+    // No CPU quota (8 workers), 3 GB memory / 700 MiB -> 4: memory is the binding constraint.
+    expect(workerCount({}, "max 100000\n", 8, String(3 * 1024 * 1024 * 1024))).toBe(4);
+  });
+
+  it("`max` memory applies no bound — the CPU-derived count is unchanged", () => {
+    expect(workerCount({}, "max 100000\n", 8, "max\n")).toBe(8);
+  });
+
+  it("an absent memory reading applies no bound", () => {
+    expect(workerCount({}, "max 100000\n", 8, undefined)).toBe(8);
+  });
+
+  it("a generous memory ceiling never widens a tighter CPU-derived count", () => {
+    expect(workerCount({}, "400000 100000\n", 8, String(64 * 1024 * 1024 * 1024))).toBe(4);
+  });
+
+  it("caps even an explicit NT_MUTATION_WORKERS — safety over intent", () => {
+    const mem = String(3 * 1024 * 1024 * 1024); // memory bound 4
+    expect(workerCount({ [WORKERS_ENV_VAR]: "8" }, undefined, 8, mem)).toBe(4);
+  });
+});
+
 describe("workerCountSource", () => {
   it("names NT_MUTATION_WORKERS when it decided the result", () => {
     expect(workerCountSource({ [WORKERS_ENV_VAR]: "4" }, undefined)).toBe(WORKERS_ENV_VAR);
@@ -110,6 +160,23 @@ describe("workerCountSource", () => {
   it("names the runtime cpu count when neither the env nor the quota decided", () => {
     expect(workerCountSource({}, "max 100000\n")).toBe("runtime CPU count");
     expect(workerCountSource({}, undefined)).toBe("runtime CPU count");
+  });
+
+  it("names the memory ceiling when it is the binding constraint", () => {
+    const mem = String(3 * 1024 * 1024 * 1024); // memory bound 4, CPU-derived would be 8
+    expect(workerCountSource({}, "max 100000\n", 8, mem)).toBe("cgroup memory.max ceiling");
+  });
+
+  it("keeps the CPU-side name on a tie — memory did not narrow the result", () => {
+    const mem = String(4 * 700 * 1024 * 1024); // memory bound exactly 4, quota also 4
+    expect(workerCountSource({}, "400000 100000\n", 8, mem)).toBe("cgroup cpu.max quota");
+  });
+
+  it("names the memory ceiling even over an explicit setting it narrowed", () => {
+    const mem = String(3 * 1024 * 1024 * 1024); // memory bound 4, explicit was 8
+    expect(workerCountSource({ [WORKERS_ENV_VAR]: "8" }, undefined, 8, mem)).toBe(
+      "cgroup memory.max ceiling",
+    );
   });
 });
 
@@ -129,23 +196,33 @@ describe("resolveWorkerCount against the real filesystem", () => {
     delete process.env[WORKERS_ENV_VAR];
     const cpuMax = join(dir, "cpu.max");
     writeFileSync(cpuMax, "300000 100000\n");
-    expect(resolveWorkerCount(cpuMax)).toBe(3);
+    expect(resolveWorkerCount(cpuMax, join(dir, "absent-memory"))).toBe(3);
   });
 
   it("an absent cgroup quota file is not an error — macOS, a bare host, cgroup v1", () => {
     delete process.env[WORKERS_ENV_VAR];
-    expect(resolveWorkerCount(join(dir, "absent"))).toBeGreaterThanOrEqual(1);
+    expect(
+      resolveWorkerCount(join(dir, "absent"), join(dir, "absent-memory")),
+    ).toBeGreaterThanOrEqual(1);
   });
 
-  it("an explicit env setting overrides the real filesystem entirely", () => {
+  it("an explicit env setting overrides the real filesystem entirely, but not a tighter memory ceiling", () => {
     process.env[WORKERS_ENV_VAR] = "3";
-    expect(resolveWorkerCount(join(dir, "absent"))).toBe(3);
+    expect(resolveWorkerCount(join(dir, "absent"), join(dir, "absent-memory"))).toBe(3);
   });
 
-  it("defaults to the real cgroup path when none is given", () => {
+  it("reads the cgroup memory file when it exists and caps the result", () => {
+    delete process.env[WORKERS_ENV_VAR];
+    const memoryMax = join(dir, "memory.max");
+    writeFileSync(memoryMax, String(3 * 1024 * 1024 * 1024));
+    expect(resolveWorkerCount(join(dir, "absent"), memoryMax)).toBe(4);
+  });
+
+  it("defaults to the real cgroup paths when none is given", () => {
     delete process.env[WORKERS_ENV_VAR];
     expect(resolveWorkerCount()).toBeGreaterThanOrEqual(1);
     expect(CGROUP_CPU_MAX_PATH).toBe("/sys/fs/cgroup/cpu.max");
+    expect(CGROUP_MEMORY_MAX_PATH).toBe("/sys/fs/cgroup/memory.max");
   });
 });
 
@@ -171,7 +248,11 @@ describe("resolveStrykerConcurrency — the value a package's stryker.config.mjs
 
   it("the derived count is the value assigned as `concurrency` — the flag reaches the config", () => {
     process.env[WORKERS_ENV_VAR] = "4";
-    const concurrency = resolveStrykerConcurrency("core", join(dir, "absent"));
+    const concurrency = resolveStrykerConcurrency(
+      "core",
+      join(dir, "absent"),
+      join(dir, "absent-memory"),
+    );
     expect(concurrency).toBe(4);
     expect(logs).toEqual([
       `mutation-workers[core]: running Stryker with concurrency 4 (from ${WORKERS_ENV_VAR})`,
@@ -182,10 +263,21 @@ describe("resolveStrykerConcurrency — the value a package's stryker.config.mjs
     delete process.env[WORKERS_ENV_VAR];
     const cpuMax = join(dir, "cpu.max");
     writeFileSync(cpuMax, "400000 100000\n");
-    const concurrency = resolveStrykerConcurrency("core", cpuMax);
+    const concurrency = resolveStrykerConcurrency("core", cpuMax, join(dir, "absent-memory"));
     expect(concurrency).toBe(4);
     expect(logs).toEqual([
       "mutation-workers[core]: running Stryker with concurrency 4 (from cgroup cpu.max quota)",
     ]);
+  });
+
+  it("a memory ceiling below the CPU-derived count is named and used", () => {
+    delete process.env[WORKERS_ENV_VAR];
+    const memoryMax = join(dir, "memory.max");
+    writeFileSync(memoryMax, String(3 * 1024 * 1024 * 1024));
+    const concurrency = resolveStrykerConcurrency("core", join(dir, "absent"), memoryMax);
+    expect(concurrency).toBeLessThanOrEqual(4);
+    expect(logs[0]).toMatch(
+      /^mutation-workers\[core\]: running Stryker with concurrency \d+ \(from (cgroup memory\.max ceiling|runtime CPU count)\)$/,
+    );
   });
 });

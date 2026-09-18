@@ -271,7 +271,7 @@ describe("renderIndentedText", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java canonical source).
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot() {
     const self = {
@@ -297,13 +297,16 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(renderIndentedText(traceTree([cyclicRoot()]))).toContain("… (cycle)");
   });
 
-  // Explicit budget, not vitest's 5s default: walking a 50,000-deep chain takes
-  // ~800ms alone but ~5.2s under coverage instrumentation inside the parallel
-  // gate — a margin measured in one environment and spent in another. The suite
-  // already sets explicit budgets wherever a test is deliberately heavy.
-  test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
-    expect(renderIndentedText(traceTree([deepChain(50_000)]))).toContain("… (depth limit)");
-  }, 30_000);
+  // Shrunk from a 50,000-deep chain to just past the walker's own depth limit (10,000): the walk
+  // is non-recursive and stops at the limit regardless of how much chain lies beyond it, so a
+  // chain one link longer than the limit exercises the identical code path. vitest's default
+  // 5000ms per-test timeout is a wall-clock budget, and release retrospective rule 3 says that
+  // budget must never be implicit — a test whose legitimate cost varies with scheduler contention
+  // declares what it actually needs, and a hang guard on a non-timing test takes a seconds-scale
+  // floor, never a millisecond-scale tolerance. 3000ms is the floor.
+  test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
+    expect(renderIndentedText(traceTree([deepChain(10_001)]))).toContain("… (depth limit)");
+  }, 3_000);
 
   test("an ordinary tree well within the bound renders exactly as before", () => {
     const child = traceNode(methodSignature("Repo", "find", []), returned('"found"'), []);

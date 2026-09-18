@@ -105,6 +105,29 @@ describe("runTraceTranslation", () => {
     ).toThrow(TypeError);
   });
 
+  // TS has no live pipeline subscriber for translation (unlike the Java reference's
+  // TranslationSubscriber): runTraceTranslation over the real exportJson/readTraceExport wire
+  // format is the closest production path this port has today. code.function has no shape
+  // constraint, so a method name that normalizes to no readable word is schema-valid input the
+  // run must stay total over.
+  test.each([
+    "",
+    "__",
+    "$$$",
+    "123",
+  ])("never throws translating a method name carrying no readable word (%j)", (methodName) => {
+    const traceJson = exportJson(
+      traceTree([
+        traceNode(methodSignature("PaymentService", methodName, []), returned("true"), []),
+      ]),
+      { scenario: "charge succeeds" },
+    );
+
+    const artifacts = run({ traces: [{ path: "trace.json", json: traceJson }] });
+
+    expect(artifacts.files[0]?.markdown).toContain(`PaymentService.${methodName}()`);
+  });
+
   test("reports one gap per phrase even when many traces share it", () => {
     const artifacts = run({
       traces: [

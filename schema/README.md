@@ -40,7 +40,7 @@ root [`LICENSE`](../LICENSE)).
 
 ## Skill frontmatter — authored here
 
-| File | Validates | Golden source |
+| File | Validates | Canonical source |
 |---|---|---|
 | `skill.schema.json` | the YAML frontmatter of a `SKILL.md` in the skills catalogue | **this repository** |
 

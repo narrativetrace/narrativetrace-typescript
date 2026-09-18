@@ -11,8 +11,11 @@
 #
 # Self-bootstraps into an isolated venv when semgrep isn't already
 # installed (this container's Python is externally managed — no system
-# pip), since the CI job already pays for network. Locally (no $CI) a
-# failed bootstrap warns and passes instead of blocking.
+# pip), since the CI job already pays for network. Locally a failed
+# bootstrap warns and passes instead of blocking; where the tool is
+# promised (NARRATIVETRACE_REQUIRE_SEMGREP=1 or NARRATIVETRACE_REQUIRE_ALL=1,
+# set by the security workflow) it fails the job instead — bare $CI is not
+# enough on its own.
 set -eu
 cd "$(dirname "$0")/.."
 CACHE=.tools-cache/semgrep-venv
@@ -39,11 +42,11 @@ if [ -z "$BIN" ]; then
 fi
 
 if [ -z "$BIN" ]; then
-	if [ -n "${CI:-}" ]; then
-		echo "semgrep: could not install in CI — failing the gate rather than skipping it silently." >&2
+	if [ -n "${NARRATIVETRACE_REQUIRE_SEMGREP:-}" ] || [ -n "${NARRATIVETRACE_REQUIRE_ALL:-}" ]; then
+		echo "semgrep: could not install — failing the gate rather than skipping it silently (required by NARRATIVETRACE_REQUIRE_SEMGREP/NARRATIVETRACE_REQUIRE_ALL)." >&2
 		exit 1
 	fi
-	echo "semgrep not installed and could not be bootstrapped (offline, or no python3?) — SAST scan skipped locally. CI installs it." >&2
+	echo "semgrep not installed and could not be bootstrapped (offline, or no python3?) — SAST scan skipped locally. Set NARRATIVETRACE_REQUIRE_SEMGREP=1 to require it; the security workflow does." >&2
 	exit 0
 fi
 

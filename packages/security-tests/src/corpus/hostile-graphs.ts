@@ -229,6 +229,10 @@ const HOSTILE_MEMBERS: Record<string, (held: Secret) => unknown> = {
   countingAccessor: (held) => new Members.CountingAccessor(held),
   sideEffectingIteratorList: (held) => new Members.SideEffectingIteratorList(held),
   lookalikeCollection: (held) => new Members.LookalikeCollection(held),
+  abstractMapSubclassOverride: (held) => new Members.AbstractMapSubclassOverride(held),
+  abstractCollectionSubclassOverride: (held) =>
+    new Members.AbstractCollectionSubclassOverride(held),
+  fieldlessAbstractSubclassToStringDoor: () => new Members.FieldlessAbstractSubclassToStringDoor(),
 };
 
 function hostile(member: string, sentinel: string): unknown {

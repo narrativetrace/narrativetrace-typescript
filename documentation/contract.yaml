@@ -355,3 +355,11 @@ entries:
     since: "0.1.3"
     documented_default: "true"
     probe: "contract-probe/probes/run-name-manifest-field.mjs"
+
+  - id: config-shape-logger-threshold-does-not-affect-buffered-path
+    kind: config-shape
+    page: "documentation/configuration-guide.md#9-two-dials-two-paths"
+    claim: "a pino Logger set to its highest level (fatal, silencing the trace/warn lines NarrativeTrace writes) does not affect the buffered path — captureTrace() still returns a complete trace of the traced call"
+    since: "0.1.0"
+    expected_effect: "complete-trace-independent-of-logger"
+    probe: "contract-probe/probes/logger-threshold-does-not-affect-buffered-path.mjs"

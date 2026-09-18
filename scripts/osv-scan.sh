@@ -6,7 +6,10 @@
 # both to install and to query, so this only ever runs on CI's schedule/web
 # job (never per commit — THIN-CI ruling). Self-installs the latest release
 # from GitHub when absent, since that job already pays for network on every
-# run; locally (no $CI) a failed download warns and passes instead.
+# run; locally a failed download warns and passes instead. Where the tool is
+# promised (NARRATIVETRACE_REQUIRE_OSV_SCANNER=1 or
+# NARRATIVETRACE_REQUIRE_ALL=1, set by the security workflow) a failed
+# download or scan fails the job instead — bare $CI is not enough on its own.
 set -eu
 cd "$(dirname "$0")/.."
 CACHED=.tools-cache/osv-scanner/osv-scanner
@@ -35,11 +38,11 @@ if [ -z "$BIN" ]; then
 fi
 
 if [ -z "$BIN" ]; then
-	if [ -n "${CI:-}" ]; then
-		echo "osv-scanner: could not install in CI — failing the gate rather than skipping it silently." >&2
+	if [ -n "${NARRATIVETRACE_REQUIRE_OSV_SCANNER:-}" ] || [ -n "${NARRATIVETRACE_REQUIRE_ALL:-}" ]; then
+		echo "osv-scanner: could not install — failing the gate rather than skipping it silently (required by NARRATIVETRACE_REQUIRE_OSV_SCANNER/NARRATIVETRACE_REQUIRE_ALL)." >&2
 		exit 1
 	fi
-	echo "osv-scanner not installed — dependency scan skipped locally. CI installs it." >&2
+	echo "osv-scanner not installed — dependency scan skipped locally. Set NARRATIVETRACE_REQUIRE_OSV_SCANNER=1 to require it; the security workflow does." >&2
 	exit 0
 fi
 

@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 243885e0928d | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 789e680e007d | translated: 2026-09-18 | reviewed: - -->
 # Guia de Configuração do NarrativeTrace TypeScript
 
 [English](../configuration-guide.md) | [Español](../es/guia-de-configuracion.md) | **Português** | [简体中文](../zh-CN/配置指南.md)
@@ -550,6 +550,68 @@ escala linearmente com ela — 262.144 é ~80 MB, e é por isso que deixou de
 ser o padrão. O buffer nunca vai encontrar o espaço sozinho, então o número
 que você passa é o número que você recebe: pequeno demais descarta eventos,
 grande demais cobra de todo contexto que aloca um.
+
+## 9. Dois diais, dois caminhos
+
+**P: Coloquei o nível de tracing em `detail` mas nada aparece nos meus logs. Ou: coloquei o logger
+em `warn` e o trace continua aparecendo na saída dos meus testes. Qual configuração vence?**
+
+As duas, porque respondem perguntas diferentes. O NarrativeTrace tem dois diais, e seu pipeline
+tem dois caminhos.
+
+**Dial 1, o nível de tracing, decide o que é capturado.** `off`, `errors`, `summary`, `narrative`,
+`detail`, em ordem crescente de verbosidade — `isEnabled(current, required)` em
+`@narrativetrace/core` os compara nessa ordem. É a configuração do próprio NarrativeTrace, e
+`off` é o único valor que se coloca na frente da captura por completo: uma chamada feita enquanto
+o nível é `off` nunca é interceptada, então nunca vira um evento e nenhuma outra configuração pode
+trazê-la de volta. `errors`, `summary` e `narrative` continuam interceptando e publicando cada
+chamada — eles reduzem o que a árvore do `captureTrace()` mantém depois (só os caminhos que
+lançaram exceção, raiz-mais-folha-mais-profunda, sem valores de parâmetro) em vez de pular a
+captura logo de cara. `off` é por isso também o único nível que muda o custo de interceptação do
+tracing; os outros três ainda pagam para interceptar e publicar cada chamada, e só depois
+recortam o que devolvem.
+
+**Dial 2, o nível do seu logger, decide o que é impresso.** O NarrativeTrace escreve cada evento
+capturado na instância `Logger` que você passa para
+`createPinoEventConsumer`/`createWinstonEventConsumer`, como uma linha de log, em um nível por
+tipo de linha: uma entrada e um retorno usam por padrão `trace` no `@narrativetrace/pino` (o pino
+tem um nível TRACE de verdade) e `debug` no `@narrativetrace/winston` (o análogo mais próximo do
+winston); uma exceção usa por padrão `warn` nos dois, para que uma falha tratada e narrada nunca
+se disfarce de erro de logger não tratado. O limiar do seu próprio logger então faz o que sempre
+faz. Subi-lo silencia linhas. Ele nunca captura mais, e nunca captura menos.
+
+**Agora os dois caminhos, que é de onde vem a confusão.** Todo evento capturado percorre os dois
+caminhos do `DualPathPipeline` padrão ao mesmo tempo:
+
+- O **caminho síncrono** executa o listener do logger — a função que
+  `createPinoEventConsumer`/`createWinstonEventConsumer` retorna — de forma inline, antes que o
+  método traceado continue. A linha de log é escrita antes que a chamada retorne, então ela
+  sobrevive a uma queda abrupta. Esse é o único caminho que o nível do seu logger afeta.
+- O **caminho em buffer** alimenta todo o resto: `captureTrace()`, os arquivos de trace que o
+  `createNarrativeTest` escreve depois de um teste, os trace aprovados, o relatório de clareza, a
+  exportação do `@narrativetrace/opentelemetry`, a narrativa renderizada
+  (`renderMarkdown()`/`renderProse()`/`renderIndentedText()`). Esse caminho nunca consulta seu
+  logger. Ele vê todo evento que o nível de tracing admitiu, não importa o que o limiar do logger
+  diga.
+
+Então um logger em `warn` e um nível de tracing em `detail` te dão logs quietos e um arquivo de
+trace completo. Um nível de tracing em `summary` e um logger deixado na configuração mais
+verbosa (`trace` no pino, `debug` no winston) te dão um log barulhento de um trace magro. E um
+nível de tracing em `off` não te dá nada em lugar nenhum, porque nada foi capturado.
+
+**Onde cada dial mora.**
+
+| Dial | Onde mora |
+|---|---|
+| Nível de tracing | A variável de ambiente `NARRATIVETRACE_LEVEL`, a chave `"level"` em `narrativetrace.config.json`/`.narrativetracerc.json`, ou o construtor de `NarrativeTraceConfig` / o setter `config.level` no código — da maior para a menor precedência: código, depois variável de ambiente, depois arquivo de configuração (veja [§2b acima](#2b-de-onde-vêm-as-configurações)) |
+| Limiar do logger | A configuração do próprio logger — a opção `level` do pino, a opção `level` do winston — definida na instância `Logger` que você mesmo constrói. O NarrativeTrace escreve diretamente nessa instância; ele não possui um nome de logger próprio, então não há nada extra para configurar para encontrá-lo |
+| Nível por tipo de linha | A opção `levels` de `createPinoEventConsumer(logger, { levels })` / `createWinstonEventConsumer(logger, { levels })`, com as chaves `enter` / `return` / `exception` (veja [Guia de Integração com Frameworks § Per-event levels](guia-de-integracao-de-frameworks.md#per-event-levels)) |
+
+**Regras práticas.** Para reduzir o volume de logs, suba o limiar do logger; o arquivo de trace
+fica intacto. Para reduzir o tamanho do trace, baixe o nível de tracing. Para reduzir o overhead,
+baixe o nível de tracing; o limiar do logger não muda nada no custo. Para manter o tracing ligado
+em produção mas fora dos logs, deixe o nível de tracing em `summary` e o logger em `warn`: o
+caminho síncrono fica quieto e o caminho em buffer continua alimentando suas exportações.
 
 ## Ver também
 

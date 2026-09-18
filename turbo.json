@@ -34,7 +34,8 @@
       ]
     },
     "mutate": {
-      "dependsOn": ["build"]
+      "dependsOn": ["build"],
+      "passThroughEnv": ["NT_MUTATION_WORKERS"]
     }
   }
 }

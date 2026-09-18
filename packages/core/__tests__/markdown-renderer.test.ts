@@ -107,7 +107,7 @@ describe("renderMarkdownDocument", () => {
 describe("renderMarkdownDocument body header", () => {
   // The frontmatter already escapes the scenario via yamlSafe; the body header used to append the
   // same value raw, so a hostile scenario forged a Markdown heading and injected raw HTML into the
-  // rendered document — mirrors a fix from the Java golden source. One escaping decision per sink
+  // rendered document — mirrors a fix from the Java canonical source. One escaping decision per sink
   // — the body header is a sink like any other, not exempt.
   test("escapes a scenario that forges a heading and raw HTML in the body header", () => {
     const root = traceNode(methodSignature("OrderService", "placeOrder", []), returned('"OK"'), []);
@@ -246,7 +246,7 @@ describe("renderMarkdown", () => {
   // A well-formed surrogate pair is YAML-printable, so a raw pair used to pass straight through —
   // spec-valid, but a mainstream YAML parser reading fixed-size character chunks can land its
   // buffer boundary between the two halves of a pair and crash on valid input — the same crash the
-  // Java golden source's own SnakeYAML consumer hit. Frontmatter is a machine-readable
+  // Java canonical source's own SnakeYAML consumer hit. Frontmatter is a machine-readable
   // interoperability contract, so supplementary characters are emitted BMP-only: YAML's own 8-digit
   // \U escape (ns-esc-32-bit), not a raw pair, so no chunk boundary can ever split what is no
   // longer a pair.
@@ -635,7 +635,7 @@ describe("renderMarkdown", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source);
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java canonical source);
 // closes this runtime's own 2026-09-04 finding for the Markdown renderer.
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot() {
@@ -663,16 +663,19 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(result).toContain("… (cycle)");
   });
 
-  // Builds and renders a 50,000-deep chain — measured 2026-09-17: ~235ms run alone, ~501ms under
-  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
-  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
-  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
-  // whose legitimate cost varies with scheduler contention declares what it actually needs.
-  // 2500ms is ~5x the measured contended run.
-  test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
-    const result = renderMarkdownBody(traceTree([deepChain(50_000)]));
+  // Shrunk from a 50,000-deep chain to just past the walker's own depth limit (10,000): the walk
+  // is non-recursive and stops at the limit regardless of how much chain lies beyond it, so a
+  // chain one link longer than the limit exercises the identical code path — measured ~213ms run
+  // alone in the dev container. vitest's default 5000ms per-test timeout is a wall-clock budget,
+  // and release retrospective rule 3 says that budget must never be implicit — a test whose
+  // legitimate cost varies with scheduler contention declares what it actually needs, and a hang
+  // guard on a non-timing test takes a seconds-scale floor, never a millisecond-scale tolerance
+  // close enough to the measured run to mistake ordinary contention for a hang. 3000ms is both
+  // well past 5x the measured idle run and the floor itself.
+  test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
+    const result = renderMarkdownBody(traceTree([deepChain(10_001)]));
     expect(result).toContain("… (depth limit)");
-  }, 2_500);
+  }, 3_000);
 
   test("an ordinary tree well within the bound renders exactly as before", () => {
     const child = traceNode(methodSignature("Repo", "find", []), returned('"found"'), []);
@@ -686,13 +689,16 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(() => renderMarkdown(traceTree([cyclicRoot()]))).not.toThrow();
   });
 
-  // Builds and renders a 50,000-deep chain for frontmatter's method_count/error_count — measured
-  // 2026-09-17: ~150ms run alone, ~334ms under `turbo run coverage`'s full cross-package
-  // concurrency (an 8-core dev container running all packages' vitest+coverage at once). vitest's
-  // default 5000ms per-test timeout is a wall-clock budget, and release retrospective rule 3 says
-  // that budget must never be implicit — a test whose legitimate cost varies with scheduler
-  // contention declares what it actually needs. 1700ms is ~5.1x the measured contended run.
-  test("frontmatter's method_count/error_count do not stack-overflow on a very deep chain", () => {
-    expect(() => renderMarkdown(traceTree([deepChain(50_000)]))).not.toThrow();
-  }, 1_700);
+  // Shrunk from a 50,000-deep chain to just past the walker's own depth limit (10,000): the walk
+  // is non-recursive and stops at the limit regardless of how much chain lies beyond it, so a
+  // chain one link longer than the limit exercises the identical code path — measured ~262ms run
+  // alone in the dev container. vitest's default 5000ms per-test timeout is a wall-clock budget,
+  // and release retrospective rule 3 says that budget must never be implicit — a test whose
+  // legitimate cost varies with scheduler contention declares what it actually needs, and a hang
+  // guard on a non-timing test takes a seconds-scale floor, never a millisecond-scale tolerance
+  // close enough to the measured run to mistake ordinary contention for a hang. 3000ms is both
+  // well past 5x the measured idle run and the floor itself.
+  test("frontmatter's method_count/error_count do not stack-overflow on a chain just past the depth limit", () => {
+    expect(() => renderMarkdown(traceTree([deepChain(10_001)]))).not.toThrow();
+  }, 3_000);
 });

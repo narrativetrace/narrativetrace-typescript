@@ -283,3 +283,14 @@ export function englishDocPages(root = "documentation"): string[] {
     .map((name) => join(root, name))
     .sort();
 }
+
+/**
+ * The repo root's own English README — the first page most readers see, held to the same
+ * no-drift guarantee as {@link englishDocPages} (2026-09-18, matching this family's other
+ * ports: Python's `_english_markdown_files()` scans its root README the same way). Never a
+ * root-level mirror (`LEAME.md`/`LEIAME.md`/`自述文件.md`) — those carry translated prose around
+ * untranslated code and are restamped by hand against the English page, not marker-checked.
+ */
+export function rootReadmePage(): string[] {
+  return existsSync("README.md") ? ["README.md"] : [];
+}

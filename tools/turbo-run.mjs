@@ -25,12 +25,19 @@
 // is the budget instead of its square. A package run on its own
 // (`pnpm --filter <pkg> run coverage`) does not come through here and keeps its full pool.
 //
-// The binding constraint on the dev VM is memory, not cores, and there is no memory quota to read:
-// `memory.max` is `max`, because the 7.75 GB is SHARED by every dev container rather than divided
-// between them, and `os.totalmem()` there reports the whole VM's, not this container's share. A
-// number derived from either would be a guess dressed as a measurement. So the CPU budget is the
-// number, and `NT_MUTATION_WORKERS` is how a host that is memory-tight for reasons this process
-// cannot see says so — `NT_MUTATION_WORKERS=2 pnpm run check`. One number, one override.
+// On the shared dev VM the binding constraint is memory, not cores, but there was no memory quota
+// to read there: `memory.max` is `max`, because the 7.75 GB is SHARED by every dev container
+// rather than divided between them, and `os.totalmem()` there reports the whole VM's, not this
+// container's share. A number derived from either would be a guess dressed as a measurement. So
+// the CPU budget was the number, and `NT_MUTATION_WORKERS` is how a host that is memory-tight for
+// reasons this process cannot see says so — `NT_MUTATION_WORKERS=2 pnpm run check`.
+//
+// 2026-09-18 finding: a container CAN carry a real `memory.max` ceiling (the ts nightly's, 3 GB) —
+// there the guess-dressed-as-measurement problem above doesn't apply, `memory.max` is an honest
+// number, and ignoring it is exactly how the mutation OOM happened. So this takes the same
+// memory-derived bound `mutation-workers.mjs` derives for Stryker and applies it here too: the
+// package-level concurrency is `min(CPU-derived, memory-derived)`, `NT_MUTATION_WORKERS` still the
+// override for either.
 //
 // Plain ESM, for the same reason `mutation-workers.mjs` is: it is spawned by plain Node from a
 // package script, with no tsx loader in that process.
@@ -40,7 +47,12 @@ import { existsSync } from "node:fs";
 import { cpus } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readCgroupCpuMax, workerCount, workerCountSource } from "./mutation-workers.mjs";
+import {
+  readCgroupCpuMax,
+  readCgroupMemoryMax,
+  workerCount,
+  workerCountSource,
+} from "./mutation-workers.mjs";
 
 /** The repository root, from this file's own location — never the caller's working directory. */
 const REPO_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
@@ -80,11 +92,11 @@ export function poolEnv(env) {
  * argv, and the environment to spawn it with. Pure — every input is passed in, so the derivation
  * is observable under a quota'd `cpu.max` without a quota'd machine.
  */
-export function turboPlan(task, extraArgs, env, cgroupCpuMax, hostCpuCount) {
-  const workers = workerCount(env, cgroupCpuMax, hostCpuCount);
+export function turboPlan(task, extraArgs, env, cgroupCpuMax, hostCpuCount, cgroupMemoryMax) {
+  const workers = workerCount(env, cgroupCpuMax, hostCpuCount, cgroupMemoryMax);
   return {
     workers,
-    source: workerCountSource(env, cgroupCpuMax),
+    source: workerCountSource(env, cgroupCpuMax, hostCpuCount, cgroupMemoryMax),
     args: ["run", task, `--concurrency=${workers}`, ...extraArgs],
     env: poolEnv(env),
   };
@@ -104,7 +116,14 @@ function main(argv) {
     console.error("Usage: node tools/turbo-run.mjs <turbo-task> [turbo args...]");
     process.exit(1);
   }
-  const plan = turboPlan(task, extraArgs, process.env, readCgroupCpuMax(), cpus().length);
+  const plan = turboPlan(
+    task,
+    extraArgs,
+    process.env,
+    readCgroupCpuMax(),
+    cpus().length,
+    readCgroupMemoryMax(),
+  );
   announce(task, plan);
   const child = spawn(turboBinary(), plan.args, {
     stdio: "inherit",

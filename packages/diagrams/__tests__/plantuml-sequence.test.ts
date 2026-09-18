@@ -306,7 +306,7 @@ describe("renderPlantUmlSequence", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java canonical source).
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot(): TraceNode {
     const self = {
@@ -332,15 +332,18 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(renderPlantUmlSequence(traceTree([cyclicRoot()]))).toContain("… (cycle)");
   });
 
-  // Builds and renders a 50,000-deep chain — measured 2026-09-17: ~67ms run alone, ~301ms under
-  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
-  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
-  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
-  // whose legitimate cost varies with scheduler contention declares what it actually needs.
-  // 1500ms is ~5x the measured contended run.
-  test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
-    expect(renderPlantUmlSequence(traceTree([deepChain(50_000)]))).toContain("… (depth limit)");
-  }, 1_500);
+  // Shrunk from a 50,000-deep chain to just past the walker's own depth limit (10,000): the walk
+  // is non-recursive and stops at the limit regardless of how much chain lies beyond it, so a
+  // chain one link longer than the limit exercises the identical code path — measured ~76ms run
+  // alone in the dev container. vitest's default 5000ms per-test timeout is a wall-clock budget,
+  // and release retrospective rule 3 says that budget must never be implicit — a test whose
+  // legitimate cost varies with scheduler contention declares what it actually needs, and a hang
+  // guard on a non-timing test takes a seconds-scale floor, never a millisecond-scale tolerance
+  // close enough to the measured run to mistake ordinary contention for a hang. 3000ms is both
+  // well past 5x the measured idle run and the floor itself.
+  test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
+    expect(renderPlantUmlSequence(traceTree([deepChain(10_001)]))).toContain("… (depth limit)");
+  }, 3_000);
 });
 
 // Same fix, same shared sequence-walk traversal, as mermaid-sequence.test.ts's own

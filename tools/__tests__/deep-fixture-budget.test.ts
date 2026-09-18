@@ -166,6 +166,48 @@ describe("deep-fixture-budget", () => {
       ]);
     });
 
+    it("flags a builder call whose fixture size is a same-file constant, not an inline literal", () => {
+      writeTest(
+        root,
+        "packages/core/__tests__/h.test.ts",
+        [
+          'import { test } from "vitest";',
+          "const DEPTH = 50_000;",
+          "function deepChainEvents(depth) { return depth; }",
+          'test("prunes a chain deeper than the call stack without crashing", () => {',
+          "  const events = deepChainEvents(DEPTH, true);",
+          "});",
+        ].join("\n"),
+      );
+
+      const { violations } = lint(root, []);
+
+      expect(violations).toEqual([
+        {
+          file: "packages/core/__tests__/h.test.ts",
+          line: 4,
+          name: "prunes a chain deeper than the call stack without crashing",
+        },
+      ]);
+    });
+
+    it("does not flag a builder call whose identifier argument resolves to an unrelated constant", () => {
+      writeTest(
+        root,
+        "packages/core/__tests__/i.test.ts",
+        [
+          'import { test } from "vitest";',
+          "const SMALL = 5;",
+          "function chain(depth) { return depth; }",
+          'test("a small chain is unaffected", () => {',
+          "  chain(SMALL);",
+          "});",
+        ].join("\n"),
+      );
+
+      expect(lint(root, []).violations).toEqual([]);
+    });
+
     it("flags an allowlist entry whose test no longer produces a hit as stale", () => {
       writeTest(
         root,

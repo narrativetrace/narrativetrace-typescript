@@ -7,6 +7,7 @@ import {
   exceptionCandidate,
   methodCandidates,
   normalizePhrase,
+  normalizePhraseOrUndefined,
   parameterCandidate,
   S_FINAL_SINGULARS,
 } from "../src/term-normalizer.js";
@@ -104,6 +105,29 @@ describe("normalizePhrase", () => {
   test("rejects an identifier that holds no word characters at all", () => {
     expect(() => normalizePhrase("___")).toThrow("identifier holds no word characters: '___'");
     expect(() => normalizePhrase("!!!")).toThrow("identifier holds no word characters: '!!!'");
+  });
+});
+
+describe("normalizePhraseOrUndefined", () => {
+  test("normalizes exactly as normalizePhrase does for a readable identifier", () => {
+    expect(normalizePhraseOrUndefined("accountWithOverdraft")).toBe("account with overdraft");
+    expect(normalizePhraseOrUndefined("overdraftAccounts")).toBe("overdraft account");
+  });
+
+  test.each([
+    "__",
+    "$$$",
+    "___",
+    "!!!",
+  ])("answers undefined where normalizePhrase throws for no readable word (%j)", (identifier) => {
+    expect(() => normalizePhrase(identifier)).toThrow();
+
+    expect(normalizePhraseOrUndefined(identifier)).toBeUndefined();
+  });
+
+  test("still rejects a blank identifier", () => {
+    expect(() => normalizePhraseOrUndefined("")).toThrow("identifier must not be blank");
+    expect(() => normalizePhraseOrUndefined("   ")).toThrow("identifier must not be blank");
   });
 });
 

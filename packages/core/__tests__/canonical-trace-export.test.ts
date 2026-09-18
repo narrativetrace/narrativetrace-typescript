@@ -311,7 +311,7 @@ describe("exportCanonicalJson", () => {
 });
 
 // A hand-built or deserialized tree can hold an ancestor — nothing at the type level prevents it.
-// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java canonical source).
 describe("bounded tree walk (cyclic and very deep trees)", () => {
   function cyclicRoot() {
     const self = {
@@ -337,13 +337,14 @@ describe("bounded tree walk (cyclic and very deep trees)", () => {
     expect(() => canonicalEntries(traceTree([cyclicRoot()]))).not.toThrow();
   });
 
-  // Builds and walks a 50,000-deep chain — measured 2026-09-17: ~160ms run alone, ~739ms under
-  // `turbo run coverage`'s full cross-package concurrency (an 8-core dev container running all
-  // packages' vitest+coverage at once). vitest's default 5000ms per-test timeout is a wall-clock
-  // budget, and release retrospective rule 3 says that budget must never be implicit — a test
-  // whose legitimate cost varies with scheduler contention declares what it actually needs.
-  // 3700ms is ~5x the measured contended run.
-  test("canonicalEntries does not stack-overflow on a very deep chain", () => {
-    expect(() => canonicalEntries(traceTree([deepChain(50_000)]))).not.toThrow();
-  }, 3_700);
+  // Shrunk from a 50,000-deep chain to just past the walker's own depth limit (10,000): the walk
+  // is non-recursive and stops at the limit regardless of how much chain lies beyond it, so a
+  // chain one link longer than the limit exercises the identical code path. vitest's default
+  // 5000ms per-test timeout is a wall-clock budget, and release retrospective rule 3 says that
+  // budget must never be implicit — a test whose legitimate cost varies with scheduler contention
+  // declares what it actually needs, and a hang guard on a non-timing test takes a seconds-scale
+  // floor, never a millisecond-scale tolerance. 3000ms is the floor.
+  test("canonicalEntries does not stack-overflow on a chain just past the depth limit", () => {
+    expect(() => canonicalEntries(traceTree([deepChain(10_001)]))).not.toThrow();
+  }, 3_000);
 });

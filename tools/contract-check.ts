@@ -28,6 +28,11 @@ const PROBED_PACKAGES = [
   "@narrativetrace/proxy",
   "@narrativetrace/vitest",
   "@narrativetrace/cli",
+  // logger-threshold-does-not-affect-buffered-path.mjs: @narrativetrace/pino's own "pino" peer
+  // dependency is not installed automatically by a single-coordinate `npm install --save`, so it
+  // is named here explicitly too.
+  "@narrativetrace/pino",
+  "pino",
 ];
 
 function isolatedEnv(cacheDir: string): NodeJS.ProcessEnv {

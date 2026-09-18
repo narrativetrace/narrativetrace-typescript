@@ -31,7 +31,7 @@ stryker.log
 
 # verify:all's per-category raw command logs (tools/verify-all.ts) — the summary lives in
 # reports/verification/<date>.md; this is where the full output goes when a row isn't a clean
-# pass, mirroring the Java golden repo's gitignored build/verifyAll-logs/.
+# pass, mirroring the Java canonical repo's gitignored build/verifyAll-logs/.
 .verify-all-logs/
 
 .pnpm-store/

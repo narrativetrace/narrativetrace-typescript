@@ -613,22 +613,21 @@ describe("renderValue", () => {
       return node;
     }
 
-    // Builds and renders a 10,000-node plain-object chain — measured 2026-09-17: ~1ms run alone,
-    // ~3ms under `turbo run coverage`'s full cross-package concurrency (an 8-core dev container
-    // running all packages' vitest+coverage at once); the depth cap (32) stops the walk almost
-    // immediately, so this never showed real contention sensitivity. Release retrospective rule 3
-    // still says the budget must be explicit, not the implicit 5000ms default — 200ms is a floor
-    // well above measurement noise rather than a literal multiple of a single-digit-millisecond
-    // sample, which would be meaningless.
+    // Builds and renders a 10,000-node plain-object chain — measured ~1ms run alone in the dev
+    // container; the depth cap (32, this renderer's own — unrelated to the tree walkers' 10,000)
+    // stops the walk almost immediately, so a millisecond-scale measurement would be meaningless
+    // as a multiple. Release retrospective rule 3 still says the budget must be explicit, not the
+    // implicit 5000ms default, and a hang guard on a non-timing test takes a seconds-scale floor:
+    // 3000ms.
     test("a 10,000-node chain renders without throwing", () => {
       expect(() => renderValue(chain(10_000))).not.toThrow();
-    }, 200);
+    }, 3_000);
 
-    // Same fixture and rationale as the test above (~1ms alone, ~5ms contended) — see its comment.
+    // Same fixture and rationale as the test above — see its comment.
     test("a 10,000-node chain renders identically twice", () => {
       const deep = chain(10_000);
       expect(renderValue(deep)).toBe(renderValue(deep));
-    }, 200);
+    }, 3_000);
 
     test("a graph exactly at the cap renders whole", () => {
       // 32 nested `{ held: ... }` wrappers around the leaf is depth 32 exactly.

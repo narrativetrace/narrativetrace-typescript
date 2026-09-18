@@ -6,7 +6,7 @@ import { dirname } from "node:path";
 
 /**
  * The fixed shape every `verifyAll`/equivalent report commits to across the NarrativeTrace
- * family (pro repo TODO §35E). The contract is written once, in the Java golden repo's
+ * family (pro repo TODO §35E). The contract is written once, in the Java canonical repo's
  * `reports/verification/SCHEMA.md` — this module is this port's implementation of it, not a
  * second definition of it: same field names, same four statuses, same 21 category ids. A
  * category this runtime lacks still gets a row (`not-implemented`), never a missing one.

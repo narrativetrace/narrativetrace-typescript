@@ -55,7 +55,7 @@ async function defaultFetchJson(url: string): Promise<unknown> {
 
 /**
  * The version currently tagged `latest` for one package — the npm-registry counterpart of the
- * Java golden repo's Maven Central `maven-metadata.xml` `<latest>` fallback, used the same way:
+ * Java canonical repo's Maven Central `maven-metadata.xml` `<latest>` fallback, used the same way:
  * only when no release tag is reachable from HEAD yet (see `verify-publication.ts`'s
  * `resolveVersion`). npm serves a dist-tag packument at the exact URL shape {@link versionUrl}
  * already builds for a real semver version, substituting the `latest` tag for the version

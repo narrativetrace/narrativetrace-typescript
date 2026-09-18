@@ -9,7 +9,12 @@ import {
   resolvePublishedVersion,
   withCacheAgeComment,
 } from "./llms-version-banner.js";
-import { englishDocPages, parseSnippetBlocks, resolveSnippetSource } from "./snippet-shared.js";
+import {
+  englishDocPages,
+  parseSnippetBlocks,
+  resolveSnippetSource,
+  rootReadmePage,
+} from "./snippet-shared.js";
 
 // Rewrites every fenced snippet block, in place, to match its source — English pages only
 // (mirrors are never touched: `translation-check` flags their code-block drift, and the fix is
@@ -24,7 +29,7 @@ function syncSnippetBlocks(): { changedBlocks: number; changedPages: number } {
   let changedBlocks = 0;
   const changedPages = new Set<string>();
 
-  for (const page of englishDocPages()) {
+  for (const page of [...englishDocPages(), ...rootReadmePage()]) {
     const text = readFileSync(page, "utf-8");
     const lines = text.split("\n");
     const blocks = parseSnippetBlocks(page, text);

@@ -477,6 +477,12 @@ importers:
         specifier: ^7.3.6
         version: 7.3.6(@types/node@22.19.13)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0)
 
+  examples/place-order:
+    devDependencies:
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
+
   examples/plain-js:
     devDependencies:
       '@narrativetrace/core':

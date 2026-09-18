@@ -11,10 +11,12 @@
 #
 # "full" — git-history sweep, CI's MR/scheduled job (never per commit).
 # Self-installs the latest release from GitHub when
-# absent, since that job already pays for network on every run. Locally
-# (no $CI) a failed download still warns and passes; in CI a failed
-# download or scan fails the job — a silent skip there would defeat the
-# point of the gate.
+# absent, since that job already pays for network on every run. Locally a
+# failed download still warns and passes; where the tool is promised
+# (NARRATIVETRACE_REQUIRE_GITLEAKS=1 or NARRATIVETRACE_REQUIRE_ALL=1, set by
+# the security workflow) a failed download or scan fails the job instead —
+# bare $CI is not enough on its own, since a silent skip there would defeat
+# the point of the gate.
 set -eu
 cd "$(dirname "$0")/.."
 MODE="${1:?usage: gitleaks.sh staged|full}"
@@ -44,11 +46,11 @@ if [ -z "$BIN" ] && [ "$MODE" = full ]; then
 fi
 
 if [ -z "$BIN" ]; then
-	if [ -n "${CI:-}" ]; then
-		echo "gitleaks: could not install in CI — failing the gate rather than skipping it silently." >&2
+	if [ -n "${NARRATIVETRACE_REQUIRE_GITLEAKS:-}" ] || [ -n "${NARRATIVETRACE_REQUIRE_ALL:-}" ]; then
+		echo "gitleaks: could not install — failing the gate rather than skipping it silently (required by NARRATIVETRACE_REQUIRE_GITLEAKS/NARRATIVETRACE_REQUIRE_ALL)." >&2
 		exit 1
 	fi
-	echo "gitleaks not installed — secrets check ($MODE) skipped locally. CI installs it." >&2
+	echo "gitleaks not installed — secrets check ($MODE) skipped locally. Set NARRATIVETRACE_REQUIRE_GITLEAKS=1 to require it; the security workflow does." >&2
 	exit 0
 fi
 

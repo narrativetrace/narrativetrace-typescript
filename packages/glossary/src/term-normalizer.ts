@@ -142,9 +142,13 @@ function normalizeToken(token: string): string {
 /** At least one letter or digit — punctuation alone names no concept. */
 const WORD_CHARACTER = /[\p{L}\p{N}]/u;
 
+function rawTokens(identifier: string): string[] {
+  return tokenize(identifier).map(normalizeToken);
+}
+
 function normalizedTokens(identifier: string, what: string): string[] {
   requireNonBlank(identifier, what);
-  const tokens = tokenize(identifier).map(normalizeToken);
+  const tokens = rawTokens(identifier);
   // The join separator is equivalent to any other: the tokenizer never returns more than one
   // token for an identifier made only of punctuation, so no separator is ever inserted here.
   if (!WORD_CHARACTER.test(tokens.join(""))) {
@@ -190,6 +194,25 @@ function withoutLeadingStopwords(tokens: readonly string[]): readonly string[] {
  */
 export function normalizePhrase(identifier: string): string {
   return normalizedTokens(identifier, "identifier").join(" ");
+}
+
+/**
+ * {@link normalizePhrase} for callers that must stay total: the normalized phrase, or `undefined`
+ * when the identifier carries no readable word.
+ *
+ * INTENT: the same answer {@link classCandidate} and its siblings already give — "nothing readable
+ * here" is a value, not a failure — for a caller that wants phrase semantics without role-suffix
+ * stripping. A renderer reading a wire format cannot treat an unreadable name as an error, because
+ * the format permits one, so it asks this instead of {@link normalizePhrase}.
+ *
+ * @param identifier a camelCase, PascalCase or snake_case identifier; must not be blank.
+ * @returns the normalized phrase, or `undefined` when nothing readable remains (`"__"`, `"$$$"`).
+ * @throws {TypeError} if `identifier` is blank.
+ */
+export function normalizePhraseOrUndefined(identifier: string): string | undefined {
+  requireNonBlank(identifier, "identifier");
+  const tokens = rawTokens(identifier);
+  return WORD_CHARACTER.test(tokens.join("")) ? tokens.join(" ") : undefined;
 }
 
 /**

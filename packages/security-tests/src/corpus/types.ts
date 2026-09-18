@@ -40,12 +40,15 @@ export function expectsRedaction(templateCase: TemplateCase): boolean {
 }
 
 /**
- * One row of `redaction.json`: a sensitive field name, or a sensitive value shape.
+ * One row of `redaction.json`: a sensitive field name, a sensitive value shape, or one of
+ * `graphs.json`'s composite shapes replayed through the capture path.
  *
- * A row names either a field (`name` plus the `canary` planted behind it) or a value (`value`,
- * which is its own canary because the shape *is* the secret), never both or neither; `expect`
- * says which way the assertion runs — `"redacted"` cases must reach no output byte, `"visible"`
- * cases must survive (the false-positive half is the half that keeps the default switched on).
+ * A row names either a field (`name` plus the `canary` planted behind it), a value (`value`,
+ * which is its own canary because the shape *is* the secret), or a composite `kind` (built
+ * through the same `hostile-graphs.ts` builders `graphs.json`'s own rows use, carrying `canary`
+ * the way a name case does) — never more than one of the three; `expect` says which way the
+ * assertion runs — `"redacted"` cases must reach no output byte, `"visible"` cases must survive
+ * (the false-positive half is the half that keeps the default switched on).
  *
  * @llmNote ADV-2026-09-14-1: a value case's `position` defaults to a bare top-level scalar. Every
  * name case already places its canary behind a field name in a one-entry `Map` (see
@@ -53,15 +56,23 @@ export function expectsRedaction(templateCase: TemplateCase): boolean {
  * where the renderer's value-shape axis was already known to look — never in a `Map` KEY position,
  * which is exactly where `renderMapKey` was found to skip that axis. `"mapKey"` places `value` as
  * the key of a one-entry map instead.
+ *
+ * @llmNote A `kind` row is meaningless replayed through `renderValue` directly — that door is
+ * already covered by `graphs.json`'s own rows. What a `kind` row in THIS corpus adds is the
+ * capture path one layer up: a traced method call, parameter binding and every rendered artifact.
+ * Unlike a name or value row, a `kind` row's assertion never claims the whole captured parameter
+ * is flagged redacted — only a component of it is — so containment and call success are what the
+ * row actually declares; see `capture-path-redaction.prop.test.ts`'s kind-row describe block.
  */
 export interface RedactionCase {
   readonly id: string;
   readonly description: string;
-  /** The field name under test, for a name case; `undefined` for a value case. */
+  /** The field name under test, for a name case; `undefined` otherwise. */
   readonly name?: string;
-  /** The value under test, for a value case; `undefined` for a name case. */
+  /** The value under test, for a value case; `undefined` otherwise. */
   readonly value?: string;
-  /** The token planted behind `name`, which the oracle looks for; name cases only. */
+  /** The token planted behind `name` or (for a `kind` row) inside the composite `kind` builds;
+   * `undefined` for a value case. */
   readonly canary?: string;
   /** `"redacted"` or `"visible"`. */
   readonly expect: string;
@@ -70,6 +81,8 @@ export interface RedactionCase {
    * `undefined` (the default) for every other row.
    */
   readonly position?: string;
+  /** The name of one of `graphs.json`'s composite builders, or `undefined` for a name or value row. */
+  readonly kind?: string;
 }
 
 const MAP_KEY_POSITION = "mapKey";
@@ -77,9 +90,14 @@ const MAP_KEY_POSITION = "mapKey";
 /** The ordinary, visible value paired with a map-key case's secret key — it must survive. */
 export const MAP_KEY_COMPANION_VALUE = "visible-value";
 
-/** Whether this row names a field rather than carrying a bare value. */
+/** Whether this row names a field rather than carrying a bare value or a composite kind. */
 export function isNameCase(redactionCase: RedactionCase): boolean {
   return redactionCase.name !== undefined;
+}
+
+/** Whether this row names one of `graphs.json`'s composite builders. */
+export function isKindCase(redactionCase: RedactionCase): boolean {
+  return redactionCase.kind !== undefined;
 }
 
 /** Whether a value case places `value` as a map key rather than rendering it bare. */
@@ -87,9 +105,13 @@ export function isMapKeyCase(redactionCase: RedactionCase): boolean {
   return redactionCase.position === MAP_KEY_POSITION;
 }
 
-/** The string the oracle looks for: the canary for a name case, the value itself otherwise. */
+/** The string the oracle looks for: the canary for a name or kind case, the value itself otherwise. */
 export function secretOf(redactionCase: RedactionCase): string {
-  return (isNameCase(redactionCase) ? redactionCase.canary : redactionCase.value) ?? "";
+  return (
+    (isNameCase(redactionCase) || isKindCase(redactionCase)
+      ? redactionCase.canary
+      : redactionCase.value) ?? ""
+  );
 }
 
 /**

@@ -9,7 +9,7 @@ import { dirname, join, relative, sep } from "node:path";
 // floor/ratchet/exemption rules `tools/duplication-check.ts` enforces; that doc is the one to
 // update if either changes. This module holds the pure, unit-tested half: turning jscpd's own JSON
 // into this repo's normalised `duplication.json` shape. The jscpd invocation itself
-// (`tools/duplication-report.ts`) is thin, untested glue over the tool — mirroring the Java golden
+// (`tools/duplication-report.ts`) is thin, untested glue over the tool — mirroring the Java canonical
 // repo's own DuplicationReportSupport convention: the real tool is proven by the actual gate, not a
 // unit test that would just re-run it.
 
@@ -22,7 +22,7 @@ export interface DuplicationOccurrence {
 
 /**
  * One jscpd duplicate finding. jscpd reports duplication as PAIRS: every entry in its own
- * `duplicates` array names exactly two occurrences of one shape — unlike the Java golden repo's
+ * `duplicates` array names exactly two occurrences of one shape — unlike the Java canonical repo's
  * PMD CPD, which groups every mutually-matching occurrence into one N-way cluster. A shape copied
  * three times therefore shows up here as multiple pairwise clusters (A↔B, A↔C, …), never one
  * three-occurrence cluster — see documentation/duplication.md for what this means when reading a
@@ -71,7 +71,7 @@ export interface RawJscpdReport {
 }
 
 /** An absolute jscpd file path (jscpd was invoked with `--absolute`), repo-root-relative with `/`
- * separators regardless of host OS — the same normalisation the Java golden repo's own
+ * separators regardless of host OS — the same normalisation the Java canonical repo's own
  * `toCluster` applies to CPD's paths. */
 export function toRelativePath(repoRoot: string, absolutePath: string): string {
   return relative(repoRoot, absolutePath).split(sep).join("/");
@@ -107,7 +107,7 @@ interface LineSpan {
 /**
  * How many distinct line positions the (already same-file) half-open [spans] cover, counting a
  * position once no matter how many spans include it — the union, not the sum. Mirrors the Java
- * golden repo's `countCoveredPositions`, adapted from CPD's single shared token-index coordinate
+ * canonical repo's `countCoveredPositions`, adapted from CPD's single shared token-index coordinate
  * space to jscpd's per-file line numbers: line 5 of one file and line 5 of another are different
  * positions, so spans must be grouped and unioned per file (see {@link sumDuplicatedLines}) before
  * being summed across files — never unioned directly across files by line number.
@@ -135,7 +135,7 @@ export function countCoveredLines(spans: readonly LineSpan[]): number {
  * matches overlap routinely (the same lines recur in several different pairs — a shape copied
  * three times reports as three pairwise clusters, each re-covering the same lines), and summing
  * every cluster's line count once per occurrence double- and triple-counts those positions — the
- * same "union, not sum" fix the Java golden repo's own duplication tooling applies to CPD's token
+ * same "union, not sum" fix the Java canonical repo's own duplication tooling applies to CPD's token
  * spans, applied here to jscpd's per-file line ranges instead (see documentation/duplication.md).
  */
 export function sumDuplicatedLines(clusters: readonly DuplicationCluster[]): number {
@@ -214,7 +214,7 @@ function existingSubdirectories(parent: string): string[] {
 }
 
 /** Every workspace package's `src` directory that actually exists — read straight off disk (like
- * the Java golden repo's own `duplicationSourceDirs`), never hand-kept, so a 21st package is
+ * the Java canonical repo's own `duplicationSourceDirs`), never hand-kept, so a 21st package is
  * scanned the moment it exists. */
 export function mainSourceDirs(repoRoot: string): string[] {
   return existingSubdirectories(join(repoRoot, "packages"))

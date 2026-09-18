@@ -20,7 +20,7 @@ import {
 // every commit. `tools/duplication-check.ts` reads that JSON and ratchets the main tree against
 // `config/duplication/baseline.properties` — see documentation/duplication.md for the full
 // rationale (token floor, identifiers/literals ignored, main-only gate, ratchet not a fixed
-// percentage). This file is thin, untested glue over the tool — mirroring the Java golden repo's
+// percentage). This file is thin, untested glue over the tool — mirroring the Java canonical repo's
 // own DuplicationReportSupport.runCpd: the pure normalisation it hands off to
 // (`tools/duplication-shared.ts`) is what the test suite exercises, not a live jscpd run.
 
@@ -52,7 +52,7 @@ const EMPTY_REPORT: RawJscpdReport = { duplicates: [], statistics: { total: { li
  * documentation/duplication.md's fixture proof for exactly why `--ignore-identifiers
  * --ignore-literals` is the option pair that gives "structural duplication, not merely pasted
  * text"). `dirs` with none existing (a package with no `__tests__`, say) contributes nothing,
- * same as the Java golden repo's own `runCpd` skipping non-existent source directories.
+ * same as the Java canonical repo's own `runCpd` skipping non-existent source directories.
  */
 function runJscpd(repoRoot: string, dirs: readonly string[]): RawJscpdReport {
   const existing = dirs.filter((d) => existsSync(d));

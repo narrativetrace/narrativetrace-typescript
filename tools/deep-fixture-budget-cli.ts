@@ -7,14 +7,16 @@ import { type DeepFixtureAllowlistEntry, lint } from "./deep-fixture-budget.js";
 
 // CLI entry `check` runs every commit, no network: fails on any `test(`/`it(` in a `*.test.ts`
 // file (excluding `*.stress.test.ts`, budgeted separately by its own env-driven turbo task) that
-// builds a 50,000- or 10,000-node chain/tree fixture — a known builder call (`deepChain`,
-// `deepChainJson`, `chain`, `documentNesting`) or a raw loop that grows a chain by reassigning a
-// variable to a call referencing itself — yet declares no third (timeout) argument. vitest's
-// 5000ms default is a wall-clock budget, and release retrospective rule 3 says that budget must
-// never be implicit for a test whose legitimate cost varies with scheduler contention: the class
-// this guard exists to stop from regrowing after the 2026-09-17 deep-tree budget commit. The
-// allowlist excuses a named, reasoned exception (a fixture that fails fast, before any tree
-// walk) — never a whole file, and never silently: a stale entry fails the gate too.
+// builds a deep chain/tree fixture — a known builder call (`deepChain`, `deepChainJson`,
+// `deepChainEvents`, `chain`, `documentNesting`; a literal argument or one resolved through a
+// same-file constant) or a raw loop that grows a chain by reassigning a variable to a call
+// referencing itself — at 50,000 or 10,000 nodes, or 10,001 (one link past the walkers' own
+// depth limit, the size a shrunk fixture takes) — yet declares no third (timeout) argument.
+// vitest's 5000ms default is a wall-clock budget, and release retrospective rule 3 says that
+// budget must never be implicit for a test whose legitimate cost varies with scheduler
+// contention: the class this guard exists to stop from regrowing. The allowlist excuses a named,
+// reasoned exception (a fixture that fails fast, before any tree walk) — never a whole file, and
+// never silently: a stale entry fails the gate too.
 
 const REPO_ROOT = process.cwd();
 const ALLOWLIST_PATH = "tools/deep-fixture-budget-allowlist.json";

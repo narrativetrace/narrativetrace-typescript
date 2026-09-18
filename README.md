@@ -20,43 +20,44 @@ Zero-code logging that uses your method and parameter names as the log. If the t
 
 ## The problem
 
-Half of this method is logging noise:
+Five collaborators, two log lines that say nothing about the four calls between them, one catch
+that logs and rethrows — the shape every reader recognizes from their own code:
 
+<!-- snippet: examples/place-order/src/place-order.ts region=before -->
 ```ts
-placeOrder(customerId: string, productId: string, quantity: number): OrderResult {
-  console.log(`Placing order for customer ${customerId} product ${productId} quantity ${quantity}`);
-
-  const customer = this.customers.findCustomer(customerId);
-  console.log('Found customer:', customer);
-
-  const price = this.catalog.lookupPrice(productId);
-  console.log('Looked up price:', price);
-
-  this.inventory.reserve(productId, quantity);
-  console.log('Reserved inventory');
-
-  const confirmation = this.payments.charge(customerId, price * quantity);
-  console.log('Payment processed:', confirmation.transactionId);
-
-  const result = { orderId: 'ORD-1', transactionId: confirmation.transactionId, totalCharged: price * quantity, itemCount: quantity };
-  console.log('Order placed:', result);
-  return result;
-}
+  placeOrder(req: OrderRequest): Order {
+    this.logger.info({ orderId: req.id }, "Placing order");
+    try {
+      const customer = this.customers.find(req.id);
+      const price = this.catalog.price(req.sku);
+      this.inventory.reserve(req.sku, req.qty);
+      const payment = this.payments.charge(price);
+      const order = this.orders.save(customer, payment);
+      this.logger.info({ orderId: order.id }, "Order succeeded");
+      return order;
+    } catch (err) {
+      this.logger.error({ err, orderId: req.id }, "Placing order failed");
+      throw err;
+    }
+  }
 ```
+<!-- /snippet -->
 
-The business logic is five lines. The logging is another six. Every developer writes these logs differently — different messages, different levels, different included values. The result is inconsistent, verbose, and tangled with the code it describes.
+Every developer writes these logs differently — different messages, different levels, different included values. The result is inconsistent, verbose, and tangled with the code it describes.
 
 NarrativeTrace eliminates this entirely:
 
+<!-- snippet: examples/place-order/src/place-order.ts region=after -->
 ```ts
-placeOrder(customerId: string, productId: string, quantity: number): OrderResult {
-  this.customers.findCustomer(customerId);
-  const price = this.catalog.lookupPrice(productId);
-  this.inventory.reserve(productId, quantity);
-  const confirmation = this.payments.charge(customerId, price * quantity);
-  return { orderId: 'ORD-1', transactionId: confirmation.transactionId, totalCharged: price * quantity, itemCount: quantity };
-}
+  placeOrder(req: OrderRequest): Order {
+    const customer = this.customers.find(req.id);
+    const price = this.catalog.price(req.sku);
+    this.inventory.reserve(req.sku, req.qty);
+    const payment = this.payments.charge(price);
+    return this.orders.save(customer, payment);
+  }
 ```
+<!-- /snippet -->
 
 Pure business logic. The trace is generated automatically from the method names, parameter names, and return values — the information that was already there.
 
@@ -415,7 +416,7 @@ Start here:
 - [See a trace in 60 seconds](documentation/sixty-seconds.md) — a plain script wraps one service, one run, the trace in your terminal
 - [Installation Guide](documentation/installation-guide.md) — dependencies, every integration path, trace output setup
 - [Choosing an Integration](documentation/choosing-an-integration.md) — which package you need, as a decision diagram
-- [Configuration Guide](documentation/configuration-guide.md) — tracing levels, Vitest config, render options
+- [Configuration Guide](documentation/configuration-guide.md) — tracing levels, Vitest config, render options. Two settings to configure — the tracing level and your logger — and they don't compete: see [Two dials, two paths](documentation/faq.md#two-dials-two-paths).
 - [Decorators Guide](documentation/decorators-guide.md) — `@traced`, `@narrated`, `@onError`, `@notTraced`
 
 Going deeper:

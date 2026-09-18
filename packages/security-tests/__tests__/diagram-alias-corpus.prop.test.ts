@@ -14,7 +14,7 @@ import { hostileStrings } from "../src/corpus/hostile-corpus.js";
 
 /**
  * Diagram alias mode, driven by a class name — the one route the shared hostile corpus never
- * reached before 2026-09-13 (mirrors the Java golden source's `DiagramAliasCorpusPropertyTest`).
+ * reached before 2026-09-13 (mirrors the Java canonical source's `DiagramAliasCorpusPropertyTest`).
  * Every corpus *value* already drives `renderMermaidSequence`/
  * `renderPlantUmlSequence` through the captured-value and narration routes (`emitters.ts`'s
  * `treeOf`); what no per-commit test ever did was drive a class name — the one field
@@ -50,7 +50,7 @@ const BARE_ALIAS_TOKEN = /^[A-Za-z0-9_]+$/;
 
 /**
  * Mermaid sequence-diagram keywords, independently sourced from `sequenceDiagram.jison`
- * (mermaid-js/mermaid, verified 2026-09-13) — the same set the Java golden source's own
+ * (mermaid-js/mermaid, verified 2026-09-13) — the same set the Java canonical source's own
  * independent list uses, and the same set `alias-generator.test.ts`'s two hand-picked cases
  * (`end`, `participant`) are drawn from.
  */

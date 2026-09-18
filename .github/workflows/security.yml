@@ -12,11 +12,16 @@ on:
   workflow_dispatch:
 
 jobs:
+  # Each tool is REQUIRED here, not merely attempted — bare $CI is not enough on its own (see the
+  # scripts' own comments): NARRATIVETRACE_REQUIRE_<TOOL> turns a failed install/bootstrap into a
+  # failing job instead of a silent skip.
   secrets:
     if: github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      NARRATIVETRACE_REQUIRE_GITLEAKS: "1"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
           fetch-depth: 0
       - run: sh scripts/gitleaks.sh full
@@ -24,23 +29,27 @@ jobs:
   semgrep:
     if: github.event_name == 'pull_request' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      NARRATIVETRACE_REQUIRE_SEMGREP: "1"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - run: sh scripts/semgrep-scan.sh
 
   osv-scan:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
+    env:
+      NARRATIVETRACE_REQUIRE_OSV_SCANNER: "1"
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - run: sh scripts/osv-scan.sh
 
   dependency-audit:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
       - run: corepack enable

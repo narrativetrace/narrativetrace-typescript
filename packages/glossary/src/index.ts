@@ -61,6 +61,7 @@ export {
   exceptionCandidate,
   methodCandidates,
   normalizePhrase,
+  normalizePhraseOrUndefined,
   parameterCandidate,
   type TermCandidate,
 } from "./term-normalizer.js";

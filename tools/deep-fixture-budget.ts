@@ -16,6 +16,11 @@ interface CallSite {
   readonly name: string;
   readonly hasTimeout: boolean;
   readonly bodyText: string;
+  /** `const`s declared anywhere in this call site's own file whose initializer is `50_000` or
+   * `10_000` — see {@link fileDeepConstants}. Computed once per file, attached to every site of
+   * that file, so a builder call like `deepChainEvents(DEPTH, ...)` is still recognized even
+   * though the literal itself never appears inside the test's own callback text. */
+  readonly deepConstants: ReadonlySet<string>;
 }
 
 export interface DeepFixtureViolation {
@@ -162,6 +167,7 @@ function extractName(firstArg: string): string {
  * input) or that has fewer than two arguments (not a real test body, e.g. a bare declaration). */
 function callSites(source: string, file: string): CallSite[] {
   const sites: CallSite[] = [];
+  const deepConstants = fileDeepConstants(source);
   for (const m of source.matchAll(CALL_HEAD)) {
     const openParen = m.index + m[0].length - 1;
     const closeParen = matchingBracket(source, openParen);
@@ -174,19 +180,54 @@ function callSites(source: string, file: string): CallSite[] {
       name: extractName(args[0]),
       hasTimeout: args.length >= 3,
       bodyText: args[1],
+      deepConstants,
     });
   }
   return sites;
 }
 
-/** Known fixture-builder helpers this suite's deep-chain tests call directly, each local to the
- * `.test.ts` file that defines it: `deepChain`/`deepChainJson` (a `TraceNode`/JSON chain),
- * `chain` (a plain nested-object chain), `documentNesting` (a nested glossary JSON document). */
-const BUILDER_CALL =
-  /\b(?:deepChain|deepChainJson|chain|documentNesting)\s*\(\s*(?:50_000|10_000)\b/;
+/** The fixture sizes this whole module budgets: `50_000`/`10_000` (the original oversized
+ * fixtures) and `10_001` — one link past the walkers' own `MAX_DEPTH` (10,000), the shrunk size a
+ * fixture takes once its test proves only the depth-limit code path, not a large-fixture margin
+ * against a call-stack regression (see each shrunk test's own comment for which applies). */
+const DEEP_LITERAL = "50_000|10_000|10_001";
 
-const ACCUMULATING_LOOP =
-  /for\s*\(\s*let\s+\w+\s*=\s*0\s*;\s*\w+\s*<\s*(?:50_000|10_000)\s*;\s*\w+\+\+\s*\)/g;
+/** Known fixture-builder helpers this suite's deep-chain tests call directly, each local to the
+ * `.test.ts` file that defines it: `deepChain`/`deepChainJson`/`deepChainEvents` (a
+ * `TraceNode`/JSON/event-array chain), `chain` (a plain nested-object chain), `documentNesting`
+ * (a nested glossary JSON document). */
+const BUILDER_NAMES = ["deepChain", "deepChainJson", "deepChainEvents", "chain", "documentNesting"];
+const BUILDER_CALL = new RegExp(
+  `\\b(?:${BUILDER_NAMES.join("|")})\\s*\\(\\s*(?:${DEEP_LITERAL})\\b`,
+);
+
+/** A builder call whose first argument is a bare identifier rather than the literal directly —
+ * `deepChainEvents(DEPTH, true)` where `DEPTH` is declared elsewhere in the file. Paired with
+ * {@link fileDeepConstants} so the call is still caught without the literal appearing inside the
+ * test's own callback text. */
+const BUILDER_CALL_IDENT = new RegExp(
+  `\\b(?:${BUILDER_NAMES.join("|")})\\s*\\(\\s*([A-Za-z_$][\\w$]*)\\b`,
+);
+
+/** Names of `const`s declared anywhere in `source` (any scope — a simple textual scan, matching
+ * this module's existing regex-based idiom) whose own initializer is one of {@link DEEP_LITERAL}:
+ * `const DEPTH = 50_000;`. Resolves the one level of indirection a test's fixture size can hide
+ * behind — a builder called as `deepChainEvents(DEPTH, ...)` rather than
+ * `deepChainEvents(50_000, ...)` directly. */
+function fileDeepConstants(source: string): ReadonlySet<string> {
+  const names = new Set<string>();
+  const CONST_DECL = new RegExp(
+    `\\bconst\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:${DEEP_LITERAL})\\b`,
+    "g",
+  );
+  for (const m of codeOnly(source).matchAll(CONST_DECL)) names.add(m[1]);
+  return names;
+}
+
+const ACCUMULATING_LOOP = new RegExp(
+  `for\\s*\\(\\s*let\\s+\\w+\\s*=\\s*0\\s*;\\s*\\w+\\s*<\\s*(?:${DEEP_LITERAL})\\s*;\\s*\\w+\\+\\+\\s*\\)`,
+  "g",
+);
 
 function loopStatementText(source: string, from: number): string {
   let i = from;
@@ -243,12 +284,15 @@ function codeOnly(source: string): string {
   return out;
 }
 
-/** True if a test's callback builds a 50,000- or 10,000-node chain/tree fixture — via a known
- * builder call or a raw accumulating loop — the class of test this whole module budgets. Only
- * ever reasons about {@link codeOnly} text, never the callback's raw source. */
-function isDeepFixtureBody(bodyText: string): boolean {
+/** True if a test's callback builds a chain/tree fixture at one of {@link DEEP_LITERAL}'s sizes —
+ * via a known builder call (literal or resolved through a same-file constant, see
+ * {@link fileDeepConstants}) or a raw accumulating loop — the class of test this whole module
+ * budgets. Only ever reasons about {@link codeOnly} text, never the callback's raw source. */
+function isDeepFixtureBody(bodyText: string, deepConstants: ReadonlySet<string>): boolean {
   const code = codeOnly(bodyText);
-  return BUILDER_CALL.test(code) || hasAccumulatingLoop(code);
+  if (BUILDER_CALL.test(code) || hasAccumulatingLoop(code)) return true;
+  const identMatch = code.match(BUILDER_CALL_IDENT);
+  return identMatch !== null && deepConstants.has(identMatch[1]);
 }
 
 const EXCLUDED_DIR = /^(?:node_modules|dist|\.stryker-tmp|coverage|\.git|\.turbo)$/;
@@ -256,7 +300,7 @@ const EXCLUDED_DIR = /^(?:node_modules|dist|\.stryker-tmp|coverage|\.git|\.turbo
 /** Every `*.test.ts` file under `repoRoot`, any depth, excluding build/tooling noise dirs and
  * `*.stress.test.ts` — the stress suite budgets itself via `NARRATIVETRACE_STRESS_BUDGET_SECONDS`
  * on a wholly separate turbo task (see `turbo.json`'s `stress` task), never a vitest per-test
- * timeout, so a literal 50,000/10,000 there is never this guard's concern. */
+ * timeout, so a deep-fixture literal there is never this guard's concern. */
 function testFiles(repoRoot: string, dir: string, files: string[]): void {
   for (const name of readdirSync(dir)) {
     if (EXCLUDED_DIR.test(name)) continue;
@@ -282,10 +326,10 @@ function allowlistKey(file: string, testName: string): string {
 }
 
 /**
- * Lints every `*.test.ts` file under `repoRoot` for a `test(`/`it(` that builds a 50,000- or
- * 10,000-node chain/tree fixture (see {@link isDeepFixtureBody}) yet declares no third (timeout)
- * argument, excusing exactly the `(file, testName)` pairs named in `allowlist` — each with a
- * human reason, enforced by the caller, never read here. An allowlisted test with no current hit
+ * Lints every `*.test.ts` file under `repoRoot` for a `test(`/`it(` that builds a deep chain/tree
+ * fixture at one of {@link DEEP_LITERAL}'s sizes (see {@link isDeepFixtureBody}) yet declares no
+ * third (timeout) argument, excusing exactly the `(file, testName)` pairs named in `allowlist` —
+ * each with a human reason, enforced by the caller, never read here. An allowlisted test with no current hit
  * is flagged too (`staleAllowlistEntries`): the allowlist shrinks as each fixture gets its own
  * budget, it never accumulates entries nobody has to remove.
  */
@@ -293,7 +337,9 @@ export function lint(
   repoRoot: string,
   allowlist: readonly DeepFixtureAllowlistEntry[],
 ): DeepFixtureLintResult {
-  const flagged = allSites(repoRoot).filter((s) => !s.hasTimeout && isDeepFixtureBody(s.bodyText));
+  const flagged = allSites(repoRoot).filter(
+    (s) => !s.hasTimeout && isDeepFixtureBody(s.bodyText, s.deepConstants),
+  );
   const allowed = new Set(allowlist.map((e) => allowlistKey(e.file, e.testName)));
   const flaggedKeys = new Set(flagged.map((s) => allowlistKey(s.file, s.name)));
   return {

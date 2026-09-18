@@ -1,0 +1,14 @@
+{
+  "name": "@narrativetrace/example-place-order",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "pino": "9.11.0"
+  }
+}

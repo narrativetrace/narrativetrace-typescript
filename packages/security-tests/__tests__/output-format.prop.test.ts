@@ -90,7 +90,7 @@ describe("output format well-formedness", () => {
       everyJsonArtifactParses(captured);
       assertWellFormed(renderers(asNarration(hostile)));
       // The third route: the same hostile text as the scenario, which reaches the YAML
-      // frontmatter and the Markdown body header — mirrors two fixes from the Java golden
+      // frontmatter and the Markdown body header — mirrors two fixes from the Java canonical
       // source, and is what exercises long-astral-run-1024 against the frontmatter's YAML parser.
       assertWellFormed(renderers(asCapturedValue(hostile), hostile.value));
     }

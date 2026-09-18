@@ -472,7 +472,12 @@ describe("buildTraceTree", () => {
   });
 
   describe("when a chain runs far deeper than the JS call stack", () => {
-    const DEPTH = 50_000;
+    // Shrunk from 50,000 to just past the walkers' own depth limit (10,000): both "errors"
+    // (`retainErrorPaths`, via `TreeWalk`) and "summary" (`pruneSummary`, via `walkPreOrder`)
+    // prune through that same non-recursive, depth-bounded walk, which stops at the limit
+    // regardless of how much chain lies beyond it — a chain one link longer than the limit
+    // exercises the identical code path.
+    const DEPTH = 10_001;
 
     function deepChainEvents(depth: number, leafThrows: boolean): TraceEvent[] {
       const events: TraceEvent[] = [];
@@ -491,20 +496,26 @@ describe("buildTraceTree", () => {
       return events;
     }
 
-    test("errors level prunes a chain deeper than the call stack without crashing", () => {
+    // vitest's default 5000ms per-test timeout is a wall-clock budget, and release retrospective
+    // rule 3 says that budget must never be implicit — a test whose legitimate cost varies with
+    // scheduler contention declares what it actually needs, and a hang guard on a non-timing test
+    // takes a seconds-scale floor, never a millisecond-scale tolerance. 3000ms is the floor;
+    // measured ~230ms run alone in the dev container.
+    test("errors level prunes a chain just past the depth limit without crashing", () => {
       const events = deepChainEvents(DEPTH, true);
 
       const tree = buildTraceTree(events, "errors");
 
       expect(tree.roots).toHaveLength(1);
-    });
+    }, 3_000);
 
-    test("summary level collapses a chain deeper than the call stack without crashing", () => {
+    // Same fixture and rationale as the test above — see its comments; measured ~182ms alone.
+    test("summary level collapses a chain just past the depth limit without crashing", () => {
       const events = deepChainEvents(DEPTH, false);
 
       const tree = buildTraceTree(events, "summary");
 
       expect(tree.roots).toHaveLength(1);
-    });
+    }, 3_000);
   });
 });

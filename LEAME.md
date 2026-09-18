@@ -1,4 +1,4 @@
-<!-- source: README.md blob 19230be916f8 | translated: 2026-09-17 | reviewed: - -->
+<!-- source: README.md blob d8d9dc9b4dc3 | translated: 2026-09-18 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -21,42 +21,41 @@ Logging sin código: usa los nombres de tus métodos y parámetros como el log. 
 
 ## El problema
 
-La mitad de este método es ruido de logging:
+Cinco colaboradores, dos líneas de log que no dicen nada sobre las cuatro llamadas entre ellas,
+un catch que registra y relanza — la forma que todo lector reconoce de su propio código:
 
 ```ts
-placeOrder(customerId: string, productId: string, quantity: number): OrderResult {
-  console.log(`Placing order for customer ${customerId} product ${productId} quantity ${quantity}`);
-
-  const customer = this.customers.findCustomer(customerId);
-  console.log('Found customer:', customer);
-
-  const price = this.catalog.lookupPrice(productId);
-  console.log('Looked up price:', price);
-
-  this.inventory.reserve(productId, quantity);
-  console.log('Reserved inventory');
-
-  const confirmation = this.payments.charge(customerId, price * quantity);
-  console.log('Payment processed:', confirmation.transactionId);
-
-  const result = { orderId: 'ORD-1', transactionId: confirmation.transactionId, totalCharged: price * quantity, itemCount: quantity };
-  console.log('Order placed:', result);
-  return result;
-}
+  placeOrder(req: OrderRequest): Order {
+    this.logger.info({ orderId: req.id }, "Placing order");
+    try {
+      const customer = this.customers.find(req.id);
+      const price = this.catalog.price(req.sku);
+      this.inventory.reserve(req.sku, req.qty);
+      const payment = this.payments.charge(price);
+      const order = this.orders.save(customer, payment);
+      this.logger.info({ orderId: order.id }, "Order succeeded");
+      return order;
+    } catch (err) {
+      this.logger.error({ err, orderId: req.id }, "Placing order failed");
+      throw err;
+    }
+  }
 ```
 
-La lógica de negocio son cinco líneas. El logging, otras seis. Cada desarrollador escribe estos logs de forma distinta — mensajes distintos, niveles distintos, valores incluidos distintos. El resultado es inconsistente, verboso y está enredado con el código que describe.
+Cada desarrollador escribe esos logs de forma distinta — mensajes distintos, niveles distintos,
+valores incluidos distintos. El resultado es inconsistente, verboso y enredado con el código que
+describe.
 
 NarrativeTrace elimina esto por completo:
 
 ```ts
-placeOrder(customerId: string, productId: string, quantity: number): OrderResult {
-  this.customers.findCustomer(customerId);
-  const price = this.catalog.lookupPrice(productId);
-  this.inventory.reserve(productId, quantity);
-  const confirmation = this.payments.charge(customerId, price * quantity);
-  return { orderId: 'ORD-1', transactionId: confirmation.transactionId, totalCharged: price * quantity, itemCount: quantity };
-}
+  placeOrder(req: OrderRequest): Order {
+    const customer = this.customers.find(req.id);
+    const price = this.catalog.price(req.sku);
+    this.inventory.reserve(req.sku, req.qty);
+    const payment = this.payments.charge(price);
+    return this.orders.save(customer, payment);
+  }
 ```
 
 Lógica de negocio pura. La traza se genera automáticamente a partir de los nombres de los métodos, los nombres de los parámetros y los valores de retorno — la información que ya estaba ahí.
@@ -447,7 +446,7 @@ Empieza aquí:
 - [Ve una traza en 60 segundos](documentation/es/sesenta-segundos.md) — un script sencillo envuelve un servicio, una ejecución, la traza en tu terminal
 - [Guía de instalación](documentation/es/guia-de-instalacion.md) — dependencias, cada camino de integración, configuración de la salida de trazas
 - [Eligiendo una integración](documentation/es/eligiendo-una-integracion.md) — qué paquete necesitas, como diagrama de decisión
-- [Guía de configuración](documentation/es/guia-de-configuracion.md) — niveles de tracing, config de Vitest, opciones de renderizado
+- [Guía de configuración](documentation/es/guia-de-configuracion.md) — niveles de tracing, config de Vitest, opciones de renderizado. Dos ajustes que configurar — el nivel de tracing y tu logger — y no compiten entre sí: ver [Two dials, two paths](documentation/faq.md#two-dials-two-paths) (aún sin traducir).
 - [Guía de decoradores](documentation/es/guia-de-decoradores.md) — `@traced`, `@narrated`, `@onError`, `@notTraced`
 
 Yendo más a fondo:

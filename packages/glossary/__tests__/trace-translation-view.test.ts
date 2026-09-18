@@ -246,10 +246,33 @@ describe("renderTranslatedTrace", () => {
     expect(gaps).toStrictEqual([]);
     expect(markdown).not.toContain("Vacíos del glosario");
   });
+
+  // code.function is a required string with no shape constraint, so a canonical entry whose
+  // method name normalizes to no readable word ("", "__", "$$$") is schema-valid input. Of the
+  // four shapes below, only "", "__" and "$$$" actually throw out of normalizePhrase today (TS's
+  // WORD_CHARACTER split differs from the Java reference, where only "" and "__" threw); "123" is
+  // pinned here too so the fix's behavior is uniform across all four regardless of which ones used
+  // to fail.
+  test.each([
+    "",
+    "__",
+    "$$$",
+    "123",
+  ])("renders a method name carrying no readable word verbatim instead of throwing (%j)", (methodName) => {
+    expect(render(modelOf(), traceOf(call({ methodName }))).markdown).toContain(
+      `PaymentService.${methodName}()`,
+    );
+  });
+
+  test("still translates a readable method name", () => {
+    const model = modelOf(term("charge", "cobrar"));
+
+    expect(render(model, traceOf(call())).markdown).toContain("PaymentService.cobrar [charge]()");
+  });
 });
 
 // A hand-built or deserialized trace can hold an ancestor — nothing at the type level prevents it.
-// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java canonical source).
 describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   function cyclicCall(): TranslatableCall {
     const self = call();
@@ -270,16 +293,15 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(markdown).toContain("… (cycle)");
   });
 
-  // Builds and renders a 50,000-node chain — measured 2026-09-17: ~250ms run alone, ~1350ms under
-  // `turbo run coverage`'s full cross-package concurrency (a 2-core dev container running all
-  // packages' vitest+coverage at once — this is the worst-contended of the three deep-chain tests
-  // in this package, ~5-10x its own idle time). vitest's default 5000ms per-test timeout is a
-  // wall-clock budget, and release retrospective rule 3 says that budget must never be implicit —
-  // a test whose legitimate cost varies with scheduler contention declares what it actually needs.
-  // 6000ms is ~4.5x the measured contended run and deliberately above the 5000ms default itself:
-  // this is the test that hit it this morning.
-  test("does not stack-overflow on a very deep chain, and marks the depth limit", () => {
-    const { markdown } = render(modelOf(), traceOf(deepChain(50_000)));
+  // Shrunk from a 50,000-node chain to just past the walker's own depth limit (10,000): the walk
+  // is non-recursive and stops at the limit regardless of how much chain lies beyond it, so a
+  // chain one link longer than the limit exercises the identical code path. vitest's default
+  // 5000ms per-test timeout is a wall-clock budget, and release retrospective rule 3 says that
+  // budget must never be implicit — a test whose legitimate cost varies with scheduler contention
+  // declares what it actually needs, and a hang guard on a non-timing test takes a seconds-scale
+  // floor, never a millisecond-scale tolerance. 3000ms is the floor.
+  test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
+    const { markdown } = render(modelOf(), traceOf(deepChain(10_001)));
     expect(markdown).toContain("… (depth limit)");
-  }, 6_000);
+  }, 3_000);
 });

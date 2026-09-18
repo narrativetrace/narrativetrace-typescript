@@ -240,7 +240,7 @@ describe("readTraceExport", () => {
 // stream with fixed parentSpanId links — structurally incapable of a cycle (an "enter" always
 // creates a fresh call object, so nothing already placed in a children array can become its own
 // ancestor). Only the depth half of the tree-walk finding applies here.
-// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java golden source).
+// Cross-runtime mirror of the 2026-09-03 unbounded-tree-walk finding (Java canonical source).
 describe("bounded call-tree walk (a very deep stored trace)", () => {
   function deepChainJson(length: number): string {
     const events: unknown[] = [];
