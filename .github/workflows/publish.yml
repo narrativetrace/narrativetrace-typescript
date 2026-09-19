@@ -3,6 +3,13 @@
 # Copyright (c) 2026 Empower Agile
 # npm artifact publication — owner-triggered, never automatic.
 #
+# Fires on the annotated v<version> tag a release pushes to this repo; the `release` environment
+# (required reviewer, v*-tag deployment rule) gates the job, so
+# credentials are exposed only after a human approves this exact run. `workflow_dispatch` exists
+# only to re-run a tag that already exists — dispatched on the tag ref itself (pick the tag, not
+# main, in the Actions "Run workflow" UI) — never a way to publish ahead of a tag: the version
+# assertion below fails loudly if the checked-out ref is not v<version>.
+#
 # Auth is npm trusted publishing (OIDC): each @narrativetrace package's
 # settings on npmjs.com name this repository, this workflow file, and the
 # `release` environment as its trusted publisher, and the run mints a
@@ -29,6 +36,11 @@ name: Publish
 permissions: {}
 
 on:
+  push:
+    tags: ["v*"]
+  # Re-run only (see header comment above): the run must be dispatched on the tag ref, never on
+  # main — the version-tag assertion enforces this by failing whenever GITHUB_REF_NAME isn't
+  # v<version> for the version packages/core/package.json declares, dispatch or push alike.
   workflow_dispatch:
 
 jobs:
@@ -48,6 +60,43 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+
+      # Ask the build what it is about to publish, rather than trusting the tag alone. The
+      # version of record is packages/core/package.json; every other public package must agree
+      # with it — a mismatch here would otherwise publish inconsistent versions under one tag.
+      - name: Resolve the version being released
+        id: version
+        run: |
+          set -euo pipefail
+          version="$(node -e "console.log(require('./packages/core/package.json').version)")"
+          [ -n "$version" ] || { echo "could not determine the project version"; exit 1; }
+          mismatched=""
+          for pkg in packages/*/package.json; do
+            priv="$(node -e "console.log(!!require('./$pkg').private)")"
+            [ "$priv" = "true" ] && continue
+            v="$(node -e "console.log(require('./$pkg').version)")"
+            [ "$v" = "$version" ] || mismatched="$mismatched $pkg($v)"
+          done
+          [ -z "$mismatched" ] || {
+            echo "public package versions disagree with packages/core ($version):$mismatched"; exit 1; }
+          echo "value=$version" >> "$GITHUB_OUTPUT"
+
+      # The actual gate: whatever ref this run checked out — tag push or manual dispatch — must
+      # be exactly v<version>. A dispatch from main fails here the same as a mistagged push would.
+      - name: Assert tag matches the release version
+        env:
+          VERSION: ${{ steps.version.outputs.value }}
+        run: |
+          set -euo pipefail
+          [ -n "${VERSION}" ] || { echo "empty version reached the tag check"; exit 1; }
+          [ "v${VERSION}" = "${GITHUB_REF_NAME}" ] || {
+            echo "ref ${GITHUB_REF_NAME} does not match release version ${VERSION} (expected tag v${VERSION})"
+            exit 1
+          }
+          case "${VERSION}" in
+            *-SNAPSHOT*|*-dev*|0.0.0) echo "refusing to release ${VERSION}"; exit 1 ;;
+          esac
+
       - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
