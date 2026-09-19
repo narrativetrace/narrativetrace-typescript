@@ -5,7 +5,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findPinViolations, findWorkflowFiles } from "../workflow-pin-check.js";
+import {
+  findOrderViolations,
+  findPinViolations,
+  findWorkflowFiles,
+} from "../workflow-pin-check.js";
 
 describe("workflow-pin-check", () => {
   let root: string;
@@ -136,6 +140,128 @@ describe("workflow-pin-check", () => {
 
     it("is clean when there is no .github/workflows directory at all", () => {
       expect(findPinViolations(root)).toEqual([]);
+    });
+  });
+
+  describe("findOrderViolations", () => {
+    it("flags actions/setup-node with no preceding corepack enable in the same job", () => {
+      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+      writeFileSync(
+        join(root, ".github", "workflows", "ci.yml"),
+        [
+          "jobs:",
+          "  check:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0",
+          "      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
+          "        with:",
+          "          node-version: 22",
+          "      - run: corepack enable",
+          "      - run: pnpm install --frozen-lockfile",
+          "",
+        ].join("\n"),
+      );
+
+      expect(findOrderViolations(root)).toEqual([
+        {
+          file: ".github/workflows/ci.yml",
+          line: 6,
+          text: "- uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
+        },
+      ]);
+    });
+
+    it("passes when corepack enable precedes actions/setup-node in the same job", () => {
+      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+      writeFileSync(
+        join(root, ".github", "workflows", "ci.yml"),
+        [
+          "jobs:",
+          "  check:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0",
+          "      - run: corepack enable",
+          "      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
+          "        with:",
+          "          node-version: 22",
+          "      - run: pnpm install --frozen-lockfile",
+          "",
+        ].join("\n"),
+      );
+
+      expect(findOrderViolations(root)).toEqual([]);
+    });
+
+    it("passes when pnpm/action-setup precedes actions/setup-node in the same job", () => {
+      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+      writeFileSync(
+        join(root, ".github", "workflows", "ci.yml"),
+        [
+          "jobs:",
+          "  check:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - uses: pnpm/action-setup@fe02b34f77f8bc703788d5817da081398fad5dd2 # v4.1.0",
+          "      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
+          "",
+        ].join("\n"),
+      );
+
+      expect(findOrderViolations(root)).toEqual([]);
+    });
+
+    it("does not carry pnpm-readiness across a job boundary", () => {
+      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+      writeFileSync(
+        join(root, ".github", "workflows", "mutation.yml"),
+        [
+          "jobs:",
+          "  incremental:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - run: corepack enable",
+          "      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
+          "",
+          "  full:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
+          "      - run: corepack enable",
+          "",
+        ].join("\n"),
+      );
+
+      expect(findOrderViolations(root)).toEqual([
+        {
+          file: ".github/workflows/mutation.yml",
+          line: 11,
+          text: "- uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0",
+        },
+      ]);
+    });
+
+    it("never flags a job with no actions/setup-node step at all", () => {
+      mkdirSync(join(root, ".github", "workflows"), { recursive: true });
+      writeFileSync(
+        join(root, ".github", "workflows", "security.yml"),
+        [
+          "jobs:",
+          "  secrets:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0",
+          "      - run: sh scripts/gitleaks.sh full",
+          "",
+        ].join("\n"),
+      );
+
+      expect(findOrderViolations(root)).toEqual([]);
+    });
+
+    it("is clean when there is no .github/workflows directory at all", () => {
+      expect(findOrderViolations(root)).toEqual([]);
     });
   });
 });

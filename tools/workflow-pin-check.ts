@@ -94,3 +94,57 @@ export function findPinViolations(repoRoot: string): PinViolation[] {
   }
   return violations;
 }
+
+export interface OrderViolation {
+  /** Repo-relative, POSIX-separated. */
+  readonly file: string;
+  readonly line: number;
+  readonly text: string;
+}
+
+// `actions/setup-node` v5 reads package.json's `packageManager` field and enables its
+// package-manager cache BY DEFAULT (`package-manager-cache: true` unless set otherwise) — the
+// v5 README: "By default, `package-manager-cache` is set to `true`, which enables caching when a
+// valid package manager field is detected in the `package.json` file." Caching runs `pnpm store
+// path` as part of the setup-node step itself, so if pnpm is not on PATH yet — i.e. `corepack
+// enable` has not run as an earlier step in the same job — the step fails with "Unable to locate
+// executable file: pnpm" before any later step gets a chance to provide it (found live 2026-09-19:
+// every workflow in this repo ran `corepack enable` AFTER `actions/setup-node`).
+const JOBS_HEADER_PATTERN = /^jobs:\s*$/;
+// A job's own key, e.g. `  check:` — two-space indent, nothing after the colon. Step lines (and
+// every job property) sit deeper, so this pattern only ever matches a job boundary.
+const JOB_HEADER_PATTERN = /^ {2}[\w.-]+:\s*$/;
+const SETUP_NODE_STEP_PATTERN = /uses:\s*actions\/setup-node@/;
+const COREPACK_ENABLE_STEP_PATTERN = /run:\s*corepack enable\b/;
+const PNPM_ACTION_SETUP_STEP_PATTERN = /uses:\s*pnpm\/action-setup@/;
+
+/** Every `actions/setup-node` step not preceded, within the same job, by a `corepack enable` step
+ * (or a `pnpm/action-setup` step) — see the module comment above for why the order matters. A job
+ * with no `actions/setup-node` step at all is out of scope and never flagged. */
+export function findOrderViolations(repoRoot: string): OrderViolation[] {
+  const violations: OrderViolation[] = [];
+  for (const file of findWorkflowFiles(repoRoot)) {
+    const rel = relative(repoRoot, file);
+    const lines = readFileSync(file, "utf-8").split("\n");
+    let inJobs = false;
+    let pnpmReady = false;
+    lines.forEach((text, index) => {
+      if (JOBS_HEADER_PATTERN.test(text)) {
+        inJobs = true;
+        return;
+      }
+      if (inJobs && JOB_HEADER_PATTERN.test(text)) {
+        pnpmReady = false;
+        return;
+      }
+      if (COREPACK_ENABLE_STEP_PATTERN.test(text) || PNPM_ACTION_SETUP_STEP_PATTERN.test(text)) {
+        pnpmReady = true;
+        return;
+      }
+      if (SETUP_NODE_STEP_PATTERN.test(text) && !pnpmReady) {
+        violations.push({ file: rel, line: index + 1, text: text.trim() });
+      }
+    });
+  }
+  return violations;
+}

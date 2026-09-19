@@ -56,6 +56,7 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - run: corepack enable
       - uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: 22
@@ -97,7 +98,6 @@ jobs:
             *-SNAPSHOT*|*-dev*|0.0.0) echo "refusing to release ${VERSION}"; exit 1 ;;
           esac
 
-      - run: corepack enable
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
       # Full gate before anything leaves the runner: artifacts publish only
