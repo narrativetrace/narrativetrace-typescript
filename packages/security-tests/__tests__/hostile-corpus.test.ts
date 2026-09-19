@@ -24,7 +24,11 @@ import type {
   LookalikeCollection,
   SideEffectingIteratorList,
 } from "../src/corpus/hostile-members.js";
-import { FieldlessAbstractSubclassToStringDoor } from "../src/corpus/hostile-members.js";
+import {
+  FieldlessAbstractSubclassToStringDoor,
+  FieldlessSideTableToStringDoor,
+  type NumberSubclassToStringDoor,
+} from "../src/corpus/hostile-members.js";
 import { build as buildTraceShape } from "../src/corpus/trace-shapes.js";
 import { isKindCase, isMapKeyCase, isNameCase, secretOf } from "../src/corpus/types.js";
 import { resolveMasterGraphs, resolveMasterRedaction } from "./master-corpus-path.js";
@@ -225,6 +229,22 @@ describe("hostile corpus", () => {
   // own id, for independent traceability to the byte-identical master corpus row per §6.7 (the
   // flat path for gap 1 duplicates lookalike-collection-not-platform-defined's own coverage above
   // — deliberately, so this id's own replay does not depend on that other row staying in place).
+  //
+  // The 2026-09-19 row, gap 3, fieldless-sidetable-tostring-door, is a fieldless class that is no
+  // composite at all — its real state lives off the reflectable-field graph entirely, in a static
+  // identity-keyed side table (Java's `FieldlessSideTableToStringDoor`; here `FieldlessSideTable-
+  // ToStringDoor`'s side table is a `WeakMap` keyed by `this`). Emptiness is not statelessness, so
+  // the same `isPlatformValue` identity check that closes gap 2 also closes this one by
+  // construction: `toString()` — and the side-table read inside it — is never a candidate on
+  // either render path.
+  //
+  // The number-subclass-tostring-door row: a `Number` subclass carrying a deny-listed field
+  // (`password`) whose own `toString()` interpolates it — a composite whose base merely happens
+  // to be numeric, which a scalar-numeric fast path could wrongly trust for its own text.
+  // TypeScript never had this door: `dispatchObject` dispatches by `typeof`, which is `"object"`
+  // for any `Number` subclass instance (never `"number"`), so a scalar-numeric fast path is never
+  // even a candidate — the fixture always took the object-introspection/deny-list path, on both
+  // render paths, by construction of the dispatch itself, same as `NumberHostileToString` above.
   describe("the rendering rule: rendering reads state, never runs behaviour", () => {
     function graphOf(id: string): unknown {
       const graphCase = hostileGraphCases().find((c) => c.id === id);
@@ -350,6 +370,75 @@ describe("hostile corpus", () => {
       const rendered = renderStructured(fixture);
       expect(FieldlessAbstractSubclassToStringDoor.iteratorCalls).toBe(0);
       expect(JSON.stringify(rendered)).not.toContain("sentinel-probe");
+    });
+
+    // Live regression guard: gap 3, the fieldless-sidetable-tostring-door row on the flat path —
+    // a fieldless class that is no composite at all, holding its real state in a static
+    // identity-keyed side table. Emptiness is not statelessness, so `dispatchObject`'s
+    // `isPlatformValue` identity check must still refuse to trust this `toString()`; the side
+    // table is never read, which means `toString()` was never entered. Observed today: `renderValue`
+    // returns `"{}"`, no `<error:` marker. No type-name assertion here, unlike the abstract-
+    // subclass-door sibling above: that row's `<size unknown>` naming comes from
+    // `hasOwnIteratorMethod` in `renderPlainObject` (value-renderer.ts), a branch that exists for
+    // COLLECTION-shaped fieldless types specifically; this fixture is not iterable-shaped at all, so
+    // it takes the ordinary "object introspection of its own fields" path with zero fields — the
+    // same `{}` a genuinely empty plain object would render, and the same reasoning every sibling
+    // `hostileMember` test in this block already applies (none of them assert a bare type name on
+    // the flat path; `renderValue`'s flat format never carries one for an ordinary object). The
+    // security property under test — the side table is never read — holds regardless.
+    test("fieldless-sidetable-tostring-door is never enumerated by the flat path", () => {
+      FieldlessSideTableToStringDoor.sideTableReads = 0;
+      const fixture = graphOf(
+        "fieldless-sidetable-tostring-door",
+      ) as FieldlessSideTableToStringDoor;
+      const rendered = renderValue(fixture);
+      expect(FieldlessSideTableToStringDoor.sideTableReads).toBe(0);
+      expect(rendered).not.toContain("sentinel-probe");
+      expect(rendered).not.toContain("<error:");
+    });
+
+    // Live regression guard: gap 3 on the structured path — `structuredFields` walks
+    // `Object.keys(value)` only, which is empty here, so `toString()` — and the side-table read
+    // inside it — is never a candidate at all on this path. Observed today: `renderStructured`
+    // returns `{"kind":"object","typeName":"FieldlessSideTableToStringDoor","fields":{}}`.
+    test("fieldless-sidetable-tostring-door is never enumerated by the structured path", () => {
+      FieldlessSideTableToStringDoor.sideTableReads = 0;
+      const fixture = graphOf(
+        "fieldless-sidetable-tostring-door",
+      ) as FieldlessSideTableToStringDoor;
+      const rendered = renderStructured(fixture);
+      expect(FieldlessSideTableToStringDoor.sideTableReads).toBe(0);
+      const json = JSON.stringify(rendered);
+      expect(json).toContain("FieldlessSideTableToStringDoor");
+      expect(json).not.toContain("sentinel-probe");
+    });
+
+    // Live regression guard: number-subclass-tostring-door on the flat path — `dispatchObject`
+    // (value-renderer.ts) dispatches by `typeof`, which is `"object"` for a `Number` subclass
+    // instance, so the scalar-numeric fast path is never a candidate; the fixture is field-walked
+    // like any other ordinary composite, with `password` caught by the default deny-list. Observed
+    // today: `renderValue` returns `{"cents": 1999, "password": [REDACTED]}` — no type name, same
+    // as every sibling ordinary-composite `hostileMember` test in this block (`renderValue`'s flat
+    // format never carries one for an ordinary object); the security property is `[REDACTED]`
+    // standing in for the field, never the sentinel or the fixture's own `toString()` text.
+    test("number-subclass-tostring-door is walked, never read through its own toString, on the flat path", () => {
+      const fixture = graphOf("number-subclass-tostring-door") as NumberSubclassToStringDoor;
+      const rendered = renderValue(fixture);
+      expect(rendered).toContain("[REDACTED]");
+      expect(rendered).not.toContain("sentinel-probe");
+      expect(rendered).not.toContain(fixture.toString());
+      expect(rendered).not.toContain("<error:");
+    });
+
+    // Live regression guard: the same row on the structured path — one dispatch decision shared by
+    // both channels, so they cannot drift.
+    test("number-subclass-tostring-door is walked, never read through its own toString, on the structured path", () => {
+      const fixture = graphOf("number-subclass-tostring-door") as NumberSubclassToStringDoor;
+      const rendered = renderStructured(fixture);
+      const json = JSON.stringify(rendered);
+      expect(json).toContain("NumberSubclassToStringDoor");
+      expect(json).not.toContain("sentinel-probe");
+      expect(json).not.toContain(fixture.toString());
     });
   });
 });

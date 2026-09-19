@@ -10,6 +10,7 @@ import {
 } from "@narrativetrace/core";
 import { describe, expect, test } from "vitest";
 import { analyzeClarity } from "../src/clarity-analyzer.js";
+import { domainVocabulary } from "../src/domain-vocabulary.js";
 
 function node(
   className: string,
@@ -181,15 +182,61 @@ describe("ClarityAnalyzer", () => {
     expect(repeatedResult.class).toBe(singleResult.class);
   });
 
-  test("generates low-severity issue for invalid collocation", () => {
+  // The collocation dictionary is a positive signal only: a verb listed for a noun confirms the
+  // name reads well, but a verb the sample never mentions is not evidence against it. An issue
+  // fires only for a verb already weak elsewhere (generic, or unrecognized and verb-shaped) —
+  // never merely because the actual verb is absent from the noun's 4-8-verb sample.
+  test("standard verb with known noun is not flagged", () => {
+    // "check" is a standard verb — absence from "ledger"'s preferred-verb sample
+    // (reconcile/balance/post/close) is no evidence of a naming problem.
     const tree = makeTree([
-      { className: "OrderService", methodName: "swimOrder", params: ["orderId"] },
+      { className: "LedgerService", methodName: "checkLedger", params: ["ledgerId"] },
+    ]);
+    const result = analyzeClarity(tree);
+    expect(result.issues.filter((i) => i.category === "collocation").length).toBe(0);
+  });
+
+  test("non-verb first token is not flagged", () => {
+    // "leaf" is not a verb at all (unknown category; not verb-shaped by morphology either),
+    // even though "node" has plenty of preferred verbs to suggest.
+    const tree = makeTree([
+      { className: "TreeWalker", methodName: "leafNode", params: ["nodeId"] },
+    ]);
+    const result = analyzeClarity(tree);
+    expect(result.issues.filter((i) => i.category === "collocation").length).toBe(0);
+  });
+
+  test("generic verb with known noun is flagged with candidates", () => {
+    // "handle" is generic — a known noun's preferred verbs are worth suggesting.
+    const tree = makeTree([
+      { className: "LedgerService", methodName: "handleLedger", params: ["ledgerId"] },
     ]);
     const result = analyzeClarity(tree);
     const collocationIssues = result.issues.filter((i) => i.category === "collocation");
     expect(collocationIssues.length).toBe(1);
+    expect(collocationIssues[0]?.element).toBe("LedgerService.handleLedger");
+    expect(collocationIssues[0]?.suggestion).toContain("reconcileLedger");
     expect(collocationIssues[0]?.severity).toBe("LOW");
-    expect(collocationIssues[0]?.suggestion.startsWith("Consider: ")).toBe(true);
+  });
+
+  test("generic verb declared in the project's own vocabulary is not flagged", () => {
+    // The project's own glossary declares "handle" a domain verb for this codebase.
+    const tree = makeTree([
+      { className: "LedgerService", methodName: "handleLedger", params: ["ledgerId"] },
+    ]);
+    const vocabulary = domainVocabulary(["handle"], []);
+    const result = analyzeClarity(tree, vocabulary);
+    expect(result.issues.filter((i) => i.category === "collocation").length).toBe(0);
+  });
+
+  test("unknown verb-shaped first token with unknown noun yields nothing", () => {
+    // "customize" is verb-shaped (ends in -ize) but in no built-in tier; "widget" is not a noun
+    // the collocation dictionary knows, so there is nothing to suggest either way.
+    const tree = makeTree([
+      { className: "Service", methodName: "customizeWidget", params: ["widgetId"] },
+    ]);
+    const result = analyzeClarity(tree);
+    expect(result.issues.filter((i) => i.category === "collocation").length).toBe(0);
   });
 
   test("valid collocation produces no collocation issue", () => {

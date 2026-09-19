@@ -5,11 +5,13 @@ import { type TraceNode, type TraceTree, walkPreOrder } from "@narrativetrace/co
 import { scoreClassName } from "./class-name-scorer.js";
 import { scoreCohesion } from "./cohesion-scorer.js";
 import { preferredVerbs } from "./collocation-dictionary.js";
-import { type DomainVocabulary, emptyVocabulary } from "./domain-vocabulary.js";
+import { type DomainVocabulary, emptyVocabulary, isDomainVerb } from "./domain-vocabulary.js";
 import { tokenize } from "./identifier-tokenizer.js";
 import { scoreMethodName } from "./method-name-scorer.js";
+import { analyzeMorphology } from "./morphology-analyzer.js";
 import { scoreParameterName } from "./parameter-name-scorer.js";
 import { scoreStructural } from "./structural-scorer.js";
+import { classifyVerb } from "./verb-dictionary.js";
 
 /** Severity, upper-cased to match Java's cross-language `clarity-results.json` contract. */
 export type ClaritySeverity = "HIGH" | "MEDIUM" | "LOW";
@@ -203,15 +205,34 @@ function findParamNameIssues(infos: NodeInfo[], vocabulary: DomainVocabulary): C
   return issues;
 }
 
-function findCollocationIssues(infos: NodeInfo[]): ClarityIssue[] {
+/**
+ * A verb worth a collocation suggestion: categorized generic, or unknown and genuinely
+ * verb-shaped (a non-verb first token, e.g. `leaf`, is never a collocation issue) — and, either
+ * way, not a verb the project's own glossary declares as its domain vocabulary.
+ */
+function isWeakVerb(verb: string, vocabulary: DomainVocabulary): boolean {
+  if (isDomainVerb(vocabulary, verb)) return false;
+  const category = classifyVerb(verb, vocabulary);
+  if (category === "generic") return true;
+  if (category !== "unknown") return false;
+  return analyzeMorphology(verb) === "verb";
+}
+
+// The collocation dictionary is a positive signal only: a verb it lists for a noun confirms the
+// name reads well, but a verb it does not list is never treated as evidence against the name —
+// the sample was never meant to be exhaustive. The issue fires only on a verb already treated as
+// weak elsewhere (generic, or unrecognized-but-verb-shaped), only when the noun has candidates to
+// suggest, and only when the project has not declared the verb its own.
+function findCollocationIssues(infos: NodeInfo[], vocabulary: DomainVocabulary): ClarityIssue[] {
   const issues: ClarityIssue[] = [];
   for (const info of infos) {
     const tokens = tokenize(info.methodName);
     if (tokens.length < 2) continue;
     const verb = (tokens[0] as string).toLowerCase();
     const noun = (tokens[tokens.length - 1] as string).toLowerCase();
+    if (!isWeakVerb(verb, vocabulary)) continue;
     const preferred = preferredVerbs(noun);
-    if (preferred.size === 0 || preferred.has(verb)) continue;
+    if (preferred.size === 0) continue;
     const capitalNoun = noun.charAt(0).toUpperCase() + noun.slice(1);
     const suggestion = `Consider: ${[...preferred]
       .sort()
@@ -246,7 +267,7 @@ function collectIssues(infos: NodeInfo[], vocabulary: DomainVocabulary): Clarity
     ...findMethodNameIssues(infos, vocabulary),
     ...findClassNameIssues(infos, vocabulary),
     ...findParamNameIssues(infos, vocabulary),
-    ...findCollocationIssues(infos),
+    ...findCollocationIssues(infos, vocabulary),
   ];
   return deduplicateAndRank(all);
 }

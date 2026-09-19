@@ -1,4 +1,4 @@
-<!-- source: documentation/clarity-guide.md blob ace66e2b1458 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/clarity-guide.md blob ff9aa021d827 | translated: 2026-09-19 | reviewed: - -->
 # Guia de Clareza do NarrativeTrace TypeScript
 
 [English](../clarity-guide.md) | [Español](../es/guia-de-claridad.md) | **Português** | [简体中文](../zh-CN/清晰度指南.md)
@@ -84,6 +84,8 @@ Os problemas de clareza são relatados como itens ordenados por impacto:
 | LOW | pontuação > 0.50 | Uso pontual de abreviação |
 
 Problemas duplicados (mesma categoria e mesmo elemento) são deduplicados com uma contagem de ocorrências. Os problemas são ordenados pela pontuação de impacto (peso da severidade x ocorrências).
+
+O dicionário de colocações é apenas um sinal positivo: um verbo que ele lista para um substantivo confirma que o nome se lê bem, mas um verbo que ele não lista nunca é tratado como evidência contra o nome — o problema `collocation` só é gerado para um verbo genérico ou genuinamente pouco claro, nunca apenas porque o verbo usado está ausente da amostra.
 
 ## Seu próprio vocabulário, a partir do glossário que você já tem
 

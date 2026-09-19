@@ -1,4 +1,4 @@
-<!-- source: documentation/clarity-guide.md blob ace66e2b1458 | translated: 2026-09-03 | reviewed: - -->
+<!-- source: documentation/clarity-guide.md blob ff9aa021d827 | translated: 2026-09-19 | reviewed: - -->
 
 # Guía de claridad de NarrativeTrace TypeScript
 
@@ -85,6 +85,8 @@ Los problemas de claridad se reportan como incidencias ordenadas por impacto:
 | LOW | puntuación > 0.50 | Uso menor de abreviaturas |
 
 Las incidencias duplicadas (misma categoría y mismo elemento) se deduplican con un contador de ocurrencias. Las incidencias se ordenan por puntuación de impacto (peso de la severidad x ocurrencias).
+
+El diccionario de colocaciones es solo una señal positiva: un verbo que aparece en la lista de un sustantivo confirma que el nombre se lee bien, pero un verbo que no aparece nunca se toma como evidencia en contra del nombre — la incidencia `collocation` solo se genera para un verbo genérico o genuinamente poco claro, nunca simplemente porque el verbo real no esté en la muestra.
 
 ## Tu propio vocabulario, a partir del glosario que ya tienes
 

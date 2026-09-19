@@ -1,134 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-const BUSINESS_CORE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-  [
-    "order",
-    new Set([
-      "place",
-      "create",
-      "cancel",
-      "update",
-      "submit",
-      "process",
-      "fulfill",
-      "ship",
-      "track",
-      "return",
-    ]),
-  ],
-  [
-    "customer",
-    new Set([
-      "find",
-      "validate",
-      "register",
-      "create",
-      "update",
-      "delete",
-      "notify",
-      "verify",
-      "authenticate",
-    ]),
-  ],
-  [
-    "payment",
-    new Set([
-      "charge",
-      "process",
-      "refund",
-      "authorize",
-      "capture",
-      "verify",
-      "cancel",
-      "create",
-      "validate",
-    ]),
-  ],
-  [
-    "inventory",
-    new Set(["reserve", "check", "update", "allocate", "release", "track", "count", "replenish"]),
-  ],
-  ["stock", new Set(["allocate", "release", "reserve", "check", "update", "transfer", "count"])],
-  [
-    "account",
-    new Set([
-      "create",
-      "close",
-      "suspend",
-      "activate",
-      "verify",
-      "update",
-      "delete",
-      "lock",
-      "unlock",
-    ]),
-  ],
-  [
-    "user",
-    new Set([
-      "create",
-      "delete",
-      "update",
-      "find",
-      "authenticate",
-      "authorize",
-      "register",
-      "block",
-      "notify",
-    ]),
-  ],
-  [
-    "product",
-    new Set([
-      "create",
-      "update",
-      "delete",
-      "find",
-      "list",
-      "publish",
-      "archive",
-      "search",
-      "categorize",
-    ]),
-  ],
-  [
-    "invoice",
-    new Set(["create", "send", "cancel", "pay", "generate", "void", "approve", "process"]),
-  ],
-  [
-    "email",
-    new Set(["send", "receive", "compose", "forward", "delete", "archive", "read", "draft"]),
-  ],
-  [
-    "report",
-    new Set(["generate", "export", "schedule", "create", "publish", "archive", "download"]),
-  ],
-  [
-    "transaction",
-    new Set(["create", "commit", "rollback", "process", "validate", "log", "reverse"]),
-  ],
-  ["notification", new Set(["send", "create", "schedule", "cancel", "deliver", "read", "dismiss"])],
-  [
-    "session",
-    new Set(["create", "destroy", "validate", "refresh", "extend", "expire", "invalidate"]),
-  ],
-  ["token", new Set(["generate", "validate", "refresh", "revoke", "decode", "verify", "issue"])],
-  ["password", new Set(["hash", "validate", "reset", "change", "verify", "generate", "encrypt"])],
-  [
-    "file",
-    new Set(["upload", "download", "delete", "read", "write", "create", "move", "copy", "rename"]),
-  ],
-  ["cache", new Set(["get", "set", "invalidate", "clear", "refresh", "evict", "warm", "update"])],
-  ["connection", new Set(["open", "close", "create", "destroy", "pool", "validate", "reset"])],
-  [
-    "request",
-    new Set(["send", "validate", "process", "handle", "parse", "forward", "retry", "cancel"]),
-  ],
-  ["response", new Set(["send", "build", "format", "parse", "validate", "cache", "compress"])],
-  ["config", new Set(["load", "save", "validate", "update", "parse", "merge", "reset"])],
-  ["log", new Set(["write", "read", "rotate", "archive", "clear", "parse", "flush"])],
-]);
+// Generated data (mirror of Java master's CollocationDictionary — ai.narrativetrace.clarity).
+// Do not edit by hand; keep byte-identical (same nouns and verb sets) with the Java source.
 
 const FINANCE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["account", new Set(["debit", "credit", "balance", "close", "reconcile", "freeze"])],
@@ -506,7 +380,6 @@ function mergeCollocationMaps(
 }
 
 const ALL_COLLOCATIONS = mergeCollocationMaps([
-  BUSINESS_CORE,
   FINANCE,
   ECOMMERCE,
   HEALTHCARE,

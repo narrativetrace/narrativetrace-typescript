@@ -82,6 +82,8 @@ Clarity problems are reported as issues ranked by impact:
 
 Duplicate issues (same category and element) are deduplicated with an occurrence count. Issues are ranked by impact score (severity weight x occurrences).
 
+The collocation dictionary is a positive signal only: a verb it lists for a noun confirms the name reads well, but a verb it does not list is never treated as evidence against the name — the `collocation` issue fires only for a generic or genuinely unclear verb, never merely because the actual verb is missing from the sample.
+
 ## Your own vocabulary, from the glossary you already have
 
 The built-in dictionaries know general software English. They do not know that

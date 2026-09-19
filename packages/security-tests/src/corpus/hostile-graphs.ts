@@ -233,6 +233,8 @@ const HOSTILE_MEMBERS: Record<string, (held: Secret) => unknown> = {
   abstractCollectionSubclassOverride: (held) =>
     new Members.AbstractCollectionSubclassOverride(held),
   fieldlessAbstractSubclassToStringDoor: () => new Members.FieldlessAbstractSubclassToStringDoor(),
+  fieldlessSideTableToStringDoor: (held) => new Members.FieldlessSideTableToStringDoor(held),
+  numberSubclassToStringDoor: (held) => new Members.NumberSubclassToStringDoor(held.secret),
 };
 
 function hostile(member: string, sentinel: string): unknown {

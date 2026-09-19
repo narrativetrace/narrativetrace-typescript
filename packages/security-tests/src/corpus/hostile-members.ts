@@ -290,6 +290,63 @@ export class FieldlessAbstractSubclassToStringDoor {
 }
 
 /**
+ * A FIELDLESS class whose `toString()` holds its real state entirely off the reflectable-field
+ * graph, in a static identity-keyed side table — the honest twin of Java's
+ * `FieldlessSideTableToStringDoor` (gap 3: a fieldless class that is no composite at all, so
+ * emptiness is not statelessness; the text a stateless leaf's stringification exemption would
+ * trust it for reads the table).
+ *
+ * @remarks Unlike {@link FieldlessAbstractSubclassToStringDoor}, this fixture is not even a
+ * subclass of anything — its zero own-enumerable fields are the whole point, and its `toString()`
+ * reaches the secret through a `WeakMap` keyed by object identity (`this`), never through a stored
+ * field. Same reasoning as the abstract-subclass door: `dispatchObject` (value-renderer.ts) only
+ * ever trusts a custom `toString()` for a value identity-checked as a realm platform intrinsic
+ * (`isPlatformValue`), never for "declares no field" alone, so `toString()` — and the side-table
+ * read inside it — is never reached at all, on either render path. The counter is `static`, not
+ * instance, for the same reason every fieldless fixture's is: an instance field would defeat the
+ * fieldless precondition the fixture exists to hold. Callers reset it before use, since it is
+ * shared across every instance.
+ */
+export class FieldlessSideTableToStringDoor {
+  static sideTableReads = 0;
+  private static readonly sideTable = new WeakMap<FieldlessSideTableToStringDoor, Secret>();
+
+  constructor(held: Secret) {
+    FieldlessSideTableToStringDoor.sideTable.set(this, held);
+  }
+
+  toString(): string {
+    FieldlessSideTableToStringDoor.sideTableReads++;
+    const held = FieldlessSideTableToStringDoor.sideTable.get(this) as Secret;
+    return `FieldlessSideTableToStringDoor[${held.label}/${held.secret}]`;
+  }
+}
+
+/**
+ * A `Number` subclass carrying a deny-listed field (`password`) whose own `toString()`
+ * interpolates it — the honest twin of Java's `NumberSubclassToStringDoor`
+ * (`number-subclass-tostring-door`): a `Number` subclass is a composite whose base happens to be
+ * numeric, not a trusted scalar, so it must be field-walked and redacted like any other composite,
+ * never read through its own text.
+ *
+ * @remarks Kept for corpus completeness, same reasoning as {@link NumberHostileToString} above:
+ * `renderValue`/`renderStructured` dispatch by `typeof`, which is `"object"` for any `Number`
+ * subclass instance (never `"number"`), so this fixture was never reachable through a
+ * scalar-numeric fast path to begin with — there is no door here on this runtime, by construction
+ * of the dispatch itself. `password` matches the default deny-list by name alone, with no
+ * `@notTraced` annotation, same as {@link PasswordToString}.
+ */
+export class NumberSubclassToStringDoor extends Number {
+  readonly cents = 1999;
+  constructor(readonly password: string) {
+    super(1);
+  }
+  override toString(): string {
+    return `Amount{password=${this.password}, cents=${this.cents}}`;
+  }
+}
+
+/**
  * Hostile *names*, where names actually come from data: object keys.
  *
  * The deny-list matches on the rendered key text, so a key carrying an invisible code point reads

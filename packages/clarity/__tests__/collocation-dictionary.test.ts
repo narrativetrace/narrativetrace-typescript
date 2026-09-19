@@ -7,10 +7,10 @@ import { hasNoun, isValidCollocation } from "../src/collocation-dictionary.js";
 describe("CollocationDictionary", () => {
   test("recognizes valid business-domain collocations", () => {
     expect(isValidCollocation("place", "order")).toBe(true);
-    expect(isValidCollocation("create", "order")).toBe(true);
+    expect(isValidCollocation("fulfill", "order")).toBe(true);
     expect(isValidCollocation("cancel", "order")).toBe(true);
-    expect(isValidCollocation("find", "customer")).toBe(true);
-    expect(isValidCollocation("charge", "payment")).toBe(true);
+    expect(isValidCollocation("retain", "customer")).toBe(true);
+    expect(isValidCollocation("authorize", "payment")).toBe(true);
   });
 
   test("rejects invalid verb-noun combinations", () => {
@@ -20,7 +20,7 @@ describe("CollocationDictionary", () => {
 
   test("is case-insensitive", () => {
     expect(isValidCollocation("Place", "Order")).toBe(true);
-    expect(isValidCollocation("CREATE", "ORDER")).toBe(true);
+    expect(isValidCollocation("SHIP", "ORDER")).toBe(true);
   });
 
   test("returns false for unknown verb or noun", () => {
