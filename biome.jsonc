@@ -19,7 +19,9 @@
       "!**/.tools-cache",
       "!.verify-all-logs",
       "!packages/security-tests/hostile-corpus",
-      "!**/narrativetrace-output"
+      "!**/narrativetrace-output",
+      // recorded eval outputs are evidence, never formatted
+      "!ai-testing/**"
     ]
   },
   "assist": {

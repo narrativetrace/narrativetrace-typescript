@@ -360,8 +360,9 @@ own source, and even then the `@notTraced`/`static notTraced` annotations still 
 capture invokes a small fixed set of your code while rendering — a custom `toString()`, a
 `@narrativeSummary` method, and property paths named in `@narrated`/`@onError` templates — so keep
 those pure, as you would for a debugger. There is also no zero-code, "wrap an app you didn't write"
-path, and this runtime has not shipped a value-free structural artifact (some other NarrativeTrace runtimes
-have) — see the two pages below for the precise, row-by-row versions of both.
+path — see the two pages below for the precise, row-by-row versions of both, including the
+value-free structural `.nt` artifact this runtime does ship (the categorical guarantee, not a
+redaction heuristic — see the FAQ below).
 
 → [Privacy and Redaction](documentation/privacy-and-redaction.md) for the row-by-row contract verified
 against the code, and [What to Commit](documentation/what-to-commit.md) for which generated files to
@@ -466,9 +467,9 @@ Four independent layers, not one blanket promise — see [Privacy and Redaction]
 1. **`@notTraced(i)` on a parameter / `static notTraced = [...]` on a class** — explicit redaction you control, by index or by field name. This always wins, even if something else in your stack calls the low-level renderer with redaction turned off.
 2. **An always-on, multilingual name deny-list** — every capture path matches field and parameter names against patterns like `password`, `secret`, `token`, `ssn`, `cvv`, `apikey`, `cardNumber`, `passphrase`, `bearer`, `taxId`, plus Spanish (`contraseña`, `tarjeta`, `dni`, `rut`…), Portuguese (`senha`, `cpf`, `cnpj`), French (`motDePasse`, `carteBancaire`, `nir`), German (`passwort`, `kennwort`) and Chinese (`密码`, `身份证`) equivalents. It is on by default, not opt-in, and the patterns most prone to false positives match on identifier-token boundaries — `panelId` and `circuitBreaker` are not caught by `pan`/`cuit`.
 3. **Value-shape matching, independent of the field name** — a JWT-shaped string, a Luhn-valid card number, a `Set-Cookie`-shaped value, or a national-ID checksum or structural rule (Chilean RUT, Brazilian CPF/CNPJ, Spanish DNI/NIE, French NIR, Chinese resident ID, or a dashed US Social Security number — the one exception with no checksum, so the SSA's own never-issued area/group/serial ranges stand in for one) is redacted even when it arrives under an innocuous name like `data` or `value`.
-4. **No structural, value-free mode yet in this runtime.** Some NarrativeTrace runtimes ship a `.nt`-style artifact carrying the call graph and shapes but zero runtime values — the categorical guarantee for a context where no value may ever leave the process, such as handing a trace to an external AI tool. TypeScript has not built that yet ([why](documentation/what-to-commit.md#why-there-is-no-approvednt-row-here-yet)); until it does, treat every artifact this runtime generates as carrying real values, protected by the three layers above rather than by construction.
+4. **A structural, value-free mode — the categorical guarantee.** The `.nt` structural trace artifact (`renderStructural`/`renderStructuralDocument`, exported from `@narrativetrace/core`) carries the call graph and shapes but zero runtime values. Opt in with `approval: true` on the Vitest fixture (see [Structural Trace Format](documentation/structural-trace-format.md) and [What to Commit](documentation/what-to-commit.md)) and it becomes the reviewed, committed `.approved.nt` baseline a run's structure is checked against — the artifact you would hand to an external AI tool, or anywhere else no value may ever leave the process. Every *other* artifact this runtime generates still carries real values, protected by the three layers above rather than by construction.
 
-Be precise about the boundary: name and shape matching are heuristic and extensible — patterns get added as gaps are found, and can always miss one nobody has named yet. They are not the categorical guarantee the value-free mode is. If your threat model requires "no value can possibly leave the process," that requirement is not met by this runtime today.
+Be precise about the boundary: name and shape matching (layers 1-3) are heuristic and extensible — patterns get added as gaps are found, and can always miss one nobody has named yet. They are not the categorical guarantee the structural mode is. If your threat model requires "no value can possibly leave the process," reach for the structural `.nt` artifact in layer 4, not the redaction layers alone.
 
 ### Can trace IDs correlate with a standard correlation ID across services, or is tracing local only?
 

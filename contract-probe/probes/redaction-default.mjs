@@ -7,7 +7,7 @@ import { NarrativeTraceConfig, SyncNarrativeContext } from "@narrativetrace/core
 import { traceObject } from "@narrativetrace/proxy";
 
 class AuthService {
-  login(username, password) {
+  login(_username, password) {
     return "ok";
   }
 }

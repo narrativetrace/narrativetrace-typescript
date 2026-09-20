@@ -1,4 +1,4 @@
-<!-- source: README.md blob d8d9dc9b4dc3 | translated: 2026-09-18 | reviewed: - -->
+<!-- source: README.md blob 14cbb0dc3483 | translated: 2026-09-20 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -381,10 +381,10 @@ acto deliberado y revisable en tu propio código fuente, e incluso entonces las 
 `@notTraced`/`static notTraced` siguen censurando. Segundo, la captura invoca un pequeño conjunto fijo
 de tu código mientras renderiza — un `toString()` personalizado, un método `@narrativeSummary`, y
 rutas de propiedades nombradas en plantillas `@narrated`/`@onError` — así que mantenlas puras, como
-harías para un depurador. Tampoco hay un camino de cero código, "envuelve una app que no escribiste",
-y esta implementación no ha distribuido un artefacto estructural sin valores (algunas otras
-implementaciones de NarrativeTrace sí lo hacen) — consulta las dos páginas de abajo para las versiones precisas, fila por
-fila, de ambos.
+harías para un depurador. Tampoco hay un camino de cero código, "envuelve una app que no escribiste" —
+consulta las dos páginas de abajo para las versiones precisas, fila por fila, de ambos, incluyendo
+el artefacto estructural `.nt` sin valores que esta implementación sí distribuye (la garantía
+categórica, no una heurística de ocultación — consulta las preguntas frecuentes más abajo).
 
 → [Privacidad y ocultación](documentation/es/privacidad-y-ocultacion.md) para el contrato fila por
 fila verificado contra el código, y [Qué commitear](documentation/es/que-commitear.md) para saber qué
@@ -496,9 +496,9 @@ Cuatro capas independientes, no una sola promesa general — consulta [Privacida
 1. **`@notTraced(i)` en un parámetro / `static notTraced = [...]` en una clase** — ocultación explícita que tú controlas, por índice o por nombre de campo. Esto siempre gana, incluso si algo más en tu stack llama al renderizador de bajo nivel con la ocultación desactivada.
 2. **Una lista de denegación por nombre, siempre activa y multilingüe** — cada camino de captura compara nombres de campos y parámetros contra patrones como `password`, `secret`, `token`, `ssn`, `cvv`, `apikey`, `cardNumber`, `passphrase`, `bearer`, `taxId`, más los equivalentes en español (`contraseña`, `tarjeta`, `dni`, `rut`…), portugués (`senha`, `cpf`, `cnpj`), alemán (`passwort`, `kennwort`) y chino (`密码`, `身份证`). Está activa por defecto, no es opcional, y los patrones más propensos a falsos positivos coinciden en los límites del token identificador — `panelId` y `circuitBreaker` no los captura `pan`/`cuit`.
 3. **Coincidencia por la forma del valor, independiente del nombre del campo** — un string con forma de JWT, un número de tarjeta válido por Luhn, un valor con forma de `Set-Cookie`, o un dígito verificador o regla estructural de identidad nacional (RUT chileno, CPF/CNPJ brasileño, DNI/NIE español, NIR francés, cédula de residente china, o un número de la Seguridad Social de EE. UU. con guiones — la única excepción sin dígito verificador, donde los tramos de área/grupo/serie nunca emitidos por la SSA lo sustituyen) se oculta aunque llegue bajo un nombre inocuo como `data` o `value`.
-4. **Todavía no hay un modo estructural sin valores en esta implementación.** Algunas implementaciones de NarrativeTrace distribuyen un artefacto tipo `.nt` que lleva el grafo de llamadas y las formas pero cero valores en tiempo de ejecución — la garantía categórica para un contexto donde ningún valor puede salir jamás del proceso, como entregar una traza a una herramienta de IA externa. TypeScript todavía no lo ha construido ([por qué](documentation/es/que-commitear.md#por-qué-todavía-no-hay-una-fila-approvednt-aquí)); hasta que exista, trata cada artefacto que genera esta implementación como portador de valores reales, protegido por las tres capas anteriores.
+4. **Un modo estructural sin valores — la garantía categórica.** El artefacto de traza estructural `.nt` (`renderStructural`/`renderStructuralDocument`, exportado desde `@narrativetrace/core`) lleva el grafo de llamadas y las formas pero cero valores en tiempo de ejecución. Actívalo con `approval: true` en el fixture de Vitest (consulta [Formato de traza estructural](documentation/structural-trace-format.md) y [Qué commitear](documentation/es/que-commitear.md)) y se convierte en la línea base `.approved.nt`, revisada y comprometida, contra la que se verifica la estructura de una ejecución — el artefacto que entregarías a una herramienta de IA externa, o en cualquier otro lugar donde ningún valor pueda salir jamás del proceso. Cualquier *otro* artefacto que genera esta implementación sigue llevando valores reales, protegidos por las tres capas anteriores en lugar de por construcción.
 
-Sé preciso sobre el límite: la coincidencia por nombre y por forma es heurística y extensible — los patrones se añaden a medida que se encuentran huecos, y siempre pueden pasar por alto uno que todavía nadie ha nombrado. No es la garantía categórica que sí es el modo sin valores. Si tu modelo de amenaza exige "ningún valor puede salir jamás del proceso", esa exigencia no la cumple hoy esta implementación.
+Sé preciso sobre el límite: la coincidencia por nombre y por forma (capas 1-3) es heurística y extensible — los patrones se añaden a medida que se encuentran huecos, y siempre pueden pasar por alto uno que todavía nadie ha nombrado. No son la garantía categórica que sí es el modo estructural. Si tu modelo de amenaza exige "ningún valor puede salir jamás del proceso", recurre al artefacto estructural `.nt` de la capa 4, no solo a las capas de ocultación.
 
 ### ¿Pueden los IDs de traza correlacionarse con un ID de correlación estándar entre servicios, o el tracing es solo local?
 

@@ -1,4 +1,4 @@
-<!-- source: README.md blob d8d9dc9b4dc3 | translated: 2026-09-18 | reviewed: - -->
+<!-- source: README.md blob 14cbb0dc3483 | translated: 2026-09-20 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
@@ -388,9 +388,9 @@ fixo do seu código enquanto renderiza — um `toString()` customizado, um
 método `@narrativeSummary`, e caminhos de propriedades nomeados em templates
 `@narrated`/`@onError` — então mantenha-os puros, como você faria para um
 depurador. Também não existe um caminho de código zero, "envolva um app que
-você não escreveu", e esta implementação não distribuiu um artefato estrutural sem
-valores (alguns outras implementações do NarrativeTrace distribuem) — veja as duas
-páginas abaixo para as versões precisas, linha por linha, de ambos.
+você não escreveu" — veja as duas páginas abaixo para as versões precisas, linha por
+linha, de ambos, incluindo o artefato estrutural `.nt` sem valores que esta implementação
+distribui (a garantia categórica, não uma heurística de ocultação — veja o FAQ abaixo).
 
 → [Privacidade e ocultação](documentation/pt-BR/privacidade-e-ocultacao.md) para
 o contrato linha por linha verificado contra o código, e
@@ -513,9 +513,9 @@ Quatro camadas independentes, não uma única promessa geral — veja [Privacida
 1. **`@notTraced(i)` em um parâmetro / `static notTraced = [...]` em uma classe** — ocultação explícita que você controla, por índice ou por nome de campo. Isso sempre vence, mesmo se algo mais no seu stack chamar o renderizador de baixo nível com a ocultação desligada.
 2. **Uma lista de negação por nome, sempre ativa e multilíngue** — todo caminho de captura compara nomes de campos e parâmetros contra padrões como `password`, `secret`, `token`, `ssn`, `cvv`, `apikey`, `cardNumber`, `passphrase`, `bearer`, `taxId`, mais os equivalentes em português (`senha`, `cpf`, `cnpj`), espanhol (`contraseña`, `dni`, `rut`), alemão (`passwort`, `kennwort`) e chinês (`密码`, `身份证`). Está ativa por padrão, não é opcional, e os padrões mais propensos a falsos positivos correspondem nos limites do token identificador — `panelId` e `circuitBreaker` não são capturados por `pan`/`cuit`.
 3. **Correspondência pela forma do valor, independente do nome do campo** — uma string com forma de JWT, um número de cartão válido por Luhn, um valor com forma de `Set-Cookie`, ou um dígito verificador ou regra estrutural de identidade nacional (RUT chileno, CPF/CNPJ brasileiro, DNI/NIE espanhol, NIR francês, carteira de identidade de residente chinesa, ou um número do Social Security dos EUA com hífens — a única exceção sem dígito verificador, em que as faixas de área/grupo/série nunca emitidas pela SSA fazem esse papel) é ocultado mesmo que chegue sob um nome inocente como `data` ou `value`.
-4. **Ainda não há um modo estrutural sem valores nesta implementação.** Algumas implementações do NarrativeTrace distribuem um artefato tipo `.nt` que carrega o grafo de chamadas e as formas, mas zero valores em tempo de execução — a garantia categórica para um contexto onde nenhum valor pode sair do processo, como entregar um trace a uma ferramenta de IA externa. O TypeScript ainda não construiu isso ([por que](documentation/pt-BR/o-que-commitar.md#por-que-ainda-não-há-uma-linha-approvednt-aqui)); até que exista, trate cada artefato que esta implementação gera como portador de valores reais, protegido pelas três camadas acima.
+4. **Um modo estrutural sem valores — a garantia categórica.** O artefato de trace estrutural `.nt` (`renderStructural`/`renderStructuralDocument`, exportado de `@narrativetrace/core`) carrega o grafo de chamadas e as formas, mas zero valores em tempo de execução. Ative com `approval: true` no fixture do Vitest (veja [Formato de Trace Estrutural](documentation/structural-trace-format.md) e [O que commitar](documentation/pt-BR/o-que-commitar.md)) e ele se torna a linha de base `.approved.nt`, revisada e commitada, contra a qual a estrutura de uma execução é verificada — o artefato que você entregaria a uma ferramenta de IA externa, ou em qualquer outro lugar onde nenhum valor possa jamais sair do processo. Todo *outro* artefato que esta implementação gera ainda carrega valores reais, protegido pelas três camadas acima em vez de por construção.
 
-Seja preciso sobre o limite: a correspondência por nome e por forma é heurística e extensível — os padrões são adicionados à medida que lacunas são encontradas, e sempre podem deixar passar uma que ninguém nomeou ainda. Não é a garantia categórica que o modo sem valores é. Se o seu modelo de ameaça exige "nenhum valor pode jamais sair do processo", essa exigência não é atendida por esta implementação hoje.
+Seja preciso sobre o limite: a correspondência por nome e por forma (camadas 1-3) é heurística e extensível — os padrões são adicionados à medida que lacunas são encontradas, e sempre podem deixar passar uma que ninguém nomeou ainda. Não é a garantia categórica que o modo estrutural é. Se o seu modelo de ameaça exige "nenhum valor pode jamais sair do processo", recorra ao artefato estrutural `.nt` da camada 4, não apenas às camadas de ocultação.
 
 ### Os IDs de trace podem se correlacionar com um ID de correlação padrão entre serviços, ou o tracing é só local?
 
