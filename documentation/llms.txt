@@ -1,15 +1,43 @@
 # NarrativeTrace
-*(Docs and published both at 0.1.3.)*<!-- registry checked 2026-09-18T10:00:29.098Z -->
 
 > Code is the log. Auto-generate human-readable execution traces from method names, parameter names, and return values.
 
 NarrativeTrace is a TypeScript library that eliminates manual logging. It wraps objects with ES Proxy to capture every method call and renders the result as Markdown, prose, diagrams, or JSON. It propagates trace identity across fork/join, fire-and-forget and asynchronous-snapshot boundaries — and the work traced across those boundaries comes back into the launching trace — bridges to OpenTelemetry/Winston/Pino, and includes naming clarity analysis that scores code readability and gates builds.
 
+## Start here (paste this into your agent)
+
+```text
+Set up NarrativeTrace in this project and show me its first trace.
+1. Read https://narrativetrace.ai/typescript/llms.txt first. It carries the install block and the
+known traps. Do not guess versions or artifact names.
+2. If this directory has no project yet, create the smallest console app that
+llms.txt's "Install and first trace" block describes. Otherwise work inside the existing
+project and trace one real service boundary.
+3. Add `@narrativetrace/cli` as a dev dependency the way llms.txt shows, then run
+`npx @narrativetrace/cli init --dry-run` and show me the diff. It installs the
+NarrativeTrace agent skills into this project and adds a marked section to AGENTS.md. Run
+it for real only after I have seen the diff.
+4. If the `add-narrative-tracing` skill is now available, follow it. Otherwise follow the
+"Install and first trace (copy this)" block in llms.txt.
+5. Add one test that traces a call with a deny-listed parameter and asserts the trace
+shows `[REDACTED]` for it.
+6. Run the program, then run the doctor (`npx @narrativetrace/cli doctor`). Paste
+the trace and the doctor report, explain the trace in two sentences, and list exactly what
+changed in the project.
+Rules: never disable redaction; do not commit `.received.nt` files; pass
+parameter names to `traceObject` explicitly so arguments never render as `arg0`; run
+everything in the foreground and read the output before you report; if you cannot fetch
+URLs, say so and I will paste llms.txt.
+```
+
 ## Install and first trace (copy this)
-Node 20+ required. npm only, before `npm add` (else step 2 throws `SyntaxError: Cannot use import statement outside a module`; pnpm/yarn default to it, skip this):
+Node 20+ required. In an empty directory `npm init -y` comes first — without a `package.json` the next line fails with `ENOENT`. `npm pkg set type=module` must come before `npm add`, or step 2 throws `SyntaxError: Cannot use import statement outside a module`; with pnpm/yarn run their own `init` instead, which already defaults to it:
 ```bash
+npm init -y
 npm pkg set type=module
 npm add @narrativetrace/core-node @narrativetrace/proxy
+npm add -D @narrativetrace/vitest vitest
+npm add -D @narrativetrace/cli
 ```
 <!-- snippet: examples/sixty-seconds/index.js -->
 ```js
@@ -35,17 +63,58 @@ console.log(renderMarkdownBody(context.captureTrace()));
 Run `node index.js`. Expected output (your duration will differ):
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.4ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.87ms
 ```
 <!-- /snippet -->
+Add `index.test.js` next to it — this is the prompt's own step 4, proving redaction:
+<!-- snippet: examples/sixty-seconds/index.test.js -->
+```js
+// index.test.js
+import { renderMarkdownBody } from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+import { createNarrativeTest } from "@narrativetrace/vitest";
+import { expect } from "vitest";
+
+const test = createNarrativeTest();
+
+class PaymentService {
+  charge(customerId, paymentToken) {
+    return `CHG-${customerId}`;
+  }
+}
+
+test("redacts a deny-listed parameter", ({ narrativeContext }) => {
+  const service = traceObject(new PaymentService(), narrativeContext, {
+    charge: ["customerId", "paymentToken"],
+  });
+
+  service.charge("C1", "tok_live_51H8x");
+
+  expect(renderMarkdownBody(narrativeContext.captureTrace())).toContain("[REDACTED]");
+});
+```
+<!-- /snippet -->
+Run `npx vitest run`. It passes, and the rendered trace inside it shows `[REDACTED]` for `paymentToken`.
 
 ## Before you start
-- Parameter names of classes you don't own are lost at compile time — pass them explicitly (`traceObject(target, context, { placeOrder: [...] })`) or every argument renders as `arg0`, `arg1`, ...; unrecognised option keys there now throw, naming the accepted ones, instead of being silently ignored. *(since 0.1.3)*
-- `@narrativetrace/vitest` peers on vitest `1.x`, `2.x`, or `3.x` (tested, not just declared); register `ClaritySuiteReporter`/`GlossarySuiteReporter` from the `@narrativetrace/vitest/reporters` subpath in `vitest.config.ts`, never the package root — the root also loads `vitest` itself, which crashes config loading on every version. *(since 0.1.3)*
-- `DualPathPipeline`'s buffered argument now defaults itself when `null`/omitted, so adding a Winston/Pino/OTel consumer can no longer make `captureTrace()` silently empty; pass an explicit `new BufferedEventConsumer()` when you want to size it yourself. *(since 0.1.3)*
-- Test trace output is on by default since 2026-09-11 (`NARRATIVETRACE_OUTPUT=false` opts out). *(since 0.1.3)*
-- `createNarrativeTest` also writes a value-free `.nt` structural artifact per scenario (last-green baseline, "Since last green" console delta) with no configuration needed; `approval: true` turns on approval traces (`.approved.nt`/`.received.nt`, promote with `pnpm run approve-narratives`). Use `createNarrativeTest(...).each(cases)` — this port's own thin `.each`, not Vitest's native one — for a per-invocation `.nt`/approval identity. *(since 0.1.3)*
-- A Vitest run has a name — one three-word phrase (`runIdentity()`) named in the console footer (`run: bold elk soars`), `manifest.json`'s top-level `run` object, and every Markdown trace's `run:` frontmatter; pass `runIdentity().name` as `runName` to `createPinoEventConsumer`/`createWinstonEventConsumer`/`createEnricherEventConsumer` to carry it into your own logs too. Never reaches the structural `.nt` artifact, an approved/received trace, or the delta computation. *(since 0.1.3)*
+- Parameter names of classes you don't own are lost at compile time — pass them explicitly (`traceObject(target, context, { placeOrder: [...] })`) or every argument renders as `arg0`, `arg1`, ...; unrecognised option keys there throw, naming the accepted ones, rather than being silently ignored.
+- `@narrativetrace/vitest` peers on vitest `1.x`, `2.x`, or `3.x` (tested, not just declared); register `ClaritySuiteReporter`/`GlossarySuiteReporter` from the `@narrativetrace/vitest/reporters` subpath in `vitest.config.ts`, never the package root — the root also loads `vitest` itself, which crashes config loading on every version.
+- `DualPathPipeline`'s buffered argument defaults itself when `null`/omitted, so adding a Winston/Pino/OTel consumer never makes `captureTrace()` silently empty; pass an explicit `new BufferedEventConsumer()` when you want to size it yourself.
+- Test trace output is on by default (`NARRATIVETRACE_OUTPUT=false` opts out).
+- `createNarrativeTest` also writes a value-free `.nt` structural artifact per scenario (last-green baseline, "Since last green" console delta) with no configuration needed; `approval: true` turns on approval traces (`.approved.nt`/`.received.nt`, promote with `pnpm run approve-narratives`). Use `createNarrativeTest(...).each(cases)` — this port's own thin `.each`, not Vitest's native one — for a per-invocation `.nt`/approval identity.
+- A Vitest run has a name — one three-word phrase (`runIdentity()`) named in the console footer (`run: bold elk soars`), `manifest.json`'s top-level `run` object, and every Markdown trace's `run:` frontmatter; pass `runIdentity().name` as `runName` to `createPinoEventConsumer`/`createWinstonEventConsumer`/`createEnricherEventConsumer` to carry it into your own logs too. Never reaches the structural `.nt` artifact, an approved/received trace, or the delta computation.
+
+## Agent skills
+- `add-narrative-tracing` — Installs NarrativeTrace into a TypeScript project and gets it to a first trace. Use when NarrativeTrace is not yet installed, a project needs its very first traced call, or traces need to reach a real logger instead of a bare console.log.
+- `narrativetrace-doctor` — Diagnoses a NarrativeTrace TypeScript install and configuration. Use when nothing is being traced, traces aren't showing up, the vitest config crashes on load, parameter names render as arg0/arg1, or you are not sure NarrativeTrace is wired up correctly. Read-only — makes no changes.
+
+`npx --yes @narrativetrace/cli init` installs both under `.claude/skills/{add-narrative-tracing,narrativetrace-doctor}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor}/` (Codex), and the always-on `AGENTS.md` pointer, in one step — `--dry-run` first to preview the diff. Copying the rendered files by hand still works too. Full descriptions and triggers: [Agent Skills](agent-skills.md).
+
+## The doctor
+```bash
+npx --yes @narrativetrace/cli doctor
+```
+The install block above does not put the CLI in your project — `npx` fetches it on demand, and `--yes` keeps that fetch from stopping at a confirmation prompt; add `@narrativetrace/cli` as a dev dependency if you want it resolved locally. Read-only, zero network: it reads `package.json`, resolvable packages, and your source/test files, and prints a one-liner, a fix and a doc link per finding. Twelve checks: toolchain versions, config shape, the common traps (silent sink, `arg0` parameters, unproven redaction, stale approval traces, a project that never read llms.txt) — and whether the agent skills above are installed under `.agents/skills/` and stamped with the release this project resolves. Exit `0` clean, `1` findings, `2` could not run.
 
 ## Field notes from AI agents (self-reported, not a benchmark)
 We asked AI agents to build a claims service with NarrativeTrace and write up the experience for another engineer, naming what was awkward. Prompted, one run each, unedited, model named; we wrote the library. The reports so far are from the Java runtime; the same exercise runs for TypeScript next, and the principle they describe — the trace as evidence, redaction by parameter name, output on by default — is the same here. All six reports, the exact prompt and the task: https://narrativetrace.ai/#agents-saying
@@ -56,7 +125,7 @@ We asked AI agents to build a claims service with NarrativeTrace and write up th
 ## Docs
 
 - [Complete Reference](llms-full.md): Full API reference, 18-package map, configuration, concurrency, integration guides, architecture decisions, and troubleshooting
-- [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — and `narrativetrace-doctor` — a thin, read-only agent skill over `npx @narrativetrace/cli doctor`, installable today via `.claude/skills/{add-narrative-tracing,narrativetrace-doctor}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor}/` (Codex), or the always-on `AGENTS.md` pointer *(since 0.1.3)*
+- [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — and `narrativetrace-doctor` — a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor`, installable today via `.claude/skills/{add-narrative-tracing,narrativetrace-doctor}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor}/` (Codex), or the always-on `AGENTS.md` pointer
 
 ## Sections in Complete Reference
 

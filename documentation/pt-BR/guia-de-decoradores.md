@@ -1,10 +1,10 @@
-<!-- source: documentation/decorators-guide.md blob 189475c77df7 | translated: 2026-09-17 | reviewed: - -->
+<!-- source: documentation/decorators-guide.md blob 1e5a9b7ef6d7 | translated: 2026-09-17 | reviewed: - -->
 
 # Guia de decoradores do NarrativeTrace TypeScript
 
 [English](../decorators-guide.md) | [Español](../es/guia-de-decoradores.md) | **Português** | [简体中文](../zh-CN/装饰器指南.md)
 
-Este guia cobre os metadados de trace em nível de método — nomes de parâmetros, narração, contexto de erro e ocultação. A **forma padrão de declará-los é a forma de configuração** no `traceObject()`, na raiz de composição — os decoradores abaixo são o que a versão atualmente publicada no npm, `@narrativetrace/proxy@0.1.1`, tem em vez disso. *(since 0.1.3)* Os quatro decoradores são as mesmas declarações com uma sintaxe mais agradável para projetos que já compilam decoradores (NestJS, Angular, qualquer aplicação com TypeScript 5+).
+Este guia cobre os metadados de trace em nível de método — nomes de parâmetros, narração, contexto de erro e ocultação. A **forma padrão de declará-los é a forma de configuração** no `traceObject()`, na raiz de composição. Os quatro decoradores abaixo são as mesmas declarações com uma sintaxe mais agradável para projetos que já compilam decoradores (NestJS, Angular, qualquer aplicação com TypeScript 5+).
 
 O NarrativeTrace segue a filosofia **O código é o log**: os nomes de métodos, os nomes de parâmetros e os valores de retorno já deveriam comunicar por si só a história da execução. Mantenha a lógica de negócio limpa e expressiva antes de mais nada, e adicione metadados de forma excepcional, não por padrão — somente quando agregarem valor adicional concreto, como narração direcionada, contexto específico de erro, ou ocultação de dados sensíveis.
 
@@ -270,20 +270,19 @@ O que é invocado, e o que não é:
 
 - **A introspecção enumera as propriedades próprias enumeráveis** (`Object.keys`), e lê cada uma
   através do seu próprio descritor de propriedade. Um getter definido em uma classe vive no
-  protótipo, nunca é enumerado, e nunca é executado durante a introspecção. *(since 0.1.4, decisão
-  do time, 2026-09-17, "a renderização lê o estado, nunca executa comportamento")* Um acessor
+  protótipo, nunca é enumerado, e nunca é executado durante a introspecção. A renderização lê o
+  estado e nunca executa comportamento: um acessor
   definido diretamente em um objeto literal (ou promovido a propriedade própria via
   `Object.defineProperty`, como às vezes acontece com o acessor de apoio de uma classe do tipo
-  record) é próprio-enumerável mas **nunca mais é invocado, nem mesmo como alternativa** — em vez
+  record) é próprio-enumerável mas **nunca é invocado, nem mesmo como alternativa** — em vez
   disso renderiza o marcador dedicado `<inaccessible>`, distinto do marcador tipado
   `<error: Tipo>`, que continua reservado para um valor que realmente foi lido e falhou. Só o
   valor armazenado de uma propriedade de dados é lido.
 - **Um `toString()` personalizado (próprio, não o padrão) só é invocado para um intrínseco da
   plataforma do realm** — `Date`, `URL`, `RegExp`, um `BigInt` encaixotado ou um typed array,
-  checado por identidade de protótipo, nunca por nome. *(since 0.1.3)* Seus próprios
-  tipos nunca mais chegam a essa rota, tenham campos ou não: a introspecção de campos sempre roda
-  em vez disso, não importa o que seu `toString()` teria impresso (decisão do time, 2026-09-12,
-  que estreita a regra anterior de "qualquer folha" de 2026-09-11 — veja
+  checado por identidade de protótipo, nunca por nome. Seus próprios
+  tipos nunca chegam a essa rota, tenham campos ou não: a introspecção de campos sempre roda
+  em vez disso, não importa o que seu `toString()` teria impresso (veja
   [Privacidade e ocultação](privacidade-e-ocultacao.md) para o motivo: nesta plataforma, "sem
   campo próprio enumerável" nunca foi prova de "nada a esconder" — um campo `#private`
   verdadeiro, uma closure, ou um `WeakMap` em nível de módulo indexado por `this` são invisíveis
@@ -297,8 +296,8 @@ O que é invocado, e o que não é:
   invocado — `{order.total}` se resolve por acesso à propriedade, então um getter nomeado ali *vai*
   ser executado.
 - **As coleções são enumeradas através do próprio estado do ancestral da plataforma, por
-  origem.** *(since 0.1.4, decisão do time, 2026-09-17)* Um `Array`/`Set`/`Map` comum (ou uma
-  subclasse que não sobrescreveu o método relevante) é lido exatamente como antes. Uma subclasse
+  origem.** Um `Array`/`Set`/`Map` comum (ou uma
+  subclasse que não sobrescreveu o método relevante) é lido através do seu próprio estado. Uma subclasse
   que sobrescreveu o método que a renderização chamaria de outra forma (`[Symbol.iterator]` em um
   `Array`, `entries()` em um `Map`, `values()`/`[Symbol.iterator]` em um `Set`) é lida através do
   próprio método da base da plataforma — a sobrescrita nunca é invocada. Um tipo feito à mão sem
@@ -316,8 +315,8 @@ O que é invocado, e o que não é:
   um valor aninhado que falha ao renderizar) degrada só *aquele campo* para o marcador de erro
   tipado `<error: NomeDoConstrutor>` (nunca `.message`, que pode carregar o valor exato que o
   membro se recusava a renderizar) — os campos irmãos continuam sendo renderizados normalmente; um
-  campo acessor nunca mais alcança esse caminho (veja acima — degrada para `<inaccessible>` em vez
-  disso, sem nunca rodar). *(since 0.1.3)* Um `toString()` ou `@narrativeSummary()` que lança exceção degrada o
+  campo acessor nunca alcança esse caminho (veja acima — degrada para `<inaccessible>` em vez
+  disso, sem nunca rodar). Um `toString()` ou `@narrativeSummary()` que lança exceção degrada o
   valor inteiro da mesma forma; nenhum dos dois jamais faz a chamada de negócio traced falhar (os
   templates recorrem ao literal `{placeholder}`). Os valores são renderizados de forma eager no
   ponto de chamada, então qualquer efeito colateral acontece uma única vez, em um ponto
@@ -325,7 +324,7 @@ O que é invocado, e o que não é:
 
 Se um membro não puder ser puro, liste-o em `static notTraced` — o valor de um membro oculto
 nunca é lido — ou dê ao tipo um `@narrativeSummary` curado para que você controle exatamente o que
-é acessado; um `toString()` personalizado no seu próprio tipo nunca mais é confiado, tenha campos
+é acessado; um `toString()` personalizado no seu próprio tipo nunca é confiado, tenha campos
 ou não — só `Date`/`URL`/`RegExp`/um `BigInt` encaixotado/um typed array ganham isso, por
 identidade de plataforma. Com um contexto
 inativo (nível `off`, ou captura de parâmetros desativada em `summary`), nenhuma renderização de
@@ -333,8 +332,7 @@ argumento acontece — nenhum código do usuário é tocado no caminho rápido.
 
 ## O hook de elementos — `NARRATIVE_ELEMENTS`
 
-*(since 0.1.4, decisão do time, 2026-09-17, "a renderização lê o estado, nunca executa
-comportamento")* O terceiro hook de renderização sancionado, junto de `@narrativeSummary` e do
+O terceiro hook de renderização sancionado, junto de `@narrativeSummary` e do
 próprio `toString()` de uma folha da plataforma: um símbolo bem conhecido, exportado como
 `NARRATIVE_ELEMENTS` a partir de `@narrativetrace/core`, que um tipo feito à mão com forma de
 coleção implementa para declarar que os seus próprios elementos são seguros para enumerar.

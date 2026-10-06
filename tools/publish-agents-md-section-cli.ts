@@ -3,10 +3,10 @@
 // Copyright (c) 2026 Empower Agile
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-// Straight to source, not `@narrativetrace/skills`'s built `dist/` — same choice
+// Straight to source, not `@narrativetrace/skills-catalogue`'s built `dist/` — same choice
 // publish-restore-exceptions-cli.ts's sibling tools make; a publish run must not silently depend
 // on `pnpm run build` having happened first.
-import { extractAgentsMdSection } from "../packages/skills/src/render/agents-md.js";
+import { extractAgentsMdSection } from "../packages/skills-catalogue/src/render/agents-md.js";
 
 // CLI entry the publish pipeline shells out to: `.publishignore` strips AGENTS.md whole (it is a
 // private agent-orientation briefing citing internal planning notes), but its

@@ -146,11 +146,12 @@ describe("checkMutationCompleteness", () => {
     expect(report.ok).toEqual(["clean"]);
   });
 
-  it("defaults to MUTATION_EXEMPTIONS, which names benchmarks, security-tests, and standalone with a written reason", () => {
+  it("defaults to MUTATION_EXEMPTIONS, which names benchmarks, security-tests, standalone, and skills with a written reason", () => {
     expect(MUTATION_EXEMPTIONS.map((e) => e.pkg)).toEqual([
       "benchmarks",
       "security-tests",
       "standalone",
+      "skills",
     ]);
     for (const exemption of MUTATION_EXEMPTIONS) {
       expect(exemption.reason.length).toBeGreaterThan(20);

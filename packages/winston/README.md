@@ -14,7 +14,7 @@ pnpm add @narrativetrace/winston winston @narrativetrace/core @narrativetrace/ob
 
 `createWinstonEventConsumer` turns each `enter`/`exit` event into a Winston line
 (`→ Class.method` on entry, `← returned: …` / `!! Error` on exit) carrying `code.*`,
-`trace_id`, `service.*`, `nt.depth`, and typed parameters. Wire it into a context pipeline: *(since 0.1.3)*
+`trace_id`, `service.*`, `nt.depth`, and typed parameters. Wire it into a context pipeline:
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from '@narrativetrace/core-node';

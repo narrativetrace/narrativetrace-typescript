@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob f0336a04340e | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob e04eda71aaec | translated: 2026-09-16 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -100,7 +100,7 @@ renderizado:
    valor sin nombre (un elemento de lista, un valor de mapa) o un token
    bearer bajo un nombre no
    reconocido se sigue atrapando. **La mitad de este eje basada en el
-   parámetro solo se aplica bajo `traceObject()`** *(since 0.1.3)*
+   parámetro solo se aplica bajo `traceObject()`**
    — un parámetro
    simplemente *nombrado* como un secreto (`paymentToken`, `password`) se
    oculta sin ningún decorador, exactamente igual que un nombre de campo.
@@ -126,7 +126,7 @@ renderizado:
 **Un `toString()` personalizado solo se respeta para un intrínseco de la
 plataforma del realm** — `Date`, `URL`, `RegExp`, un `BigInt` empaquetado o
 un array tipado (decisión del equipo, 2026-09-12, la excepción de la "hoja
-de confianza"). *(since 0.1.3)* Cualquier otro objeto — una
+de confianza"). Cualquier otro objeto — una
 clase corriente, un valor con forma de registro, una "hoja" sin campo propio
 visible — siempre se introspecciona campo por campo, sea lo que sea que su
 `toString()` hubiera impreso. La comprobación de identidad es
@@ -144,10 +144,10 @@ de tiempo opaca de `Date` o el búfer numérico de un array tipado,
 llama suministra al construirlo (`new Error(usuario.password)`) —
 exactamente la forma que un campo en la lista de ocultación existe para
 atrapar, así que un valor `Error` se introspecciona campo por campo como
-cualquier otro objeto. *(since 0.1.3)*
+cualquier otro objeto.
 
 **`Date` se respeta de la misma forma, pero se renderiza mediante
-`toISOString()`, nunca `toString()`** *(since 0.1.3)*:
+`toISOString()`, nunca `toString()`**:
 `Date.prototype.toString()` incrusta el locale y el NOMBRE de la zona
 horaria del host en la cadena (p. ej. `"Tue Jan 01 2024 01:00:00 GMT+0100
 (Central European Standard Time)"`), así que el mismo instante se renderiza
@@ -182,7 +182,7 @@ comprobación de campos propios no encontraba nada que atrapar y el secreto
 anidado se imprimía por completo. La misma regla se aplica a una **clave**
 de `Map`: una clave que es en sí misma un objeto pasa por el mismo
 renderizado consciente de la ocultación que un valor, nunca por un
-`toString()` crudo e incondicional. *(since 0.1.3)*
+`toString()` crudo e incondicional.
 
 `narrativeSummary()` es texto cuidado que la autora escribió específicamente
 para la traza, y sigue superando tanto la confianza en `toString()` como la
@@ -207,7 +207,7 @@ campos que usa el resto de la traza, sin excepciones.
 Un miembro que esta librería invoca al renderizar un valor —
 `narrativeSummary()`, el `toString()` de una hoja, o un getter de campo—
 puede lanzar una excepción, o (solo `toString()`) devolver `null`.
-*(since 0.1.3)* Una
+Una
 excepción degrada al marcador de error tipado para esa única parte,
 `<error: NombreDelConstructor>` (p. ej. `<error: TypeError>`; un valor
 lanzado que no es un `Error` muestra su `typeof`, p. ej. `<error: string>`)
@@ -252,7 +252,7 @@ Detalle completo y ejemplos trabajados:
   Una captura que perdió eventos imprime el recuento y hasta cuánto subir
   la capacidad, en su propio pie de página.
 - **La traza estructural `.nt` no lleva ningún valor en tiempo de
-  ejecución.** *(since 0.1.3)* Solo nombres, jerarquía de llamadas y tipos de resultado —
+  ejecución.** Solo nombres, jerarquía de llamadas y tipos de resultado —
   cero superficie de inyección de prompts, y eso es una propiedad del
   renderizador, no una política que alguien pudiera olvidar aplicar. Su
   cabecera `scenario:` está cubierta por lo mismo: una invocación de una fila
@@ -262,7 +262,7 @@ Detalle completo y ejemplos trabajados:
   todavía sin traducir). Cómo se *llama* el artefacto — su nombre de fichero,
   y el propio título del test — es una pregunta distinta; consulta la
   no-garantía de abajo.
-- **La frase de traza/ejecución no lleva ningún dato propio.** *(since 0.1.3)*
+- **La frase de traza/ejecución no lleva ningún dato propio.**
   `bold elk soars` se deriva de forma determinista de un id de traza o de
   ejecución (`humanName()`, tres tablas de palabras fijas) — no es, ni lee
   nunca, nada que el código trazado haya producido, así que es seguro
@@ -284,7 +284,7 @@ Detalle completo y ejemplos trabajados:
   implementar ninguna interfaz primero; todo método alcanzable mediante
   búsqueda de propiedades — declarado en el propio objeto o heredado de su
   cadena de prototipos — es visible para `traceObject()`.
-- **Ninguna ocultación de los nombres de los tests.** *(since 0.1.3)* La cabecera
+- **Ninguna ocultación de los nombres de los tests.** La cabecera
   `scenario:` del artefacto estructural y su nombre de fichero se derivan
   del propio título del test (y, para una invocación de `.each`, de la
   etiqueta interpolada, que solo llega al nombre de fichero — consulta

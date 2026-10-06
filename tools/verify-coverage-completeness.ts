@@ -38,6 +38,14 @@ export const COVERAGE_EXEMPTIONS: readonly Exemption[] = [
       "carries the reason in-file (a fuzz/oracle harness with no production code to measure; " +
       "coverage reporting is kept on so src/ growing one would not go silently unreported).",
   },
+  {
+    pkg: "skills",
+    reason:
+      "the published skills carrier (phase-3-design-2026-09-25.md D1) — resources only, no " +
+      "src/ at all. Written by @narrativetrace/skills-catalogue's render step and covered by " +
+      "that package's own suite plus the root carrier-packaging test; there is no code here for " +
+      "a coverage floor to measure.",
+  },
 ];
 
 const SHARED_IMPORT_RE = /from\s+["']\.\.\/\.\.\/vitest\.coverage\.shared["']/;

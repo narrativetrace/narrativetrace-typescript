@@ -1,0 +1,44 @@
+{
+  "name": "@narrativetrace/tooling",
+  "version": "0.2.0",
+  "description": "The library behind the narrativetrace CLI: the doctor's eleven read-only project checks and the agent-skills installer, with Node built-ins as its only dependency",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
+    "directory": "packages/tooling"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "cp ../../LICENSE-APACHE LICENSE",
+    "build": "tsup",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "mutate": "stryker run"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0"
+  }
+}

@@ -43,6 +43,7 @@ demo-trace.log
 
 # Session hardening progress notes (untracked working records)
 .hardening-progress-*.md
+.next-run-progress.md
 
 
 # git-secret: the revealed plaintext must never be committed; the encrypted

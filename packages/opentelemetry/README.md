@@ -14,7 +14,7 @@ pnpm add @narrativetrace/opentelemetry @opentelemetry/api @narrativetrace/core
 
 `createOtelEventConsumer` is the live bridge — it starts/ends spans as methods execute, nesting
 child spans under their parent and stamping `nt.trace_id`/`nt.*` schema attributes plus typed
-`narrative.param.<name>` values onto each span. *(since 0.1.3)*
+`narrative.param.<name>` values onto each span.
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from '@narrativetrace/core-node';

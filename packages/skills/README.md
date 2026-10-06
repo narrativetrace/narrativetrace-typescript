@@ -1,44 +1,33 @@
 # @narrativetrace/skills
 
-The typed agent-skills catalogue (`skill-design.md` §4.1): one `Skill` per capability, held to the
-full house standard (tested, mutation-checked, reviewed in PRs) and rendered — never hand-edited —
-into `.claude/skills/<canonicalName>/SKILL.md`, `.agents/skills/<canonicalName>/SKILL.md`, and the
-root `AGENTS.md`'s managed section. A `Skill`'s `canonicalName` (e.g. `narrativetrace-doctor`) is
-the ONLY name it ever carries: every platform's directory and every platform's frontmatter `name:`
-equal it exactly. A shortened segment is legitimate only inside a plugin whose own prefix carries
-the brand — nothing this repository renders is a plugin, so the schema has no such field.
+The published skills carrier: `narrativetrace-doctor` and `add-narrative-tracing` as resources —
+one `SKILL.md` per platform (`agents/`, `claude/`) plus a versionless `catalogue.json`. No code —
+what an installer reads out of this package is text. The typed catalogue that renders it (the
+schema, the lints, the eval harness) lives in the private `@narrativetrace/skills-catalogue`;
+`pnpm run skills-render` there writes every file under this package as one more render target,
+and `pnpm run skills-check` (wired into `pnpm run check`) fails the build the moment a page here
+drifts from the typed source.
 
 ```
-src/
-├── skill.ts              # the Skill schema, command-vocabulary + replayability lints
-├── pro-listing.ts         # the honest Pro-tier listing shape
-├── catalogue/
-│   ├── narrativetrace-doctor.ts   # diagnosis, read-only
-│   ├── add-narrative-tracing.ts   # install and first trace
-│   ├── doctor-commands.ts         # shared command/verify strings the two catalogue entries use
-│   └── pro-listings.ts            # Pro skills, listed (never their instructions)
-├── catalogue-index.ts     # assembly
-├── lints.ts               # Tier A: catalogue-wide checks
-└── render/
-    ├── body.ts            # Skill -> Markdown body, shared by every platform's SKILL.md
-    ├── claude.ts          # Skill -> SKILL.md (Claude plugin frontmatter: name/description/
-    │                       #   when_to_use/allowed-tools)
-    ├── agents-skills.ts    # Skill -> SKILL.md (Codex's `.agents/skills/` layout — frontmatter is
-    │                       #   a strict subset: name/description only)
-    └── agents-md.ts        # Skill[] -> the AGENTS.md snippet
+agents/
+├── narrativetrace-doctor/SKILL.md
+└── add-narrative-tracing/SKILL.md
+claude/
+├── narrativetrace-doctor/SKILL.md
+└── add-narrative-tracing/SKILL.md
+catalogue.json
 ```
 
-Rendering is a build step: `pnpm run skills-render` writes the artifacts, `pnpm run skills-check`
-(wired into `pnpm run check`) fails naming any that drifted from the typed source. Tier A2 (oracle
-replay of a skill's own step data against `examples/sixty-seconds`, no LLM) lives in
-`__tests__/replay.test.ts`; Tier B (LLM trials) is out of `check`'s scope — see
-`documentation/agent-skills.md` for how the owner runs those.
+`agents/` is Codex's own discovered `.agents/skills/` layout; `claude/` is Claude's plugin
+layout — the two directories hold the same two skills with different frontmatter, never a
+rendering choice made by whatever reads this package. `catalogue.json` names every skill once
+(`{name, description, agents, claude}`) with no version literal: the stamp is this package's own
+`package.json` version, read by whatever consumes the carrier, so a copy can never go stale
+independently of the package it shipped in.
 
-**Why `.agents/skills/` and not `.codex/skills/`**: the Codex CLI's own documented skill
-discovery (developers.openai.com/codex/skills,
-developers.openai.com/codex/concepts/customization; fetched 2026-09-13) walks from the working
-directory up to the repository root looking for `.agents/skills/<name>/SKILL.md` (plus
-`~/.agents/skills` for user-global skills) — there is no `.codex/`-prefixed layout. Gemini has no
-documented equivalent yet; when one lands, `render/agents-skills.ts` or `render/claude.ts` is the
-template to follow (a pure `Skill -> string` function plus a `tools/skills-render.ts` file-path
-wiring, drift-checked the same way).
+`@narrativetrace/cli` bundles a byte-identical copy of this package's contents under
+`skills/` so `npx @narrativetrace/cli init` works offline from the one package a consumer
+already fetched — the same content, two homes, checked byte-for-byte against each other.
+
+Licensed Apache 2.0 — like `@narrativetrace/cli`, and unlike the Business Source License 1.1
+runtime packages published from this repository (see `LICENSE`).

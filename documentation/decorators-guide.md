@@ -1,6 +1,6 @@
 # NarrativeTrace TypeScript Decorators Guide
 
-This guide covers method-level trace metadata — parameter names, narration, error context, and redaction. The **default way to declare it is the config form** on `traceObject()`, at the composition root — the decorators below are what npm's currently published `@narrativetrace/proxy@0.1.1` has instead. *(since 0.1.3)* The four decorators are the same declarations as nicer syntax for projects that already compile decorators (NestJS, Angular, any TypeScript 5+ app).
+This guide covers method-level trace metadata — parameter names, narration, error context, and redaction. The **default way to declare it is the config form** on `traceObject()`, at the composition root. The four decorators below are the same declarations as nicer syntax for projects that already compile decorators (NestJS, Angular, any TypeScript 5+ app).
 
 NarrativeTrace follows a **Code is the Log** philosophy: method names, parameter names, and return values should already communicate the runtime story. Keep business logic clean and expressive first, then add metadata exceptionally, not by default — only when it provides concrete additional value, such as targeted narration, error-specific context, or sensitive-data redaction.
 
@@ -261,19 +261,19 @@ What is invoked, and what is not:
 
 - **Introspection enumerates own enumerable properties** (`Object.keys`), and reads each one
   through its own property descriptor. A getter defined on a class lives on the prototype, is
-  never enumerated, and never runs during introspection. *(since 0.1.4, owner ruling
-  2026-09-17, "rendering reads state, never runs behaviour")* An accessor defined directly on
-  an object literal (or promoted to an own property via `Object.defineProperty`, as a
-  record-like class's backing accessor sometimes is) is own-enumerable but is **never invoked
-  any more, not even as a fallback** — it renders the dedicated `<inaccessible>` marker instead,
+  never enumerated, and never runs during introspection. Rendering reads state and never runs
+  behaviour: an accessor defined directly on an object literal (or promoted to an own property
+  via `Object.defineProperty`, as a record-like class's backing accessor sometimes is) is
+  own-enumerable but is **never invoked, not even as a fallback** — it renders the dedicated
+  `<inaccessible>` marker instead,
   distinct from the typed `<error: Type>` marker, which stays reserved for a value that was
   genuinely read and failed. Only a plain data property's stored value is ever read.
 - **A custom `toString()` (own, non-default) is invoked only for a realm platform
   intrinsic** — `Date`, `URL`, `RegExp`, a boxed `BigInt`, or a typed array, checked by
-  prototype identity, never by name. *(since 0.1.3)* Your own types never
-  reach this path any more, field-less or not: field introspection always runs instead,
-  whatever your `toString()` would have printed (owner ruling, 2026-09-12, narrowing the
-  2026-09-11 "any leaf" rule — see [Privacy and Redaction](privacy-and-redaction.md) for
+  prototype identity, never by name. Your own types never
+  reach this path, field-less or not: field introspection always runs instead,
+  whatever your `toString()` would have printed (see
+  [Privacy and Redaction](privacy-and-redaction.md) for
   why: on this platform, "no own enumerable field" was never proof of "nothing to hide" —
   a true `#private` field, a closure, or a module-level `WeakMap` keyed by `this` is
   invisible to introspection yet freely readable from inside your own `toString()`).
@@ -284,12 +284,11 @@ What is invoked, and what is not:
 - Any property path you name in a `@narrated`/`@onError` template is invoked too —
   `{order.total}` resolves via property access, so a getter named there *will* run.
 - **Collections enumerate through the platform ancestor's own state, keyed on origin.**
-  *(since 0.1.4, owner ruling 2026-09-17)* A plain `Array`/`Set`/`Map` (or a subclass that has
-  not overridden the relevant method) reads exactly as before. A subclass that HAS overridden
+  A plain `Array`/`Set`/`Map` (or a subclass that has not overridden the relevant method) is
+  read through its own state. A subclass that HAS overridden
   the method the renderer would otherwise call (`[Symbol.iterator]` on an `Array`, `entries()`
   on a `Map`, `values()`/`[Symbol.iterator]` on a `Set`) is read through the platform base's own
-  method instead (`Array.prototype`'s indexed access already worked this way; `Map`/`Set` now
-  do too) — the override is never invoked. A hand-rolled type with no platform ancestor at all
+  method instead — the override is never invoked. A hand-rolled type with no platform ancestor at all
   is never enumerated through its own iterator either: it renders by field introspection like
   any other object, and — only when it has literally no own-enumerable field to show — as its
   bare type name rather than a misleadingly-empty `{}`. See [The elements hook](#the-elements-hook--narrative_elements)
@@ -302,25 +301,22 @@ What is invoked, and what is not:
   value that fails to render) degrades only *that field* to the typed error marker
   `<error: ConstructorName>` (never `.message`, which can carry the exact value the member was
   refusing to render) — sibling fields still render normally; an accessor field never reaches
-  that path at all any more (see above — it degrades to `<inaccessible>` instead, without ever
-  running). *(since 0.1.3)* A
-  throwing `toString()` or `@narrativeSummary()` degrades the whole value the same way;
+  that path at all (see above — it degrades to `<inaccessible>` instead, without ever
+  running). A throwing `toString()` or `@narrativeSummary()` degrades the whole value the same way;
   neither ever fails the traced business call (templates fall back to the literal
   `{placeholder}`). Values render eagerly at the call site, so any side effect happens
   once, at a deterministic point. Thenables are never awaited — they render as `<pending>`.
 
 If a member cannot be pure, list it in `static notTraced` — a redacted member's value is
 never read at all — or give the type a curated `@narrativeSummary` so you control exactly
-what is accessed; a curated `toString()` on your own type is never trusted any more,
+what is accessed; a curated `toString()` on your own type is never trusted,
 fields or not — only `Date`/`URL`/`RegExp`/a boxed `BigInt`/a typed array get that, by
-platform identity. With
-an inactive context (level `off`, or parameter capture disabled at `summary`), no argument
+platform identity. With an inactive context (level `off`, or parameter capture disabled at `summary`), no argument
 rendering happens at all — no user code is touched on the fast path.
 
 ## The elements hook — `NARRATIVE_ELEMENTS`
 
-*(since 0.1.4, owner ruling 2026-09-17, "rendering reads state, never runs behaviour")* The
-third sanctioned rendering hook, alongside `@narrativeSummary` and a platform leaf's own
+The third sanctioned rendering hook, alongside `@narrativeSummary` and a platform leaf's own
 `toString()`: a well-known symbol, exported as `NARRATIVE_ELEMENTS` from `@narrativetrace/core`,
 that a hand-rolled collection-shaped type implements to declare its own elements safe to
 enumerate.

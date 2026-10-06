@@ -92,7 +92,7 @@ scenario: Weekend trip settles with three transfers
   it started is). Thread/task identity never appears.
 - **Excluded by design:** all argument/return values, exception
   messages, durations, timestamps, thread identity, trace/span ids,
-  trace names, **run ids/names** *(since 0.1.3)*, run results, and narration.
+  trace names, **run ids/names**, run results, and narration.
 - **Encoding:** UTF-8, LF, trailing newline. Identifiers pass through
   control-character sanitization.
 

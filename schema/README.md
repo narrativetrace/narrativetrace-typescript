@@ -58,7 +58,7 @@ properties are therefore **allowed** — the standard owns that namespace and ma
 add to it — while `metadata` is **closed**, because NarrativeTrace owns it and
 an unrecognized key there is a typo, not an extension.
 
-`packages/skills/__tests__/skill-schema-conformance.test.ts` validates the text
+`packages/skills-catalogue/__tests__/skill-schema-conformance.test.ts` validates the text
 the renderer produces, parsed as YAML the way an agent's loader parses it, with
 one negative control per constraint.
 

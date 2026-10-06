@@ -9,4 +9,10 @@ export default defineConfig({
   dts: true,
   sourcemap: true,
   clean: true,
+  // `carrier-locator.ts` finds this package's own root through `import.meta.url`, which esbuild
+  // leaves as `undefined` in a CJS bundle (with a warning) — the bundled carrier would then be
+  // looked for at `new URL(".", undefined)`, which throws at load time. The shim gives the CJS
+  // output a `__filename`-derived answer and the ESM output the real thing. The published `bin`
+  // loads the ESM file, so this protects the require() path a consumer may still take.
+  shims: true,
 });

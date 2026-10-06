@@ -6,16 +6,18 @@ import {
   PRO_LISTINGS,
   renderAgentsMdSnippet,
   renderAgentsSkill,
+  renderCarrierCatalogueJson,
   renderClaudeSkill,
   SKILLS,
   spliceAgentsMdSection,
-} from "@narrativetrace/skills";
+} from "@narrativetrace/skills-catalogue";
 import { stripLicenseHeader } from "./snippet-shared.js";
 
-// Per-commit gate (wired into `pnpm run check`, after `pnpm run build` so @narrativetrace/skills'
-// dist exists): SKILL.md and the AGENTS.md managed section are BUILD OUTPUT of the typed catalogue
-// (skill-design.md §4.1) — never hand-edited. Mirrors tools/license-header.ts's --check/--fix pair:
-// --check fails naming what drifted (run `pnpm run skills-render` to fix it); --fix writes it.
+// Per-commit gate (wired into `pnpm run check`, after `pnpm run build` so
+// @narrativetrace/skills-catalogue's dist exists): SKILL.md and the AGENTS.md managed section are
+// BUILD OUTPUT of the typed catalogue (skill-design.md §4.1) — never hand-edited. Mirrors
+// tools/license-header.ts's --check/--fix pair: --check fails naming what drifted (run
+// `pnpm run skills-render` to fix it); --fix writes it.
 
 // `stripLicenseHeader` is documentation/'s own `<!-- snippet: -->` mechanism's fix for the same
 // gap this had until 2026-09-13: `add-narrative-tracing`'s steps embed real source
@@ -27,15 +29,24 @@ function resolveSnippet(path: string): string {
 }
 
 /**
- * Both platforms' SKILL.md render into the same directory shape (`<root>/<canonicalName>/SKILL.md`)
- * — `.claude/skills/` for Claude's plugin layout, `.agents/skills/` for Codex's own discovered
- * layout (README.md: "Why `.agents/skills/` and not `.codex/skills/`"). Adding a third platform
- * means one more entry in this list, never a new file-writing function.
+ * Every root this render step writes a per-skill SKILL.md into, platform renderer alongside.
+ * `.claude/skills/` and `.agents/skills/` are this repository's own dogfooded copies
+ * (README.md: "Why `.agents/skills/` and not `.codex/skills/`"); `packages/skills/` is the
+ * published carrier (phase-3-design-2026-09-25.md D1) and `packages/cli/skills/` is the CLI's
+ * bundled copy of the identical bytes (D1's offline fallback). Adding a fourth home means one
+ * more entry in this list, never a new file-writing function.
  */
 const PLATFORM_RENDERERS = [
   { root: ".claude/skills", render: renderClaudeSkill },
   { root: ".agents/skills", render: renderAgentsSkill },
+  { root: "packages/skills/claude", render: renderClaudeSkill },
+  { root: "packages/skills/agents", render: renderAgentsSkill },
+  { root: "packages/cli/skills/claude", render: renderClaudeSkill },
+  { root: "packages/cli/skills/agents", render: renderAgentsSkill },
 ] as const;
+
+/** Both carrier homes' `catalogue.json` — byte-identical, one root per D1. */
+const CARRIER_CATALOGUE_ROOTS = ["packages/skills", "packages/cli/skills"] as const;
 
 function renderedSkillFiles(): ReadonlyMap<string, string> {
   const files = new Map<string, string>();
@@ -47,6 +58,15 @@ function renderedSkillFiles(): ReadonlyMap<string, string> {
   return files;
 }
 
+function renderedCatalogueFiles(): ReadonlyMap<string, string> {
+  const catalogue = renderCarrierCatalogueJson(SKILLS);
+  return new Map(CARRIER_CATALOGUE_ROOTS.map((root) => [`${root}/catalogue.json`, catalogue]));
+}
+
+function allRenderedFiles(): ReadonlyMap<string, string> {
+  return new Map([...renderedSkillFiles(), ...renderedCatalogueFiles()]);
+}
+
 function renderedAgentsMd(): string {
   const current = existsSync("AGENTS.md") ? readFileSync("AGENTS.md", "utf-8") : "";
   return spliceAgentsMdSection(current, renderAgentsMdSnippet(SKILLS, PRO_LISTINGS));
@@ -54,7 +74,7 @@ function renderedAgentsMd(): string {
 
 function checkAll(): string[] {
   const drifted: string[] = [];
-  for (const [path, expected] of renderedSkillFiles()) {
+  for (const [path, expected] of allRenderedFiles()) {
     const actual = existsSync(path) ? readFileSync(path, "utf-8") : undefined;
     if (actual !== expected) drifted.push(path);
   }
@@ -65,7 +85,7 @@ function checkAll(): string[] {
 
 function fixAll(): string[] {
   const written: string[] = [];
-  for (const [path, content] of renderedSkillFiles()) {
+  for (const [path, content] of allRenderedFiles()) {
     mkdirSync(path.slice(0, path.lastIndexOf("/")), { recursive: true });
     writeFileSync(path, content);
     written.push(path);

@@ -61,7 +61,7 @@ Real output, from the run that produced this page:
 
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.4ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.87ms
 ```
 <!-- /snippet -->
 
@@ -87,6 +87,48 @@ names, and the value the method returned — the information was already there.
   draws an ASCII tree instead, `@narrativetrace/diagrams` turns it into a Mermaid or PlantUML
   sequence diagram, and `@narrativetrace/browser`'s `renderToConsole()` pretty-prints it in a
   browser's DevTools console.
+
+## Prove redaction
+
+A parameter merely *named* like a secret is redacted with no decorator anywhere — the published
+init prompt's own step 4 is to prove this with a test, not to trust it by inspection. Add the
+Vitest integration and its peer:
+
+```bash
+npm add -D @narrativetrace/vitest vitest
+```
+
+<!-- snippet: examples/sixty-seconds/index.test.js -->
+```js
+// index.test.js
+import { renderMarkdownBody } from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+import { createNarrativeTest } from "@narrativetrace/vitest";
+import { expect } from "vitest";
+
+const test = createNarrativeTest();
+
+class PaymentService {
+  charge(customerId, paymentToken) {
+    return `CHG-${customerId}`;
+  }
+}
+
+test("redacts a deny-listed parameter", ({ narrativeContext }) => {
+  const service = traceObject(new PaymentService(), narrativeContext, {
+    charge: ["customerId", "paymentToken"],
+  });
+
+  service.charge("C1", "tok_live_51H8x");
+
+  expect(renderMarkdownBody(narrativeContext.captureTrace())).toContain("[REDACTED]");
+});
+```
+<!-- /snippet -->
+
+Run `npx vitest run`. It passes, and the rendered trace inside it shows `[REDACTED]` for
+`paymentToken` — `customerId` renders in full beside it, so an over-broad redaction would fail
+this same test too. More on what redacts and why: [Privacy and Redaction](privacy-and-redaction.md).
 
 ## Send it to your logger
 
@@ -126,7 +168,10 @@ class OrderService {
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
 const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 
-const logger = pino(); // any pino instance works — this one keeps its defaults
+// Any pino instance works. `sync: true` is this script's own need, not the library's: pino's
+// default destination writes on a later tick, so a script that logs and then prints can have the
+// two land in either order — and a short-lived process can exit before the last line is flushed.
+const logger = pino(pino.destination({ sync: true }));
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
 const context = new SyncNarrativeContext(
@@ -155,8 +200,8 @@ Real output, from the run that produced this page:
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output-with-logger.txt mask=duration -->
 ```text
 {"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 2ms
 {"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms
 ```
 <!-- /snippet -->
 

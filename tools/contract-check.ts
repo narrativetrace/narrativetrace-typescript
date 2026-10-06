@@ -8,14 +8,19 @@ import { join } from "node:path";
 import { resolveVersion } from "./verify-publication.js";
 
 /**
- * The nightly docs-vs-published contract gate (docs-vs-published-gate-2026-09-12.md §2, ruling
- * 4): resolves the published version the same way tools/verify-publication.ts does (newest `v*`
- * tag reachable from HEAD, else npm's own `latest` dist-tag for `@narrativetrace/core`), installs
- * it into a FRESH temp dir with a FRESH npm cache — never this checkout's own node_modules, never
- * `workspace:`/`link:`/`file:` — and runs `contract-probe/run.ts` against it. This is the
- * "fresh-temp-dir install helper" the design note asks for, the same isolation shape
- * verify-publication-smoke.ts's consumer smoke test already uses (a fresh cache directory, the
- * real registry, `--no-audit --no-fund`), built once here for contract-probe to reuse.
+ * The nightly contract gate: resolves the published version the same way
+ * tools/verify-publication.ts does (newest `v*` tag reachable from HEAD, else npm's own `latest`
+ * dist-tag for `@narrativetrace/core`), installs it into a FRESH temp dir with a FRESH npm cache —
+ * never this checkout's own node_modules, never `workspace:`/`link:`/`file:` — and runs
+ * `contract-probe/run.ts` against it. The same isolation shape verify-publication-smoke.ts's
+ * consumer smoke test uses (a fresh cache directory, the real registry, `--no-audit --no-fund`),
+ * built once here for contract-probe to reuse.
+ *
+ * The contract it checks is the WORKING TREE's `documentation/contract.yaml`. Development is
+ * trunk-based and publishing is one step — the public snapshot and the artifacts go out from the
+ * same commit — so `main` and the published package are the same code and there is no "main ahead
+ * of published" gap for this gate to model (owner ruling 2026-09-25). The version it INSTALLS is
+ * still resolved, because that is a fact about the artifact.
  *
  * NEVER run in `pnpm run check` — real network calls, a real npm install. Nightly/on-demand only.
  * Usage: tsx tools/contract-check.ts [version] [--dry-run]
@@ -112,7 +117,10 @@ async function main(): Promise<void> {
     console.log(
       `Dry run — would install ${PROBED_PACKAGES.join(", ")}@${resolved.version} into a fresh temp dir`,
     );
-    console.log("and run contract-probe/run.ts against it. No network calls, no install.");
+    console.log(
+      "and run contract-probe/run.ts against it, using the working tree's " +
+        "documentation/contract.yaml. No network calls, no install.",
+    );
     return;
   }
 

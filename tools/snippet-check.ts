@@ -2,16 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { readFileSync } from "node:fs";
-import { SKILLS } from "@narrativetrace/skills";
-import {
-  countUnreleasedMarkers,
-  currentVersionBanner,
-  extractRepoVersion,
-  extractUnreleasedCount,
-  freshVersionCache,
-  renderVersionBannerLine,
-  stripCacheAgeComment,
-} from "./llms-version-banner.js";
+import { SKILLS } from "@narrativetrace/skills-catalogue";
 import {
   applyMask,
   englishDocPages,
@@ -19,14 +10,19 @@ import {
   resolveSnippetSource,
   rootReadmePage,
 } from "./snippet-shared.js";
+import { check as checkVersionLiterals } from "./version-literals.js";
 
 // Per-commit gate (wired into `pnpm run check`, after `pnpm run coverage`: the sixty-seconds
 // example's one test has to have already run and written its output artifact for the page's
 // output-block snippet to have anything to compare against). No network, no registry access — it
 // only reads files already on disk, English pages only (mirrors are compared by
-// `translation-check`, never touched here). The `llms.txt` banner check below follows the same
-// rule: it reads the git-ignored registry cache `snippet-sync` last wrote, never the network
-// itself — a stale/missing cache fails the same way an out-of-date banner text would.
+// `translation-check`, never touched here).
+//
+// Two checks, one gate, because they are two halves of the same rule — an embedded snippet and an
+// install coordinate are both content a page carries that something else owns, and `snippet-sync`
+// is the only writer of either. The version-literal half (version-literals.ts) does read the
+// mirrors: a coordinate is language-neutral, so a stale one in a translated page is as wrong as a
+// stale one in English.
 
 interface Drift {
   readonly page: string;
@@ -82,48 +78,9 @@ function reportSnippetDrifts(drifts: readonly Drift[]): void {
   }
 }
 
-function readRepoVersion(): string {
+function repoVersion(): string {
   return (JSON.parse(readFileSync("packages/core/package.json", "utf-8")) as { version: string })
     .version;
-}
-
-/**
- * `undefined` when the banner passes; otherwise a failure message. Three checks, two of them
- * always run (deterministic, no network): the repo-version half, and the unreleased-marker count
- * clause (owner ruling, 2026-09-12 — see llms-version-banner.ts's module doc). The published-
- * version half is verified only when a fresh (<1h) registry cache already exists — an offline run
- * (no fresh cache) skips that half rather than failing on it, per the thin-CI/offline-nightly rule.
- */
-function checkVersionBanner(): string | undefined {
-  const repoVersion = readRepoVersion();
-  const banner = currentVersionBanner(readFileSync("documentation/llms.txt", "utf-8"));
-  if (banner === undefined) return "documentation/llms.txt has no version banner under its H1";
-
-  const claimedRepoVersion = extractRepoVersion(banner);
-  if (claimedRepoVersion !== repoVersion) {
-    return (
-      `documentation/llms.txt's banner names repo version '${claimedRepoVersion}' but ` +
-      `packages/core/package.json is at '${repoVersion}'`
-    );
-  }
-
-  const unreleasedCount = countUnreleasedMarkers();
-  const claimedUnreleasedCount = extractUnreleasedCount(banner);
-  if (claimedUnreleasedCount !== unreleasedCount) {
-    return (
-      `documentation/llms.txt's banner counts ${claimedUnreleasedCount} behaviour(s) marked ` +
-      `unreleased but the docs currently mark ${unreleasedCount}`
-    );
-  }
-
-  const cached = freshVersionCache();
-  if (!cached) return undefined; // offline: deterministic halves already verified, stop here
-
-  const expected = renderVersionBannerLine(repoVersion, cached.publishedVersion, unreleasedCount);
-  if (stripCacheAgeComment(banner) !== expected) {
-    return `documentation/llms.txt's banner is stale — expected '${expected}'`;
-  }
-  return undefined;
 }
 
 const drifts = findSnippetDrifts();
@@ -132,12 +89,12 @@ if (drifts.length > 0) {
   process.exit(1);
 }
 
-const bannerFailure = checkVersionBanner();
-if (bannerFailure !== undefined) {
-  console.error(
-    `snippet-check failed: ${bannerFailure}\n` + "  run `pnpm run snippet-sync` to regenerate it",
-  );
+const versionTalk = checkVersionLiterals(process.cwd(), repoVersion());
+if (versionTalk.length > 0) {
+  console.error(`snippet-check failed: ${versionTalk.length} version-literal problem(s):`);
+  for (const problem of versionTalk) console.error(`  ${problem}`);
+  console.error("  a coordinate is fixed by `pnpm run snippet-sync`; everything else is prose");
   process.exit(1);
 }
 
-console.log("snippet-check: every embedded snippet matches its source");
+console.log("snippet-check: every embedded snippet matches its source, and no page talks versions");

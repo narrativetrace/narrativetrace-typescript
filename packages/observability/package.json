@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/observability",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "Logger-agnostic layer that keeps the active trace identity in scope so any log line can be correlated to its narrative",
   "license": "BUSL-1.1",
   "repository": {

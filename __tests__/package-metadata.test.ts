@@ -22,7 +22,24 @@ const OPEN_LICENSE = "Apache-2.0";
 // ruled free/Open). Adding a package here is a licensing decision, not a default: it belongs on
 // this list only when that decision has actually been made and recorded (commit message + this
 // comment), same discipline as every other named exception in this file.
-const OPEN_TIER_PACKAGES = new Set(["cli"]);
+//
+// `skills` joined it 2026-09-26: the published skills carrier (resources only — no code). An
+// early design draft assumed this package would ship BUSL-1.1 with a per-file header and a
+// NOTICE line inside the Apache CLI that bundles a copy; checking the Java reference repository's
+// own `licensing.properties` (`module.narrativetrace-skills=open`, `module.narrativetrace-cli=open`)
+// and its actual built jars — no per-file header on any SKILL.md/catalogue.json page, licence
+// recorded once at the jar's own META-INF — found that premise false: Java's carrier is Apache-2.0
+// end to end, in both homes, with no BUSL content and so no mixed-licence artifact at all. This
+// package mirrors what Java actually ships, the same `open`-tier classification, rather than the
+// draft's mistaken premise; see this commit's note for the full finding. Flagged for an owner
+// ruling before the next release.
+//
+// `tooling` joined it 2026-09-26: the library the Apache CLI is a launcher over (Phase 3 design
+// D3 as ruled — the doctor's checks and the skills installer, zero dependencies). Same
+// classification as the CLI it serves and as Java's own `module.narrativetrace-tooling=open` in
+// `licensing.properties`; a package cannot be more restrictively licensed than the artifact that
+// exists only to call it.
+const OPEN_TIER_PACKAGES = new Set(["cli", "skills", "tooling"]);
 
 function expectedLicense(dir: string): string {
   return OPEN_TIER_PACKAGES.has(dir) ? OPEN_LICENSE : RUNTIME_LICENSE;

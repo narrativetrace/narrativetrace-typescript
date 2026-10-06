@@ -17,7 +17,7 @@
       "dependsOn": ["build"],
       "outputs": ["coverage/**"]
     },
-    "@narrativetrace/skills#coverage": {
+    "@narrativetrace/skills-catalogue#coverage": {
       "dependsOn": ["build", "@narrativetrace/example-sixty-seconds#coverage"],
       "outputs": ["coverage/**"]
     },

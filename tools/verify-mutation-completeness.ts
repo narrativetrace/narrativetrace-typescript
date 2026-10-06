@@ -53,6 +53,13 @@ export const MUTATION_EXEMPTIONS: readonly Exemption[] = [
       "for Stryker to mutate; the logic it re-exports (browser, core-web, proxy) already carries " +
       "its own stryker.config.json + mutate script.",
   },
+  {
+    pkg: "skills",
+    reason:
+      "the published skills carrier (phase-3-design-2026-09-25.md D1) — resources only, no " +
+      "src/ at all, same reasoning as its coverage exemption: there is no code here for a " +
+      "mutant to hide in.",
+  },
 ];
 
 export type MutationGapKind = "missing-script" | "missing-config" | "double-classified";

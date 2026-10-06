@@ -21,7 +21,7 @@
       "!packages/security-tests/hostile-corpus",
       "!**/narrativetrace-output",
       // recorded eval outputs are evidence, never formatted
-      "!ai-testing/**"
+      "!ai-testing"
     ]
   },
   "assist": {

@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 789e680e007d | translated: 2026-09-18 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 51ab64b7da01 | translated: 2026-09-18 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -75,9 +75,6 @@ metadatos de claridad/glosario pero no los archivos —
 `NARRATIVETRACE_OUTPUT=false` (o `outputEnabled: false` en código, o
 `"output": "false"` en el archivo de configuración del proyecto). Cualquier
 otro valor, incluida la variable sin definir, mantiene la escritura activa.
-*(since 0.1.3)* La versión actualmente publicada en npm,
-`@narrativetrace/vitest@0.1.1`, escribe los archivos incondicionalmente —
-`NARRATIVETRACE_OUTPUT` no tiene efecto ahí.
 
 ### Estructura de la salida
 
@@ -138,8 +135,6 @@ El nombre de la prueba se usa como el nombre del escenario en los archivos de sa
 
 ### Artefacto estructural, delta y trazas aprobadas
 
-*(since 0.1.3)*
-
 Todo escenario de `createNarrativeTest` también escribe un fichero `.nt`
 libre de valores — solo nombres, jerarquía de llamadas y tipos de
 resultado, sin valores de argumentos ni de retorno — junto a los demás
@@ -189,8 +184,6 @@ Consulta [Qué commitear](que-commitear.md) para saber cuál de estos
 ficheros añadir a `.gitignore` y cuál commitear.
 
 ### La ejecución tiene un nombre
-
-*(since 0.1.3)*
 
 Una traza tiene una frase de tres palabras (`bold elk soars`) porque un id
 de traza en crudo es ilegible — toda una **ejecución de la suite de
@@ -325,7 +318,7 @@ renderValue(someObject, {
 | `function` | `"<function>"` |
 | `Array` | `[1, 2, 3]` |
 | `Object` | `{"key": "value"}` |
-| `Date` | `"2024-01-01T00:00:00.000Z"` (`toISOString()` en UTC, nunca el `toString()` dependiente del locale/huso horario — ver [Privacidad y ocultación](privacidad-y-ocultacion.md#qué-oculta-y-qué-prevalece-sobre-qué)) *(since 0.1.3)* |
+| `Date` | `"2024-01-01T00:00:00.000Z"` (`toISOString()` en UTC, nunca el `toString()` dependiente del locale/huso horario — ver [Privacidad y ocultación](privacidad-y-ocultacion.md#qué-oculta-y-qué-prevalece-sobre-qué)) |
 | `Date` inválido | `"Invalid Date"` |
 | Referencia circular | `"<circular>"` |
 
@@ -407,7 +400,7 @@ const traced = traceObject(service, context, paramNames, {
 Un objeto de opciones que lleva una clave fuera de esta tabla — una errata, o una forma de un
 `traceObject()` más nuevo que esta instalación no tiene — **lanza una excepción** nombrando la
 clave no reconocida y las aceptadas, en lugar de compilar, ejecutarse y no ocultar ni trazar nada
-en silencio. La misma comprobación se aplica dentro de cada entrada `methods` por método. *(since 0.1.3)*
+en silencio. La misma comprobación se aplica dentro de cada entrada `methods` por método.
 
 ## 7. Valores predeterminados recomendados por entorno
 

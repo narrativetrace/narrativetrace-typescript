@@ -1,0 +1,45 @@
+{
+  "name": "@narrativetrace/skills-catalogue",
+  "version": "0.2.0",
+  "description": "The typed agent-skills catalogue: one skill per capability, rendered to SKILL.md and the AGENTS.md snippet",
+  "license": "BUSL-1.1",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/narrativetrace/narrativetrace-typescript.git",
+    "directory": "packages/skills-catalogue"
+  },
+  "publishConfig": {
+    "provenance": true,
+    "access": "public"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "prepack": "cp ../../LICENSE LICENSE",
+    "build": "tsup",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage",
+    "mutate": "stryker run"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0"
+  }
+}

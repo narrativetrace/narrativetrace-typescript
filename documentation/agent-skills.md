@@ -1,7 +1,5 @@
 # Agent skills
 
-*(since 0.1.3)*
-
 NarrativeTrace ships **skills**: agent-loadable procedures that run tested commands and gate
 completion on a `verify` step, rather than docs an agent might or might not read. A skill is thin
 by design — the checking, diagnosis, or generation logic lives in tested library code; the skill's
@@ -26,18 +24,49 @@ Either path ends at the doctor — it owns diagnosis from there. A later skill w
 
 ## Installing them
 
-- **Claude Code**: rendered `SKILL.md` files live at
+- **`npx @narrativetrace/cli init`** — the fastest path, for any project: previews the plan and a
+  unified diff (`--dry-run`, writes nothing), then applies exactly what the preview showed. It
+  copies both skills into `.agents/skills/` — and into `.claude/skills/` where the project is one
+  of that vendor's — and writes one marked section into `AGENTS.md`; a `CLAUDE.md` that is already
+  there gets one `@AGENTS.md` line, none created. Re-run it any time to refresh: there is no build
+  hook, and a re-run rewrites only the pages and section it owns. See
+  [`@narrativetrace/cli`](../packages/cli/README.md#narrativetrace-init) for every flag. A
+  `--dry-run --json` preview against an empty project looks like this:
+  <!-- snippet: packages/cli/narrativetrace-output/init-preview.json -->
+  ```json
+  {
+    "carrier": "@narrativetrace/skills@0.2.0",
+    "actions": [
+      {
+        "kind": "create",
+        "path": ".agents/skills/narrativetrace-doctor/SKILL.md",
+        "status": "planned"
+      },
+      {
+        "kind": "create",
+        "path": ".agents/skills/add-narrative-tracing/SKILL.md",
+        "status": "planned"
+      },
+      {
+        "kind": "create",
+        "path": "AGENTS.md",
+        "status": "planned"
+      }
+    ],
+    "exitCode": 0
+  }
+  ```
+  <!-- /snippet -->
+- **Copying the rendered files by hand** stays the fallback — the same paths `init` writes, with
+  no provenance line and no `AGENTS.md` section update on your own. **Claude Code**: rendered
+  `SKILL.md` files live at
   [`.claude/skills/add-narrative-tracing/`](../.claude/skills/add-narrative-tracing/SKILL.md) and
   [`.claude/skills/narrativetrace-doctor/`](../.claude/skills/narrativetrace-doctor/SKILL.md) in
   this repository, each directory named after its skill's canonical name — Claude's plugin prefix
   is the only place a shortened segment is legitimate, and nothing in this repository is a plugin.
   Copy either directory into your own project's `.claude/skills/<name>/` and Claude picks it up on
   its own, invokable by name (`add-narrative-tracing` / `narrativetrace-doctor`) directly.
-- **Any agent, any platform**: every agent that reads `AGENTS.md` sees the always-on pointer this
-  repository's own `AGENTS.md` carries between its `<!-- narrativetrace:skills:start -->` markers
-  — both skills' names and descriptions, so an agent that never thought to look still knows they
-  exist.
-- **Codex**: rendered `SKILL.md` files also live at
+  **Codex**: rendered `SKILL.md` files also live at
   [`.agents/skills/add-narrative-tracing/`](../.agents/skills/add-narrative-tracing/SKILL.md) and
   [`.agents/skills/narrativetrace-doctor/`](../.agents/skills/narrativetrace-doctor/SKILL.md) — the
   layout the Codex CLI discovers on its own, walking from the working directory up to the repo
@@ -46,16 +75,20 @@ Either path ends at the doctor — it owns diagnosis from there. A later skill w
   `allowed-tools`), so the identical page body ships under both layouts. Source:
   developers.openai.com/codex/skills and developers.openai.com/codex/concepts/customization
   (fetched 2026-09-13).
-- **Gemini, and an automatic installer** (`npx narrativetrace init` writing these paths for you)
-  are on the roadmap but not built yet — today, copying the rendered files is the path.
+- **Any agent, any platform**: every agent that reads `AGENTS.md` sees the always-on pointer this
+  repository's own `AGENTS.md` carries between its `<!-- narrativetrace:skills:start -->` markers
+  — both skills' names and descriptions, so an agent that never thought to look still knows they
+  exist.
+- **Gemini** is on the roadmap but not built yet.
 
 ## How they're built
 
-Neither skill is ever hand-edited. `packages/skills/src/catalogue/add-narrative-tracing.ts` and
-`packages/skills/src/catalogue/narrativetrace-doctor.ts` are the two sources of truth; `pnpm run
-skills-render` regenerates both skills' `.claude/skills/` and `.agents/skills/` pages and this
-repository's own `AGENTS.md` section from them, and `pnpm run skills-check` (wired into `pnpm run
-check`) fails the build the moment any rendered page drifts from the typed source. Every code
+Neither skill is ever hand-edited.
+`packages/skills-catalogue/src/catalogue/add-narrative-tracing.ts` and
+`packages/skills-catalogue/src/catalogue/narrativetrace-doctor.ts` are the two sources of truth;
+`pnpm run skills-render` regenerates both skills' `.claude/skills/` and `.agents/skills/` pages
+and this repository's own `AGENTS.md` section from them, and `pnpm run skills-check` (wired into
+`pnpm run check`) fails the build the moment any rendered page drifts from the typed source. Every code
 block a rendered page shows is embedded from real, tested source through the same
 `<!-- snippet: -->` marker convention this repository's other docs use — never a hand-typed
 example. A Tier A lint keeps private planning-note citations out of both pages: rationale sentences

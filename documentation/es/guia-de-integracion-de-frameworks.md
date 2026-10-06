@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 3eebd614ea2d | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 5cbf82132ccd | translated: 2026-09-13 | reviewed: - -->
 # Guía de integración de frameworks de NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | **Español** | [Português](../pt-BR/guia-de-integracao-de-frameworks.md) | [简体中文](../zh-CN/框架集成指南.md)
@@ -432,7 +432,7 @@ El callback es opcional — omítelo para simplemente reiniciar la traza en cada
 
 ## 8. OpenTelemetry
 
-El paquete `@narrativetrace/opentelemetry` mapea las narrativas de llamadas a métodos sobre spans de OTel, de modo que las vistas existentes de Jaeger/Tempo/Datadog se activan sin spans instrumentados a mano. `createOtelEventConsumer` es el puente en vivo — inicia/termina spans a medida que se ejecutan los métodos, anidando spans hijos bajo su padre. Conéctalo a una tubería: *(since 0.1.3)*
+El paquete `@narrativetrace/opentelemetry` mapea las narrativas de llamadas a métodos sobre spans de OTel, de modo que las vistas existentes de Jaeger/Tempo/Datadog se activan sin spans instrumentados a mano. `createOtelEventConsumer` es el puente en vivo — inicia/termina spans a medida que se ejecutan los métodos, anidando spans hijos bajo su padre. Conéctalo a una tubería:
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -465,8 +465,6 @@ Los paquetes `@narrativetrace/winston` y `@narrativetrace/pino` transmiten event
 
 ### Winston
 
-*(since 0.1.3)*
-
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
 import { createWinstonEventConsumer } from "@narrativetrace/winston";
@@ -491,8 +489,6 @@ const context = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"), pi
 Para estampar la identidad de traza activa en tus *propias* llamadas a `logger.*`, añade `createWinstonFormat()` a la cadena de formato del logger — combina el `LogContext` actual (`trace_id`, `service.*`, `nt.depth`, `nt.runName` cuando se le dio uno a `createEnricherEventConsumer`) en cada línea.
 
 ### Pino
-
-*(since 0.1.3)*
 
 ```ts
 import { AsyncNarrativeContext, BufferedEventConsumer, DualPathPipeline, NarrativeTraceConfig } from "@narrativetrace/core-node";
@@ -519,8 +515,6 @@ Para estampar la identidad de traza activa en tus *propias* llamadas a `logger.*
 Ambos consumidores aceptan un mapa `levels` indexado por tipo de evento (`enter`, `return`, `exception`), de modo que puedes elevar el ruido de entrada/retorno a `info` o llevar las excepciones a `error` de forma independiente. Winston usa por defecto `debug`/`debug`/`warn`; Pino usa por defecto `trace`/`trace`/`warn`.
 
 ### Nombrar la ejecución
-
-*(since 0.1.3)*
 
 Ambos consumidores, y `createEnricherEventConsumer` de `@narrativetrace/observability`, aceptan un `runName` opcional — la frase propia de tres palabras de la ejecución de la suite de tests (o del proceso) que la contiene, vinculada una sola vez al crear el consumidor en lugar de re-derivada por evento (una ejecución no tiene un id propio del que derivarla, a diferencia de una traza). Cada línea de log lleva entonces `nt.runName` junto a `nt.traceName`; consulta [Guía de configuración § La ejecución tiene un nombre](guia-de-configuracion.md#la-ejecución-tiene-un-nombre) para saber en qué otros sitios aparece el mismo nombre (el pie de página de consola, `manifest.json`, el frontmatter de Markdown).
 

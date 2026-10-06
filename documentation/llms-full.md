@@ -60,7 +60,7 @@ dependencies (core-node, clarity, diagrams, glossary) install automatically with
 in lockstep and are never independently versioned. `@narrativetrace/proxy` is listed explicitly
 because the example below imports `traceObject` from it directly: pnpm only exposes a package's
 own direct dependencies, not a dependency's dependencies, so anything you `import` yourself still
-needs to be your own dependency. *(since 0.1.3)*
+needs to be your own dependency.
 
 ```ts
 import { createNarrativeTest } from "@narrativetrace/vitest";
@@ -529,7 +529,7 @@ const traced = traceObject(target, context, {
 });
 ```
 
-A configured axis overrides the same method's decorator metadata; an absent axis keeps the decorator's declaration. A plain string `onError` is the catch-all shorthand. The "Full config form" example above *(since 0.1.3)*.
+A configured axis overrides the same method's decorator metadata; an absent axis keeps the decorator's declaration. A plain string `onError` is the catch-all shorthand — see the "Full config form" example above.
 
 **Requirements:**
 - Target must be an object with methods

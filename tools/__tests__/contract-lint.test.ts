@@ -8,12 +8,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ContractEntry } from "../contract-decision.js";
 import {
   headingAnchors,
-  headingsWithSinceMarker,
   lint,
   parseContractYaml,
   parsePageRef,
   slugify,
-  unreleasedMarkerVersions,
 } from "../contract-lint.js";
 
 describe("slugify", () => {
@@ -80,7 +78,6 @@ entries:
     coordinate: "@narrativetrace/core"
     page: "documentation/foo.md#heading-one"
     claim: "core resolves"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 `;
@@ -131,7 +128,6 @@ function baseEntry(overrides: Partial<ContractEntry> = {}): ContractEntry {
     kind: "reflectable-default",
     page: "docs/page.md#heading",
     claim: "sample claim",
-    since: "0.1.0",
     expect: "true",
     probe: "probe.mjs",
     ...overrides,
@@ -153,49 +149,37 @@ describe("lint", () => {
   });
 
   it("reports nothing for a fully consistent document", () => {
-    const problems = lint(root, { versionSource: "x", entries: [baseEntry()] }, new Set());
+    const problems = lint(root, { versionSource: "x", entries: [baseEntry()] });
     expect(problems).toEqual([]);
   });
 
-  it("reports a malformed since string", () => {
-    const problems = lint(
-      root,
-      { versionSource: "x", entries: [baseEntry({ since: "not-a-version" })] },
-      new Set(),
-    );
-    expect(problems.some((p) => p.includes("not a real version string"))).toBe(true);
-  });
-
   it("reports a missing probe file", () => {
-    const problems = lint(
-      root,
-      { versionSource: "x", entries: [baseEntry({ probe: "missing.mjs" })] },
-      new Set(),
-    );
+    const problems = lint(root, {
+      versionSource: "x",
+      entries: [baseEntry({ probe: "missing.mjs" })],
+    });
     expect(problems.some((p) => p.includes('probe "missing.mjs" does not exist'))).toBe(true);
   });
 
   it("reports a missing page file", () => {
-    const problems = lint(
-      root,
-      { versionSource: "x", entries: [baseEntry({ page: "docs/nope.md#heading" })] },
-      new Set(),
-    );
+    const problems = lint(root, {
+      versionSource: "x",
+      entries: [baseEntry({ page: "docs/nope.md#heading" })],
+    });
     expect(problems.some((p) => p.includes('page "docs/nope.md" does not exist'))).toBe(true);
   });
 
   it("reports an anchor that does not resolve on an existing page", () => {
-    const problems = lint(
-      root,
-      { versionSource: "x", entries: [baseEntry({ page: "docs/page.md#no-such-anchor" })] },
-      new Set(),
-    );
+    const problems = lint(root, {
+      versionSource: "x",
+      entries: [baseEntry({ page: "docs/page.md#no-such-anchor" })],
+    });
     expect(problems.some((p) => p.includes('anchor "#no-such-anchor" not found'))).toBe(true);
   });
 
   it("reports two entries making the same claim", () => {
     const entries = [baseEntry({ id: "a" }), baseEntry({ id: "b" })];
-    const problems = lint(root, { versionSource: "x", entries }, new Set());
+    const problems = lint(root, { versionSource: "x", entries });
     expect(problems.some((p) => p.includes("make the same claim"))).toBe(true);
   });
 
@@ -204,144 +188,7 @@ describe("lint", () => {
       baseEntry({ id: "dup", claim: "one" }),
       baseEntry({ id: "dup", claim: "two" }),
     ];
-    const problems = lint(root, { versionSource: "x", entries }, new Set());
+    const problems = lint(root, { versionSource: "x", entries });
     expect(problems.some((p) => p.includes('duplicate entry id "dup"'))).toBe(true);
-  });
-
-  it("reports an unreleased marker version with no covering entry", () => {
-    const problems = lint(
-      root,
-      { versionSource: "x", entries: [baseEntry({ since: "0.1.0" })] },
-      new Set(["0.2.0"]),
-    );
-    expect(problems.some((p) => p.includes('since: "0.2.0"'))).toBe(true);
-  });
-
-  it("does not flag an unreleased marker version an entry already covers", () => {
-    const problems = lint(
-      root,
-      { versionSource: "x", entries: [baseEntry({ since: "0.2.0" })] },
-      new Set(["0.2.0"]),
-    );
-    expect(problems).toEqual([]);
-  });
-});
-
-describe("headingsWithSinceMarker", () => {
-  let root: string;
-
-  beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "contract-lint-heading-marker-test-"));
-    mkdirSync(join(root, "documentation"));
-  });
-
-  afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it("flags a heading that carries an inline since-marker", () => {
-    writeFileSync(
-      join(root, "documentation", "guide.md"),
-      "### The run has a name *(since 0.1.3, unreleased)*\n",
-    );
-    const hits = headingsWithSinceMarker(root);
-    expect(hits).toHaveLength(1);
-    expect(hits[0]).toContain("guide.md:1");
-    expect(hits[0]).toContain(
-      "since-markers belong in the body: heading anchors must survive the tag rewrite",
-    );
-  });
-
-  it("does not flag a since-marker in the section body", () => {
-    writeFileSync(
-      join(root, "documentation", "guide.md"),
-      "### The run has a name\n\n*(since 0.1.3, unreleased)*\n\nBody text.\n",
-    );
-    expect(headingsWithSinceMarker(root)).toEqual([]);
-  });
-
-  it("flags a since-marker heading in a translated mirror", () => {
-    mkdirSync(join(root, "documentation", "es"));
-    writeFileSync(
-      join(root, "documentation", "es", "guia.md"),
-      "### La ejecución tiene un nombre *(since 0.1.3, unreleased)*\n",
-    );
-    const hits = headingsWithSinceMarker(root);
-    expect(hits.some((h) => h.includes("es/guia.md:1"))).toBe(true);
-  });
-
-  it("flags a since-marker heading in the root README.md", () => {
-    writeFileSync(join(root, "README.md"), "## Feature *(since 0.1.3, unreleased)*\n");
-    const hits = headingsWithSinceMarker(root);
-    expect(hits.some((h) => h.includes("README.md:1"))).toBe(true);
-  });
-
-  it("returns nothing when documentation/ does not exist", () => {
-    rmSync(join(root, "documentation"), { recursive: true, force: true });
-    expect(headingsWithSinceMarker(root)).toEqual([]);
-  });
-});
-
-describe("lint wires in the heading-marker guard", () => {
-  let root: string;
-
-  beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "contract-lint-heading-wire-test-"));
-    mkdirSync(join(root, "docs"));
-    mkdirSync(join(root, "documentation"));
-    writeFileSync(join(root, "docs", "page.md"), "## Heading\n");
-    writeFileSync(join(root, "probe.mjs"), "");
-  });
-
-  afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it("fails the gate when a documentation heading carries an inline since-marker", () => {
-    writeFileSync(
-      join(root, "documentation", "guide.md"),
-      "### A heading *(since 0.1.3, unreleased)*\n",
-    );
-    const problems = lint(root, { versionSource: "x", entries: [baseEntry()] }, new Set());
-    expect(problems.some((p) => p.includes("since-markers belong in the body"))).toBe(true);
-  });
-});
-
-describe("unreleasedMarkerVersions", () => {
-  let root: string;
-
-  beforeEach(() => {
-    root = mkdtempSync(join(tmpdir(), "contract-lint-markers-test-"));
-    mkdirSync(join(root, "documentation"));
-  });
-
-  afterEach(() => {
-    rmSync(root, { recursive: true, force: true });
-  });
-
-  it("collects a version cited under documentation/", () => {
-    writeFileSync(
-      join(root, "documentation", "guide.md"),
-      "A claim *(since 0.2.2, unreleased)*.\n",
-    );
-    expect(unreleasedMarkerVersions(root)).toEqual(new Set(["0.2.2"]));
-  });
-
-  it("collects a version cited in the root README.md too", () => {
-    writeFileSync(join(root, "README.md"), "A claim *(since 0.1.3, unreleased)*.\n");
-    expect(unreleasedMarkerVersions(root)).toEqual(new Set(["0.1.3"]));
-  });
-
-  it("returns an empty set when nothing is marked unreleased", () => {
-    writeFileSync(join(root, "documentation", "guide.md"), "Nothing version-sensitive here.\n");
-    expect(unreleasedMarkerVersions(root)).toEqual(new Set());
-  });
-
-  it("de-duplicates the same version cited more than once", () => {
-    writeFileSync(
-      join(root, "documentation", "guide.md"),
-      "One *(since 0.2.2, unreleased)*. Another *(since 0.2.2, unreleased)*.\n",
-    );
-    expect(unreleasedMarkerVersions(root)).toEqual(new Set(["0.2.2"]));
   });
 });

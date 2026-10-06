@@ -69,9 +69,7 @@ const test = createNarrativeTest({
 Turn it off for a run that wants the console narrative and clarity/glossary
 metadata but not the files — `NARRATIVETRACE_OUTPUT=false` (or `outputEnabled:
 false` in code, or `"output": "false"` in the project config file). Any other
-value, including the variable being unset, keeps writing. *(since 0.1.3)*
-npm's currently published `@narrativetrace/vitest@0.1.1` writes the files
-unconditionally — `NARRATIVETRACE_OUTPUT` has no effect there.
+value, including the variable being unset, keeps writing.
 
 ### Output layout
 
@@ -132,8 +130,6 @@ The test name is used as the scenario name in output files. File names are sanit
 
 ### Structural artifact, delta, and approval traces
 
-*(since 0.1.3)*
-
 Every `createNarrativeTest` scenario also writes a value-free `.nt` file —
 names, call hierarchy and outcome kinds only, no argument or return values —
 beside the other artifacts:
@@ -180,8 +176,6 @@ precedence as every other channel below. See
 `.gitignore` and which one to commit.
 
 ### The run has a name
-
-*(since 0.1.3)*
 
 A trace has a three-word phrase (`bold elk soars`) because a raw trace id
 is unreadable — a whole **test-suite execution** needed the same thing for
@@ -314,7 +308,7 @@ renderValue(someObject, {
 | `function` | `"<function>"` |
 | `Array` | `[1, 2, 3]` |
 | `Object` | `{"key": "value"}` |
-| `Date` | `"2024-01-01T00:00:00.000Z"` (UTC `toISOString()`, never the locale/timezone-dependent `toString()` — see [Privacy and Redaction](privacy-and-redaction.md#what-redacts-and-what-outranks-what)) *(since 0.1.3)* |
+| `Date` | `"2024-01-01T00:00:00.000Z"` (UTC `toISOString()`, never the locale/timezone-dependent `toString()` — see [Privacy and Redaction](privacy-and-redaction.md#what-redacts-and-what-outranks-what)) |
 | Invalid `Date` | `"Invalid Date"` |
 | Circular reference | `"<circular>"` |
 
@@ -396,7 +390,7 @@ const traced = traceObject(service, context, paramNames, {
 An options object carrying a key outside this table — a typo, or a shape from a newer
 `traceObject()` this install predates — **throws** naming the unrecognised key and the accepted
 ones, rather than compiling, running, and silently redacting or tracing nothing. The same check
-applies inside each per-method `methods` entry. *(since 0.1.3)*
+applies inside each per-method `methods` entry.
 
 ## 7. Recommended Defaults by Environment
 

@@ -1,11 +1,36 @@
-<!-- source: README.md blob 14cbb0dc3483 | translated: 2026-09-20 | reviewed: - -->
+<!-- source: README.md blob fbc0e14876e6 | translated: 2026-09-20 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
 
 ## Empieza aquí
 
-[Ve una traza en 60 segundos](documentation/es/sesenta-segundos.md) — un script sencillo, una ejecución, y la traza queda en tu terminal.
+- [Ve una traza en 60 segundos](documentation/es/sesenta-segundos.md) — un script sencillo, una ejecución, y la traza queda en tu terminal.
+- ¿Trabajas con un agente de IA? Pégale esto:
+
+```text
+Set up NarrativeTrace in this project and show me its first trace.
+1. Read https://narrativetrace.ai/typescript/llms.txt first. It carries the install block and the
+known traps. Do not guess versions or artifact names.
+2. If this directory has no project yet, create the smallest console app that
+llms.txt's "Install and first trace" block describes. Otherwise work inside the existing
+project and trace one real service boundary.
+3. Add `@narrativetrace/cli` as a dev dependency the way llms.txt shows, then run
+`npx @narrativetrace/cli init --dry-run` and show me the diff. It installs the
+NarrativeTrace agent skills into this project and adds a marked section to AGENTS.md. Run
+it for real only after I have seen the diff.
+4. If the `add-narrative-tracing` skill is now available, follow it. Otherwise follow the
+"Install and first trace (copy this)" block in llms.txt.
+5. Add one test that traces a call with a deny-listed parameter and asserts the trace
+shows `[REDACTED]` for it.
+6. Run the program, then run the doctor (`npx @narrativetrace/cli doctor`). Paste
+the trace and the doctor report, explain the trace in two sentences, and list exactly what
+changed in the project.
+Rules: never disable redaction; do not commit `.received.nt` files; pass
+parameter names to `traceObject` explicitly so arguments never render as `arg0`; run
+everything in the foreground and read the output before you report; if you cannot fetch
+URLs, say so and I will paste llms.txt.
+```
 
 ## Demo
 
@@ -236,7 +261,7 @@ otras cuatro dependencias de NarrativeTrace (core-node, clarity, diagrams, gloss
 indica explícitamente porque el test de abajo importa `traceObject` directamente desde ahí: pnpm
 solo expone las dependencias propias de un paquete, no las de una dependencia, así que cualquier
 cosa que importes tú mismo sigue necesitando ser tu propia dependencia (el `node_modules` más
-plano de npm no traza esta línea, pero pnpm — el que se muestra aquí — sí). *(since 0.1.3)*
+plano de npm no traza esta línea, pero pnpm — el que se muestra aquí — sí).
 
 Estos son los paquetes publicados — `npm view @narrativetrace/core version` muestra la versión
 actual; consulta [Compilar desde el código fuente](#compilar-desde-el-código-fuente) si
@@ -454,7 +479,7 @@ Yendo más a fondo:
 - [Privacidad y ocultación](documentation/es/privacidad-y-ocultacion.md) — el contrato de ocultación fila por fila, verificado contra el código
 - [Qué commitear](documentation/es/que-commitear.md) — qué ficheros generados son salida de ejecución y cuáles (si acaso) son baselines revisadas
 - [Solución de problemas](documentation/es/solucion-de-problemas.md) — síntoma → causa → solución para los modos de fallo que la gente realmente encuentra
-- [Habilidades de agente](documentation/es/habilidades-de-agente.md) — `narrativetrace-doctor`, una habilidad de agente fina y de solo lectura sobre `npx @narrativetrace/cli doctor` *(since 0.1.3)*
+- [Habilidades de agente](documentation/es/habilidades-de-agente.md) — `narrativetrace-doctor`, una habilidad de agente fina y de solo lectura sobre `npx --yes @narrativetrace/cli doctor`
 - [Guía de claridad](documentation/es/guia-de-claridad.md) — modelo de puntuación, componentes de NLP, scanner estático
 - [Guía de integración de frameworks](documentation/es/guia-de-integracion-de-frameworks.md) — Express, Hono, navegador, AsyncLocalStorage
 - [Guía de ejemplos](documentation/es/guia-de-ejemplos.md) — el lanzador `pnpm demo` y los ejemplos ejecutables: ecommerce, clarity, Minecraft, JavaScript plano, Express, Hono, distribuido (Docker + Jaeger), navegador

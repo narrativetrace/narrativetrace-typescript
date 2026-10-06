@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/cli",
-  "version": "0.1.3",
+  "version": "0.2.0",
   "description": "npx @narrativetrace/cli — one CLI over NarrativeTrace's open artifact formats (doctor today; view/validate/diff planned)",
   "license": "Apache-2.0",
   "repository": {
@@ -32,6 +32,7 @@
   "files": [
     "bin",
     "dist",
+    "skills",
     "README.md",
     "LICENSE"
   ],
@@ -41,6 +42,9 @@
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "mutate": "stryker run"
+  },
+  "dependencies": {
+    "@narrativetrace/tooling": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.0.0"

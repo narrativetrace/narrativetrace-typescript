@@ -6,22 +6,22 @@
 # workspace build, never `workspace:`/`link:`/`file:`. See documentation/contract-gate.md for what
 # runs this and when.
 #
-# Schema (four `kind`s, docs-vs-published-gate-2026-09-12.md §2):
+# Schema (four `kind`s):
 #   id                  unique slug
 #   kind                entry-point | reflectable-default | probed-default | config-shape
 #   page                "<doc path>#<anchor>" — the sentence this entry backs
 #   claim               one human sentence
-#   since               the version the claim first holds (x.y.z)
 #   documented_default  (reflectable-default, probed-default) the exact observed value expected
 #   expected_effect     (config-shape) same role, named the way the design note spells it
 #   probe               source file (repo-relative) implementing the check
 #   coordinate          (entry-point only) the npm package name
 #   registry            (entry-point only) npm (default)
 #
-# `since` exempts an entry from the nightly gate only while it is LATER than the version actually
-# installed that run (docs-vs-published-gate-2026-09-12.md §5.1 ruling 1) — never keyed on this
-# repo's own package.json version. `contract-lint` (per commit, no network) validates this file's
-# shape; `contract-check` (nightly, registry-backed) runs contract-probe/ against it.
+# Every entry describes the code it is committed with, so no entry carries a version of its own
+# and none is ever skipped: this file describes the code on `main`, which is the published code —
+# development is trunk-based and the public snapshot and the packages go out from one commit.
+# `contract-lint` (per commit, no network) validates this file's shape; `contract-check` (nightly,
+# registry-backed) runs contract-probe/ against it.
 version_source: "packages/core/package.json#version"
 entries:
   # ---- entry points: does the package resolve at all, on the real registry -------------------
@@ -31,7 +31,6 @@ entries:
     coordinate: "@narrativetrace/core"
     page: "README.md#packages"
     claim: "@narrativetrace/core resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -41,7 +40,6 @@ entries:
     coordinate: "@narrativetrace/core-node"
     page: "README.md#packages"
     claim: "@narrativetrace/core-node resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -51,7 +49,6 @@ entries:
     coordinate: "@narrativetrace/core-web"
     page: "README.md#packages"
     claim: "@narrativetrace/core-web resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -61,7 +58,6 @@ entries:
     coordinate: "@narrativetrace/proxy"
     page: "README.md#packages"
     claim: "@narrativetrace/proxy resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -71,7 +67,6 @@ entries:
     coordinate: "@narrativetrace/vitest"
     page: "README.md#packages"
     claim: "@narrativetrace/vitest resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -81,7 +76,6 @@ entries:
     coordinate: "@narrativetrace/diagrams"
     page: "README.md#packages"
     claim: "@narrativetrace/diagrams resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -91,7 +85,6 @@ entries:
     coordinate: "@narrativetrace/clarity"
     page: "README.md#packages"
     claim: "@narrativetrace/clarity resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -101,7 +94,6 @@ entries:
     coordinate: "@narrativetrace/glossary"
     page: "README.md#packages"
     claim: "@narrativetrace/glossary resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -111,7 +103,6 @@ entries:
     coordinate: "@narrativetrace/browser"
     page: "README.md#packages"
     claim: "@narrativetrace/browser resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -121,7 +112,6 @@ entries:
     coordinate: "@narrativetrace/standalone"
     page: "README.md#packages"
     claim: "@narrativetrace/standalone resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -131,7 +121,6 @@ entries:
     coordinate: "@narrativetrace/angular"
     page: "README.md#packages"
     claim: "@narrativetrace/angular resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -141,7 +130,6 @@ entries:
     coordinate: "@narrativetrace/react"
     page: "README.md#packages"
     claim: "@narrativetrace/react resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -151,7 +139,6 @@ entries:
     coordinate: "@narrativetrace/react-router"
     page: "README.md#packages"
     claim: "@narrativetrace/react-router resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -161,7 +148,6 @@ entries:
     coordinate: "@narrativetrace/express"
     page: "README.md#packages"
     claim: "@narrativetrace/express resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -171,7 +157,6 @@ entries:
     coordinate: "@narrativetrace/hono"
     page: "README.md#packages"
     claim: "@narrativetrace/hono resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -181,7 +166,6 @@ entries:
     coordinate: "@narrativetrace/nestjs"
     page: "README.md#packages"
     claim: "@narrativetrace/nestjs resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -191,7 +175,6 @@ entries:
     coordinate: "@narrativetrace/observability"
     page: "README.md#packages"
     claim: "@narrativetrace/observability resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -201,7 +184,6 @@ entries:
     coordinate: "@narrativetrace/opentelemetry"
     page: "README.md#packages"
     claim: "@narrativetrace/opentelemetry resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -211,7 +193,6 @@ entries:
     coordinate: "@narrativetrace/winston"
     page: "README.md#packages"
     claim: "@narrativetrace/winston resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -221,7 +202,6 @@ entries:
     coordinate: "@narrativetrace/pino"
     page: "README.md#packages"
     claim: "@narrativetrace/pino resolves on the npm registry at the installed version"
-    since: "0.1.0"
     documented_default: "PRESENT"
     probe: "contract-probe/probes/entry-point.mjs"
 
@@ -230,7 +210,6 @@ entries:
     kind: reflectable-default
     page: "documentation/installation-guide.md#option-b-vitest-plugin-auto-context--trace-output"
     claim: "vitest is the only peerDependency of @narrativetrace/vitest, at ^1.0.0 || ^2.0.0 || ^3.0.0"
-    since: "0.1.3"
     documented_default: "^1.0.0 || ^2.0.0 || ^3.0.0"
     probe: "contract-probe/probes/vitest-peer-range.mjs"
 
@@ -238,7 +217,6 @@ entries:
     kind: reflectable-default
     page: "documentation/installation-guide.md#option-b-vitest-plugin-auto-context--trace-output"
     claim: "@narrativetrace/vitest's core-node/clarity/diagrams/glossary siblings install as regular dependencies, not peerDependencies"
-    since: "0.1.3"
     documented_default: "dependencies"
     probe: "contract-probe/probes/siblings-as-dependencies.mjs"
 
@@ -246,7 +224,6 @@ entries:
     kind: reflectable-default
     page: "documentation/installation-guide.md#prerequisites"
     claim: "the published @narrativetrace/core package.json declares engines.node >=20"
-    since: "0.1.0"
     documented_default: ">=20"
     probe: "contract-probe/probes/engines.mjs"
 
@@ -255,7 +232,6 @@ entries:
     kind: config-shape
     page: "documentation/feature-guide.md#attach-it-to-your-stack-the-19-packages"
     claim: "@narrativetrace/vitest/reporters is an importable subpath export"
-    since: "0.1.3"
     expected_effect: "resolves"
     probe: "contract-probe/probes/vitest-reporters-subpath.mjs"
 
@@ -263,7 +239,6 @@ entries:
     kind: config-shape
     page: "documentation/configuration-guide.md#6-proxy-options"
     claim: "traceObject() throws on an unrecognised ProxyOptions key rather than silently ignoring it"
-    since: "0.1.3"
     expected_effect: "throws"
     probe: "contract-probe/probes/trace-object-rejects-unknown-keys.mjs"
 
@@ -271,7 +246,6 @@ entries:
     kind: config-shape
     page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces"
     claim: "@narrativetrace/vitest publishes a narrativetrace-approve executable"
-    since: "0.1.3"
     expected_effect: "resolves"
     probe: "contract-probe/probes/narrativetrace-approve-bin.mjs"
 
@@ -279,7 +253,6 @@ entries:
     kind: config-shape
     page: "documentation/configuration-guide.md#structural-artifact-delta-and-approval-traces"
     claim: "createNarrativeTest's approval mode writes a value-free .nt structural artifact"
-    since: "0.1.3"
     expected_effect: "writes-nt-artifact"
     probe: "contract-probe/probes/approval-traces.mjs"
 
@@ -287,7 +260,6 @@ entries:
     kind: config-shape
     page: "documentation/feature-guide.md#attach-it-to-your-stack-the-19-packages"
     claim: "each invocation of one .each() call gets its own structural title (<name> #<index>) and artifact set"
-    since: "0.1.3"
     expected_effect: "distinct-per-invocation"
     probe: "contract-probe/probes/per-invocation-each.mjs"
 
@@ -295,7 +267,6 @@ entries:
     kind: config-shape
     page: "packages/cli/README.md#narrativetrace-doctor"
     claim: "npx narrativetrace doctor exits 0 against a clean, healthy install"
-    since: "0.1.0"
     expected_effect: "exit-0"
     probe: "contract-probe/probes/cli-doctor-exit-clean.mjs"
 
@@ -304,7 +275,6 @@ entries:
     kind: probed-default
     page: "documentation/configuration-guide.md#with-file-output"
     claim: "NARRATIVETRACE_OUTPUT defaults to true — createNarrativeTest writes trace files with no configuration"
-    since: "0.1.3"
     documented_default: "true"
     probe: "contract-probe/probes/narrativetrace-output-default.mjs"
 
@@ -312,7 +282,6 @@ entries:
     kind: probed-default
     page: "documentation/privacy-and-redaction.md#what-redacts-and-what-outranks-what"
     claim: "a parameter named password is redacted at capture, unconditionally, even with no annotation"
-    since: "0.1.3"
     documented_default: "[REDACTED]"
     probe: "contract-probe/probes/redaction-default.mjs"
 
@@ -320,7 +289,6 @@ entries:
     kind: probed-default
     page: "documentation/privacy-and-redaction.md#what-redacts-and-what-outranks-what"
     claim: "a platform type (URL, RegExp, a boxed BigInt, a typed array) keeps its own toString(), unwalked"
-    since: "0.1.3"
     documented_default: "own-tostring-used"
     probe: "contract-probe/probes/platform-type-carveout.mjs"
 
@@ -328,7 +296,6 @@ entries:
     kind: probed-default
     page: "documentation/privacy-and-redaction.md#what-redacts-and-what-outranks-what"
     claim: "a Date renders as its UTC toISOString(), never toString()'s locale/timezone-dependent form; an invalid Date renders as the literal Invalid Date"
-    since: "0.1.3"
     documented_default: "iso-8601"
     probe: "contract-probe/probes/date-iso-rendering.mjs"
 
@@ -336,7 +303,6 @@ entries:
     kind: probed-default
     page: "documentation/configuration-guide.md#8-event-pipeline-buffering-bufferedeventconsumer"
     claim: "a DualPathPipeline built with a null buffered-consumer argument still gets a working BufferedEventConsumer — the buffered path is never silently absent"
-    since: "0.1.3"
     documented_default: "captures"
     probe: "contract-probe/probes/dual-path-pipeline-default-consumer.mjs"
 
@@ -344,7 +310,6 @@ entries:
     kind: probed-default
     page: "documentation/configuration-guide.md#the-run-has-a-name"
     claim: "once ClaritySuiteReporter is registered, the suite footer names the enclosing run ('run: <phrase>') with no further configuration"
-    since: "0.1.3"
     documented_default: "true"
     probe: "contract-probe/probes/run-name-console-footer.mjs"
 
@@ -352,7 +317,6 @@ entries:
     kind: probed-default
     page: "documentation/configuration-guide.md#the-run-has-a-name"
     claim: "once ManifestSuiteReporter is registered, manifest.json carries a top-level run object ({id, name}) with no further configuration"
-    since: "0.1.3"
     documented_default: "true"
     probe: "contract-probe/probes/run-name-manifest-field.mjs"
 
@@ -360,6 +324,5 @@ entries:
     kind: config-shape
     page: "documentation/configuration-guide.md#9-two-dials-two-paths"
     claim: "a pino Logger set to its highest level (fatal, silencing the trace/warn lines NarrativeTrace writes) does not affect the buffered path — captureTrace() still returns a complete trace of the traced call"
-    since: "0.1.0"
     expected_effect: "complete-trace-independent-of-logger"
     probe: "contract-probe/probes/logger-threshold-does-not-affect-buffered-path.mjs"

@@ -14,9 +14,9 @@ importers:
       '@biomejs/biome':
         specifier: ^2.0.0
         version: 2.4.4
-      '@narrativetrace/skills':
+      '@narrativetrace/skills-catalogue':
         specifier: workspace:*
-        version: link:packages/skills
+        version: link:packages/skills-catalogue
       '@stryker-mutator/core':
         specifier: ^9.6.0
         version: 9.6.0(@types/node@25.5.0)
@@ -619,6 +619,10 @@ importers:
         version: 25.5.0
 
   packages/cli:
+    dependencies:
+      '@narrativetrace/tooling':
+        specifier: workspace:*
+        version: link:../tooling
     devDependencies:
       '@types/node':
         specifier: ^25.0.0
@@ -920,7 +924,9 @@ importers:
         specifier: ^2.9.0
         version: 2.9.0
 
-  packages/skills:
+  packages/skills: {}
+
+  packages/skills-catalogue:
     devDependencies:
       '@types/node':
         specifier: ^25.0.0
@@ -940,6 +946,12 @@ importers:
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.13
+
+  packages/tooling:
+    devDependencies:
+      '@types/node':
+        specifier: ^25.0.0
+        version: 25.5.0
 
   packages/vitest:
     dependencies:

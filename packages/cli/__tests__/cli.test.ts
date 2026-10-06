@@ -10,7 +10,13 @@ function deps(overrides: Partial<Parameters<typeof runCli>[1]> = {}) {
     cwd: "/project",
     env: {},
     buildSnapshot: () => cleanSnapshot(),
+    // The launcher's own cases and the doctor's must never reach a carrier: `cli-installer.test.ts`
+    // owns the verbs that do, against a real directory.
+    openCarrier: (): never => {
+      throw new Error("this command must not open a carrier");
+    },
     log: vi.fn(),
+    print: vi.fn(),
     error: vi.fn(),
     ...overrides,
   };

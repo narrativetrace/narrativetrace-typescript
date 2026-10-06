@@ -9,8 +9,16 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // dependencies are mocked; process.exit/stdout/stderr are spied so importing the module is safe.
 
 const runCliMock = vi.fn();
+const openCarrierForMock = vi.fn();
+const buildSnapshotMock = vi.fn();
 vi.mock("../src/cli.js", () => ({ runCli: runCliMock }));
-vi.mock("../src/doctor/environment.js", () => ({ buildSnapshot: vi.fn() }));
+vi.mock("../src/carrier-locator.js", async () => {
+  const actual = await vi.importActual<typeof import("../src/carrier-locator.js")>(
+    "../src/carrier-locator.js",
+  );
+  return { ...actual, openCarrierFor: openCarrierForMock };
+});
+vi.mock("@narrativetrace/tooling", () => ({ buildSnapshot: buildSnapshotMock }));
 
 describe("cli-bin", () => {
   const originalArgv = process.argv;
@@ -21,6 +29,7 @@ describe("cli-bin", () => {
   beforeEach(() => {
     vi.resetModules();
     runCliMock.mockReset();
+    buildSnapshotMock.mockReset();
     exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
     stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
     stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
@@ -59,5 +68,44 @@ describe("cli-bin", () => {
     });
     await import("../src/cli-bin.js");
     expect(stderrSpy).toHaveBeenCalledWith("oops\n");
+  });
+
+  // A rendered report brings its own trailing newline, so `print` must not add one: a plan's diff
+  // through `log` would end every run with a blank line, and a JSON envelope with two.
+  test("deps.print writes a rendered report verbatim", async () => {
+    process.argv = ["/usr/bin/node", "/path/to/narrativetrace"];
+    runCliMock.mockImplementation((_argv: string[], deps: { print: (t: string) => void }) => {
+      deps.print("nothing to do.\n");
+      return 0;
+    });
+    await import("../src/cli-bin.js");
+    expect(stdoutSpy).toHaveBeenCalledWith("nothing to do.\n");
+  });
+
+  test("deps.openCarrier asks the locator about the process's own directory", async () => {
+    process.argv = ["/usr/bin/node", "/path/to/narrativetrace", "init", "--from", "/carriers"];
+    runCliMock.mockImplementation(
+      (_argv: string[], deps: { openCarrier: (from?: string) => unknown }) => {
+        deps.openCarrier("/carriers");
+        return 0;
+      },
+    );
+    await import("../src/cli-bin.js");
+    expect(openCarrierForMock).toHaveBeenCalledWith(process.cwd(), "/carriers");
+  });
+
+  test("deps.buildSnapshot passes this package's own directory as the bundled fallback", async () => {
+    process.argv = ["/usr/bin/node", "/path/to/narrativetrace", "doctor"];
+    const { cliPackageDirectory } = await vi.importActual<
+      typeof import("../src/carrier-locator.js")
+    >("../src/carrier-locator.js");
+    runCliMock.mockImplementation(
+      (_argv: string[], deps: { buildSnapshot: (c: string, e: object) => unknown }) => {
+        deps.buildSnapshot("/project", {});
+        return 0;
+      },
+    );
+    await import("../src/cli-bin.js");
+    expect(buildSnapshotMock).toHaveBeenCalledWith("/project", {}, cliPackageDirectory());
   });
 });

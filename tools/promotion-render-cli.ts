@@ -2,16 +2,17 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { SKILLS } from "@narrativetrace/skills";
+import { SKILLS } from "@narrativetrace/skills-catalogue";
 import { parseRunsJsonl, renderPromotionMarkdown } from "./promotion-render.js";
 
-// Per-commit gate (wired into `pnpm run check`, after `pnpm run build` so @narrativetrace/skills'
-// dist exists): ledger/promotion.md is BUILD OUTPUT of ledger/runs.jsonl plus the typed skill
-// catalogue — never hand-edited. Mirrors tools/skills-render.ts's --check/--fix pair: --check
-// fails naming what drifted (run `pnpm run promotion-render` to fix it); --fix writes it.
+// Per-commit gate (wired into `pnpm run check`, after `pnpm run build` so
+// @narrativetrace/skills-catalogue's dist exists): ledger/promotion.md is BUILD OUTPUT of
+// ledger/runs.jsonl plus the typed skill catalogue — never hand-edited. Mirrors
+// tools/skills-render.ts's --check/--fix pair: --check fails naming what drifted (run
+// `pnpm run promotion-render` to fix it); --fix writes it.
 
-const RUNS_PATH = "packages/skills/ledger/runs.jsonl";
-const PROMOTION_PATH = "packages/skills/ledger/promotion.md";
+const RUNS_PATH = "packages/skills-catalogue/ledger/runs.jsonl";
+const PROMOTION_PATH = "packages/skills-catalogue/ledger/promotion.md";
 
 function expectedPromotionMarkdown(): string {
   const runsContent = existsSync(RUNS_PATH) ? readFileSync(RUNS_PATH, "utf-8") : "";

@@ -4,7 +4,32 @@
 
 ## Start here
 
-[See a trace in 60 seconds](documentation/sixty-seconds.md) — a plain script, one run, and the trace is in your terminal.
+- [See a trace in 60 seconds](documentation/sixty-seconds.md) — a plain script, one run, and the trace is in your terminal.
+- Working with an AI agent? Paste this:
+
+```text
+Set up NarrativeTrace in this project and show me its first trace.
+1. Read https://narrativetrace.ai/typescript/llms.txt first. It carries the install block and the
+known traps. Do not guess versions or artifact names.
+2. If this directory has no project yet, create the smallest console app that
+llms.txt's "Install and first trace" block describes. Otherwise work inside the existing
+project and trace one real service boundary.
+3. Add `@narrativetrace/cli` as a dev dependency the way llms.txt shows, then run
+`npx @narrativetrace/cli init --dry-run` and show me the diff. It installs the
+NarrativeTrace agent skills into this project and adds a marked section to AGENTS.md. Run
+it for real only after I have seen the diff.
+4. If the `add-narrative-tracing` skill is now available, follow it. Otherwise follow the
+"Install and first trace (copy this)" block in llms.txt.
+5. Add one test that traces a call with a deny-listed parameter and asserts the trace
+shows `[REDACTED]` for it.
+6. Run the program, then run the doctor (`npx @narrativetrace/cli doctor`). Paste
+the trace and the doctor report, explain the trace in two sentences, and list exactly what
+changed in the project.
+Rules: never disable redaction; do not commit `.received.nt` files; pass
+parameter names to `traceObject` explicitly so arguments never render as `arg0`; run
+everything in the foreground and read the output before you report; if you cannot fetch
+URLs, say so and I will paste llms.txt.
+```
 
 ## Demo
 
@@ -217,7 +242,7 @@ lockstep with it and are never independently versioned — but `@narrativetrace/
 explicitly because the test below imports `traceObject` from it directly: pnpm only exposes a
 package's own direct dependencies, not a dependency's dependencies, so anything you `import`
 yourself still needs to be your own dependency (npm's flatter `node_modules` doesn't draw this
-line, but pnpm — shown here — does). *(since 0.1.3)*
+line, but pnpm — shown here — does).
 
 These are the published packages — `npm view @narrativetrace/core version` shows the current
 release; see [Building from source](#building-from-source) if you need an unreleased change
@@ -425,7 +450,7 @@ Going deeper:
 - [Privacy and Redaction](documentation/privacy-and-redaction.md) — the row-by-row redaction contract, verified against the code
 - [What to Commit](documentation/what-to-commit.md) — which generated files are run output and which (if any) are reviewed baselines
 - [Troubleshooting](documentation/troubleshooting.md) — symptom → cause → fix for the failure modes people actually hit
-- [Agent Skills](documentation/agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx @narrativetrace/cli doctor` *(since 0.1.3)*
+- [Agent Skills](documentation/agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor`
 - [Clarity Guide](documentation/clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](documentation/framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](documentation/examples-guide.md) — the `pnpm demo` launcher and the runnable examples: ecommerce, clarity, Minecraft, plain JavaScript, Express, Hono, distributed (Docker + Jaeger), browser

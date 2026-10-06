@@ -4,18 +4,19 @@
 import { spawnSync } from "node:child_process";
 import { copyFileSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
-import { decide, isApplicable } from "../tools/contract-decision.js";
+import { decide } from "../tools/contract-decision.js";
 import { parseContractYaml } from "../tools/contract-lint.js";
 import { checkEntryPointOnRegistry } from "./probes/entry-point.mjs";
 
 /**
- * The standalone contract-probe orchestrator (docs-vs-published-gate-2026-09-12.md §2):
- * consumes ONLY the npm registry at `--version`, never workspace:/link:/file:. Reads
- * `documentation/contract.yaml`, decides applicability per entry (`isApplicable`), and for every
- * applicable entry either checks the registry directly (`entry-point`, no install needed — the
- * same HTTP presence check verify-publication.ts uses) or runs the entry's own probe script
- * against `--cwd` (a scratch project tools/contract-check.ts has already `npm install`ed the
- * needed packages@version into). Prints one JSON result and exits 1 if any entry FAILS.
+ * The standalone contract-probe orchestrator: consumes ONLY the npm registry at `--version`,
+ * never workspace:/link:/file:. Reads the `contract.yaml` it is pointed at — which
+ * `tools/contract-check.ts` points at the working tree's copy, `main` being the published code —
+ * and for EVERY entry either checks the registry directly
+ * (`entry-point`, no install needed — the same HTTP presence check verify-publication.ts uses) or
+ * runs the entry's own probe script against `--cwd` (a scratch project tools/contract-check.ts has
+ * already `npm install`ed the needed packages@version into). Prints one JSON result and exits 1 if
+ * any entry FAILS.
  *
  * Usage: tsx contract-probe/run.ts --contract <path> --version <installed> --cwd <scratchDir> --out <resultJsonPath>
  */
@@ -96,16 +97,13 @@ async function main(): Promise<void> {
 
   const outcomes = [];
   for (const entry of document.entries) {
-    const applicable = isApplicable(entry.since, args.version);
-    const observed = applicable ? await observe(entry, args) : undefined;
-    outcomes.push(decide(entry, args.version, observed));
+    outcomes.push(decide(entry, args.version, await observe(entry, args)));
   }
 
   const summary = {
     installedVersion: args.version,
     holds: outcomes.filter((o) => o.verdict === "holds").length,
     fails: outcomes.filter((o) => o.verdict === "fails").length,
-    notApplicable: outcomes.filter((o) => o.verdict === "not-applicable-before-since").length,
     outcomes: outcomes.map((o) => ({ id: o.entry.id, verdict: o.verdict, message: o.message })),
   };
   writeFileSync(args.out, JSON.stringify(summary, null, 2));

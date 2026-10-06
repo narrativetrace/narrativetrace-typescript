@@ -182,8 +182,12 @@ describe("checkCoverageCompleteness", () => {
     expect(report.ok).toEqual(["clean"]);
   });
 
-  it("defaults to COVERAGE_EXEMPTIONS, which names benchmarks and security-tests with a written reason", () => {
-    expect(COVERAGE_EXEMPTIONS.map((e) => e.pkg)).toEqual(["benchmarks", "security-tests"]);
+  it("defaults to COVERAGE_EXEMPTIONS, which names benchmarks, security-tests and skills with a written reason", () => {
+    expect(COVERAGE_EXEMPTIONS.map((e) => e.pkg)).toEqual([
+      "benchmarks",
+      "security-tests",
+      "skills",
+    ]);
     for (const exemption of COVERAGE_EXEMPTIONS) {
       expect(exemption.reason.length).toBeGreaterThan(20);
     }

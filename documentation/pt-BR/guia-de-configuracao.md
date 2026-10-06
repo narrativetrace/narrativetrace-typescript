@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 789e680e007d | translated: 2026-09-18 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 51ab64b7da01 | translated: 2026-09-18 | reviewed: - -->
 # Guia de Configuração do NarrativeTrace TypeScript
 
 [English](../configuration-guide.md) | [Español](../es/guia-de-configuracion.md) | **Português** | [简体中文](../zh-CN/配置指南.md)
@@ -73,9 +73,7 @@ Desligue para uma execução que quer a narrativa no console e os metadados de
 clareza/glossário, mas não os arquivos — `NARRATIVETRACE_OUTPUT=false` (ou
 `outputEnabled: false` no código, ou `"output": "false"` no arquivo de
 configuração do projeto). Qualquer outro valor, inclusive a variável não
-definida, mantém a escrita ativada. *(since 0.1.3)*
-A versão atualmente publicada no npm, `@narrativetrace/vitest@0.1.1`, escreve
-os arquivos incondicionalmente — `NARRATIVETRACE_OUTPUT` não tem efeito nela.
+definida, mantém a escrita ativada.
 
 ### Layout de saída
 
@@ -139,8 +137,6 @@ O nome do teste é usado como o nome do cenário nos arquivos de saída. Os nome
 
 ### Artefato estrutural, delta e trace aprovados
 
-*(since 0.1.3)*
-
 Todo cenário do `createNarrativeTest` também escreve um arquivo `.nt` livre
 de valores — apenas nomes, hierarquia de chamadas e tipos de resultado, sem
 valores de argumento ou de retorno — ao lado dos demais artefatos:
@@ -189,8 +185,6 @@ abaixo. Veja [O que commitar](o-que-commitar.md) para saber qual desses
 arquivos adicionar ao `.gitignore` e qual commitar.
 
 ### A execução tem um nome
-
-*(since 0.1.3)*
 
 Um trace tem uma frase de três palavras (`bold elk soars`) porque um id de
 trace cru é ilegível — uma **execução inteira da suíte de testes**
@@ -329,7 +323,7 @@ renderValue(someObject, {
 | `function` | `"<function>"` |
 | `Array` | `[1, 2, 3]` |
 | `Object` | `{"key": "value"}` |
-| `Date` | `"2024-01-01T00:00:00.000Z"` (`toISOString()` em UTC, nunca o `toString()` dependente de locale/fuso horário — veja [Privacidade e ocultação](privacidade-e-ocultacao.md#o-que-oculta-e-o-que-tem-prioridade-sobre-o-quê)) *(since 0.1.3)* |
+| `Date` | `"2024-01-01T00:00:00.000Z"` (`toISOString()` em UTC, nunca o `toString()` dependente de locale/fuso horário — veja [Privacidade e ocultação](privacidade-e-ocultacao.md#o-que-oculta-e-o-que-tem-prioridade-sobre-o-quê)) |
 | `Date` inválido | `"Invalid Date"` |
 | Referência circular | `"<circular>"` |
 
@@ -411,7 +405,7 @@ const traced = traceObject(service, context, paramNames, {
 Um objeto de opções carregando uma chave fora desta tabela — um erro de digitação, ou uma forma de
 um `traceObject()` mais novo que esta instalação não tem — **lança uma exceção** nomeando a chave
 não reconhecida e as aceitas, em vez de compilar, rodar e silenciosamente não ocultar ou traçar
-nada. A mesma checagem se aplica dentro de cada entrada `methods` por método. *(since 0.1.3)*
+nada. A mesma checagem se aplica dentro de cada entrada `methods` por método.
 
 ## 7. Padrões recomendados por ambiente
 

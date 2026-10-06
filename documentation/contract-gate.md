@@ -6,11 +6,11 @@ produces. `contract-probe/` proves or disproves each one against a **published**
 npm registry, never `workspace:`/`link:`/`file:`), so a doc page and the tarball someone actually
 `npm install`ed can never quietly disagree without a gate noticing.
 
-This is the third leg of the docs-vs-published family, alongside the `*(since X.Y.Z[,
-unreleased])*` markers inline in prose and the generated banner at the top of `documentation/llms.txt`
-— see those markers throughout `documentation/*.md` for the disclosure half of the same problem.
-This page is the enforcement half: a marker says "this is new"; the contract gate says "and it is
-really true of what shipped."
+Every document in this repository describes the code it is committed with, and names no version
+of its own. The contract gate is what makes that assumption checkable rather than hopeful: the
+contract **describes the code on `main`, which is the published code** — development is
+trunk-based and publishing is one step, the public snapshot and the packages going out from the
+same commit — so "the docs describe what shipped" is a statement something can fail on.
 
 ## What it catches
 
@@ -23,22 +23,17 @@ Four kinds of claim, each checked a different way:
 | `probed-default` | A default only visible at runtime (an env var's effect, a redaction decision) | `NARRATIVETRACE_OUTPUT` defaults to `true` |
 | `config-shape` | A documented configuration shape produces the effect the docs claim | `@narrativetrace/vitest/reporters` is an importable subpath |
 
-Each entry also carries `since`: the version the claim first holds. An entry whose `since` is
-**later than the version actually installed** that run is reported `not-applicable-before-since`
-— never `fails` — so a documented default for a feature that has not shipped yet does not fail the
-gate before its own release does. The exemption is keyed on the version genuinely installed, never
-on this repository's own `packages/core/package.json` version, which stays ahead of the last
-published number until a release tag catches up (see the `*(since X.Y.Z, unreleased)*` markers
-already on many pages).
+No entry carries a version of its own, and none is ever skipped. `contract-check` resolves the
+version to probe, installs that version's artifacts, and reads `documentation/contract.yaml`
+**from the working tree** — the claims the gate reads and the install it probes are the same code,
+so every claim applies.
 
 ## Two gates, two cadences
 
 - **`pnpm run contract-lint`** — part of `pnpm run check`, every commit, no network. Validates
-  `documentation/contract.yaml` itself: the schema parses, every `since` is a real version string,
-  no two entries make the same claim, every entry's `probe` file exists, every `page#anchor`
-  pointer resolves to a heading that actually exists on that page, and every `*(since X.Y.Z,
-  unreleased)*` marker anywhere in the English docs has at least one contract entry recording that
-  version — the mechanical link between the inline markers and this file.
+  `documentation/contract.yaml` itself: the schema parses, no two entries make the same claim,
+  every entry's `probe` file exists, and every `page#anchor` pointer resolves to a heading that
+  actually exists on that page.
 - **`pnpm run contract-check`** — nightly, registry-backed, never per commit (the same
   "no network in the per-commit gate" rule the security scanners follow). Resolves the version to
   check the way `tools/verify-publication.ts` does (the newest `v*` tag reachable from HEAD, else
@@ -50,16 +45,16 @@ already on many pages).
 Run the nightly gate by hand against a specific version:
 
 ```bash
-pnpm run contract-check 0.1.1
-pnpm run contract-check          # omit the version: checks the last published one
+pnpm run contract-check <published-version>   # install and probe that published version
+pnpm run contract-check                       # omit it: checks the last published one
 pnpm run contract-check -- --dry-run
 ```
 
-A failure names all four facts in one line, so a skim is enough:
+A failure names every fact in one line, so a skim is enough:
 
 ```
 documentation/contract.yaml: probed-narrativetrace-output-default documented default "true"
-(since 0.1.3) but probed-narrativetrace-output-default 0.1.3 (published) reads "false"
+but probed-narrativetrace-output-default <published-version> (published) reads "false"
 ```
 
 ## `contract-probe/`
@@ -75,8 +70,13 @@ Run it directly, against an already-installed scratch project:
 
 ```bash
 npx tsx contract-probe/run.ts --contract documentation/contract.yaml \
-    --version 0.1.1 --cwd /path/to/an/npm-installed/scratch/project --out /tmp/contract-result.json
+    --version <published-version> --cwd /path/to/an/npm-installed/scratch/project \
+    --out /tmp/contract-result.json
 ```
+
+`--contract` is a path, not a fixed file, which is the low-level escape hatch for developing a
+probe against any copy of the contract. `tools/contract-check.ts` is the gate, and it points the
+same script at the same working-tree file, plus the fresh-install isolation described above.
 
 Each contract entry names its own probe script under `contract-probe/probes/` — `entry-point`
 entries share one (`entry-point.mjs`, an HTTP presence check against the registry, no install
@@ -92,19 +92,19 @@ design note uses for a `config-shape` entry — both land in the same field inte
 `contract.yaml` is updated **in the same commit** as the feature that ships a new documented
 default — the same discipline the Pro repository's `pro/schema/*.json` files follow. Adding one:
 
-1. Write the sentence in the doc page first, with its `*(since X.Y.Z, unreleased)*` marker if the
-   version has not tagged yet.
+1. Write the sentence in the doc page first, in the present tense — the page describes the code
+   it is committed with, so it names no version.
 2. Add the entry to `documentation/contract.yaml`: `id`, `kind`, `page` (the doc path and the
-   anchor of the heading carrying the sentence), `claim`, `since`,
+   anchor of the heading carrying the sentence), `claim`,
    `documented_default`/`expected_effect`, and `probe`.
 3. Write the probe under `contract-probe/probes/<id>.mjs`. Use only the package's stable public
-   API — the probe runs against whatever single version `contract-check` resolves, so it must not
-   assume an API shape newer than the OLDEST version the entry's `since` could ever be checked
-   against.
-4. `pnpm run contract-lint` — confirms the shape, the anchor and the since-marker link.
-5. `pnpm run contract-check` — confirms the new entry reports `not-applicable-before-since`
-   against today's published version (it should, if the feature has not released yet) and, once
-   released, reports `holds` against the version it landed in.
+   API: the probe runs against the published artifact, so it may assume exactly the API the
+   release carries and nothing newer.
+4. `pnpm run contract-lint` — confirms the shape and the anchor.
+5. `pnpm run contract-check` — runs your new entry against today's published artifact. Expect a
+   `fails` line until the release carrying the feature goes out; that is the entry telling you it
+   is ahead of the release, not a defect. Land the entry with the feature and let the release
+   close it.
 
 ## What this deliberately does not cover
 
@@ -116,14 +116,15 @@ default — the same discipline the Pro repository's `pro/schema/*.json` files f
 - **Full behavioral equivalence of a complex config object** — one named, checkable
   `expected_effect` per `config-shape` entry, never a spec of the whole feature the shape
   configures.
-- **A marker correctly flagged `unreleased` for a version genuinely ahead of the one installed** —
-  that is disclosure's job (the inline marker and the generated `llms.txt` banner), not this
-  gate's; a `since` later than the installed version is skipped, on purpose, every time.
+- **The short window between a commit and the release that publishes it.** `main` and the
+  published packages are the same code, published together, so there is no standing gap to model
+  — but while a release is still in flight, a claim that landed with its feature is read against
+  the previous artifact and says `fails`. That is the gate naming an unpublished commit, not a
+  defect it is judging, and the release closes it.
 - **A package with no published version at all yet** (`@narrativetrace/cli`, on its own separate
-  Apache-2.0 release line, not lockstep with the BSL runtime family) has no version number the
-  `since` exemption can key on — its entries correctly report `fails` until its first publish,
-  which is the honest answer to "can this documented behavior be verified against anything
-  published right now."
+  Apache-2.0 release line, not lockstep with the BSL runtime family) — its entries correctly
+  report `fails` until its first publish, which is the honest answer to "can this documented
+  behavior be verified against anything published right now."
 
 ## See also
 

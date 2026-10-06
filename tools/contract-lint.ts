@@ -2,28 +2,17 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { existsSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { type ContractEntry, type ContractKind, isContractKind } from "./contract-decision.js";
-import { findStaleSinceMarkers, markdownAndLlmsFiles } from "./publish-since-markers.js";
 
 /**
  * Everything `documentation/contract.yaml` can be validated for WITHOUT the network: the schema
- * parses, every `since` is a real version string, no two entries make the same claim, every
- * entry's probe file exists, every `page#anchor` pointer resolves to a heading that actually
- * exists (a hand-rolled GitHub-flavoured-Markdown slugifier), and every `*(since X.Y.Z,
- * unreleased)*` marker across the English docs is backed by at least one contract entry at that
- * version — the mechanical link between the inline since-markers (design note part (a)) and this
- * file (part (c)). Also guards the shape of the marker itself: no heading anywhere under
- * `documentation/` (English or translated) or the root `README.md` may carry an inline `(since
- * ...)` marker, because a heading's text IS its GitHub anchor slug and the publish pipeline's
- * tag-time rewrite (`rewriteSinceMarkers`) changes that text — a marker living in a heading moves
- * the heading's own anchor out from under every page/anchor pointer aimed at it the moment a
- * release tags (owner ruling 2026-09-16, after the 0.1.3 tag broke four `contract.yaml` anchors
- * this way; see `headingsWithSinceMarker`). Runs every commit, no network. The
- * holds/fails/not-applicable-before-since decision for an actual probe result lives in
- * contract-decision.ts, exercised nightly by contract-probe/ and, offline, by this module's own
- * fixture tests.
+ * parses, no two entries make the same claim, every entry's probe file exists, and every
+ * `page#anchor` pointer resolves to a heading that actually exists (a hand-rolled
+ * GitHub-flavoured-Markdown slugifier). Runs every commit, no network. The holds/fails decision
+ * for an actual probe result lives in contract-decision.ts, exercised nightly by contract-probe/
+ * and, offline, by this module's own fixture tests.
  */
 export interface ContractDocument {
   readonly versionSource: string;
@@ -35,7 +24,6 @@ export interface ContractPageRef {
   readonly anchor: string;
 }
 
-const SINCE_PATTERN = /^\d+\.\d+\.\d+$/;
 const HEADING_RE = /^(#{1,6})\s+(.+?)\s*$/;
 
 /**
@@ -93,7 +81,6 @@ function parseEntry(raw: Record<string, unknown>): ContractEntry {
     throw new Error(`documentation/contract.yaml: entry "${id}" has unknown kind "${kindRaw}"`);
   }
   const kind: ContractKind = kindRaw;
-  const since = requiredField(raw, "since", id);
   const expect =
     (raw.documented_default as string | undefined) ?? (raw.expected_effect as string | undefined);
   if (!expect) {
@@ -107,7 +94,6 @@ function parseEntry(raw: Record<string, unknown>): ContractEntry {
     kind,
     page: requiredField(raw, "page", id),
     claim: requiredField(raw, "claim", id),
-    since,
     expect,
     probe: requiredField(raw, "probe", id),
     coordinate: raw.coordinate as string | undefined,
@@ -136,9 +122,6 @@ export function parseContractYaml(content: string): ContractDocument {
 
 function lintOneEntry(repoRoot: string, entry: ContractEntry): string[] {
   const problems: string[] = [];
-  if (!SINCE_PATTERN.test(entry.since)) {
-    problems.push(`"${entry.id}": since "${entry.since}" is not a real version string (x.y.z)`);
-  }
   if (!existsSync(join(repoRoot, entry.probe))) {
     problems.push(`"${entry.id}": probe "${entry.probe}" does not exist`);
   }
@@ -171,88 +154,11 @@ function lintDuplicates(entries: readonly ContractEntry[]): string[] {
   return problems;
 }
 
-const HEADING_SINCE_RE = /^#{1,6}\s.*\(since /;
-
-/**
- * Every heading line, across `documentation/` (English and its `es`/`pt-BR`/`zh-CN` mirrors alike)
- * and the root `README.md`, that still carries an inline `(since ...)` marker — see the module doc
- * for why that breaks anchors at tag time. One `"path:line: ..."` message per offending heading,
- * repo-root-relative and sorted, empty when `repoRoot` has no such heading.
- */
-export function headingsWithSinceMarker(repoRoot: string): string[] {
-  const docsRoot = join(repoRoot, "documentation");
-  const files = existsSync(docsRoot) ? markdownAndLlmsFiles(docsRoot) : [];
-  const readme = join(repoRoot, "README.md");
-  if (existsSync(readme)) files.push(readme);
-  const hits: string[] = [];
-  for (const file of files) {
-    readFileSync(file, "utf-8")
-      .split("\n")
-      .forEach((line, index) => {
-        if (HEADING_SINCE_RE.test(line)) {
-          hits.push(
-            `${relative(repoRoot, file)}:${index + 1}: since-markers belong in the body: heading anchors must survive the tag rewrite`,
-          );
-        }
-      });
-  }
-  return hits.sort();
-}
-
-function lintMarkerCoverage(
-  entries: readonly ContractEntry[],
-  unreleasedVersions: ReadonlySet<string>,
-): string[] {
-  const covered = new Set(entries.map((entry) => entry.since));
-  return [...unreleasedVersions]
-    .filter((version) => !covered.has(version))
-    .sort()
-    .map(
-      (version) =>
-        `documentation carries "*(since ${version}, unreleased)*" but no contract.yaml entry ` +
-        `has since: "${version}" — add one in the same commit as the feature`,
-    );
-}
-
 /** Every problem the contract gate reports, empty when `document` is internally consistent. */
-export function lint(
-  repoRoot: string,
-  document: ContractDocument,
-  unreleasedMarkerVersions: ReadonlySet<string>,
-): readonly string[] {
+export function lint(repoRoot: string, document: ContractDocument): readonly string[] {
   const problems = [
     ...lintDuplicates(document.entries),
     ...document.entries.flatMap((entry) => lintOneEntry(repoRoot, entry)),
-    ...lintMarkerCoverage(document.entries, unreleasedMarkerVersions),
-    ...headingsWithSinceMarker(repoRoot),
   ];
   return problems.sort();
-}
-
-const SENTINEL_VERSION = "999999.0.0";
-
-/** Every version cited by `*(since X.Y.Z, unreleased)*` across the English docs — `documentation/`
- * (recursively; the es/pt-BR/zh-CN mirrors cite the same versions, harmlessly redundant here) via
- * publish-since-markers.ts's own scanner, treating every marker as "stale" against a sentinel
- * version so every one currently present surfaces, plus the root README.md (outside
- * `documentation/`, scanned narrowly with the same whole-file marker shape rather than walking the
- * whole repo root, which would also walk node_modules). */
-export function unreleasedMarkerVersions(repoRoot: string): ReadonlySet<string> {
-  const versions = new Set<string>();
-  const docsRoot = join(repoRoot, "documentation");
-  if (existsSync(docsRoot)) {
-    for (const hit of findStaleSinceMarkers(docsRoot, SENTINEL_VERSION)) {
-      const match = /since ([0-9][0-9A-Za-z.+-]*)$/.exec(hit);
-      if (match) versions.add(match[1] as string);
-    }
-  }
-  const readme = join(repoRoot, "README.md");
-  if (existsSync(readme)) {
-    for (const match of readFileSync(readme, "utf-8").matchAll(
-      /since\s+([0-9][0-9A-Za-z.+-]*),\s*unreleased\)\*/g,
-    )) {
-      versions.add(match[1] as string);
-    }
-  }
-  return versions;
 }

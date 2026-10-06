@@ -1,4 +1,4 @@
-<!-- source: documentation/sixty-seconds.md blob bb2f0edb007e | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/sixty-seconds.md blob a6db49bbc3b1 | translated: 2026-09-16 | reviewed: - -->
 # Ve una traza en 60 segundos
 
 [English](../sixty-seconds.md) | **Español** | [Português](../pt-BR/sessenta-segundos.md) | [简体中文](../zh-CN/60秒.md)
@@ -91,6 +91,47 @@ de tus parámetros y del valor que devolvió el método — la información ya e
   `renderToConsole()` de `@narrativetrace/browser` lo imprime con buen formato en la consola de
   DevTools del navegador.
 
+## Demuestra la ocultación
+
+Un parámetro simplemente *nombrado* como un secreto se oculta sin ningún decorador — el propio
+paso 4 del prompt de arranque publicado es demostrarlo con un test, no confiar en él por
+inspección. Añade la integración de Vitest y su par:
+
+```bash
+npm add -D @narrativetrace/vitest vitest
+```
+
+```js
+// index.test.js
+import { renderMarkdownBody } from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+import { createNarrativeTest } from "@narrativetrace/vitest";
+import { expect } from "vitest";
+
+const test = createNarrativeTest();
+
+class PaymentService {
+  charge(customerId, paymentToken) {
+    return `CHG-${customerId}`;
+  }
+}
+
+test("redacts a deny-listed parameter", ({ narrativeContext }) => {
+  const service = traceObject(new PaymentService(), narrativeContext, {
+    charge: ["customerId", "paymentToken"],
+  });
+
+  service.charge("C1", "tok_live_51H8x");
+
+  expect(renderMarkdownBody(narrativeContext.captureTrace())).toContain("[REDACTED]");
+});
+```
+
+Ejecuta `npx vitest run`. Pasa, y la traza renderizada dentro muestra `[REDACTED]` para
+`paymentToken` — `customerId` se renderiza completo justo al lado, así que una ocultación
+demasiado amplia también haría fallar este mismo test. Más sobre qué se oculta y por qué:
+[Privacidad y ocultación](privacidad-y-ocultacion.md).
+
 ## Envíalo a tu logger
 
 La línea de consola de arriba es solo uno de los renderizadores sobre la traza; la misma traza
@@ -129,7 +170,11 @@ class OrderService {
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
 const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 
-const logger = pino(); // cualquier instancia de pino funciona — esta mantiene sus valores por defecto
+// Cualquier instancia de pino funciona. `sync: true` es una necesidad de este script, no de la
+// librería: el destino por defecto de pino escribe en un tick posterior, así que un script que
+// registra y luego imprime puede ver las dos salidas en cualquier orden — y un proceso de vida
+// corta puede terminar antes de que se vuelque la última línea.
+const logger = pino(pino.destination({ sync: true }));
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
 const context = new SyncNarrativeContext(
@@ -156,8 +201,8 @@ Salida real, de la ejecución que produjo esta página:
 
 ```text
 {"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms
 {"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms
 ```
 
 `time`, `pid`, `hostname` y `span_id` están fijados a un valor de relleno para esta muestra

@@ -26,7 +26,10 @@ class OrderService {
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
 const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 
-const logger = pino(); // any pino instance works — this one keeps its defaults
+// Any pino instance works. `sync: true` is this script's own need, not the library's: pino's
+// default destination writes on a later tick, so a script that logs and then prints can have the
+// two land in either order — and a short-lived process can exit before the last line is flushed.
+const logger = pino(pino.destination({ sync: true }));
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
 const context = new SyncNarrativeContext(

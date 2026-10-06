@@ -1,9 +1,7 @@
-<!-- source: documentation/agent-skills.md blob ecf242299f55 | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/agent-skills.md blob fafddfa7e15e | translated: 2026-09-16 | reviewed: - -->
 # Habilidades de agente
 
 [English](../agent-skills.md) | [Español](../es/habilidades-de-agente.md) | **Português** | [简体中文](../zh-CN/智能体技能.md)
-
-*(since 0.1.3)*
 
 O NarrativeTrace distribui **habilidades**: procedimentos carregáveis por um agente que executam
 comandos testados e condicionam sua conclusão a um passo `verify`, em vez de documentação que um
@@ -31,19 +29,48 @@ para você adicionar hoje).
 
 ## Instalando-as
 
-- **Claude Code**: neste repositório há `SKILL.md` gerados em
+- **`npx @narrativetrace/cli init`** — o caminho mais rápido, para qualquer projeto: primeiro
+  mostra uma prévia do plano e um diff unificado (`--dry-run`, não escreve nada), depois aplica
+  exatamente o que a prévia mostrou. Copia as duas habilidades para `.agents/skills/` — e para
+  `.claude/skills/` quando o projeto é daquele fornecedor — e escreve uma seção marcada no
+  `AGENTS.md`; um `CLAUDE.md` que já exista recebe uma linha `@AGENTS.md`, nenhum é criado. Rode de
+  novo a qualquer momento para atualizar: não há gancho de build, e uma nova execução reescreve
+  somente as páginas e a seção que lhe pertencem. Veja
+  [`@narrativetrace/cli`](../../packages/cli/README.md#narrativetrace-init) para todas as opções.
+  Uma prévia `--dry-run --json` contra um projeto vazio se parece com isto:
+  ```json
+  {
+    "carrier": "@narrativetrace/skills@0.2.0",
+    "actions": [
+      {
+        "kind": "create",
+        "path": ".agents/skills/narrativetrace-doctor/SKILL.md",
+        "status": "planned"
+      },
+      {
+        "kind": "create",
+        "path": ".agents/skills/add-narrative-tracing/SKILL.md",
+        "status": "planned"
+      },
+      {
+        "kind": "create",
+        "path": "AGENTS.md",
+        "status": "planned"
+      }
+    ],
+    "exitCode": 0
+  }
+  ```
+- **Copiar os arquivos gerados à mão** continua sendo o plano B — os mesmos caminhos que o `init`
+  escreve, mas sem a linha de procedência e sem você mesmo atualizar a seção do `AGENTS.md`.
+  **Claude Code**: neste repositório há `SKILL.md` gerados em
   [`.claude/skills/add-narrative-tracing/`](../../.claude/skills/add-narrative-tracing/SKILL.md) e
   [`.claude/skills/narrativetrace-doctor/`](../../.claude/skills/narrativetrace-doctor/SKILL.md),
   cada diretório nomeado com o nome canônico da sua habilidade — o prefixo do plugin do Claude é o
   único lugar onde um segmento abreviado é legítimo, e nada neste repositório é um plugin. Copie
   qualquer um desses diretórios para o `.claude/skills/<nome>/` do seu próprio projeto e o Claude a
   reconhece sozinho, invocável pelo nome (`add-narrative-tracing` / `narrativetrace-doctor`)
-  diretamente.
-- **Qualquer agente, qualquer plataforma**: todo agente que lê `AGENTS.md` vê o apontador sempre
-  ativo que o próprio `AGENTS.md` deste repositório carrega entre seus marcadores
-  `<!-- narrativetrace:skills:start -->` — o nome e a descrição das duas habilidades, para que um
-  agente que nunca pensou em procurá-las ainda assim saiba que elas existem.
-- **Codex**: os `SKILL.md` gerados também vivem em
+  diretamente. **Codex**: os `SKILL.md` gerados também vivem em
   [`.agents/skills/add-narrative-tracing/`](../../.agents/skills/add-narrative-tracing/SKILL.md) e
   [`.agents/skills/narrativetrace-doctor/`](../../.agents/skills/narrativetrace-doctor/SKILL.md) —
   o layout que a CLI do Codex descobre sozinha, subindo do diretório de trabalho até a raiz do
@@ -52,13 +79,17 @@ para você adicionar hoje).
   `allowed-tools`), então o mesmo corpo de página é distribuído sob os dois layouts. Fonte:
   developers.openai.com/codex/skills e developers.openai.com/codex/concepts/customization
   (obtido em 2026-09-13).
-- **Gemini, e um instalador automático** (`npx narrativetrace init` escrevendo esses caminhos para
-  você) estão no roteiro mas ainda não construídos — hoje, copiar os arquivos gerados é o caminho.
+- **Qualquer agente, qualquer plataforma**: todo agente que lê `AGENTS.md` vê o apontador sempre
+  ativo que o próprio `AGENTS.md` deste repositório carrega entre seus marcadores
+  `<!-- narrativetrace:skills:start -->` — o nome e a descrição das duas habilidades, para que um
+  agente que nunca pensou em procurá-las ainda assim saiba que elas existem.
+- **Gemini** está no roteiro mas ainda não foi construído.
 
 ## Como elas são construídas
 
-Nenhuma habilidade é editada à mão. `packages/skills/src/catalogue/add-narrative-tracing.ts` e
-`packages/skills/src/catalogue/narrativetrace-doctor.ts` são as duas fontes de verdade; `pnpm run
+Nenhuma habilidade é editada à mão.
+`packages/skills-catalogue/src/catalogue/add-narrative-tracing.ts` e
+`packages/skills-catalogue/src/catalogue/narrativetrace-doctor.ts` são as duas fontes de verdade; `pnpm run
 skills-render` regenera as páginas `.claude/skills/` e `.agents/skills/` das duas habilidades, e a
 seção do próprio `AGENTS.md` deste repositório, a partir delas, e `pnpm run skills-check`
 (integrado em

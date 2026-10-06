@@ -68,6 +68,16 @@ describe("architecture rules", () => {
     expect(violations).toEqual([]);
   });
 
+  // D3 of the Phase 3 design, as ruled: the tooling library holds the doctor and the installer
+  // and takes NO dependency — Node's built-ins only. The layering contract below sees workspace
+  // edges; this sees the third-party ones it cannot, which is the half that would quietly make an
+  // `npx @narrativetrace/cli` install fetch a tree.
+  test("tooling declares no runtime dependency at all", () => {
+    const manifest = JSON.parse(readFileSync("packages/tooling/package.json", "utf-8"));
+    expect(manifest.dependencies).toBeUndefined();
+    expect(manifest.peerDependencies).toBeUndefined();
+  });
+
   test("proxy must not depend on core-node", async () => {
     const rule = filesOfProject("packages/proxy/tsconfig.json")
       .inFolder("packages/proxy/src")
@@ -93,6 +103,11 @@ describe("architecture rules", () => {
 //     shared log-field infrastructure the logging/HTTP adapters build on.
 //   integrations (everything else) — core + platform runtime; never each
 //     other, never the analysis layer (clarity/glossary/diagrams).
+//   tooling                       — imports NOTHING, not even core. It is the
+//     doctor and the installer: it reasons about a consumer's files as text,
+//     and the bytes it installs are rendered elsewhere. Pinned empty below
+//     rather than left to integrationAllowance(), so "zero dependencies" is a
+//     structural fact the gate keeps rather than a sentence in a README.
 // Sanctioned exceptions, each pinned below in integrationAllowance():
 //   vitest — composition-style test adapter, mirrors Java junit5 (which
 //     depends on core, proxy, diagrams, clarity, glossary).
@@ -109,6 +124,9 @@ describe("architecture rules", () => {
 //     directly.
 //   react-router → react — a real integration→integration edge the contract
 //     forbids. Scoped out here rather than "fixed" in product code.
+//   cli → tooling — the CLI is a launcher over the tooling library and nothing
+//     else (Java's shape: narrativetrace-cli over narrativetrace-tooling), so
+//     this is the edge that keeps the CLI thin rather than one that leaks.
 
 const PLATFORM_RUNTIME = ["core-node", "core-web", "observability", "proxy"];
 
@@ -117,11 +135,13 @@ const LAYERED_ALLOWANCES: Record<string, string[]> = {
   core: [],
   diagrams: ["clarity", "core"],
   glossary: ["clarity", "core"],
+  tooling: [],
   ...Object.fromEntries(PLATFORM_RUNTIME.map((pkg) => [pkg, ["core"]])),
 };
 
 function integrationAllowance(pkg: string): string[] {
   const base = ["core", ...PLATFORM_RUNTIME];
+  if (pkg === "cli") return ["tooling"];
   if (pkg === "vitest") return [...base, "clarity", "diagrams", "glossary"];
   if (pkg === "security-tests") return [...base, "clarity", "diagrams", "glossary", "vitest"];
   if (pkg === "react-router") return [...base, "react"];
@@ -158,7 +178,7 @@ function specifierOf(node: ts.Node): string | undefined {
  * Every module `file` imports, from the AST rather than from a text match.
  *
  * INTENT: a specifier is an edge only when something IMPORTS it. The text match this replaced
- * counted any quoted `@narrativetrace/…` as a dependency, so `packages/skills` — whose whole
+ * counted any quoted `@narrativetrace/…` as a dependency, so `packages/skills-catalogue` — whose whole
  * content is instructions naming packages a user should install, example imports included — read
  * as depending on every package it documents.
  */
