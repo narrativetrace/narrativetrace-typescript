@@ -4,6 +4,7 @@
 import { execFileSync, spawn } from "node:child_process";
 import {
   cpSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
@@ -14,7 +15,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 /**
  * The narrativetrace-verify and narrativetrace-debug graders, rehearsed on solved, untouched and
@@ -42,6 +43,36 @@ beforeEach(() => {
 afterEach(() => {
   rmSync(root, { recursive: true, force: true });
 });
+
+let cacheRoot: string;
+const states = new Map<string, string>();
+
+beforeAll(() => {
+  cacheRoot = mkdtempSync(join(tmpdir(), "nt-trace-graders-cache-"));
+});
+
+afterAll(() => {
+  rmSync(cacheRoot, { recursive: true, force: true });
+});
+
+/** A named project state, built ONCE by really running Vitest, then copied into every test. */
+async function buildState(name: string, build: () => Promise<void>): Promise<void> {
+  project = join(cacheRoot, name);
+  await build();
+  states.set(name, project);
+}
+
+function restore(name: string): void {
+  const built = states.get(name);
+  if (built === undefined) throw new Error(`state ${name} was never built`);
+  cpSync(built, project, { recursive: true });
+}
+
+/** The artifact a real run must have left — a miss names it and shows what the run said. */
+function requireArtifact(relative: string, runOutput: string): void {
+  if (existsSync(join(project, relative))) return;
+  throw new Error(`the fixture run left no ${relative}; it printed:\n${runOutput.slice(-2000)}`);
+}
 
 function link(target: string, at: string): void {
   mkdirSync(join(at, ".."), { recursive: true });
@@ -189,7 +220,9 @@ async function pinTheFlow(): Promise<void> {
   );
   await run("npx", ["vitest", "run"]);
   await run("npx", ["narrativetrace-approve"]);
-  await run("npx", ["vitest", "run"]);
+  const last = await run("npx", ["vitest", "run"]);
+  requireArtifact(FLOW_NT, last);
+  requireArtifact("narratives/checkout-flow/customer_checks_out.approved.nt", last);
 }
 
 function verifyTranscript(
@@ -222,12 +255,23 @@ function verifyTranscript(
 }
 
 describe("the verify grader — unintended interaction", () => {
-  it(
-    "passes a solved trial: intent first, structure read, the receipt after confirm, pinned, cited",
-    async () => {
+  beforeAll(async () => {
+    await buildState("receipt-from-hook", async () => {
+      scaffold("existing-service-checkout");
+      receiptFromHook();
+      await pinTheFlow();
+    });
+    await buildState("receipt-after-settlement", async () => {
       scaffold("existing-service-checkout");
       receiptAfterSettlement();
       await pinTheFlow();
+    });
+  }, BUDGET_MS);
+
+  it(
+    "passes a solved trial: intent first, structure read, the receipt after confirm, pinned, cited",
+    async () => {
+      restore("receipt-after-settlement");
       record(verifyTranscript());
       const result = await grade("narrativetrace-verify", "verify-unintended-interaction");
       expect(result.out).not.toMatch(/^FAIL/m);
@@ -239,9 +283,7 @@ describe("the verify grader — unintended interaction", () => {
   it(
     "fails the trial that sent the receipt from the hook: the receipt precedes confirm",
     async () => {
-      scaffold("existing-service-checkout");
-      receiptFromHook();
-      await pinTheFlow();
+      restore("receipt-from-hook");
       record(verifyTranscript());
       const result = await grade("narrativetrace-verify", "verify-unintended-interaction");
       expect(result.out).toMatch(
@@ -255,9 +297,7 @@ describe("the verify grader — unintended interaction", () => {
   it(
     "fails a trial that wrote its intent only after the traced run",
     async () => {
-      scaffold("existing-service-checkout");
-      receiptAfterSettlement();
-      await pinTheFlow();
+      restore("receipt-after-settlement");
       record(verifyTranscript({ intentFirst: false }));
       expect((await grade("narrativetrace-verify", "verify-unintended-interaction")).out).toMatch(
         /FAIL the intent is written before the first traced run/,
@@ -269,9 +309,7 @@ describe("the verify grader — unintended interaction", () => {
   it(
     "fails a trial that opened the values before the structure",
     async () => {
-      scaffold("existing-service-checkout");
-      receiptAfterSettlement();
-      await pinTheFlow();
+      restore("receipt-after-settlement");
       record(verifyTranscript({ valuesFirst: true }));
       expect((await grade("narrativetrace-verify", "verify-unintended-interaction")).out).toMatch(
         /FAIL values were not opened before the structural trace/,
@@ -283,9 +321,7 @@ describe("the verify grader — unintended interaction", () => {
   it(
     "fails a trial that promoted before the yes",
     async () => {
-      scaffold("existing-service-checkout");
-      receiptAfterSettlement();
-      await pinTheFlow();
+      restore("receipt-after-settlement");
       record(verifyTranscript({ promoteEarly: true }));
       expect((await grade("narrativetrace-verify", "verify-unintended-interaction")).out).toMatch(
         /FAIL nothing was promoted before the scripted yes/,
@@ -437,7 +473,7 @@ function routeAroundTheConverter(): void {
 async function pinTheReproduction(): Promise<void> {
   await run("npx", ["vitest", "run"]);
   await run("npx", ["narrativetrace-approve"]);
-  await run("npx", ["vitest", "run"]);
+  requireArtifact("narrativetrace-output/ticket-4471", await run("npx", ["vitest", "run"]));
 }
 
 function debugTranscript(redMd: string, options: { namedAfterFix?: boolean } = {}): Line[] {
@@ -461,18 +497,35 @@ function debugTranscript(redMd: string, options: { namedAfterFix?: boolean } = {
 /** The reproduction run red, as the agent saw it before the fix. */
 async function redReproduction(): Promise<string> {
   writeReproduction();
-  await run("npx", ["vitest", "run", REPRO]);
+  const out = await run("npx", ["vitest", "run", REPRO]);
+  requireArtifact("narrativetrace-output/ticket-4471", out);
   return read(reproMd());
 }
 
 describe("the debug grader — value divergence", () => {
+  let red: string;
+
+  beforeAll(async () => {
+    await buildState("red", async () => {
+      scaffold("existing-service-checkout-currency");
+      red = await redReproduction();
+    });
+    await buildState("fixed-and-pinned", async () => {
+      restore("red");
+      fixTheConverter();
+      await pinTheReproduction();
+    });
+    await buildState("routed-around-and-pinned", async () => {
+      restore("red");
+      routeAroundTheConverter();
+      await pinTheReproduction();
+    });
+  }, BUDGET_MS);
+
   it(
     "passes a solved trial: values read, #1.3 named before the fix, fixed there, kept, pinned",
     async () => {
-      scaffold("existing-service-checkout-currency");
-      const red = await redReproduction();
-      fixTheConverter();
-      await pinTheReproduction();
+      restore("fixed-and-pinned");
       record(debugTranscript(red));
       const result = await grade("narrativetrace-debug", "debug-value-divergence");
       expect(result.out).not.toMatch(/^FAIL/m);
@@ -484,10 +537,7 @@ describe("the debug grader — value divergence", () => {
   it(
     "fails the route around the span: the converter's value is still wrong and the shape moved",
     async () => {
-      scaffold("existing-service-checkout-currency");
-      const red = await redReproduction();
-      routeAroundTheConverter();
-      await pinTheReproduction();
+      restore("routed-around-and-pinned");
       record(debugTranscript(red));
       const result = await grade("narrativetrace-debug", "debug-value-divergence");
       expect(result.out).toMatch(/FAIL the diverging span now carries the right value/);
@@ -502,10 +552,7 @@ describe("the debug grader — value divergence", () => {
   it(
     "fails a trial that named the span only after changing the code",
     async () => {
-      scaffold("existing-service-checkout-currency");
-      const red = await redReproduction();
-      fixTheConverter();
-      await pinTheReproduction();
+      restore("fixed-and-pinned");
       record(debugTranscript(red, { namedAfterFix: true }));
       expect((await grade("narrativetrace-debug", "debug-value-divergence")).out).toMatch(
         /FAIL the diverging span is named by its id before the fix/,
@@ -517,8 +564,7 @@ describe("the debug grader — value divergence", () => {
   it(
     "fails a fix with no regression test: undoing it leaves every test green",
     async () => {
-      scaffold("existing-service-checkout-currency");
-      const red = await redReproduction();
+      restore("red");
       rmSync(join(project, REPRO));
       fixTheConverter();
       record(debugTranscript(red));

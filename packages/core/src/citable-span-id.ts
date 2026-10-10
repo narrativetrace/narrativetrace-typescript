@@ -102,9 +102,13 @@ export const CitableSpanId = {
 
   /** Whether `text` is exactly one span id: `#`, then dot-separated runs of ASCII digits. */
   isWellFormed(text: string): boolean {
-    return idEnd(`${text} `, 0) === text.length;
+    return WELL_FORMED_ID.test(text);
   },
 } as const;
+
+// Anchored, linear, no nested quantifier: a native scan, because the renderers validate one id per
+// node and an id is as long as its node is deep — a char loop here made a deep chain quadratic.
+const WELL_FORMED_ID = /^#[0-9]+(?:\.[0-9]+)*$/;
 
 /** What {@link idEnd} answers when no well-formed id starts there. */
 const NO_ID = -1;
