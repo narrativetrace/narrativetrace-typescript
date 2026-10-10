@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { partitionChildren } from "./child-segment.js";
+import { CitableSpanId } from "./citable-span-id.js";
 import { ControlEscape } from "./control-escape.js";
 import { errorTypeName } from "./error-display.js";
 import type { TraceNode } from "./trace-node.js";
@@ -43,13 +44,20 @@ export function renderStructuralDocument(tree: TraceTree, scenario: string): str
  * separate, driftable comparison.
  */
 export function structuralSubtreeKey(node: TraceNode): string {
-  return planAndRenderRoots([node]);
+  const rootPlan: PlanResult = { items: [{ node, depth: 0, id: null }], carry: "" };
+  return renderPlanned(rootPlan);
 }
 
-/** One node queued for rendering: its depth, and text to print immediately before/after it. */
+/**
+ * One node queued for rendering: its depth, its citable span id (`null` for the ROOT of a
+ * {@link structuralSubtreeKey} walk — a key is compared, never cited, so its root prints none and its
+ * children are numbered as roots, `#1`, `#2`, exactly as Java `subtreeKey` does; ids are positional,
+ * so equal shapes still give equal keys), and text to print immediately before/after it.
+ */
 interface Planned {
   readonly node: TraceNode;
   readonly depth: number;
+  readonly id: string | null;
   readonly leading?: string | undefined;
   trailing?: string | undefined;
 }
@@ -71,49 +79,64 @@ interface PlanResult {
   readonly carry: string;
 }
 
-/** Mutable box for `carry`, so the per-segment planners below can share and drain one accumulator. */
-interface CarryBox {
-  value: string;
+/**
+ * The state one sibling list is planned with: the queued items, marker text that has no queued
+ * node yet (`carry`), and the span-id cursor — the next position in planning order, which IS the
+ * id order (Java `SpanCursor`).
+ */
+interface SiblingPlan {
+  readonly items: Planned[];
+  carry: string;
+  readonly parent: string | null;
+  position: number;
 }
 
-/** Consumes and returns the boxed carry text, or `undefined` when there is none to attach. */
-function flush(carry: CarryBox): string | undefined {
-  if (carry.value === "") return undefined;
-  const text = carry.value;
-  carry.value = "";
+function nextId(plan: SiblingPlan): string {
+  plan.position++;
+  return CitableSpanId.child(plan.parent, plan.position);
+}
+
+/** Consumes and returns the carry text, or `undefined` when there is none to attach. */
+function flush(plan: SiblingPlan): string | undefined {
+  if (plan.carry === "") return undefined;
+  const text = plan.carry;
+  plan.carry = "";
   return text;
+}
+
+function queue(plan: SiblingPlan, node: TraceNode, depth: number, id: string): void {
+  plan.items.push({ node, depth, id, leading: flush(plan) });
 }
 
 function planSegment(
   segment: ReturnType<typeof partitionChildren>[number],
   depth: number,
-  items: Planned[],
-  carry: CarryBox,
+  plan: SiblingPlan,
 ): void {
   if (segment.kind === "sequential") {
-    items.push({ node: segment.node, depth, leading: flush(carry) });
+    queue(plan, segment.node, depth, nextId(plan));
   } else if (segment.kind === "fire-and-forget") {
-    planFireAndForget(segment.members[0] as TraceNode, depth, items, carry);
+    planFireAndForget(segment.members, depth, plan);
   } else {
-    planGroup(
-      segment.kind === "async" ? "~ async" : "~ fork",
-      segment.members,
-      depth,
-      items,
-      carry,
-    );
+    planGroup(segment.kind === "async" ? "~ async" : "~ fork", segment.members, depth, plan);
   }
 }
 
-function planFireAndForget(
-  launcher: TraceNode,
-  depth: number,
-  items: Planned[],
-  carry: CarryBox,
-): void {
-  carry.value += `${"  ".repeat(depth)}~ fire-and-forget\n`;
-  for (const [i, child] of launcher.children.entries()) {
-    items.push({ node: child, depth: depth + 1, leading: i === 0 ? flush(carry) : undefined });
+/**
+ * A fire-and-forget launch takes one position: its id opens the `~ fire-and-forget` line, and the
+ * launched work — this runtime tags each detached task's own root span, so the members ARE that
+ * work — nests under it as a sibling list of its own, in capture order.
+ *
+ * @edgeCase Every member renders as itself. Treating the first member as a launcher whose
+ * children were the launched work (the shape of the Java reference's synthetic launcher node,
+ * which this runtime never builds) dropped each worker's own line and every other worker of the
+ * group — Java cross-port item 4, "a fire-and-forget WORKER root is a plain node".
+ */
+function planFireAndForget(members: readonly TraceNode[], depth: number, plan: SiblingPlan): void {
+  const launch = nextId(plan);
+  plan.carry += `${"  ".repeat(depth)}${launch} ~ fire-and-forget\n`;
+  for (const [i, member] of members.entries()) {
+    queue(plan, member, depth + 1, CitableSpanId.child(launch, i + 1));
   }
 }
 
@@ -121,12 +144,11 @@ function planGroup(
   marker: string,
   members: readonly TraceNode[],
   depth: number,
-  items: Planned[],
-  carry: CarryBox,
+  plan: SiblingPlan,
 ): void {
-  carry.value += `${"  ".repeat(depth)}${marker} [${members.length}]\n`;
-  for (const [i, member] of sortBySignature(members).entries()) {
-    items.push({ node: member, depth: depth + 1, leading: i === 0 ? flush(carry) : undefined });
+  plan.carry += `${"  ".repeat(depth)}${marker} [${members.length}]\n`;
+  for (const member of [...members].sort(CitableSpanId.concurrentOrder)) {
+    queue(plan, member, depth + 1, nextId(plan));
   }
 }
 
@@ -134,35 +156,23 @@ function planGroup(
  * Concurrent groups render under a marker (`~ fork [n]`, `~ async [n]`) with members sorted by
  * `Class.method` — capture order across threads is the scheduler's choice, not behaviour, and this
  * artifact must be byte-identical for identical behavior. Thread identity is runtime data and never
- * appears. A fire-and-forget launcher renders `~ fire-and-forget` and is itself skipped: only its
- * children are queued, at the launcher's own depth plus one — the launch is not itself a call the
- * developer wrote in this scenario's shape, only the work it started is.
+ * appears. Every planned node takes its citable span id here, in planning order.
  *
- * @remarks `carry` accumulates marker text that has no queued node yet (an empty fire-and-forget
- * group produces none at all); it becomes the next node's `leading` the moment one exists, is
- * attached to the last queued node's `trailing` otherwise (see {@link attachCarry}), or — when the
- * whole sibling list queued no node at all — is spliced straight into the output.
+ * @remarks `carry` accumulates marker text that has no queued node yet (an empty concurrent group
+ * produces a marker with nothing under it); it becomes the next node's `leading` the moment one
+ * exists, is attached to the last queued node's `trailing` otherwise (see {@link attachCarry}), or
+ * — when the whole sibling list queued no node at all — is spliced straight into the output.
  */
-function planChildren(children: readonly TraceNode[], depth: number): PlanResult {
-  const items: Planned[] = [];
-  const carry: CarryBox = { value: "" };
+function planChildren(
+  children: readonly TraceNode[],
+  depth: number,
+  parent: string | null,
+): PlanResult {
+  const plan: SiblingPlan = { items: [], carry: "", parent, position: 0 };
   for (const segment of partitionChildren(children)) {
-    planSegment(segment, depth, items, carry);
+    planSegment(segment, depth, plan);
   }
-  return { items, carry: carry.value };
-}
-
-function sortBySignature(members: readonly TraceNode[]): readonly TraceNode[] {
-  return [...members].sort((a, b) => {
-    const ka = signatureKey(a);
-    const kb = signatureKey(b);
-    // Ordinal (code-unit) comparison — byte-stable across ICU locales (Java String.compareTo).
-    return ka < kb ? -1 : ka > kb ? 1 : 0;
-  });
-}
-
-function signatureKey(node: TraceNode): string {
-  return `${node.signature.className}.${node.signature.methodName}`;
+  return { items: plan.items, carry: plan.carry };
 }
 
 function outcomeSuffix(outcome: TraceOutcome): string {
@@ -171,12 +181,14 @@ function outcomeSuffix(outcome: TraceOutcome): string {
   return " ?? incomplete";
 }
 
-function appendLine(node: TraceNode, depth: number, marker: string | undefined): string {
+function appendLine(item: Planned, marker: string | undefined): string {
+  const { node, depth, id } = item;
   const { className, methodName, parameters } = node.signature;
   const params = parameters.map((p) => ControlEscape.sanitize(p.name)).join(", ");
   const call = `${ControlEscape.sanitize(className)}.${ControlEscape.sanitize(methodName)}(${params})`;
   const markerText = marker !== undefined ? ` ${marker}` : "";
-  return `${"  ".repeat(depth)}- ${call}${outcomeSuffix(node.outcome)}${markerText}\n`;
+  const idText = id === null ? "" : `${id} `;
+  return `${"  ".repeat(depth)}${idText}- ${call}${outcomeSuffix(node.outcome)}${markerText}\n`;
 }
 
 /**
@@ -201,9 +213,12 @@ function attachCarry(plan: PlanResult, out: { text: string }): void {
  * further), and `leading`/`trailing` text — concurrency-group markers — is spliced in around it.
  */
 function planAndRenderRoots(roots: readonly TraceNode[]): string {
+  return renderPlanned(planChildren(roots, 0, null));
+}
+
+function renderPlanned(rootPlan: PlanResult): string {
   const walk = new TreeWalk<TraceNode>();
   const out = { text: "" };
-  const rootPlan = planChildren(roots, 0);
   attachCarry(rootPlan, out);
   const stack: StructuralFrame[] = [{ owner: null, items: rootPlan.items, index: 0 }];
   while (stack.length > 0) {
@@ -231,12 +246,12 @@ function enterItem(
   if (stop !== undefined) {
     // TreeWalk never descends into a stopped node's children, so trailing text — normally printed
     // once the subtree finishes — is appended right here instead; a stopped node is a leaf either way.
-    out.text += appendLine(item.node, item.depth, TREE_WALK_MARKER[stop]);
+    out.text += appendLine(item, TREE_WALK_MARKER[stop]);
     if (item.trailing !== undefined) out.text += item.trailing;
     return;
   }
-  out.text += appendLine(item.node, item.depth, undefined);
-  const childPlan = planChildren(item.node.children, item.depth + 1);
+  out.text += appendLine(item, undefined);
+  const childPlan = planChildren(item.node.children, item.depth + 1, item.id);
   attachCarry(childPlan, out);
   stack.push({ owner: item.node, trailing: item.trailing, items: childPlan.items, index: 0 });
 }

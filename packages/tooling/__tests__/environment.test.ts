@@ -85,6 +85,38 @@ describe("buildSnapshot", () => {
     );
   });
 
+  test("never reads the feedback verb's own files as rendered output", () => {
+    write("package.json", "{}");
+    write("narrativetrace-output/trace.md", "rendered trace");
+    write(
+      "narrativetrace-output/feedback/feedback-body.md",
+      "docUrl: ...#parameters-show-as-arg0-arg1",
+    );
+    const snapshot = buildSnapshot(dir, {});
+    expect([...snapshot.outputFiles.keys()]).toEqual(["narrativetrace-output/trace.md"]);
+    expect(snapshot.sourceFiles.has("narrativetrace-output/feedback/feedback-body.md")).toBe(false);
+  });
+
+  test("still reads a sibling directory that only shares the feedback prefix", () => {
+    write("package.json", "{}");
+    write("narrativetrace-output/feedbackx/trace.md", "rendered trace");
+    write("narrativetrace-output/suite/feedback/trace.md", "nested trace");
+    const snapshot = buildSnapshot(dir, {});
+    expect(snapshot.outputFiles.get("narrativetrace-output/feedbackx/trace.md")).toBe(
+      "rendered trace",
+    );
+    expect(snapshot.outputFiles.get("narrativetrace-output/suite/feedback/trace.md")).toBe(
+      "nested trace",
+    );
+  });
+
+  test("skips the feedback directory under a moved output directory too", () => {
+    write("package.json", "{}");
+    write("custom-output/feedback/feedback-draft.md", "arg0");
+    const snapshot = buildSnapshot(dir, { NARRATIVETRACE_OUTPUT_DIR: "custom-output" });
+    expect(snapshot.outputFiles.size).toBe(0);
+  });
+
   test("resolves an installed package's package.json from the consumer root", () => {
     write("package.json", JSON.stringify({ name: "consumer" }));
     write("node_modules/vitest/package.json", JSON.stringify({ name: "vitest", version: "3.2.0" }));
@@ -351,5 +383,92 @@ describe("buildSnapshot", () => {
     const snapshot = buildSnapshot(dir, {});
     expect(snapshot.installedPackages.get("@narrativetrace/vitest")?.version).toBe("0.1.3");
     expect(snapshot.installedPackages.get("@narrativetrace/proxy")?.version).toBe("0.1.3");
+  });
+  test("reads every workspace manifest, not only the root's", () => {
+    write("package.json", JSON.stringify({ name: "monorepo", workspaces: ["apps/*"] }));
+    write("apps/api/package.json", JSON.stringify({ dependencies: { express: "^5.0.0" } }));
+    const snapshot = buildSnapshot(dir, {});
+    expect([...snapshot.manifests.keys()].sort()).toEqual([
+      "apps/api/package.json",
+      "package.json",
+    ]);
+    expect(snapshot.manifests.get("apps/api/package.json")?.dependencies).toEqual({
+      express: "^5.0.0",
+    });
+  });
+
+  test("never reads an installed package's manifest as the project's own", () => {
+    write("package.json", "{}");
+    write("node_modules/express/package.json", JSON.stringify({ name: "express" }));
+    write("dist/package.json", JSON.stringify({ name: "built" }));
+    expect([...buildSnapshot(dir, {}).manifests.keys()]).toEqual(["package.json"]);
+  });
+
+  test("skips a manifest that does not parse rather than failing the whole run", () => {
+    write("package.json", "{}");
+    write("apps/broken/package.json", "{ not json");
+    expect([...buildSnapshot(dir, {}).manifests.keys()]).toEqual(["package.json"]);
+  });
+
+  test("a file merely ending in package.json is not a manifest", () => {
+    write("package.json", "{}");
+    write("fixtures/my-package.json", JSON.stringify({ dependencies: { express: "5" } }));
+    expect([...buildSnapshot(dir, {}).manifests.keys()]).toEqual(["package.json"]);
+  });
+
+  test.each([
+    ["pnpm-lock.yaml", "pnpm"],
+    ["yarn.lock", "yarn"],
+    ["bun.lock", "bun"],
+    ["bun.lockb", "bun"],
+    ["package-lock.json", "npm"],
+  ])("names the package manager from the root lockfile %s", (lockfile, manager) => {
+    write("package.json", "{}");
+    write(lockfile, "");
+    expect(buildSnapshot(dir, {}).packageManager).toBe(manager);
+  });
+
+  test("defaults to npm when the project has no lockfile at all", () => {
+    write("package.json", "{}");
+    expect(buildSnapshot(dir, {}).packageManager).toBe("npm");
+  });
+
+  test("the packageManager field wins over a stray lockfile", () => {
+    write("package.json", JSON.stringify({ packageManager: "pnpm@9.12.0" }));
+    write("package-lock.json", "{}");
+    expect(buildSnapshot(dir, {}).packageManager).toBe("pnpm");
+  });
+
+  test("an unknown packageManager field falls back to the lockfile", () => {
+    write("package.json", JSON.stringify({ packageManager: "deno@2.0.0" }));
+    write("yarn.lock", "");
+    expect(buildSnapshot(dir, {}).packageManager).toBe("yarn");
+  });
+
+  test("a lockfile in a subdirectory does not decide the root's package manager", () => {
+    write("package.json", "{}");
+    write("apps/web/yarn.lock", "");
+    expect(buildSnapshot(dir, {}).packageManager).toBe("npm");
+  });
+});
+
+describe("buildSnapshot — the project's NarrativeTrace config source", () => {
+  test("carries narrativetrace.config.json as raw text", () => {
+    write("narrativetrace.config.json", '{ "approval": "true" }');
+    expect(buildSnapshot(dir, {}).projectConfig).toBe('{ "approval": "true" }');
+  });
+
+  test("falls back to .narrativetracerc.json, the runtime's second name", () => {
+    write(".narrativetracerc.json", "{}");
+    expect(buildSnapshot(dir, {}).projectConfig).toBe("{}");
+  });
+
+  test("is absent when the project has neither", () => {
+    expect(buildSnapshot(dir, {}).projectConfig).toBeUndefined();
+  });
+
+  test("carries a manifest's npm scripts, where a test run's environment is set", () => {
+    write("package.json", '{ "scripts": { "test": "NARRATIVETRACE_APPROVAL=true vitest" } }');
+    expect(buildSnapshot(dir, {}).rootPackageJson?.scripts?.test).toContain("APPROVAL=true");
   });
 });

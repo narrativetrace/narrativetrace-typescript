@@ -8,6 +8,9 @@ import {
   isSporadicPlatform,
   PLATFORMS,
   presetAgentCommand,
+  presetFirstTurnCommand,
+  presetResumedTurnCommand,
+  SESSION_PLACEHOLDER,
   SPORADIC_PLATFORMS,
 } from "../platform-presets.js";
 
@@ -46,8 +49,25 @@ describe("isReadOnlySkill", () => {
 describe("presetAgentCommand", () => {
   it("builds the claude preset with the requested model and the prompt-implied tools", () => {
     expect(presetAgentCommand("claude", "haiku", "narrativetrace-doctor")).toBe(
-      'claude -p "{prompt}" --model haiku --allowed-tools "Bash,Read,Edit,Write,WebFetch"',
+      'claude -p "{prompt}" --model haiku --allowed-tools "Bash,Read,Edit,Write,WebFetch,Skill"' +
+        " --strict-mcp-config --output-format stream-json --verbose",
     );
+  });
+
+  it("loads no MCP server at all on the claude lane — not even the account's own connectors", () => {
+    expect(presetAgentCommand("claude", "haiku", "narrativetrace-feedback")).toContain(
+      "--strict-mcp-config",
+    );
+  });
+
+  it("streams the claude lane's tool calls, not only its closing text — the grader reads both", () => {
+    expect(presetAgentCommand("claude", "haiku", "narrativetrace-feedback")).toContain(
+      "--output-format stream-json --verbose",
+    );
+  });
+
+  it("lets the claude lane INVOKE a skill — the published prompt's step 4 says to follow one", () => {
+    expect(presetAgentCommand("claude", "haiku", "add-narrative-tracing")).toContain("Skill");
   });
 
   it("builds the codex preset in the read-only sandbox for a read-only skill", () => {
@@ -78,5 +98,27 @@ describe("presetAgentCommand", () => {
     expect(presetAgentCommand("gemini", "flash", "add-narrative-tracing")).toBe(
       'gemini -p "{prompt}" --model flash --approval-mode auto_edit',
     );
+  });
+});
+
+describe("presetFirstTurnCommand / presetResumedTurnCommand", () => {
+  it("opens a claude conversation under the trial's own session id", () => {
+    expect(presetFirstTurnCommand("claude", "haiku", "narrativetrace-feedback")).toBe(
+      `${presetAgentCommand("claude", "haiku", "narrativetrace-feedback")} --session-id ${SESSION_PLACEHOLDER}`,
+    );
+  });
+
+  it("resumes that same conversation, never forks it, on every later turn", () => {
+    expect(presetResumedTurnCommand("claude", "haiku", "narrativetrace-feedback")).toBe(
+      `${presetAgentCommand("claude", "haiku", "narrativetrace-feedback")} --resume ${SESSION_PLACEHOLDER}`,
+    );
+  });
+
+  it.each([
+    "codex",
+    "gemini",
+  ] as const)("has neither half for %s, whose multi-turn flags were never verified here", (platform) => {
+    expect(presetFirstTurnCommand(platform, "m", "narrativetrace-feedback")).toBeUndefined();
+    expect(presetResumedTurnCommand(platform, "m", "narrativetrace-feedback")).toBeUndefined();
   });
 });

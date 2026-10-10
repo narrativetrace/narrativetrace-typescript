@@ -1,4 +1,4 @@
-<!-- source: documentation/what-to-commit.md blob b12786038969 | translated: 2026-09-14 | reviewed: - -->
+<!-- source: documentation/what-to-commit.md blob 836a2743a231 | translated: 2026-10-07 | reviewed: - -->
 # O que commitar
 
 [English](../what-to-commit.md) | [Español](../es/que-commitear.md) | **Português** | [简体中文](../zh-CN/应提交的内容.md)
@@ -27,6 +27,8 @@ baseline de aprovação em qualquer outra implementação do NarrativeTrace.
 | `<approvedDir>/**/*.incomplete.nt` | Não | Escrito no lugar de `.received.nt` quando a própria execução foi incompleta (um evento descartado, ou um escopo assíncrono recusado) — comparado por contenção de subsequência, nunca promovível |
 | `glossary.json` / `glossary.md` | **Sim**, se a coleta do glossário for usada | Commitado na raiz do repositório assim que coletado; o arquivo commitado é o que a pontuação de clareza e as verificações de vocabulário leem de volta em cada execução subsequente — "um arquivo, um workflow de revisão" |
 | `.claude/skills/**/SKILL.md`, `.agents/skills/**/SKILL.md`, a seção `<!-- narrativetrace:skills:* -->` do `AGENTS.md` | **Sim** | Saída de build do catálogo tipado de `packages/skills-catalogue` (`pnpm run skills-render`), não saída de uma execução de teste — commitada do mesmo jeito que `glossary.json`: regenerada, revisada nos diffs, e checada contra desvios (`pnpm run skills-check`, integrado em `pnpm run check`) em vez de editada à mão |
+| `skills-lock.json` | **Sim**, se o seu time usa `npx skills add` | Escrito na raiz do projeto pelo `npx skills add` — o próprio registro do que o registro instalou e de onde; commite do mesmo jeito que faria com qualquer outro arquivo de lock de dependências do seu time |
+| `.claude-plugin/marketplace.json` | **Sim** | O próprio listing deste repositório (Fase 4): saída de build do mesmo catálogo tipado da linha acima, gerada e checada contra o mesmo desvio (`pnpm run skills-check`) — nunca editada à mão |
 
 Em um projeto que rodou [`narrativetrace init`](../../packages/cli/README.md#narrativetrace-init)
 esses mesmos dois caminhos (e a seção do `AGENTS.md`) são os que devem ser commitados, e cada
@@ -37,6 +39,10 @@ então uma página commitada sem ela vira uma página que ninguém pode remover 
 segurança. A seção do `AGENTS.md` que um consumidor commita fica entre
 `<!-- narrativetrace:start ... -->` e `<!-- narrativetrace:end -->`: o que você escrever fora
 desses marcadores é seu e sobrevive a cada nova execução, e o que está dentro deles é substituído.
+
+Uma instalação pessoal do plugin (`/plugin install narrativetrace-typescript@narrativetrace-typescript`
+do Claude Code) não escreve nada no projeto — ela vive no seu próprio cache de plugins, então não
+há nada dela para commitar.
 
 Tudo o que está sob `narrativetrace-output/` é saída. Adicione ao
 `.gitignore` caso ainda não tenha feito isso:

@@ -450,7 +450,7 @@ Going deeper:
 - [Privacy and Redaction](documentation/privacy-and-redaction.md) — the row-by-row redaction contract, verified against the code
 - [What to Commit](documentation/what-to-commit.md) — which generated files are run output and which (if any) are reviewed baselines
 - [Troubleshooting](documentation/troubleshooting.md) — symptom → cause → fix for the failure modes people actually hit
-- [Agent Skills](documentation/agent-skills.md) — `narrativetrace-doctor`, a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor`
+- [Agent Skills](documentation/agent-skills.md) — `add-narrative-tracing`, `narrativetrace-doctor` (a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify` and `narrativetrace-debug`
 - [Clarity Guide](documentation/clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](documentation/framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](documentation/examples-guide.md) — the `pnpm demo` launcher and the runnable examples: ecommerce, clarity, Minecraft, plain JavaScript, Express, Hono, distributed (Docker + Jaeger), browser
@@ -579,7 +579,8 @@ What that means for the packages in this repository:
 
 | Part | License |
 |---|---|
-| The runtime — every `@narrativetrace/*` package published from this repository | [BSL 1.1](LICENSE) (SPDX `BUSL-1.1`), converting to Apache 2.0 four years after each release |
+| The runtime — every other `@narrativetrace/*` package published from this repository | [BSL 1.1](LICENSE) (SPDX `BUSL-1.1`), converting to Apache 2.0 four years after each release |
+| `@narrativetrace/cli`, `@narrativetrace/skills`, `@narrativetrace/tooling`, and the rendered agent-skill pages and marketplace file (`.claude/skills/**`, `.agents/skills/**`, `.claude-plugin/marketplace.json`) | [Apache 2.0](LICENSE-APACHE), see [NOTICE](NOTICE) |
 | The annotation/decorator API, the output-format spec and the clarity rubric | [Apache 2.0](LICENSE-APACHE) (api split pending — see below) |
 | Documentation prose | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 

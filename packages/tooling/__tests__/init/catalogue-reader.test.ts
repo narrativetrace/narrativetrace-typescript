@@ -60,6 +60,10 @@ describe("reading a catalogue", () => {
     expect(catalogue.skills.map((skill) => skill.name)).toEqual([
       "narrativetrace-doctor",
       "add-narrative-tracing",
+      "narrativetrace-feedback",
+      "add-narrativetrace-clarity",
+      "narrativetrace-verify",
+      "narrativetrace-debug",
     ]);
     for (const skill of catalogue.skills) {
       for (const flavour of SKILL_FLAVOURS) {

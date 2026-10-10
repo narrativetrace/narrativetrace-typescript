@@ -20,6 +20,7 @@ import {
   reportExitCode,
   runDoctor,
 } from "@narrativetrace/tooling";
+import { runFeedbackCommand } from "./feedback-verb.js";
 import { type InstallerArguments, parseInstallerArguments } from "./installer-arguments.js";
 
 const USAGE = `narrativetrace — one CLI over NarrativeTrace's open artifact formats
@@ -29,15 +30,47 @@ Usage:
   narrativetrace init [--dry-run] [--write-existing] [--force] [--only <half>] [--vendor <vendor>]
                       [--from <dir>] [--json]
   narrativetrace uninstall [--dry-run] [--only <half>] [--json]
+  narrativetrace feedback <draft|url|gh> --category <c> --step <s>
+                          --did <t> --happened <t> --expected <t> [--language <tag>]
+                          [--agent-product <p>] [--agent-model <m>] [--trace <path>] [--json]
 
 Commands:
   doctor     Read-only project diagnosis: toolchain, configuration, and known traps. Zero network.
   init       Installs the NarrativeTrace agent skills and the AGENTS.md section into this project.
   uninstall  Removes exactly what init wrote, and nothing beside it.
+  feedback   Drafts a problem report, checks it carries no values, and shows you how to file it.
 
 Options:
   --json    Machine-readable output instead of human text.
   --help    Show this message.`;
+
+/** Package-private: the feedback verb prints it, and there is one copy of it. */
+const FEEDBACK_USAGE = `narrativetrace feedback <draft|url|gh> [options]
+
+Drafts a problem report about NarrativeTrace from this project: the packages it resolved, the
+doctor's own JSON report, and at most one structural trace. Every field is checked against the
+value-free rules FIRST — the verb refuses to write a body file or build a URL while any rule
+stands, and names the rule.
+
+Channels:
+  draft  Write and print the whole draft. Nothing is filed.
+  url    Print the pre-filled issue-form URL. You open it and submit it yourself.
+  gh     Print the exact \`gh issue create\` line. It is never run from here.
+
+Options:
+  --category <c>       prompt | skill | doctor | library. Required.
+  --step <s>           Which check id, skill step or prompt step it happened at. Required.
+  --did <t>            What you did. Required.
+  --happened <t>       What happened instead. Required.
+  --expected <t>       What you expected. Required.
+  --language <tag>     The language the report is written in. en by default.
+  --agent-product <p>  The agent product drafting this, as it reports itself.
+  --agent-model <m>    The agent model, as it reports itself.
+  --trace <path>       A path suffix naming the structural trace to attach.
+  --json               Machine-readable output instead of human text.
+
+Nothing is sent anywhere. Exit 0 = drafted, 1 = that channel is not available, 2 = could not run
+(a missing flag, or a value-free rule refused the report).`;
 
 const DOCTOR_USAGE = `narrativetrace doctor [--json]
 
@@ -101,6 +134,15 @@ export interface CliDeps {
   readonly buildSnapshot: (cwd: string, env: Env) => DoctorSnapshot;
   /** Opens the carrier a run installs from; `from` is whatever `--from` named, or `undefined`. */
   readonly openCarrier: (from: string | undefined) => Carrier;
+  /**
+   * Whether an already-installed `gh` is signed in — the one question the `gh` channel of
+   * `feedback` turns on, and the only outward-facing thing this launcher ever causes.
+   *
+   * Injected so all four of its outcomes (absent, present-but-signed-out, signed in, and a platform
+   * that cannot start a process) are testable without starting anything. `gh-auth-probe.ts` is the
+   * single entry point that holds the real one.
+   */
+  readonly ghAuthenticated: () => boolean;
   /** One line of human text. */
   readonly log: (message: string) => void;
   /** A rendered report, verbatim — it brings its own trailing newline. */
@@ -232,6 +274,7 @@ export function runCli(argv: string[], deps: CliDeps): number {
   if (verb === "init" || verb === "uninstall") {
     return runInstaller(verb === "init", rest, deps);
   }
+  if (verb === "feedback") return runFeedbackCommand(rest, deps, FEEDBACK_USAGE);
   deps.error(`Unknown command: ${verb}\n\n${USAGE}`);
   return 2;
 }

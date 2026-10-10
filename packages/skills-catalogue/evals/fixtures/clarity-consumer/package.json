@@ -1,0 +1,17 @@
+{
+  "name": "orders-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@narrativetrace/clarity": "latest",
+    "@narrativetrace/cli": "latest",
+    "@narrativetrace/core-node": "latest",
+    "@narrativetrace/proxy": "latest",
+    "@narrativetrace/vitest": "latest",
+    "vitest": "^3.2.0"
+  }
+}

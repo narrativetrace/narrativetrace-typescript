@@ -73,10 +73,11 @@ fi
 # exits 0, but reading a failing one is this check's own job, not a reason to abort under `set -e`.
 report=$(npx @narrativetrace/cli doctor --json || true)
 
-echo "$report" | node -e '
+# printf, never echo: dash's echo turns the JSON's escaped \n back into a line break.
+printf '%s\n' "$report" | node -e '
   const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
-  if (!Array.isArray(report.findings) || report.findings.length !== 12) {
-    console.error("expected the doctor to report twelve findings, got", report.findings && report.findings.length);
+  if (!Array.isArray(report.findings) || report.findings.length !== 25) {
+    console.error("expected the doctor to report twenty-five findings, got", report.findings && report.findings.length);
     process.exit(1);
   }
   // The prompt now reaches every check it can: it declares NarrativeTrace, proves redaction, and

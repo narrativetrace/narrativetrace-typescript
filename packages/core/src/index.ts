@@ -32,6 +32,7 @@ export {
   toCanonicalEntry,
 } from "./canonical-entry.js";
 export { canonicalEntries, exportCanonicalJson } from "./canonical-trace-export.js";
+export { CitableSpanId } from "./citable-span-id.js";
 export {
   type ConcurrencyInfo,
   type ConcurrencyKind,

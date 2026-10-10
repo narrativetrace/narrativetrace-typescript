@@ -24,6 +24,7 @@ export const PLANTUML_GRAMMAR: SequenceGrammar = {
   throwArrow: (target, caller, exceptionType) =>
     `  ${target} -[#red]-> ${caller} : ${exceptionType}`,
   incomplete: (target) => `  hnote over ${target} : in-flight`,
+  spanNote: (target, spanId) => `  hnote over ${target} : ${spanId}`,
   limitedNote: (target, stop) => `  hnote over ${target} : ${TREE_WALK_MARKER[stop]}`,
   activate: (target) => `  activate ${target}`,
   deactivate: (target) => `  deactivate ${target}`,

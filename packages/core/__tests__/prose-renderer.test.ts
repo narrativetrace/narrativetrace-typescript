@@ -53,7 +53,7 @@ describe("renderProse", () => {
     const result = renderProse(tree);
 
     expect(result).toBe(
-      `${header(tree)}The order service places order for orderId: "order-42", quantity: 3, returning "OK".`,
+      `${header(tree)}The order service places order (#1) for orderId: "order-42", quantity: 3, returning "OK".`,
     );
   });
 
@@ -67,7 +67,7 @@ describe("renderProse", () => {
     const result = renderProse(tree);
 
     expect(result).toBe(
-      `${header(tree)}The payment service failed to charge for amount: 100 — Error: insufficient funds.`,
+      `${header(tree)}The payment service failed to charge (#1) for amount: 100 — Error: insufficient funds.`,
     );
   });
 
@@ -78,7 +78,7 @@ describe("renderProse", () => {
 
     const result = renderProse(tree);
 
-    expect(result).toBe(`${header(tree)}The logger logs for msg: "hello".`);
+    expect(result).toBe(`${header(tree)}The logger logs (#1) for msg: "hello".`);
   });
 
   test("verb ending in ch adds es suffix", () => {
@@ -153,7 +153,7 @@ describe("renderProse", () => {
 
     const result = renderProse(tree);
 
-    expect(result).toContain("Concurrently: A.a, Z.z.");
+    expect(result).toContain("Concurrently: A.a (#1.1), Z.z (#1.2).");
   });
 
   test("shows sequential-async optimization hint", () => {
@@ -204,7 +204,7 @@ describe("renderProse", () => {
     const result = renderProse(tree);
 
     expect(result).toBe(
-      `${header(tree)}The order service places order, returning "OK". The inventory service reserves for productId: "P1", returning true.`,
+      `${header(tree)}The order service places order (#1), returning "OK". The inventory service reserves (#1.1) for productId: "P1", returning true.`,
     );
   });
 
@@ -260,7 +260,11 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   // budget must never be implicit — a test whose legitimate cost varies with scheduler contention
   // declares what it actually needs, and a hang guard on a non-timing test takes a seconds-scale
   // floor, never a millisecond-scale tolerance. 3000ms is the floor.
+  // Phase 7 (2026-10-10): every line now cites its position-path span id, and at depth d that id
+  // is d segments long, so this chain's output is O(depth²) in EVERY flavour (100–300M chars at
+  // the 10,000 cap, measured 2.8–4.5s run alone; Java's format and cap are the same). The 5x
+  // rule above gives 20000ms. A citable-depth bound is an open question for the format.
   test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
     expect(renderProse(traceTree([deepChain(10_001)]))).toContain("… (depth limit)");
-  }, 3_000);
+  }, 20_000);
 });

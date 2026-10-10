@@ -9,8 +9,20 @@ import type { DoctorCheck, DoctorSnapshot } from "../types.js";
 
 const ID = "config.skills-installed";
 const FAMILY_PACKAGE = "@narrativetrace/core";
+// snippet:begin registryMessages
 const INIT_DRY_RUN = "npx --yes @narrativetrace/cli init --dry-run";
 const NOT_OURS = " (there, but not ours)";
+
+/**
+ * What a page with no provenance line most often IS: a registry install (design D5 state 3) — `npx
+ * skills add`, or a plugin or workspace install — of this repository's own rendered pages. Naming the
+ * case matters because the obvious reading of "not ours" is "somebody else's work", which invites a
+ * `--force` nobody needs: `init` ADOPTS a page identical to this release's.
+ */
+const FROM_A_REGISTRY =
+  " Pages that are there without our line usually came from a registry (npx skills add, a plugin" +
+  " or workspace install). A page identical to this release's is adopted, and no --force is needed.";
+// snippet:end registryMessages
 
 /** What a check needs of one catalogue skill: what is installed at its `.agents/skills/` path. */
 function agentsSkill(snapshot: DoctorSnapshot, name: string): InstalledSkill | undefined {
@@ -57,10 +69,11 @@ function cannotTell() {
 function notInstalled(snapshot: DoctorSnapshot) {
   const present = presentOf(snapshot);
   const suffix = present.length === 0 ? "" : ` — ${present.join(", ")} is there, not ours`;
+  const fix = `Run \`${INIT_DRY_RUN}\`, read the diff, then run it without the flag.`;
   return fail(
     ID,
     `The NarrativeTrace agent skills are not installed under .agents/skills/${suffix}`,
-    `Run \`${INIT_DRY_RUN}\`, read the diff, then run it without the flag.`,
+    present.length === 0 ? fix : fix + FROM_A_REGISTRY,
     DOC.agentSkillsInstalling,
   );
 }
@@ -79,8 +92,8 @@ function incomplete(missing: readonly string[]) {
   return fail(
     ID,
     `The agent skills are installed, but this carrier's ${missing.join(", ")} is missing`,
-    `Run \`${INIT_DRY_RUN}\` to add the missing page(s); --force lets it replace a directory` +
-      " somebody else owns.",
+    `Run \`${INIT_DRY_RUN}\` to add the missing page(s). A page identical to this release's is` +
+      " adopted as it stands; --force is only for a directory somebody else really owns.",
     DOC.agentSkillsInstalling,
   );
 }

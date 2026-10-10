@@ -2,7 +2,11 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, test } from "vitest";
-import { hostileGraphCases, hostileRedactions } from "../src/corpus/hostile-corpus.js";
+import {
+  hostileFeedbacks,
+  hostileGraphCases,
+  hostileRedactions,
+} from "../src/corpus/hostile-corpus.js";
 
 /**
  * The corpus's own PROSE — the fields a reader reads, not the bytes a case plants — must be
@@ -68,6 +72,16 @@ describe("corpus prose is publishable", () => {
         redactionCase.id,
         redactionCase.kind,
         redactionCase.description,
+      ]);
+    }
+  });
+
+  test("no feedback row's prose carries a commit SHA or the vocabulary of the private process", () => {
+    for (const feedbackCase of hostileFeedbacks()) {
+      assertProseIsPublishable(feedbackCase.id, [
+        feedbackCase.id,
+        feedbackCase.rule,
+        feedbackCase.description,
       ]);
     }
   });

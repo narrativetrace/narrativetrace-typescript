@@ -81,6 +81,10 @@ describe.skipIf(!REPO_ROOT_REACHABLE)("the real checked-in carrier", () => {
     expect(carrier.catalogue.skills.map((skill) => skill.name)).toEqual([
       "narrativetrace-doctor",
       "add-narrative-tracing",
+      "narrativetrace-feedback",
+      "add-narrativetrace-clarity",
+      "narrativetrace-verify",
+      "narrativetrace-debug",
     ]);
   });
 

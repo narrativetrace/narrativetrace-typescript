@@ -1,11 +1,13 @@
 # The hostile corpus
 
-Seven JSON fixtures describing input that a NarrativeTrace runtime does not
+Nine JSON fixtures describing input that a NarrativeTrace runtime does not
 control: values a traced method returned, headers a stranger sent, templates an
-author wrote, object graphs a third-party DTO produced, instruction-shaped text
-aimed at whatever reads the narrative afterwards, the names the artifacts are
-written under, and the sensitive-field vocabulary the redaction default is
-measured against.
+author wrote, object graphs a third-party DTO produced, call trees a hand-built
+node list produced, instruction-shaped text aimed at whatever reads the
+narrative afterwards, the names the artifacts are written under, the
+sensitive-field vocabulary the redaction default is measured against, and the
+problem-report text the value-free gate decides about before anything can be
+filed publicly.
 
 **This directory is the cross-runtime corpus.** Every NarrativeTrace runtime
 copies these files verbatim — the way the conformance schemas are copied — so
@@ -31,6 +33,7 @@ bytes are, and keep the file ASCII — every non-ASCII character is written as a
 | `names.json` | the artifact writers, which turn a name into a path | test class and method names: separators and parent traversal, control characters, lone surrogates, noncharacters, bidi overrides, and names past the filesystem's per-element limit in characters *and* in bytes |
 | `redaction.json` | the name deny-list and the value-shape matcher | sensitive field names in English, Spanish, Portuguese, French and Chinese; national-id value shapes with their check digits; and — carrying equal weight — the near-miss names and checksum-failing lookalikes that must stay **visible** |
 | `trace-shapes.json` | every recursive renderer/exporter, via `ai.narrativetrace.core.tree.TreeWalk` | declarative `TraceNode` call-tree *shapes*: a legitimate deep chain, and a hand-built cyclic child list (`TraceNode.children` is undefended) — the tree-structure counterpart to `graphs.json`'s value-graph shapes |
+| `feedback.json` | the value-free gate every runtime's problem-report verb runs before it will build a URL or a body file | problem-report text: rendered call lines, outcomes and durations; the redaction marker; deny-listed names carrying values in five languages; credential prefixes, key blocks, national-id and card shapes; high-density encoded runs; addresses, home paths, control and bidi characters — and, carrying equal weight, the install coordinates, doctor finding ids, doc URLs, artifact paths and hyphenated sentences that must stay **filable** |
 
 ## Case shapes
 

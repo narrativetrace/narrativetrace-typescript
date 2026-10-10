@@ -10,6 +10,8 @@ export function snapshot(overrides: Partial<DoctorSnapshot> = {}): DoctorSnapsho
     nodeVersion: "20.11.0",
     env: {},
     rootPackageJson: { name: "consumer", version: "1.0.0" },
+    manifests: new Map(),
+    packageManager: "npm",
     sourceFiles: new Map(),
     outputFiles: new Map(),
     approvedDirFiles: new Map(),

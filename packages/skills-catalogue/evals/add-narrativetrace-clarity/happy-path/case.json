@@ -1,0 +1,1 @@
+{ "fixture": "evals/fixtures/clarity-consumer", "setup": "checkout-install" }

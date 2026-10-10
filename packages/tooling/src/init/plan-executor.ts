@@ -11,7 +11,7 @@ import {
   type ExecutionReport,
   executionReport,
 } from "./execution-report.js";
-import { isDirectory } from "./files.js";
+import { isDirectory, symlinkTargetOf } from "./files.js";
 import type { InitPlan } from "./init-plan.js";
 
 /**
@@ -77,11 +77,43 @@ function applyEdit(action: Action, target: string): AppliedAction {
   return appliedAction(action, "applied");
 }
 
+/**
+ * No write and no delete ever passes THROUGH a symbolic link. The planners refuse every link they can
+ * see; this is the guarantee for one they cannot — a link made between the read and the write, or one
+ * further up the path than a planner looks. The action is refused like any other filesystem refusal,
+ * and the rest of the plan still runs.
+ *
+ * @throws {Error} naming the element that is a link, which {@link apply} turns into the refusal.
+ */
+function requireNoLinkOnTheWay(projectDirectory: string, relative: string): void {
+  let walked = projectDirectory;
+  for (const element of relative.split("/")) {
+    walked = join(walked, element);
+    if (symlinkTargetOf(walked) !== undefined) {
+      throw new Error(`${walked} is a symbolic link, and nothing is written through one`);
+    }
+  }
+}
+
+/**
+ * The one action that begins by deleting: the link goes first — the link ITSELF, never what it points
+ * at — so the write that follows creates a real directory or file of the project's own.
+ */
+function replaceLinkWithPage(action: Action, projectDirectory: string): AppliedAction {
+  const link = join(projectDirectory, ...action.link.split("/"));
+  if (symlinkTargetOf(link) !== undefined) unlinkSync(link);
+  requireNoLinkOnTheWay(projectDirectory, action.path);
+  write(targetOf(projectDirectory, action), action.after);
+  return appliedAction(action, "applied");
+}
+
 /** One action. A filesystem that will not cooperate is a refusal, never a throw. */
 function apply(action: Action, projectDirectory: string): AppliedAction {
   const target = targetOf(projectDirectory, action);
   try {
     if (action.kind === "refuse") return appliedAction(action, "refused", action.reason);
+    if (action.kind === "replace-link") return replaceLinkWithPage(action, projectDirectory);
+    requireNoLinkOnTheWay(projectDirectory, action.path);
     if (action.kind === "delete-directory") return removeDirectory(action, target);
     return applyEdit(action, target);
   } catch (cause) {

@@ -109,11 +109,12 @@ describe("writeStructuralOutput — approval mode", () => {
     expect(approvalRejected(result.approval)).toBe(true);
   });
 
-  it("matches an approved trace, clears a stale received trace, and still advances last-green", () => {
+  it("matches an approved trace written before span ids, clears a stale received trace, and still advances last-green", () => {
     const paths = structuralPaths(artifactIdentityOfMethod("Svc", "run"), "out", "narratives");
-    const current = "scenario: My scenario\n\n- Svc.run()\n";
+    const approvedBeforeIds = "scenario: My scenario\n\n- Svc.run()\n";
+    const current = "scenario: My scenario\n\n#1 - Svc.run()\n";
     const io = fakeIo({
-      [paths.approved as string]: current,
+      [paths.approved as string]: approvedBeforeIds,
       [paths.received as string]: "stale",
     });
     const result = writeStructuralOutput(tree(), "My scenario", paths, false, undefined, io);

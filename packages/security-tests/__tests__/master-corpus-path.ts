@@ -122,3 +122,8 @@ export function resolveMasterGraphs(): MasterCorpusFile | undefined {
 export function resolveMasterRedaction(): MasterCorpusFile | undefined {
   return resolveMasterCorpusFile("redaction.json");
 }
+
+/** The master `feedback.json`'s content and source, or `undefined` when no candidate repo has it. */
+export function resolveMasterFeedback(): MasterCorpusFile | undefined {
+  return resolveMasterCorpusFile("feedback.json");
+}

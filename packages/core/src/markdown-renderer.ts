@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { type FlatChildOp, flattenChildOps } from "./child-segment.js";
+import type { CitedNode, FlatChildOp } from "./child-segment.js";
+import { CitableSpanId } from "./citable-span-id.js";
 import { ControlEscape } from "./control-escape.js";
 import { formatDurationMs } from "./duration-format.js";
 import { errorMessage, errorTypeName } from "./error-display.js";
@@ -245,15 +246,19 @@ interface RenderFrame {
   index: number;
 }
 
+/**
+ * One call's line — the call, its outcome and duration, and last its citable span id (`#1.2`, the
+ * id the structural `.nt` gives the same call) — then its narration, if any, on a line of its own.
+ */
 function pushNodeLine(
-  node: TraceNode,
+  { node, id }: CitedNode,
   depth: number,
   lines: string[],
   refs: ValueReferenceIndex,
   options?: MarkdownOptions,
 ): void {
   const indent = "  ".repeat(depth);
-  lines.push(`${indent}- ${formatCall(node, refs)}${formatOutcome(node, refs, options)}`);
+  lines.push(`${indent}- ${formatCall(node, refs)}${formatOutcome(node, refs, options)} ${id}`);
   if (node.signature.narration) {
     const narration = MarkdownEscape.text(ControlEscape.sanitize(node.signature.narration));
     lines.push(`${indent}  *${narration}*`);
@@ -264,7 +269,7 @@ function pushNodeLine(
 // regardless of the guard — then either pushes a frame to descend into its children, or (stopped)
 // renders the depth-limit/cycle marker in their place.
 function descendRenderNode(
-  node: TraceNode,
+  cited: CitedNode,
   depth: number,
   stack: RenderFrame[],
   walk: TreeWalk<TraceNode>,
@@ -272,13 +277,15 @@ function descendRenderNode(
   refs: ValueReferenceIndex,
   options?: MarkdownOptions,
 ): void {
-  pushNodeLine(node, depth, lines, refs, options);
+  const { node, id } = cited;
+  pushNodeLine(cited, depth, lines, refs, options);
   const stop = walk.enter(node);
   if (stop !== undefined) {
     lines.push(`${"  ".repeat(depth + 1)}- ${TREE_WALK_MARKER[stop]}`);
     return;
   }
-  stack.push({ depth: depth + 1, owner: node, ops: flattenChildOps(node.children), index: 0 });
+  const ops = CitableSpanId.citedOps(node.children, id);
+  stack.push({ depth: depth + 1, owner: node, ops, index: 0 });
 }
 
 function stepRenderFrame(
@@ -299,7 +306,7 @@ function stepRenderFrame(
     renderForkJoinSegment(op.members, frame.depth, lines, refs, options);
     return;
   }
-  descendRenderNode(op.node, frame.depth, stack, walk, lines, refs, options);
+  descendRenderNode(op, frame.depth, stack, walk, lines, refs, options);
 }
 
 // Explicit-stack (non-recursive) pre-order walk of the call tree, bounded and cycle-safe via
@@ -314,7 +321,12 @@ function renderTree(
   options?: MarkdownOptions,
 ): void {
   const walk = new TreeWalk<TraceNode>();
-  const rootOps: FlatChildOp[] = roots.map((node) => ({ kind: "node", node }));
+  const ids = CitableSpanId.idsOf(roots, null);
+  const rootOps: FlatChildOp[] = roots.map((node, i) => ({
+    kind: "node",
+    node,
+    id: ids[i] as string,
+  }));
   const stack: RenderFrame[] = [{ depth: 0, owner: null, ops: rootOps, index: 0 }];
   while (stack.length > 0) {
     stepRenderFrame(stack, walk, lines, refs, options);
@@ -349,33 +361,24 @@ function waitAnalysis(members: readonly TraceNode[]): string {
 }
 
 function renderForkJoinSegment(
-  members: readonly TraceNode[],
+  cited: readonly CitedNode[],
   depth: number,
   lines: string[],
   refs: ValueReferenceIndex,
   options?: MarkdownOptions,
 ): void {
   const indent = "  ".repeat(depth);
-  const sorted = sortByLabel(members);
+  const members = cited.map((member) => member.node);
+  const sorted = CitableSpanId.inIdOrder(cited);
   const wallTime = Math.max(...members.map((m) => m.durationMs));
   const seqAsync = analyze(members);
   lines.push(`${indent}- ${forkLabel(members, seqAsync)}`);
-  for (const m of sorted) {
-    lines.push(`${indent}  - ↦ ${formatCall(m, refs)}${formatOutcome(m, refs, options)}`);
+  for (const { node: m, id } of sorted) {
+    lines.push(`${indent}  - ↦ ${formatCall(m, refs)}${formatOutcome(m, refs, options)} ${id}`);
   }
   lines.push(
     `${indent}- ⑃ join — ${formatDurationMs(wallTime)}${waitAnalysis(members)}${joinSuffix(seqAsync)}`,
   );
-}
-
-function sortByLabel(members: readonly TraceNode[]): readonly TraceNode[] {
-  return [...members].sort((a, b) => {
-    const la = `${a.signature.className}.${a.signature.methodName}`;
-    const lb = `${b.signature.className}.${b.signature.methodName}`;
-    // Ordinal (code-unit) comparison — byte-stable across ICU locales (Java String.compareTo),
-    // unlike localeCompare which reorders by host locale.
-    return la < lb ? -1 : la > lb ? 1 : 0;
-  });
 }
 
 // A redacted capture keeps its marker without ever entering the reference index; only real

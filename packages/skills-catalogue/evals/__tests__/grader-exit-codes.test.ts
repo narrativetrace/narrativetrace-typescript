@@ -5,6 +5,7 @@ import { spawnSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { DOCTOR_CHECKS } from "@narrativetrace/tooling";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 /**
@@ -53,24 +54,19 @@ function runGraderWithStubNpx(
   }
 }
 
-/** Eleven findings, one of them `trap.redaction-proof` failing — the shape both doctor cases expect. */
-function elevenFindingsWithRedactionFailing(): string {
-  const ids = [
-    "toolchain.node-engine",
-    "toolchain.vitest-peer",
-    "toolchain.sibling-packages",
-    "toolchain.output-env",
-    "toolchain.reporter-subpath",
-    "toolchain.trace-object-keys",
-    "toolchain.silent-sink",
-    "toolchain.parameter-arg0",
-    "trap.redaction-proof",
-    "toolchain.approval-traces",
-    "toolchain.llms-before-you-start",
-  ];
-  const findings = ids.map((id) => ({
+/**
+ * One finding per check the doctor runs, one of them `trap.redaction-proof` failing — the shape both
+ * doctor cases expect. Sized from the registry itself, the number the graders are held to below.
+ */
+function everyFindingWithRedactionFailing(): string {
+  const ids = Array.from({ length: DOCTOR_CHECKS.length - 1 }, (_, i) => `config.check-${i}`);
+  // The failing fix spans two lines, as every framework check's does (install line, then the
+  // snippet): JSON escapes the line break as `\n`, which dash's `echo` turns back into a real one
+  // and the grader's JSON.parse then refuses — the 2026-10-09 rehearsal finding these pin.
+  const findings = [...ids, "trap.redaction-proof"].map((id) => ({
     id,
     status: id === "trap.redaction-proof" ? "fail" : "pass",
+    fix: id === "trap.redaction-proof" ? "add a test:\nexpect(rendered).toContain(marker)" : "",
   }));
   return JSON.stringify({ findings });
 }
@@ -82,7 +78,7 @@ describe("narrativetrace-doctor/happy-path grader reaches its shape assertions p
   });
   afterEach(() => rmSync(cwd, { recursive: true, force: true }));
 
-  it("passes when doctor exits 1 with a well-formed 11-finding report (the documented shape)", () => {
+  it("passes when doctor exits 1 with a well-formed report of every finding (the documented shape)", () => {
     const verifyShPath = join(
       EVALS_DIR,
       "narrativetrace-doctor",
@@ -91,7 +87,7 @@ describe("narrativetrace-doctor/happy-path grader reaches its shape assertions p
       "verify.sh",
     );
     const result = runGraderWithStubNpx(verifyShPath, cwd, {
-      json: elevenFindingsWithRedactionFailing(),
+      json: everyFindingWithRedactionFailing(),
       exitCode: 1,
     });
     expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 0, stderr: "" });
@@ -106,7 +102,7 @@ describe("narrativetrace-doctor/happy-path grader reaches its shape assertions p
       "verify.sh",
     );
     const result = runGraderWithStubNpx(verifyShPath, cwd, {
-      json: elevenFindingsWithRedactionFailing(),
+      json: everyFindingWithRedactionFailing(),
       exitCode: 2,
     });
     expect(result.status).not.toBe(0);
@@ -130,7 +126,7 @@ describe("narrativetrace-doctor/deviation-redaction-gap grader reaches its shape
       "verify.sh",
     );
     const result = runGraderWithStubNpx(verifyShPath, cwd, {
-      json: elevenFindingsWithRedactionFailing(),
+      json: everyFindingWithRedactionFailing(),
       exitCode: 1,
     });
     expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 0, stderr: "" });
@@ -160,7 +156,7 @@ describe("add-narrative-tracing/happy-path grader reaches its toolchain.* assert
       "verify.sh",
     );
     const result = runGraderWithStubNpx(verifyShPath, cwd, {
-      json: elevenFindingsWithRedactionFailing(),
+      json: everyFindingWithRedactionFailing(),
       exitCode: 1,
     });
     expect({ status: result.status, stderr: result.stderr }).toEqual({ status: 0, stderr: "" });
@@ -176,7 +172,7 @@ describe("add-narrative-tracing/happy-path grader reaches its toolchain.* assert
       "verify.sh",
     );
     const result = runGraderWithStubNpx(verifyShPath, cwd, {
-      json: elevenFindingsWithRedactionFailing(),
+      json: everyFindingWithRedactionFailing(),
       exitCode: 2,
     });
     expect(result.status).not.toBe(0);

@@ -36,9 +36,9 @@ test("clicking run renders the traced calculation into the trace panel", () => {
   expect(trace?.textContent).toMatch(
     new RegExp(
       `^trace: [a-z]+ [a-z]+ [a-z]+ \\([0-9a-f]{7}\\)\\n\\n${[
-        "Calculator\\.add\\(a: 2, b: 3\\) → 5",
-        "Calculator\\.divide\\(a: 10, b: 2\\) → 5",
-        "Calculator\\.divide\\(a: 1, b: 0\\) ✗ Error: Division by zero",
+        "Calculator\\.add\\(a: 2, b: 3\\) → 5 #1",
+        "Calculator\\.divide\\(a: 10, b: 2\\) → 5 #2",
+        "Calculator\\.divide\\(a: 1, b: 0\\) ✗ Error: Division by zero #3",
       ].join("\\n")}$`,
     ),
   );

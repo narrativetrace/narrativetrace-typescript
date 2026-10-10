@@ -13,6 +13,11 @@ console.log(renderClarityReport([{ scenario: "Order Placement", result }]));
 
 With Vitest, clarity reports are generated automatically when using the `"clarity-json"` format — no code needed.
 
+For an agent-guided first report or an optional build gate, use the
+[add-narrativetrace-clarity](agent-skills.md) skill. It registers `ClaritySuiteReporter`, runs the
+suite, checks that the results file is fresh and nonempty, renames by the report's suggestions, and
+treats a missing results file as a setup problem for `narrativetrace-doctor`.
+
 ## What gets scored
 
 Clarity produces a single overall score (0.0–1.0) from five weighted components:

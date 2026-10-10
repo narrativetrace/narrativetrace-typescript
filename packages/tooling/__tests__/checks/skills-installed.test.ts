@@ -83,6 +83,39 @@ describe("checkSkillsInstalled", () => {
     );
   });
 
+  // Design D5: the obvious reading of "not ours" is "somebody else's work", which invites a --force
+  // nobody needs. The pages usually came from a registry, and `init` ADOPTS a page identical to this
+  // release's — so the fix has to name the case and say that no flag is wanted.
+  test("names the registry case in the fix when pages are there without our line", () => {
+    const finding = checkSkillsInstalled(
+      project({ installedSkills: [theirs("narrativetrace-doctor")] }),
+    );
+
+    expect(finding.fix).toBe(
+      "Run `npx --yes @narrativetrace/cli init --dry-run`, read the diff, then run it without the" +
+        " flag. Pages that are there without our line usually came from a registry (npx skills add," +
+        " a plugin or workspace install). A page identical to this release's is adopted, and no" +
+        " --force is needed.",
+    );
+  });
+
+  test("says nothing about a registry when the paths are simply empty", () => {
+    expect(checkSkillsInstalled(project()).fix).not.toContain("registry");
+  });
+
+  test("names the registry case for a link a registry left, too", () => {
+    const finding = checkSkillsInstalled(
+      project({
+        installedSkills: [
+          installedSkill("agents", "narrativetrace-doctor", "linked-directory", "", "", "../x"),
+        ],
+      }),
+    );
+
+    expect(finding.message).toContain("narrativetrace-doctor is there, not ours");
+    expect(finding.fix).toContain("usually came from a registry");
+  });
+
   test("fails naming both the stale stamp and what the project resolves", () => {
     const finding = checkSkillsInstalled(
       project({
@@ -139,8 +172,9 @@ describe("checkSkillsInstalled", () => {
       "The agent skills are installed, but this carrier's add-narrative-tracing is missing",
     );
     expect(finding.fix).toBe(
-      "Run `npx --yes @narrativetrace/cli init --dry-run` to add the missing page(s); --force" +
-        " lets it replace a directory somebody else owns.",
+      "Run `npx --yes @narrativetrace/cli init --dry-run` to add the missing page(s). A page" +
+        " identical to this release's is adopted as it stands; --force is only for a directory" +
+        " somebody else really owns.",
     );
   });
 

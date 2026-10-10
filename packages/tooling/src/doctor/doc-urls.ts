@@ -24,4 +24,5 @@ export const DOC = {
   approvalTracesEndToEnd: `${BASE}structural-trace-format.md#approval-traces-end-to-end`,
   sixtySecondsNewProject: `${BASE}sixty-seconds.md#1-new-project-add-the-packages`,
   agentSkillsInstalling: `${BASE}agent-skills.md#installing-them`,
+  frameworkTable: `${BASE}llms-full.md#framework-integrations`,
 } as const;

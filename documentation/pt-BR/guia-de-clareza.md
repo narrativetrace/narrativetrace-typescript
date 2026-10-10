@@ -1,4 +1,4 @@
-<!-- source: documentation/clarity-guide.md blob ff9aa021d827 | translated: 2026-09-19 | reviewed: - -->
+<!-- source: documentation/clarity-guide.md blob af2addcc68f2 | translated: 2026-10-09 | reviewed: - -->
 # Guia de Clareza do NarrativeTrace TypeScript
 
 [English](../clarity-guide.md) | [Español](../es/guia-de-claridad.md) | **Português** | [简体中文](../zh-CN/清晰度指南.md)
@@ -16,6 +16,11 @@ console.log(renderClarityReport([{ scenario: "Order Placement", result }]));
 
 Com o Vitest, os relatórios de clareza são gerados automaticamente ao usar o formato `"clarity-json"` — sem necessidade de código.
 
+Para um primeiro relatório guiado por um agente ou um portão de build opcional, use a habilidade
+[add-narrativetrace-clarity](habilidades-de-agente.md). Ela registra o `ClaritySuiteReporter`, roda a suíte,
+confere que o arquivo de resultados é recente e não está vazio, renomeia pelas sugestões do
+relatório e trata um arquivo de resultados ausente como um problema de configuração para o
+`narrativetrace-doctor`.
 ## O que é pontuado
 
 A clareza produz uma única pontuação geral (0.0–1.0) a partir de cinco componentes ponderados:

@@ -1,0 +1,7 @@
+{
+  "fixture": "evals/fixtures/express-service",
+  "setup": "checkout-registry",
+  "turns": {
+    "2": "I have seen the diff. Run it for real, then carry on with the rest of the steps."
+  }
+}

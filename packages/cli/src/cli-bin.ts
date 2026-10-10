@@ -5,6 +5,7 @@
 import { buildSnapshot } from "@narrativetrace/tooling";
 import { cliPackageDirectory, openCarrierFor } from "./carrier-locator.js";
 import { runCli } from "./cli.js";
+import { ghAuthenticated } from "./gh-auth-probe.js";
 
 const cwd = process.cwd();
 
@@ -13,6 +14,7 @@ const exitCode = runCli(process.argv.slice(2), {
   env: process.env,
   buildSnapshot: (c, e) => buildSnapshot(c, e, cliPackageDirectory()),
   openCarrier: (from) => openCarrierFor(cwd, from),
+  ghAuthenticated,
   log: (message) => process.stdout.write(`${message}\n`),
   print: (text) => process.stdout.write(text),
   error: (message) => process.stderr.write(`${message}\n`),

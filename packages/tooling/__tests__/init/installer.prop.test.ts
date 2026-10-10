@@ -1,18 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import {
-  existsSync,
-  mkdirSync,
-  mkdtempSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join, relative } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import fc from "fast-check";
 import { describe, expect, test } from "vitest";
 import { isFileEdit } from "../../src/init/action.js";
@@ -25,6 +15,7 @@ import { applyPlan } from "../../src/init/plan-executor.js";
 import { readProjectState } from "../../src/init/project-state-reader.js";
 import { planUninstall } from "../../src/init/uninstall-planner.js";
 import { fakeCarrier } from "./fixtures.js";
+import { inATemporaryProject as inATemporaryOne, snapshotOf } from "./projects.js";
 
 /**
  * The properties an installer has to hold for files nobody wrote by hand: planning after applying finds
@@ -94,12 +85,7 @@ function assemble(pool: readonly string[]): fc.Arbitrary<string> {
 }
 
 function inATemporaryProject(body: (project: string) => void): void {
-  const project = mkdtempSync(join(tmpdir(), "nt-prop-"));
-  try {
-    body(project);
-  } finally {
-    rmSync(project, { recursive: true, force: true });
-  }
+  inATemporaryOne("nt-prop-", body);
 }
 
 function write(project: string, name: string, content: string): void {
@@ -108,20 +94,6 @@ function write(project: string, name: string, content: string): void {
 
 function edits(plan: InitPlan) {
   return plan.actions.filter(isFileEdit);
-}
-
-/** Every file under `project`, by project-relative path — what "the project as it was" means here. */
-function snapshotOf(project: string, directory = project): Map<string, string> {
-  const files = new Map<string, string>();
-  for (const entry of readdirSync(directory)) {
-    const full = join(directory, entry);
-    if (statSync(full).isDirectory()) {
-      for (const [path, content] of snapshotOf(project, full)) files.set(path, content);
-    } else {
-      files.set(relative(project, full), readFileSync(full, "utf8"));
-    }
-  }
-  return files;
 }
 
 function endingWithNewline(text: string): string {

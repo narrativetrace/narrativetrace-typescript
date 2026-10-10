@@ -1,4 +1,4 @@
-<!-- source: documentation/clarity-guide.md blob ff9aa021d827 | translated: 2026-09-19 | reviewed: - -->
+<!-- source: documentation/clarity-guide.md blob af2addcc68f2 | translated: 2026-10-09 | reviewed: - -->
 
 # Guía de claridad de NarrativeTrace TypeScript
 
@@ -17,6 +17,11 @@ console.log(renderClarityReport([{ scenario: "Order Placement", result }]));
 
 Con Vitest, los informes de claridad se generan automáticamente cuando usas el formato `"clarity-json"` — sin necesidad de código.
 
+Para un primer informe guiado por un agente o una puerta de compilación opcional, usa la habilidad
+[add-narrativetrace-clarity](habilidades-de-agente.md). Registra `ClaritySuiteReporter`, ejecuta la suite,
+comprueba que el fichero de resultados sea reciente y no esté vacío, renombra según las sugerencias
+del informe y trata un fichero de resultados ausente como un problema de configuración para
+`narrativetrace-doctor`.
 ## Qué se puntúa
 
 La claridad produce una única puntuación global (0.0–1.0) a partir de cinco componentes ponderados:

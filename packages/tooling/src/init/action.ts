@@ -23,10 +23,14 @@ export type ActionKind =
   | "create"
   /** Rewrites a file whose NarrativeTrace-owned region changed, or a page it owns whole. */
   | "replace"
+  /** Stamps a page a registry installed, because it already IS this carrier's page. */
+  | "adopt"
   /** Adds the managed block to the end of an existing file, after one blank line. */
   | "append"
   /** Adds one line to the end of an existing file, after one blank line. */
   | "append-line"
+  /** Replaces a symbolic link with a real path of the project's own, holding this flavour's page. */
+  | "replace-link"
   /** Removes a file the installer wrote. */
   | "delete"
   /** Removes a directory the installer created, once its files are gone. */
@@ -45,6 +49,13 @@ export interface Action {
   readonly after: string;
   /** Why the installer refused; `""` unless {@link kind} is `refuse`. */
   readonly reason: string;
+  /**
+   * Where the symbolic link this action removes sits — the skill's directory, or its page; `""` unless
+   * {@link kind} is `replace-link`.
+   */
+  readonly link: string;
+  /** What that link pointed at, for the line a person reads; `""` unless there is a link. */
+  readonly target: string;
 }
 
 /** Whether this action leaves one file with a known text — the ones a diff can be rendered for. */
@@ -89,19 +100,28 @@ function requireText(text: string, what: string): string {
   return text;
 }
 
+/** What an action says beyond its two texts: a refusal's reason, or the link it removes. */
+interface ActionAside {
+  readonly reason?: string;
+  readonly link?: string;
+  readonly target?: string;
+}
+
 function action(
   kind: ActionKind,
   path: string,
   before: string,
   after: string,
-  reason = "",
+  aside: ActionAside = {},
 ): Action {
   return Object.freeze({
     kind,
     path: requireProjectRelative(path),
     before: requireText(before, "before text"),
     after: requireText(after, "after text"),
-    reason,
+    reason: aside.reason ?? "",
+    link: aside.link === undefined ? "" : requireProjectRelative(aside.link),
+    target: aside.target ?? "",
   });
 }
 
@@ -113,6 +133,22 @@ export function createFile(path: string, content: string): Action {
 /** Rewrites a file, from its whole text to its whole text. */
 export function replaceBlock(path: string, before: string, after: string): Action {
   return action("replace", path, before, after);
+}
+
+/**
+ * Stamps a page a registry installed, because it already IS this carrier's page in every byte but the
+ * provenance line.
+ *
+ * @llmNote A separate kind from {@link replaceBlock} so that the plan, the diff and the report all say
+ * "adopted" rather than "replaced": a person reading it needs to know that nothing of theirs was
+ * overwritten, which is also why adoption needs no `--force`. {@link isAdoptable} owns the rule about
+ * which page qualifies.
+ *
+ * @throws {TypeError} when there is no page to adopt — an absent page is created, never adopted.
+ */
+export function adoptPage(path: string, before: string, after: string): Action {
+  if (before === "") throw new TypeError("there is nothing to adopt where there is no page");
+  return action("adopt", path, before, after);
 }
 
 /** Appends the managed block to what is already there, separated by exactly one blank line. */
@@ -128,6 +164,35 @@ export function appendLine(path: string, before: string, line: string): Action {
     before,
     appendToText(before, requireText(line, "line") + eolOf(before)),
   );
+}
+
+/**
+ * Replaces a symbolic link with a real path of the project's own, holding this flavour's page.
+ *
+ * @llmNote `before` is empty on purpose. The link is deleted first, so nothing this PATH used to
+ * reach survives here — and what it pointed at is left exactly as it was, which is the whole point:
+ * after `npx skills add` the vendor path links to the open-standard page, and a diff showing that
+ * page's text here would read as an edit to somebody else's file.
+ *
+ * @param link where the symbolic link itself sits — the skill's directory, or its page
+ * @param page the page this writes, and the path the plan is keyed on
+ * @param target what the link pointed at, for the line a person reads
+ * @param content the flavour's rendered page, already stamped
+ * @throws {TypeError} when the target is blank, the content is empty, or the page is not behind the
+ * link — a plan that writes somewhere else after deleting a link is the one shape nothing may have.
+ */
+export function replaceLink(link: string, page: string, target: string, content: string): Action {
+  if (typeof target !== "string" || target.trim() === "") {
+    throw new TypeError("replacing a link names what it pointed at");
+  }
+  if (content === "") {
+    throw new TypeError("a link is replaced by a page, never by an empty file");
+  }
+  const action_ = action("replace-link", page, "", content, { link, target });
+  if (action_.path !== action_.link && !action_.path.startsWith(`${action_.link}/`)) {
+    throw new TypeError(`${action_.path} is not behind the link ${action_.link}`);
+  }
+  return action_;
 }
 
 /** Removes a file the installer wrote. */
@@ -158,5 +223,5 @@ export function refuse(path: string, reason: string): Action {
   if (typeof reason !== "string" || reason.trim() === "") {
     throw new TypeError("a refusal must carry a reason naming what it refused");
   }
-  return action("refuse", path, "", "", reason);
+  return action("refuse", path, "", "", { reason });
 }

@@ -1,0 +1,18 @@
+{
+  "name": "orders-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "clarity": "narrativetrace-clarity --input narrativetrace-output/clarity-results.json --output-dir narrativetrace-output --min-score 0.8 --max-high-issues 0"
+  },
+  "devDependencies": {
+    "@narrativetrace/clarity": "latest",
+    "@narrativetrace/cli": "latest",
+    "@narrativetrace/core-node": "latest",
+    "@narrativetrace/proxy": "latest",
+    "@narrativetrace/vitest": "latest",
+    "vitest": "^3.2.0"
+  }
+}

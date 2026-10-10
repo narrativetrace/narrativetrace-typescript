@@ -12,6 +12,7 @@ import {
   treeNarrating,
   treeOf,
   treeThrowing,
+  treeWithHostileMetadata,
 } from "../src/oracle/emitters.js";
 import {
   everyJsonArtifactParses,
@@ -93,6 +94,15 @@ describe("output format well-formedness", () => {
       // frontmatter and the Markdown body header — mirrors two fixes from the Java canonical
       // source, and is what exercises long-astral-run-1024 against the frontmatter's YAML parser.
       assertWellFormed(renderers(asCapturedValue(hostile), hostile.value));
+    }
+  }, 30_000);
+
+  // The fourth route: the same text as class, method and parameter names. Mirrors Java's
+  // `OutputFormatPropertyTest`; without it a mid-string U+2028/U+2029 in a participant name
+  // reached the nightly fuzz run before any commit-time check (2026-10-10).
+  test("every corpus string as a class, method and parameter name leaves every format well formed", () => {
+    for (const hostile of hostileStrings()) {
+      assertWellFormed(renderers(treeWithHostileMetadata(hostile.value)));
     }
   }, 30_000);
 

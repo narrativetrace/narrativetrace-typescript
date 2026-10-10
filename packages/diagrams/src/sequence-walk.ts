@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import {
+  CitableSpanId,
   errorTypeName,
   type TraceNode,
   type TreeWalkStop,
@@ -113,21 +114,33 @@ function pushResponseIfAny(
   if (response !== null) pushResponse(response, alias, callerAlias, grammar, lines);
 }
 
-// The node's own call arrow (and, for a format with activation bars, `activate`) always print
-// ("contributes itself"); a stopped node shows a marker note, its response, and (where the grammar
-// has one) `deactivate` inline — walkPreOrder never calls exitNode for it — instead of descending.
+/**
+ * What the walk knows about each node before it is entered: its caller's alias (absent for a root,
+ * which calls itself) and its citable span id. Both are recorded the moment the walk asks for a
+ * node's children — always before that child's own enterNode fires.
+ */
+interface WalkLedger {
+  readonly callerAliasOf: Map<TraceNode, DiagramLabel>;
+  readonly idOf: Map<TraceNode, string>;
+}
+
+// The node's own call arrow (and, for a format with activation bars, `activate`) and its span note
+// always print ("contributes itself"); a stopped node shows a marker note, its response, and (where
+// the grammar has one) `deactivate` inline — walkPreOrder never calls exitNode for it — instead of
+// descending.
 function enterNode(
   node: TraceNode,
   stop: TreeWalkStop | undefined,
   aliases: Map<string, DiagramLabel>,
-  callerAliasOf: Map<TraceNode, DiagramLabel>,
+  ledger: WalkLedger,
   grammar: SequenceGrammar,
   lines: string[],
 ): void {
   const alias = aliases.get(node.signature.className) as DiagramLabel;
-  const callerAlias = callerAliasOf.get(node) ?? alias;
+  const callerAlias = ledger.callerAliasOf.get(node) ?? alias;
   lines.push(grammar.callArrow(callerAlias, alias, formatCall(node)));
   if (grammar.activate) lines.push(grammar.activate(alias));
+  lines.push(grammar.spanNote(alias, DiagramLabel.spanId(ledger.idOf.get(node) as string)));
   if (stop === undefined) return;
   lines.push(grammar.limitedNote(alias, stop));
   pushResponseIfAny(node, alias, callerAlias, grammar, lines);
@@ -139,25 +152,29 @@ function enterNode(
 function exitNode(
   node: TraceNode,
   aliases: Map<string, DiagramLabel>,
-  callerAliasOf: Map<TraceNode, DiagramLabel>,
+  ledger: WalkLedger,
   grammar: SequenceGrammar,
   lines: string[],
 ): void {
   const alias = aliases.get(node.signature.className) as DiagramLabel;
-  const callerAlias = callerAliasOf.get(node) ?? alias;
+  const callerAlias = ledger.callerAliasOf.get(node) ?? alias;
   pushResponseIfAny(node, alias, callerAlias, grammar, lines);
   if (grammar.deactivate) lines.push(grammar.deactivate(alias));
 }
 
-// Records each node's caller alias (its parent's own alias, or itself for a root) the moment the
-// walk asks for its children — always before that child's own enterNode fires.
+// Records each child's caller alias (this node's own alias) and span id (numbered under this
+// node's) the moment the walk asks for the children — always before that child's enterNode fires.
 function childrenOf(
   node: TraceNode,
   aliases: Map<string, DiagramLabel>,
-  callerAliasOf: Map<TraceNode, DiagramLabel>,
+  ledger: WalkLedger,
 ): readonly TraceNode[] {
   const alias = aliases.get(node.signature.className) as DiagramLabel;
-  for (const child of node.children) callerAliasOf.set(child, alias);
+  const ids = CitableSpanId.idsOf(node.children, ledger.idOf.get(node) as string);
+  node.children.forEach((child, i) => {
+    ledger.callerAliasOf.set(child, alias);
+    ledger.idOf.set(child, ids[i] as string);
+  });
   return node.children;
 }
 
@@ -169,12 +186,14 @@ export function renderInteractions(
   grammar: SequenceGrammar,
 ): string[] {
   const lines: string[] = [];
-  const callerAliasOf = new Map<TraceNode, DiagramLabel>();
+  const ledger: WalkLedger = { callerAliasOf: new Map(), idOf: new Map() };
+  const rootIds = CitableSpanId.idsOf(roots, null);
+  for (const [i, root] of roots.entries()) ledger.idOf.set(root, rootIds[i] as string);
   walkPreOrder(
     roots,
-    (n) => childrenOf(n, aliases, callerAliasOf),
-    (node, stop) => enterNode(node, stop, aliases, callerAliasOf, grammar, lines),
-    (node) => exitNode(node, aliases, callerAliasOf, grammar, lines),
+    (n) => childrenOf(n, aliases, ledger),
+    (node, stop) => enterNode(node, stop, aliases, ledger, grammar, lines),
+    (node) => exitNode(node, aliases, ledger, grammar, lines),
   );
   return lines;
 }

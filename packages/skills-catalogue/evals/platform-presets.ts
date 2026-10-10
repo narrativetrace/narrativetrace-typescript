@@ -67,8 +67,39 @@ function geminiCommand(model: string, skill: string): string {
  * than the prompt asks for measures the sandbox rather than the skill — a trial where the agent
  * is refused mid-step-1 and stops is a harness result wearing a product result's clothes (family
  * ruling 2026-09-25, applied first in the Java and Python runtimes).
+ *
+ * `Skill` joined the list for the registry cases: the prompt's step 4 opens "if the
+ * `add-narrative-tracing` skill is now available, follow it", and a trial whose agent cannot invoke
+ * a skill measures nothing a registry delivered — the same class of defect as the missing `WebFetch`
+ * the ruling above closed.
  */
-const CLAUDE_TOOLS = "Bash,Read,Edit,Write,WebFetch";
+const CLAUDE_TOOLS = "Bash,Read,Edit,Write,WebFetch,Skill";
+
+/**
+ * The machine-readable stream, because a grader has to read the agent's TOOL CALLS and not only its
+ * closing text: a URL a command printed and a URL typed into a reply are the same event to a gate
+ * that must not see either before the user's approval turn.
+ *
+ * @llmNote `--verbose` is not decoration: without it this CLI refuses `stream-json` under `-p` and
+ * exits 1 before any turn starts (measured here 2026-10-08: "requires --verbose" on stderr, nothing
+ * on stdout — so a transcript with nothing in it, which a grader would read as an idle agent).
+ */
+const CLAUDE_TRANSCRIPT_FORMAT = "--output-format stream-json --verbose";
+
+/**
+ * No MCP server at all — `--strict-mcp-config` with no `--mcp-config` beside it.
+ *
+ * @llmNote The throwaway configuration (`isolated-agent-config.ts`) cannot reach these: the
+ * subscription login it seeds carries the ACCOUNT's own connectors, and the CLI injects their state
+ * into the agent's context mid-turn. Measured here 2026-10-08: without this flag a trial's agent
+ * quotes "claude.ai Cloudflare Developer Platform failed to connect (HTTP 410)" and an OAuth
+ * notice; with it, none. The first feedback trial spent the end of its reply explaining that
+ * connector to the user — a configuration wider than the product measures the operator's account.
+ */
+const CLAUDE_NO_MCP = "--strict-mcp-config";
+
+/** What a multi-turn template carries where the trial's own session id goes. */
+export const SESSION_PLACEHOLDER = "{session}";
 
 /**
  * The default `--agent-command` template for `platform`, `{prompt}`-substituted by `run.ts`. Each
@@ -77,8 +108,47 @@ const CLAUDE_TOOLS = "Bash,Read,Edit,Write,WebFetch";
  */
 export function presetAgentCommand(platform: Platform, model: string, skill: string): string {
   if (platform === "claude") {
-    return `claude -p "{prompt}" --model ${model} --allowed-tools "${CLAUDE_TOOLS}"`;
+    return `claude -p "{prompt}" --model ${model} --allowed-tools "${CLAUDE_TOOLS}" ${CLAUDE_NO_MCP} ${CLAUDE_TRANSCRIPT_FORMAT}`;
   }
   if (platform === "codex") return codexCommand(model, skill);
   return geminiCommand(model, skill);
+}
+
+/**
+ * The single-turn preset plus one session flag and nothing else — so a multi-turn trial is the same
+ * sandbox, tools and transcript format as a single-turn one, differing only in being ONE
+ * conversation.
+ *
+ * @llmNote `undefined` for every platform but Claude, in BOTH halves: its `--session-id` and
+ * `--resume` were verified by hand in the container the trials run in, and no other CLI's were. A
+ * platform that could open a conversation but not resume it would run its "second turn" as a fresh
+ * session with no memory of the draft, where "nothing was filed" is true for a reason that has
+ * nothing to do with the gate under test.
+ */
+function multiTurn(
+  platform: Platform,
+  model: string,
+  skill: string,
+  sessionFlag: string,
+): string | undefined {
+  if (platform !== "claude") return undefined;
+  return `${presetAgentCommand(platform, model, skill)} ${sessionFlag} ${SESSION_PLACEHOLDER}`;
+}
+
+/** How a trial opens a conversation the runner will drive further; `undefined` where unverified. */
+export function presetFirstTurnCommand(
+  platform: Platform,
+  model: string,
+  skill: string,
+): string | undefined {
+  return multiTurn(platform, model, skill, "--session-id");
+}
+
+/** How a trial continues that SAME conversation on every later turn — resumed, never forked. */
+export function presetResumedTurnCommand(
+  platform: Platform,
+  model: string,
+  skill: string,
+): string | undefined {
+  return multiTurn(platform, model, skill, "--resume");
 }

@@ -1,23 +1,28 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { describe, expect, it, test } from "vitest";
-import { PRO_LISTINGS, SKILLS } from "../src/catalogue-index.js";
+import { BODY_PATH, DRAFT_PATH } from "../src/catalogue/feedback-commands.js";
+import { findSkill, MARKETPLACE, PRO_LISTINGS, SKILLS } from "../src/catalogue-index.js";
 import {
   CATALOGUE_CHAR_BUDGET,
+  catalogueAllowedToolsViolations,
   catalogueDescriptionChars,
   catalogueVocabularyViolations,
   citationViolations,
   descriptionFitsBudget,
   listingsDisagreeingWithFeatureGuide,
+  promotionNotPreApproved,
+  publishingNotPreApproved,
   stepsWithoutVerify,
   unparseableCommands,
 } from "../src/lints.js";
 import type { ProListing } from "../src/pro-listing.js";
 import { renderAgentsSkill } from "../src/render/agents-skills.js";
 import { renderClaudeSkill } from "../src/render/claude.js";
+import { renderMarketplaceJson } from "../src/render/marketplace-json.js";
 import type { Skill } from "../src/skill.js";
 import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
 
@@ -130,7 +135,7 @@ describe("citationViolations (synthetic fixtures)", () => {
     expect(citationViolations(skill).length).toBeGreaterThan(0);
   });
 
-  it("checks a step's title, flag, verify, and commands", () => {
+  it("checks a step's title, flag, condition, verify, and commands", () => {
     const withStep = (overrides: Partial<Skill["steps"][number]>): Skill => ({
       ...MINIMAL_SKILL,
       description: "clean",
@@ -142,6 +147,9 @@ describe("citationViolations (synthetic fixtures)", () => {
       citationViolations(withStep({ title: "See skill-design.md §2" })).length,
     ).toBeGreaterThan(0);
     expect(citationViolations(withStep({ flag: "skill-design.md §2" })).length).toBeGreaterThan(0);
+    expect(
+      citationViolations(withStep({ condition: "skill-design.md §2" })).length,
+    ).toBeGreaterThan(0);
     expect(citationViolations(withStep({ verify: "skill-design.md §2" })).length).toBeGreaterThan(
       0,
     );
@@ -218,7 +226,88 @@ describe("citationViolations (synthetic fixtures)", () => {
 const JUDGMENTAL_STEP_TITLES = new Set([
   "Read the rendered trace before asserting",
   "Approval flow: diff the structural trace, not just values",
+  "Show the whole draft, not a summary of it",
+  "Ask once whether to file it, then stop the turn",
+  "Print the way to file it, and nothing else",
+  "Explain the scores, notes and what they do not show",
+  // narrativetrace-verify: a decision, an intent, readings against it, the pin's gate and a report
+  // are judged on the reply, not by a command's exit code.
+  "Decide whether to trace, and say so",
+  "Write the intent down before running anything",
+  "Read the structural trace first, against the intent",
+  "Open values on the span that looks wrong, and only there",
+  "Fix, re-run, read again",
+  "Turn approval mode on",
+  "Run the suite in approval mode and show every .received.nt",
+  "Ask once whether to pin it, then stop the turn",
+  "Promote what was shown, and nothing else",
+  "Report what the trace showed",
+  // narrativetrace-debug: reading, naming a span, a hand-off, a fix judged by the same span, a
+  // delta read line by line, a kept test and a report — each judged on the reply.
+  "Find the symptom in the values",
+  "Across async work, read the sequence diagram first",
+  "Localize by reading: name the first span where a value diverges",
+  "Bisect by span, not by file",
+  "Hand a defect in NarrativeTrace itself to narrativetrace-feedback",
+  "Fix it in the diverging span, re-run the same input, read the same span",
+  "Check that nothing else moved",
+  "Keep the reproduction as the regression test",
+  "Report the root cause as the trace showed it",
 ]);
+
+const REPORTING_COMMAND = "npx @narrativetrace/cli feedback url --category library";
+
+function reportingSkill(allowedTools: readonly string[], command = REPORTING_COMMAND): Skill {
+  return {
+    ...MINIMAL_SKILL,
+    canonicalName: "narrativetrace-x",
+    allowedTools,
+    steps: [{ title: "report it", body: { kind: "commands", commands: [command] } }],
+  };
+}
+
+describe("publishingNotPreApproved (synthetic fixtures)", () => {
+  it("rejects a skill that pre-approves its own reporting command", () => {
+    const [violation, ...rest] = publishingNotPreApproved([reportingSkill(["npx"])]);
+    expect(rest).toEqual([]);
+    expect(violation).toBe(
+      `narrativetrace-x: declares allowed tool "npx", which pre-approves its own publishing command "${REPORTING_COMMAND}" — a skill that files something public must let the harness ask`,
+    );
+  });
+
+  it("accepts the same skill declaring no allowed tool", () => {
+    expect(publishingNotPreApproved([reportingSkill([])])).toEqual([]);
+  });
+
+  it("accepts a skill whose allowed tools do not match the reporting command's first token", () => {
+    expect(publishingNotPreApproved([reportingSkill(["pnpm", "node"])])).toEqual([]);
+  });
+
+  it("ignores a skill whose commands publish nothing, however much it pre-approves", () => {
+    const skill = reportingSkill(["npx"], "npx @narrativetrace/cli doctor --json");
+    expect(publishingNotPreApproved([skill])).toEqual([]);
+  });
+
+  it("does not take a word that merely contains the verb for the verb", () => {
+    const skill = reportingSkill(["npx"], "npx some-tool --feedbackless");
+    expect(publishingNotPreApproved([skill])).toEqual([]);
+  });
+
+  it("does not take a quoted or path-embedded word for the verb", () => {
+    const quoted = reportingSkill(["node"], "node -e \"x.includes('feedback')\"");
+    const path = reportingSkill(["node"], "node -e \"read('out/feedback/draft.md')\"");
+    expect(publishingNotPreApproved([quoted, path])).toEqual([]);
+  });
+
+  it("takes the verb at the very end of a command", () => {
+    expect(publishingNotPreApproved([reportingSkill(["npx"], "npx cli feedback")])).toHaveLength(1);
+  });
+
+  it("reports every pre-approved publishing command across the skills it is given", () => {
+    const skills = [reportingSkill(["npx"]), reportingSkill(["npx", "node"]), reportingSkill([])];
+    expect(publishingNotPreApproved(skills)).toHaveLength(2);
+  });
+});
 
 describe("catalogue index", () => {
   it("is non-empty", () => {
@@ -244,6 +333,18 @@ describe("catalogue index", () => {
 
   it("every commands string's first token is in the closed vocabulary", () => {
     expect(catalogueVocabularyViolations(SKILLS)).toEqual([]);
+  });
+
+  it("every declared allowed tool is a bare command of the closed vocabulary", () => {
+    expect(catalogueAllowedToolsViolations(SKILLS)).toEqual([]);
+  });
+
+  it("no skill pre-approves a command that files something public", () => {
+    expect(publishingNotPreApproved(SKILLS)).toEqual([]);
+  });
+
+  it("narrativetrace-feedback is in the catalogue", () => {
+    expect(findSkill("narrativetrace-feedback")?.allowedTools).toEqual([]);
   });
 
   it.each(SKILLS)("$canonicalName: every non-judgmental step carries a verify", (skill) => {
@@ -297,7 +398,13 @@ function repoMarkdownBasenames(root: string): ReadonlySet<string> {
 describe.skipIf(!REPO_ROOT_REACHABLE)(
   "no planning-note citation survives into rendered skill text",
   () => {
-    const basenames = repoMarkdownBasenames(REPO_ROOT);
+    // The report files the verb writes are real names a rendered page must be allowed to say, but
+    // they exist only under a gitignored output directory: a clean checkout has no such file, so
+    // listing the repository alone made this lint pass or fail on whether a replay had run first.
+    const basenames = new Set([
+      ...repoMarkdownBasenames(REPO_ROOT),
+      ...[DRAFT_PATH, BODY_PATH].map((path) => basename(path).toLowerCase()),
+    ]);
 
     it.each(SKILLS)("$canonicalName", (skill) => {
       expect(citationViolations(skill, basenames)).toEqual([]);
@@ -364,5 +471,92 @@ describe.skipIf(!REPO_ROOT_REACHABLE)(
       const expected = `${renderAgentsSkill(skill, resolveSnippet)}\n`;
       expect(readFileSync(path, "utf-8")).toBe(expected);
     });
+
+    it("marketplace.json", () => {
+      const path = join(REPO_ROOT, ".claude-plugin", "marketplace.json");
+      expect(readFileSync(path, "utf-8")).toBe(renderMarketplaceJson(MARKETPLACE));
+    });
+
+    it("the plugin source directory holds every skill page the catalogue declares", () => {
+      const pluginRoot = join(REPO_ROOT, MARKETPLACE.pluginSource);
+      for (const skill of SKILLS) {
+        const page = join(pluginRoot, "skills", skill.canonicalName, "SKILL.md");
+        expect(
+          existsSync(page),
+          `${skill.canonicalName}'s page must live under the plugin source`,
+        ).toBe(true);
+      }
+    });
   },
 );
+
+describe("citationViolations reads a skill's reference sections too", () => {
+  it("names a section-mark citation inside a reference section", () => {
+    const skill: Skill = {
+      canonicalName: "s",
+      skillClass: "guided",
+      description: "d",
+      fixture: "examples/sixty-seconds",
+      steps: [],
+      always: [],
+      never: [],
+      allowedTools: [],
+      references: [{ heading: "Reading", markdown: "see design §4" }],
+    };
+    expect(citationViolations(skill)).toEqual(['s: section-mark citation in "see design §4"']);
+  });
+});
+
+describe("promotionNotPreApproved — a skill that pins a baseline lets the harness ask", () => {
+  const pinning = (allowedTools: readonly string[]): Skill => ({
+    canonicalName: "pinner",
+    skillClass: "guided",
+    description: "d",
+    fixture: "examples/sixty-seconds",
+    steps: [
+      { title: "Promote", body: { kind: "commands", commands: ["npx narrativetrace-approve"] } },
+    ],
+    always: [],
+    never: [],
+    allowedTools,
+  });
+
+  it("passes a promoting skill that declares no allowed tool", () => {
+    expect(promotionNotPreApproved([pinning([])])).toEqual([]);
+  });
+
+  it.each([
+    ["npx"],
+    ["Bash(npx narrativetrace-approve)"],
+    ["pnpm"],
+    ["node"],
+  ])("fails a promoting skill that declares %s — any tool could reach the promotion", (tool) => {
+    expect(promotionNotPreApproved([pinning([tool])])).toHaveLength(1);
+    expect(promotionNotPreApproved([pinning([tool])])[0]).toContain("pinner");
+  });
+
+  it("names the package-script spelling of the promotion too", () => {
+    const skill = {
+      ...pinning(["pnpm"]),
+      steps: [
+        {
+          title: "P",
+          body: { kind: "commands" as const, commands: ["pnpm run approve-narratives"] },
+        },
+      ],
+    };
+    expect(promotionNotPreApproved([skill])).toHaveLength(1);
+  });
+
+  it("ignores a skill that promotes nothing", () => {
+    const skill = {
+      ...pinning(["pnpm"]),
+      steps: [{ title: "T", body: { kind: "commands" as const, commands: ["pnpm test"] } }],
+    };
+    expect(promotionNotPreApproved([skill])).toEqual([]);
+  });
+
+  it("holds for the whole catalogue", () => {
+    expect(promotionNotPreApproved(SKILLS)).toEqual([]);
+  });
+});

@@ -1,0 +1,19 @@
+{
+  "name": "billing-service",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@acme/checkout-kit": "file:vendor/acme-checkout-kit-2.4.1.tgz"
+  },
+  "devDependencies": {
+    "@narrativetrace/cli": "latest",
+    "@narrativetrace/core-node": "latest",
+    "@narrativetrace/proxy": "latest",
+    "@narrativetrace/vitest": "latest",
+    "vitest": "^3.2.0"
+  }
+}

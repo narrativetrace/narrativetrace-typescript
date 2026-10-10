@@ -1,0 +1,5 @@
+{
+  "fixture": "evals/fixtures/existing-service-checkout",
+  "setup": "checkout-install",
+  "turns": { "2": "yes, pin it" }
+}

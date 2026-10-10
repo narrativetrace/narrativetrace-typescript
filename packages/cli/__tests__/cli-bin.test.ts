@@ -82,6 +82,25 @@ describe("cli-bin", () => {
     expect(stdoutSpy).toHaveBeenCalledWith("nothing to do.\n");
   });
 
+  /**
+   * The `gh` probe belongs to exactly one entry point, and this is it. Asserted as a wiring fact
+   * and never CALLED: calling it would start a process, which is the one thing no test here does.
+   */
+  test("deps.ghAuthenticated is wired from the one module that holds the real probe", async () => {
+    process.argv = ["/usr/bin/node", "/path/to/narrativetrace", "feedback", "gh"];
+    const { ghAuthenticated } =
+      await vi.importActual<typeof import("../src/gh-auth-probe.js")>("../src/gh-auth-probe.js");
+    let wired: unknown;
+    runCliMock.mockImplementation((_argv: string[], deps: { ghAuthenticated: unknown }) => {
+      wired = deps.ghAuthenticated;
+      return 1;
+    });
+
+    await import("../src/cli-bin.js");
+
+    expect(wired).toBe(ghAuthenticated);
+  });
+
   test("deps.openCarrier asks the locator about the process's own directory", async () => {
     process.argv = ["/usr/bin/node", "/path/to/narrativetrace", "init", "--from", "/carriers"];
     runCliMock.mockImplementation(

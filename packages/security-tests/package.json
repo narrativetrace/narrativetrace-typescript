@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/security-tests",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Cross-emitter security and fuzz test suite replaying a shared hostile corpus against every package",
   "private": true,
   "type": "module",
@@ -20,6 +20,7 @@
     "@narrativetrace/nestjs": "workspace:*",
     "@narrativetrace/observability": "workspace:*",
     "@narrativetrace/proxy": "workspace:*",
+    "@narrativetrace/tooling": "workspace:*",
     "@narrativetrace/vitest": "workspace:*",
     "@nestjs/common": "^11.2.3",
     "@nestjs/core": "^11.2.3",

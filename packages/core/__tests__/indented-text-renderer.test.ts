@@ -52,7 +52,7 @@ describe("renderIndentedText", () => {
 
     const result = renderIndentedText(tree);
 
-    expect(result).toBe(`${header(tree)}OrderService.placeOrder(orderId: "order-42") → "OK"`);
+    expect(result).toBe(`${header(tree)}OrderService.placeOrder(orderId: "order-42") → "OK" #1`);
   });
 
   test("nested calls render as tree with box-drawing", () => {
@@ -79,9 +79,9 @@ describe("renderIndentedText", () => {
     expect(result).toBe(
       header(tree) +
         [
-          'OrderService.placeOrder() → "OK"',
-          '├── InventoryService.reserve(productId: "P1") → true',
-          '└── PaymentService.charge(amount: 100) → "receipt-1"',
+          'OrderService.placeOrder() → "OK" #1',
+          '├── InventoryService.reserve(productId: "P1") → true #1.1',
+          '└── PaymentService.charge(amount: 100) → "receipt-1" #1.2',
         ].join("\n"),
     );
   });
@@ -97,7 +97,7 @@ describe("renderIndentedText", () => {
     const result = renderIndentedText(tree);
 
     expect(result).toBe(
-      `${header(tree)}PaymentService.charge(amount: 100) ✗ Error: insufficient funds`,
+      `${header(tree)}PaymentService.charge(amount: 100) ✗ Error: insufficient funds #1`,
     );
   });
 
@@ -249,7 +249,7 @@ describe("renderIndentedText", () => {
 
     const result = renderIndentedText(tree);
 
-    expect(result).toBe(`${header(tree)}Logger.log(msg: "hello")`);
+    expect(result).toBe(`${header(tree)}Logger.log(msg: "hello") #1`);
   });
 
   // className/methodName/parameter names are trace metadata: unlike a captured value they are not
@@ -266,7 +266,7 @@ describe("renderIndentedText", () => {
     const body = result.slice(header(tree).length);
 
     expect(body.split("\n")).toHaveLength(1);
-    expect(body).toBe('A\\nB.c\\nd(e\\nf: "v") → "OK"');
+    expect(body).toBe('A\\nB.c\\nd(e\\nf: "v") → "OK" #1');
   });
 });
 
@@ -304,16 +304,63 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   // budget must never be implicit — a test whose legitimate cost varies with scheduler contention
   // declares what it actually needs, and a hang guard on a non-timing test takes a seconds-scale
   // floor, never a millisecond-scale tolerance. 3000ms is the floor.
+  // Phase 7 (2026-10-10): every line now cites its position-path span id, and at depth d that id
+  // is d segments long, so this chain's output is O(depth²) in EVERY flavour (100–300M chars at
+  // the 10,000 cap, measured 2.8–4.5s run alone; Java's format and cap are the same). The 5x
+  // rule above gives 20000ms. A citable-depth bound is an open question for the format.
   test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
     expect(renderIndentedText(traceTree([deepChain(10_001)]))).toContain("… (depth limit)");
-  }, 3_000);
+  }, 20_000);
 
   test("an ordinary tree well within the bound renders exactly as before", () => {
     const child = traceNode(methodSignature("Repo", "find", []), returned('"found"'), []);
     const root = traceNode(methodSignature("Svc", "op", []), returned('"ok"'), [child]);
     const tree = traceTree([root]);
     expect(renderIndentedText(tree)).toBe(
-      `${header(tree)}Svc.op() → "ok"\n└── Repo.find() → "found"`,
+      `${header(tree)}Svc.op() → "ok" #1\n└── Repo.find() → "found" #1.1`,
     );
+  });
+});
+
+describe("citable span ids — the same id the structural trace gives the same call", () => {
+  test("fork members cite the ids their Class.method order gives them", () => {
+    const g = (cls: string) => concurrencyInfo("g1", `${cls}.run`, "fork-join");
+    const zeta = traceNode(methodSignature("Zeta", "run", []), returned(null), [], 5, 0, g("Zeta"));
+    const alpha = traceNode(
+      methodSignature("Alpha", "run", []),
+      returned(null),
+      [],
+      5,
+      0,
+      g("Alpha"),
+    );
+    const root = traceNode(methodSignature("Svc", "op", []), returned(null), [zeta, alpha]);
+    const result = renderIndentedText(traceTree([root]));
+    expect(result).toContain("↦ Alpha.run() #1.1");
+    expect(result).toContain("↦ Zeta.run() #1.2");
+  });
+
+  test("a fire-and-forget worker cites its position under the launch", () => {
+    const info = concurrencyInfo("f1", "Mail.send", "fire-and-forget");
+    const worker = traceNode(methodSignature("Mail", "send", []), returned(null), [], 1, 0, info);
+    const after = traceNode(methodSignature("Svc", "close", []), returned(null), []);
+    const root = traceNode(methodSignature("Svc", "op", []), returned(null), [worker, after]);
+    const result = renderIndentedText(traceTree([root]));
+    expect(result).toContain("Mail.send() #1.1.1");
+    expect(result).toContain("Svc.close() #1.2");
+  });
+
+  test("a node the walk stopped at still cites its own id; the marker line cites none", () => {
+    const self = {
+      signature: methodSignature("Svc", "op", []),
+      outcome: returned(null),
+      children: [] as unknown[],
+      durationMs: 0,
+      startTimeMs: 0,
+    };
+    self.children = [self];
+    const result = renderIndentedText(traceTree([self as unknown as ReturnType<typeof traceNode>]));
+    expect(result).toContain("└── Svc.op() #1.1");
+    expect(result).toMatch(/… \(cycle\)$/);
   });
 });

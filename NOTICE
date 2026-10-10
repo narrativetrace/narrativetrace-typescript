@@ -1,0 +1,50 @@
+NarrativeTrace — Copyright 2026 Empower Agile
+
+NarrativeTrace is a trademark of Empower Agile.
+
+This product includes software developed at Empower Agile
+(https://www.empoweragile.com).
+
+NarrativeTrace's API and output format are open standards (Apache 2.0). Its runtime is free and
+source-available (BSL 1.1, converting to Apache 2.0 four years after each release). Pro is
+commercial.
+
+Which licence applies to what
+------------------------------
+
+  @narrativetrace/cli
+  @narrativetrace/skills
+  @narrativetrace/tooling
+      Apache License, Version 2.0 — see LICENSE-APACHE.
+      The `narrativetrace` launcher, the agent-skill carrier it bundles, and the installer and
+      doctor library behind it. Open for the same reason the annotation/decorator API is — what a
+      consumer's own agents and build read has to be readable, and reusable, without agreeing to
+      anything.
+
+  the rendered agent-skill pages in this repository, and the marketplace file that lists them:
+  .claude/skills/**, .agents/skills/** and .claude-plugin/marketplace.json
+      Apache License, Version 2.0.
+      Build output of the same catalogue the skills carrier package ships, published at the paths
+      agent tools discover them at. Whoever installs them — by copying a directory, through the
+      installer, or from a plugin marketplace — receives Apache-licensed pages, and the
+      marketplace listing says so.
+
+  every other @narrativetrace/* package published from this repository
+      Business Source License 1.1 — see LICENSE.
+      The runtime and its integrations. Free to use in production, including in products and
+      services you provide to your own customers; the one exclusion is offering NarrativeTrace
+      itself — or a product or service whose value derives substantially from it — to third
+      parties as a logging, tracing or code-narrative product or service. Each released version
+      converts to the Apache License, Version 2.0 four years after it is published.
+
+  documentation/ (prose)
+      Creative Commons Attribution 4.0 International (CC BY 4.0) —
+      https://creativecommons.org/licenses/by/4.0/
+      The prose guides and the feature guide.
+      Documentation is not the moat.
+
+The licence tier each published package ships under is this repository's own decision, recorded
+in tools/license-tiers.ts and gated by __tests__/package-metadata.test.ts and
+__tests__/notice.test.ts — the two places a wrong answer would otherwise become public (the
+manifest npm shows on every package page, and this file) never disagree about which packages are
+open, because neither defines its own copy of the list.

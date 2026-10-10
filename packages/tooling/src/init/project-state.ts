@@ -34,6 +34,12 @@ export interface ProjectState {
   /** Every skill directory found under either install root, in read order. */
   readonly installedSkills: readonly InstalledSkill[];
   /**
+   * What a flavour's install root points at, for each root that is itself a symbolic link — nothing
+   * may be written into that flavour at all, because every page of it, present or not, would land
+   * wherever the link goes.
+   */
+  readonly linkedInstallRoots: ReadonlyMap<SkillFlavour, string>;
+  /**
    * Vendor rule files that already carry our markers, by project-relative path. The installer never
    * CREATES one of these; it keeps an existing block up to date.
    */
@@ -58,13 +64,34 @@ function requireOnePathOnce(installedSkills: readonly InstalledSkill[]): void {
 }
 
 /**
+ * Nothing is listed under a flavour whose whole install root is a link: what was found there was found
+ * THROUGH it, and the planner is never allowed to treat such a page as a path of its own.
+ */
+function requireNothingBehindALinkedRoot(
+  installedSkills: readonly InstalledSkill[],
+  linkedInstallRoots: ReadonlyMap<SkillFlavour, string>,
+): void {
+  const behind = installedSkills.filter((skill) => linkedInstallRoots.has(skill.flavour));
+  if (behind.length > 0) {
+    throw new TypeError(
+      `a linked install root hides every skill under it, got ${behind
+        .map((skill) => `${skill.flavour}/${skill.name}`)
+        .join(", ")}`,
+    );
+  }
+}
+
+/**
  * A validated, frozen snapshot.
  *
- * @throws {TypeError} when one (flavour, name) is described twice, or the output directory is blank.
+ * @throws {TypeError} when one (flavour, name) is described twice, a skill is listed under a linked
+ * install root, or the output directory is blank.
  */
 export function projectState(input: ProjectStateInput = {}): ProjectState {
   const installedSkills = Object.freeze([...(input.installedSkills ?? [])]);
+  const linkedInstallRoots = new Map(input.linkedInstallRoots ?? []);
   requireOnePathOnce(installedSkills);
+  requireNothingBehindALinkedRoot(installedSkills, linkedInstallRoots);
   const outputDirectory = input.outputDirectory ?? DEFAULT_OUTPUT_DIRECTORY;
   if (outputDirectory.trim() === "") {
     throw new TypeError("a project state names where traces land, never an empty directory");
@@ -74,6 +101,7 @@ export function projectState(input: ProjectStateInput = {}): ProjectState {
     claudeMd: input.claudeMd,
     claudeDirectory: input.claudeDirectory ?? false,
     installedSkills,
+    linkedInstallRoots,
     markedRuleFiles: new Map(input.markedRuleFiles ?? []),
     outputDirectory,
     projectVersion: input.projectVersion,
@@ -87,4 +115,15 @@ export function installedSkillAt(
   name: string,
 ): InstalledSkill | undefined {
   return state.installedSkills.find((skill) => skill.flavour === flavour && skill.name === name);
+}
+
+/**
+ * What this flavour's install root points at when the root itself is a symbolic link, or `undefined`
+ * when it is a path of the project's own.
+ */
+export function linkedInstallRootOf(
+  state: ProjectState,
+  flavour: SkillFlavour,
+): string | undefined {
+  return state.linkedInstallRoots.get(flavour);
 }

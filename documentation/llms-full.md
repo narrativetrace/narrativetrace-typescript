@@ -690,6 +690,12 @@ const puml = renderPlantUmlSequence(tree);
 
 ## Clarity API Reference
 
+For guided setup, use the [add-narrativetrace-clarity skill](agent-skills.md): it registers
+`ClaritySuiteReporter`, runs the suite, checks that `clarity-results.json` is fresh and nonempty,
+explains the scores, renames by the report's suggestions, and adds the `narrativetrace-clarity`
+gate only when requested. `add-narrative-tracing` owns first-trace installation;
+`narrativetrace-doctor` diagnoses missing tracing or output.
+
 ### analyzeClarity(tree, vocabulary?)
 
 Analyzes a trace tree and returns clarity scores:
@@ -793,6 +799,319 @@ import { postToCollector } from "@narrativetrace/browser";
 
 await postToCollector(context.captureTrace(), "https://collector.example.com/traces");
 ```
+
+---
+
+## Framework Integrations
+
+<!-- framework-table:begin -->
+### Framework table — what the doctor checks
+
+Rendered from the doctor's own framework table, which ships inside `@narrativetrace/tooling`. For every row it can observe, `narrativetrace doctor` runs the named check: the framework is detected but its integration is not installed, or installed but never wired — and the failing fix prints the install line (with the project's own package manager and NarrativeTrace version) and the wiring below. A framework with no integration shipped is reported as such, so an agent leaves it alone rather than guessing one.
+
+| Framework | Detected by | Install (npm) | Wiring | Doctor check |
+|---|---|---|---|---|
+| Vitest | a vitest dependency | `npm install --save-dev @narrativetrace/vitest@0.3.0 @narrativetrace/proxy@0.3.0` | a test built with `createNarrativeTest()`, or a NarrativeTrace reporter in `vitest.config` | `config.vitest-fixture` |
+| Express | an express dependency | `npm install @narrativetrace/express@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-node@0.3.0 @narrativetrace/observability@0.3.0` | `app.use(narrativeTrace(…))` before the routes, printing each request's trace | `config.express-middleware` |
+| Hono | a hono dependency | `npm install @narrativetrace/hono@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-node@0.3.0 @narrativetrace/observability@0.3.0` | `app.use("*", narrativeTrace(…))` before the routes, printing each request's trace | `config.hono-middleware` |
+| NestJS | an @nestjs/core dependency | `npm install @narrativetrace/nestjs@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-node@0.3.0 @narrativetrace/observability@0.3.0` | `AutoProxyModule.forRoot({ onRequestComplete })` in the root module's imports | `config.nestjs-module` |
+| Angular | an @angular/core dependency | `npm install @narrativetrace/angular@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/proxy@0.3.0` | `provideNarrativeTrace()` in the application config's providers | `config.angular-provider` |
+| React | a react dependency | `npm install @narrativetrace/react@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-web@0.3.0 @narrativetrace/proxy@0.3.0` | `<NarrativeTraceProvider>` around the app | `config.react-provider` |
+| React Router | a react-router or react-router-dom dependency | `npm install @narrativetrace/react-router@0.3.0 @narrativetrace/react@0.3.0 @narrativetrace/core@0.3.0` | a component calling `useNavigationCapture(…)`, rendered inside the router and the provider | `config.react-router-capture` |
+| Pino | a pino dependency | `npm install @narrativetrace/pino@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/observability@0.3.0` | a pipeline built from this project's pino logger, passed to its narrative context | `config.pino-consumer` |
+| Winston | a winston dependency | `npm install @narrativetrace/winston@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/observability@0.3.0` | a pipeline built from this project's winston logger, passed to its narrative context | `config.winston-consumer` |
+| OpenTelemetry | an @opentelemetry/api dependency | `npm install @narrativetrace/opentelemetry@0.3.0 @narrativetrace/core@0.3.0` | a pipeline built from this project's tracer, passed to its narrative context | `config.opentelemetry-consumer` |
+| Default logger (Pino) | no logger: none of pino, winston or @opentelemetry/api is declared | `npm install @narrativetrace/pino@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/observability@0.3.0 pino` | a pipeline built from this project's pino logger, passed to its narrative context | `trap.silent-sink` (existing) |
+| Fastify | a fastify dependency | — | no NarrativeTrace integration is shipped for it | `config.fastify-integration` (reports it) |
+| Koa | a koa dependency | — | no NarrativeTrace integration is shipped for it | `config.koa-integration` (reports it) |
+
+#### Vitest — wiring
+
+<!-- snippet: packages/vitest/__tests__/wiring/order-service.test.ts -->
+```ts
+import { traceObject } from "@narrativetrace/proxy";
+import { createNarrativeTest } from "@narrativetrace/vitest";
+import { expect } from "vitest";
+import { OrderService } from "./order-service.js";
+
+const narrativeTest = createNarrativeTest();
+
+narrativeTest("places an order", ({ narrativeContext }) => {
+  const orders = traceObject(new OrderService(), narrativeContext, {
+    placeOrder: ["customerId", "quantity"],
+  });
+
+  orders.placeOrder("C-1", 2);
+
+  expect(narrativeContext.captureTrace().roots).toHaveLength(1);
+});
+```
+<!-- /snippet -->
+
+#### Express — wiring
+
+<!-- snippet: packages/express/__tests__/wiring/narrative-trace.ts -->
+```ts
+import { NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
+import { createExpressNarrativeContext, narrativeTrace } from "@narrativetrace/express";
+import type { Express } from "express";
+
+/**
+ * Call once, before your routes. Trace each service with the context it returns, so every
+ * request prints its own trace: traceObject(new OrderService(), narrativeContext, …).
+ */
+export function addNarrativeTrace(app: Express) {
+  const narrativeContext = createExpressNarrativeContext(new NarrativeTraceConfig());
+  app.use(
+    narrativeTrace(narrativeContext, {
+      onRequestComplete(_request, _response, context) {
+        console.log(renderIndentedText(context.captureTrace()));
+      },
+    }),
+  );
+  return narrativeContext;
+}
+```
+<!-- /snippet -->
+
+#### Hono — wiring
+
+<!-- snippet: packages/hono/__tests__/wiring/narrative-trace.ts -->
+```ts
+import { NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
+import { createHonoNarrativeContext, narrativeTrace } from "@narrativetrace/hono";
+import type { Hono } from "hono";
+
+/**
+ * Call once, before your routes. Trace each service with the context it returns, so every
+ * request prints its own trace: traceObject(new OrderService(), narrativeContext, …).
+ */
+export function addNarrativeTrace(app: Hono) {
+  const narrativeContext = createHonoNarrativeContext(new NarrativeTraceConfig());
+  app.use(
+    "*",
+    narrativeTrace(narrativeContext, {
+      onRequestComplete(_c, context) {
+        console.log(renderIndentedText(context.captureTrace()));
+      },
+    }),
+  );
+  return narrativeContext;
+}
+```
+<!-- /snippet -->
+
+#### NestJS — wiring
+
+<!-- snippet: packages/nestjs/__tests__/wiring/narrative-trace.module.ts -->
+```ts
+import { type NarrativeContext, renderIndentedText } from "@narrativetrace/core-node";
+import { AutoProxyModule, type NestRequestCompletion } from "@narrativetrace/nestjs";
+
+function onRequestComplete(_context: NarrativeContext, completion: NestRequestCompletion): void {
+  console.log(renderIndentedText(completion.tree));
+}
+
+/**
+ * Add it to your root module's imports, next to what is already there. Every provider is then
+ * traced, and every request prints its own trace once the response is sent.
+ */
+export const NarrativeTraceModule = AutoProxyModule.forRoot({ onRequestComplete });
+```
+<!-- /snippet -->
+
+#### Angular — wiring
+
+<!-- snippet: packages/angular/__tests__/wiring/app.config.ts -->
+```ts
+import type { ApplicationConfig } from "@angular/core";
+import { provideNarrativeTrace } from "@narrativetrace/angular";
+import { renderIndentedText, type TraceTree } from "@narrativetrace/core";
+
+/**
+ * Add the provider to your application config, next to provideRouter. Register each service to
+ * trace with provideTraced(OrderService), and every navigation prints its own trace.
+ */
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideNarrativeTrace({
+      captureOnNavigation: true,
+      onTraceCapture(tree: TraceTree) {
+        console.log(renderIndentedText(tree));
+      },
+    }),
+  ],
+};
+```
+<!-- /snippet -->
+
+#### React — wiring
+
+<!-- snippet: packages/react/__tests__/wiring/root.tsx -->
+```tsx
+import { NarrativeTraceProvider } from "@narrativetrace/react";
+import type { ReactNode } from "react";
+
+/**
+ * Wrap your whole app once, where it is rendered: <NarrativeTraceRoot><App /></NarrativeTraceRoot>.
+ * Inside it, useTraced traces a service and useTraceCapture hands back what it recorded.
+ */
+export function NarrativeTraceRoot({ children }: { children: ReactNode }) {
+  return <NarrativeTraceProvider>{children}</NarrativeTraceProvider>;
+}
+```
+<!-- /snippet -->
+
+#### React Router — wiring
+
+<!-- snippet: packages/react-router/__tests__/wiring/navigation-tracer.tsx -->
+```tsx
+import { renderIndentedText } from "@narrativetrace/core";
+import { useNavigationCapture } from "@narrativetrace/react-router";
+
+/**
+ * Render it once, inside both your router and <NarrativeTraceProvider>, next to your routes.
+ * Every navigation then prints the trace of the page it leaves.
+ */
+export function NavigationTracer() {
+  useNavigationCapture((tree) => console.log(renderIndentedText(tree)));
+  return null;
+}
+```
+<!-- /snippet -->
+
+#### Pino — wiring
+
+<!-- snippet: packages/pino/__tests__/wiring/narrative-pipeline.ts -->
+```ts
+import { BufferedEventConsumer, DualPathPipeline } from "@narrativetrace/core";
+import { createPinoEventConsumer } from "@narrativetrace/pino";
+import type { Logger } from "pino";
+
+/**
+ * Build it from this project's own pino logger, and pass it wherever the project creates its
+ * narrative context: new AsyncNarrativeContext(config, narrativePipeline(logger)), or a framework
+ * integration's pipeline option. Every traced call is then a log line, and captureTrace() still
+ * works.
+ */
+export function narrativePipeline(logger: Logger) {
+  const levels = { enter: "info", return: "info", exception: "error" } as const;
+  return new DualPathPipeline(
+    createPinoEventConsumer(logger, { levels }),
+    new BufferedEventConsumer(),
+  );
+}
+```
+<!-- /snippet -->
+
+#### Winston — wiring
+
+<!-- snippet: packages/winston/__tests__/wiring/narrative-pipeline.ts -->
+```ts
+import { BufferedEventConsumer, DualPathPipeline } from "@narrativetrace/core";
+import { createWinstonEventConsumer } from "@narrativetrace/winston";
+import type { Logger } from "winston";
+
+/**
+ * Build it from this project's own winston logger, and pass it wherever the project creates its
+ * narrative context: new AsyncNarrativeContext(config, narrativePipeline(logger)), or a framework
+ * integration's pipeline option. Every traced call is then a log line, and captureTrace() still
+ * works.
+ */
+export function narrativePipeline(logger: Logger) {
+  const levels = { enter: "info", return: "info", exception: "error" } as const;
+  return new DualPathPipeline(
+    createWinstonEventConsumer(logger, { levels }),
+    new BufferedEventConsumer(),
+  );
+}
+```
+<!-- /snippet -->
+
+#### OpenTelemetry — wiring
+
+<!-- snippet: packages/opentelemetry/__tests__/wiring/narrative-pipeline.ts -->
+```ts
+import { BufferedEventConsumer, DualPathPipeline } from "@narrativetrace/core";
+import { createOtelEventConsumer } from "@narrativetrace/opentelemetry";
+import type { Tracer } from "@opentelemetry/api";
+
+/**
+ * Build it from this project's own tracer, trace.getTracer("orders"), and pass it wherever the
+ * project creates its narrative context: new AsyncNarrativeContext(config, narrativePipeline(tracer)),
+ * or a framework integration's pipeline option. Every traced call is then a span, and
+ * captureTrace() still works.
+ */
+export function narrativePipeline(tracer: Tracer) {
+  return new DualPathPipeline(createOtelEventConsumer({ tracer }), new BufferedEventConsumer());
+}
+```
+<!-- /snippet -->
+<!-- framework-table:end -->
+
+---
+
+## Runtime Adapters API Reference
+
+Every adapter opens one trace context per request or navigation and hands the captured tree to a completion callback; none of them fails the request when an extractor or callback throws. Server adapters pair with `AsyncNarrativeContext` from `@narrativetrace/core-node`, so concurrent requests never share a trace. The [Framework Integration Guide](framework-integration-guide.md) has the complete paths.
+
+### Express — `@narrativetrace/express`
+
+```ts
+import { getNarrativeContext, narrativeTrace } from "@narrativetrace/express";
+
+app.use(narrativeTrace(ctx, { excludedPaths: ["/health"], onRequestComplete }));
+```
+
+`narrativeTrace(ctx, options)` is middleware. Options: `excludedPaths` (no context or log scope for those paths), `extractRequest`, `extractUser`, and `onRequestComplete(req, res, ctx, { statusCode, durationMs })`, which fires on the response's `finish`. `getNarrativeContext(req)` returns the request's active context inside a handler.
+
+### Hono — `@narrativetrace/hono`
+
+```ts
+import { getNarrativeContext, narrativeTrace } from "@narrativetrace/hono";
+
+app.use("*", narrativeTrace(ctx, { excludedPaths: ["/health"], onRequestComplete }));
+```
+
+The same options, with `onRequestComplete(c, ctx, { statusCode, durationMs })` fired in a `finally`, so it runs even when the handler throws. `clientIp` is `"unknown"` unless you opt in with `withConnInfoClientIp(getConnInfo)`: the default extractor never trusts `x-forwarded-for`.
+
+### NestJS — `@narrativetrace/nestjs`
+
+`AutoProxyModule.forRoot({ serviceName, level, pipeline, exclude, onRequestComplete })` is a global module that proxies every provider so each service call is captured. `onRequestComplete(ctx, { statusCode, durationMs, tree })` receives the captured tree. `@NoAutoProxy()` opts one provider out; `NarrativeStorage` is the exported per-request context holder. Without a real `pipeline`, traces are captured but not exported.
+
+### Angular — `@narrativetrace/angular`
+
+`provideNarrativeTrace({ captureOnNavigation, onTraceCapture })` wires the DI context, the `traceInterceptor` (outgoing `HttpClient` requests carry the trace context) and optional per-navigation capture. `provideTraced(Service)` registers each service to trace. `TraceCaptureService` and the `NARRATIVE_CONTEXT` token capture traces manually.
+
+### React — `@narrativetrace/react`
+
+`NarrativeTraceProvider` supplies the context; `useTraced(factory, name)` returns a traced service; `useTraceCapture()` returns `captureAndReset`, which yields the accumulated tree. `useNarrativeTrace()` returns the raw context, and `useTracedFetch()` returns a `fetch` that stamps `traceparent` on outgoing requests.
+
+### React Router — `@narrativetrace/react-router`
+
+`useNavigationCapture(callback?)` captures a fresh tree on every pathname change, passes it to the optional callback, and resets the context. It must sit inside a `NarrativeTraceProvider` and a React Router context.
+
+---
+
+## Observability API Reference
+
+These packages send what the trace already knows to the logging and tracing tools a project has. All of them take a pipeline consumer: put it in a `DualPathPipeline` beside a `BufferedEventConsumer`, which keeps `captureTrace()` and `events()` working.
+
+### Log enrichment — `@narrativetrace/observability`
+
+`createEnricherEventConsumer()` keeps the active trace identity (`code.*`, `trace_id`, `service.*`, `nt.depth`) in a scoped `LogContext`; `createLogEnricher(callback)` adapts that context to any logger. `withRequestTrace(context, request, fn)` opens a per-request scope and seeds the `nt.http.*` and `nt.enduser.id` fields (`buildRequestLogValues`, `RequestInfo`) for the handler. `@narrativetrace/winston` and `@narrativetrace/pino` build on this same `LogContext`.
+
+### OpenTelemetry — `@narrativetrace/opentelemetry`
+
+`createOtelEventConsumer({ tracer, maxActiveSpans })` is the live bridge: it starts and ends spans as methods execute, nests child spans under their parent, and stamps `nt.*` attributes and typed `narrative.param.<name>` values. `new TraceSpanExporter(tracer).export(roots)` turns an already captured tree into nested spans in one pass. The span-attribute mappers (`setSpanAttributes`, `setOutcomeAttributes`, `buildEventAttributes`) are exported for custom exporters.
+
+### Winston — `@narrativetrace/winston`
+
+`createWinstonEventConsumer(logger, { levels })` writes one line per `enter` and `exit` event (`→ Class.method`, `← returned: …`, `!! Error`) with typed fields. Entry and return default to `debug`, exceptions to `warn`; `levels: { enter, return, exception }` overrides each. `createWinstonFormat()` merges the current `LogContext` into the lines of your own `logger.*` calls.
+
+### Pino — `@narrativetrace/pino`
+
+`createPinoEventConsumer(logger, { levels })` writes the same lines; entry and return default to `trace`, exceptions to `warn`. `createPinoMixin()`, passed as the logger's `mixin`, merges the current `LogContext` into every line.
 
 ---
 

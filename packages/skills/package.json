@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/skills",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The published skills carrier: narrativetrace-doctor and add-narrative-tracing as resources — one SKILL.md per platform (agents, claude) plus catalogue.json. No code; the typed catalogue that renders it lives in the private @narrativetrace/skills-catalogue.",
   "license": "Apache-2.0",
   "private": false,

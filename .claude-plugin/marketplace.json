@@ -1,0 +1,18 @@
+{
+  "name": "narrativetrace-typescript",
+  "owner": {
+    "name": "NarrativeTrace",
+    "url": "https://narrativetrace.ai"
+  },
+  "description": "The NarrativeTrace agent skills for TypeScript.",
+  "plugins": [
+    {
+      "name": "narrativetrace-typescript",
+      "source": "./.claude",
+      "description": "Install NarrativeTrace in a TypeScript project and reach a first trace, diagnose an install that traces nothing, add or verify a Clarity naming report, report a defect in NarrativeTrace itself with your approval, verify a change by reading its trace and pinning it as a baseline, and debug a wrong result by naming the span where it diverged.",
+      "license": "Apache-2.0",
+      "homepage": "https://narrativetrace.ai",
+      "keywords": ["narrativetrace", "typescript", "tracing", "observability", "agent-skills"]
+    }
+  ]
+}

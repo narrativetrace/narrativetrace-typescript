@@ -1,0 +1,17 @@
+{
+  "name": "feedback-false-positive-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/main.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@narrativetrace/core-node": "latest",
+    "@narrativetrace/proxy": "latest"
+  },
+  "devDependencies": {
+    "@narrativetrace/cli": "latest"
+  }
+}

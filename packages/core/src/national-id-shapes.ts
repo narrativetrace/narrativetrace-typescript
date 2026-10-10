@@ -176,7 +176,7 @@ function isChineseResidentIdShaped(value: string): boolean {
   if (!CHINESE_ID_PATTERN.test(value) || !hasPlausibleBirthDate(value)) return false;
   let sum = 0;
   for (let i = 0; i < CHINESE_WEIGHTS.length; i++) {
-    sum += digitAt(value, i) * CHINESE_WEIGHTS[i];
+    sum += digitAt(value, i) * (CHINESE_WEIGHTS[i] as number);
   }
   return CHINESE_CHECK_CHARACTERS.charAt(sum % 11) === value.slice(17).toUpperCase();
 }

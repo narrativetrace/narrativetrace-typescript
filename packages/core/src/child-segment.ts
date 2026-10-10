@@ -48,27 +48,44 @@ function finalizeGroup(group: {
   return { kind: group.kind, groupId: group.groupId, members: group.members };
 }
 
+/** A node together with the citable span id its renderer prints for it (`citable-span-id.ts`). */
+export type CitedNode = { readonly node: TraceNode; readonly id: string };
+
 /**
  * One render operation flattened from a partitioned child list: a single node to descend into
  * (a sequential child, or one member of a fire-and-forget/adopted-async group — neither is a fork
  * the caller awaited, so both render inline, same as a sequential child), or a fork/join group to
- * render as its own block without descending into any member's own children.
+ * render as its own block without descending into any member's own children. Every node carries
+ * its citable span id, so a renderer whose layout differs from the structural `.nt`'s still cites
+ * each span by the id the `.nt` gives it.
  */
 export type FlatChildOp =
-  | { readonly kind: "node"; readonly node: TraceNode }
-  | { readonly kind: "fork-join"; readonly members: readonly TraceNode[] };
+  | { readonly kind: "node"; readonly node: TraceNode; readonly id: string }
+  | { readonly kind: "fork-join"; readonly members: readonly CitedNode[] };
 
-function segmentToOps(segment: ChildSegment): readonly FlatChildOp[] {
-  if (segment.kind === "sequential") return [{ kind: "node", node: segment.node }];
-  if (segment.kind === "fork-join") return [{ kind: "fork-join", members: segment.members }];
-  return segment.members.map((node) => ({ kind: "node" as const, node }));
+function segmentToOps(
+  segment: ChildSegment,
+  cite: (node: TraceNode) => CitedNode,
+): readonly FlatChildOp[] {
+  if (segment.kind === "sequential") return [{ kind: "node", ...cite(segment.node) }];
+  if (segment.kind === "fork-join")
+    return [{ kind: "fork-join", members: segment.members.map(cite) }];
+  return segment.members.map((node) => ({ kind: "node" as const, ...cite(node) }));
 }
 
 /**
  * Flattens a node's children into the linear sequence of render operations every recursive
  * renderer descends through — whether via native recursion or an explicit stack (see
  * `tree-walk.ts`'s `TreeWalk`, which every renderer using this pairs with for the descent bound).
+ *
+ * @param ids the span id of every child, index for index (`CitableSpanId.idsOf`); partitioning
+ * keeps capture order, so the n-th child met here takes the n-th id.
  */
-export function flattenChildOps(children: readonly TraceNode[]): readonly FlatChildOp[] {
-  return partitionChildren(children).flatMap(segmentToOps);
+export function flattenChildOps(
+  children: readonly TraceNode[],
+  ids: readonly string[],
+): readonly FlatChildOp[] {
+  let next = 0;
+  const cite = (node: TraceNode): CitedNode => ({ node, id: ids[next++] as string });
+  return partitionChildren(children).flatMap((segment) => segmentToOps(segment, cite));
 }

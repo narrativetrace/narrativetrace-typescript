@@ -30,6 +30,8 @@ import { runStressLongSweep } from "./verify-all-stress.js";
 import { type FullTestSweep, runFullTestSweep } from "./verify-all-testrun.js";
 import type { TypecheckOutcome } from "./verify-all-typecheck.js";
 import { runTypecheckSweep } from "./verify-all-typecheck.js";
+import type { VendorValidationOutcome } from "./verify-all-vendor.js";
+import { runVendorValidation } from "./verify-all-vendor.js";
 import {
   allGreen,
   matchingModule,
@@ -416,6 +418,29 @@ function buildStressLongRow(stress: StressLongOutcome): CategoryResult {
   };
 }
 
+/**
+ * Reads the recorded status per row (never the subprocess exit code — see
+ * `verify-all-vendor.ts`'s doc comment): failed if any row's recorded status starts `failed`,
+ * passed if any recorded `passed` and none failed, skipped otherwise — including a row that never
+ * ran at all (`"never-ran"`), the schema's own `not-implemented`-adjacent case for a check that
+ * exists but genuinely validated nothing this run.
+ */
+function buildVendorValidationRow(vendor: VendorValidationOutcome): CategoryResult {
+  const entries = [...vendor.statuses.entries()];
+  const anyFailed = entries.some(([, status]) => status.startsWith("failed"));
+  const anyPassed = entries.some(([, status]) => status.startsWith("passed"));
+  const status: CategoryResult["status"] = anyFailed ? "failed" : anyPassed ? "passed" : "skipped";
+  const note = entries.map(([tool, s]) => `${tool}: ${s}`).join(" | ") || null;
+  return {
+    category: "vendor-validation",
+    tool: "claude plugin validate (.claude-plugin/marketplace.json)",
+    status,
+    metrics: { rows: entries.length },
+    durationSeconds: vendor.outcome.seconds,
+    note: withLogHint(note, vendor.outcome, status),
+  };
+}
+
 // --------------------------------------------------------------------------------------- main
 
 async function runStaticAndSecurityCategories(
@@ -462,6 +487,7 @@ async function runHeavyCategories(addRow: (row: CategoryResult) => void): Promis
   addRow(buildBenchmarksRow(runBenchmarkSweep(REPO_ROOT, LOG_DIR)));
   addRow(buildAllocationRow());
   addRow(buildStressLongRow(runStressLongSweep(REPO_ROOT, LOG_DIR)));
+  addRow(buildVendorValidationRow(runVendorValidation(REPO_ROOT, LOG_DIR)));
 }
 
 function writeReport(startedAt: Date, results: readonly CategoryResult[]): string {

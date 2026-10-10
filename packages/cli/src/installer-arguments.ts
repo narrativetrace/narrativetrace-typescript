@@ -32,7 +32,7 @@ export interface InstallerArguments {
 
 /** One pass over the arguments; mutable so each flag stays one readable line. */
 interface Reading {
-  draft: Partial<InitOptions>;
+  draft: { -readonly [K in keyof InitOptions]?: InitOptions[K] };
   from: string | undefined;
   json: boolean;
   help: boolean;

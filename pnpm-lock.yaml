@@ -893,6 +893,9 @@ importers:
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../proxy
+      '@narrativetrace/tooling':
+        specifier: workspace:*
+        version: link:../tooling
       '@narrativetrace/vitest':
         specifier: workspace:*
         version: link:../vitest
@@ -928,6 +931,24 @@ importers:
 
   packages/skills-catalogue:
     devDependencies:
+      '@narrativetrace/clarity':
+        specifier: workspace:*
+        version: link:../clarity
+      '@narrativetrace/cli':
+        specifier: workspace:*
+        version: link:../cli
+      '@narrativetrace/core-node':
+        specifier: workspace:*
+        version: link:../core-node
+      '@narrativetrace/proxy':
+        specifier: workspace:*
+        version: link:../proxy
+      '@narrativetrace/tooling':
+        specifier: workspace:*
+        version: link:../tooling
+      '@narrativetrace/vitest':
+        specifier: workspace:*
+        version: link:../vitest
       '@types/node':
         specifier: ^25.0.0
         version: 25.5.0

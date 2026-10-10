@@ -3,6 +3,8 @@
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, test } from "vitest";
 import { knowsCheck, skillForCheck } from "../src/doctor/finding-skills.js";
+import { frameworkCheckIds } from "../src/frameworks/framework-table.js";
+import { buildSnapshot, DOCTOR_CHECKS, runDoctor } from "../src/index.js";
 
 describe("skillForCheck", () => {
   test.each([
@@ -15,6 +17,7 @@ describe("skillForCheck", () => {
     ["trap.silent-sink", "narrativetrace-doctor"],
     ["trap.redaction-proof", "narrativetrace-doctor"],
     ["trap.approval-traces", "narrativetrace-doctor"],
+    ["config.approval-mode", "narrativetrace-verify"],
     ["trap.llms-before-you-start", "add-narrative-tracing"],
   ])("names the skill that fixes %s: %s", (id, skill) => {
     expect(skillForCheck(id)).toBe(skill);
@@ -28,8 +31,25 @@ describe("skillForCheck", () => {
     expect(knowsCheck(id)).toBe(true);
   });
 
+  test("every framework-table check points at the skill whose framework step applies it", () => {
+    expect(frameworkCheckIds().length).toBeGreaterThan(0);
+    for (const id of frameworkCheckIds())
+      expect(skillForCheck(id), id).toBe("add-narrative-tracing");
+  });
+
   test("an id the table never heard of is neither known nor mapped", () => {
     expect(skillForCheck("trap.invented-yesterday")).toBeNull();
     expect(knowsCheck("trap.invented-yesterday")).toBe(false);
+  });
+});
+
+describe("the opt-in clarity skill", () => {
+  test("no finding points at it: nothing fails for want of a naming report", () => {
+    const report = runDoctor(buildSnapshot(process.cwd(), {}));
+
+    expect(report.findings.length).toBe(DOCTOR_CHECKS.length);
+    expect(report.findings.map((finding) => finding.skill)).not.toContain(
+      "add-narrativetrace-clarity",
+    );
   });
 });

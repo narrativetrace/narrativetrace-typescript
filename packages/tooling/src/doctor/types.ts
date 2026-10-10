@@ -26,8 +26,17 @@ export interface PackageJsonLike {
   readonly type?: string;
   readonly engines?: Readonly<Record<string, string>>;
   readonly dependencies?: Readonly<Record<string, string>>;
+  readonly devDependencies?: Readonly<Record<string, string>>;
   readonly peerDependencies?: Readonly<Record<string, string>>;
+  readonly optionalDependencies?: Readonly<Record<string, string>>;
+  /** npm scripts — where a project sets a test run's environment (`NARRATIVETRACE_APPROVAL=true`). */
+  readonly scripts?: Readonly<Record<string, string>>;
+  /** Corepack's `"pnpm@9.12.0"` — the project's own statement of its package manager. */
+  readonly packageManager?: string;
 }
+
+/** The package managers whose install line the doctor can print. */
+export type PackageManager = "npm" | "pnpm" | "yarn" | "bun";
 
 export interface DoctorSnapshot {
   /** Absolute path to the project being checked (informational — checks never touch disk). */
@@ -36,6 +45,20 @@ export interface DoctorSnapshot {
   readonly nodeVersion: string;
   readonly env: Env;
   readonly rootPackageJson: PackageJsonLike | undefined;
+  /**
+   * Relative path → parsed manifest, for EVERY `package.json` in the project (root and workspace
+   * members alike, never one under `node_modules`/`dist`): a framework sits in whichever workspace
+   * member uses it, so the framework checks read all of them.
+   */
+  readonly manifests: ReadonlyMap<string, PackageJsonLike>;
+  /** The package manager an install line is printed for — see `packageManagerOf`. */
+  readonly packageManager: PackageManager;
+  /**
+   * The text of the project's NarrativeTrace config source (`narrativetrace.config.json`, else
+   * `.narrativetracerc.json`, at the root — the runtime's own two names), or `undefined` when
+   * neither exists. Raw text: a check parses it the way the runtime does.
+   */
+  readonly projectConfig?: string;
   /** Relative path → content, for source/config/test files under the project (bounded walk). */
   readonly sourceFiles: ReadonlyMap<string, string>;
   /** Relative path → content, for everything under the configured output directory. */
@@ -68,6 +91,12 @@ export interface Finding {
    * naming the wrong skill or forgetting one.
    */
   readonly skill: string | null;
+  /**
+   * The framework-table row a `config.<framework>-*` finding observes (`"express"`), absent on
+   * every other finding. How a reader of the JSON report — the skill's framework step — selects
+   * the framework checks without carrying a list of their names, which would go stale.
+   */
+  readonly framework?: string;
 }
 
 export type DoctorCheck = (snapshot: DoctorSnapshot) => Finding;

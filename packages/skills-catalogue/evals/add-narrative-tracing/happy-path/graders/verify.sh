@@ -42,7 +42,8 @@ if [ "$exit_code" -ne 0 ] && [ "$exit_code" -ne 1 ]; then
   echo "expected doctor to exit 0 or 1, never crash, got $exit_code" >&2
   exit 1
 fi
-echo "$report" | node -e '
+# printf, never echo: dash's echo turns the JSON's escaped \n back into a line break.
+printf '%s\n' "$report" | node -e '
   const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
   const bad = report.findings.filter((f) => f.id.startsWith("toolchain.") && f.status !== "pass");
   if (bad.length > 0) {

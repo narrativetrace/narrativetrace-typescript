@@ -11,7 +11,7 @@ description: "Diagnoses a NarrativeTrace TypeScript install and configuration. U
 npx @narrativetrace/cli doctor || true
 ```
 
-**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==12) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==25) process.exit(1);"`
 
 **failure:** the CLI's JSON output does not parse, or is missing findings — the CLI crashed instead of reporting a finding. Fix: re-run `npx @narrativetrace/cli doctor --json` directly and read the raw output — a crash here is a doctor bug, never a project finding
 
@@ -28,7 +28,7 @@ node -e "console.log('Render a call with a deny-listed parameter name (e.g. pass
 ## 3. Read the rendered trace before asserting
 
 ```bash
-node -e "const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):[p];});}const files=walk('narrativetrace-output').filter(f=>f.endsWith('.md'));if(!files.length){console.error('no rendered .md file found under narrativetrace-output');process.exit(1);}const newest=files.map(f=>[f,fs.statSync(f).mtimeMs]).sort((a,b)=>b[1]-a[1])[0][0];console.log(newest);console.log(fs.readFileSync(newest,'utf8'));"
+node -e "const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):[p];});}const files=walk('narrativetrace-output').filter(f=>f.endsWith('.md')&&!f.split(path.sep).includes('feedback'));if(!files.length){console.error('no rendered .md file found under narrativetrace-output');process.exit(1);}const newest=files.map(f=>[f,fs.statSync(f).mtimeMs]).sort((a,b)=>b[1]-a[1])[0][0];console.log(newest);console.log(fs.readFileSync(newest,'utf8'));"
 ```
 
 ## 4. Approval flow: diff the structural trace, not just values
@@ -42,6 +42,7 @@ node -e "const fs=require('fs'),path=require('path');function walk(d){if(!fs.exi
 ## Always
 
 - Run the doctor CLI and read its report before making any change. (the tested tooling already computed the finding — re-deriving it by hand risks disagreeing with what ships)
+- If a check is wrong, or its fix does not work, report it with the narrativetrace-feedback skill (a wrong finding costs every project that hits it until somebody says so, and that skill shows you the whole report and files nothing without your answer)
 
 ## Never
 

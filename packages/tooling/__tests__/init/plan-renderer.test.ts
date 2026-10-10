@@ -1,17 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   type Action,
+  adoptPage,
   createFile,
   deleteDirectory,
   deleteFile,
   refuse,
   replaceBlock,
+  replaceLink,
 } from "../../src/init/action.js";
 import { initPlan } from "../../src/init/init-plan.js";
 import { applyPlan } from "../../src/init/plan-executor.js";
@@ -88,6 +90,45 @@ describe("text", () => {
         "applied create  a.md\n" +
         "refused refuse  b.md — why\n" +
         "applied create  c.md\n",
+    );
+  });
+
+  // An adoption a person only sees in a preview is an adoption they were never told about, so both the
+  // plan's text and the report's say that nothing of theirs was overwritten.
+  test("says of an adoption that nothing of anybody's was overwritten", () => {
+    const adopted = plan(adoptPage(".agents/skills/a/SKILL.md", "theirs\n", "ours\n"));
+
+    expect(renderPlanText(adopted)).toContain(
+      "adopt   .agents/skills/a/SKILL.md — adopted: identical to this carrier's page, so only the" +
+        " provenance line is added\n",
+    );
+    expect(renderReportText(applyPlan(adopted, dir))).toContain(
+      "applied adopt   .agents/skills/a/SKILL.md — adopted: identical to this carrier's page,",
+    );
+  });
+
+  // A refusal the FILESYSTEM produced carries a detail the action itself has no idea about, so the
+  // report has to print the detail rather than whatever the action's own kind would have said.
+  test("text of a report prints a filesystem refusal's own detail, not the action's note", () => {
+    writeFileSync(join(dir, "not-a-directory"), "x");
+
+    const report = applyPlan(plan(deleteDirectory("not-a-directory")), dir);
+
+    expect(renderReportText(report)).toContain("refused delete-directory not-a-directory — ");
+    expect(renderReportText(report)).toContain("ENOTDIR");
+  });
+
+  test("names the link a replacement removes and what it pointed at", () => {
+    const replaced = plan(
+      replaceLink(".claude/skills/a", ".claude/skills/a/SKILL.md", "../../.agents/skills/a", "x\n"),
+    );
+
+    expect(renderPlanText(replaced)).toContain(
+      "replace-link .claude/skills/a/SKILL.md — replaces the symbolic link .claude/skills/a →" +
+        " ../../.agents/skills/a\n",
+    );
+    expect(renderReportText(applyPlan(replaced, dir))).toContain(
+      "applied replace-link .claude/skills/a/SKILL.md — replaces the symbolic link",
     );
   });
 });

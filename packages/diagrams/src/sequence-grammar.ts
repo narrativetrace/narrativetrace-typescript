@@ -45,6 +45,11 @@ export interface SequenceGrammar {
   throwArrow(target: DiagramLabel, caller: DiagramLabel, exceptionType: DiagramLabel): string;
   /** The note for a node whose outcome never arrived (an in-flight call). */
   incomplete(target: DiagramLabel): string;
+  /**
+   * The note citing a call's span id (`#1.3`, the id every other flavour prints for the same call),
+   * emitted after the call arrow and its activation.
+   */
+  spanNote(target: DiagramLabel, spanId: DiagramLabel): string;
   /** The note appended after a node the walk stopped at instead of descending into. */
   limitedNote(target: DiagramLabel, stop: TreeWalkStop): string;
   /** Emitted right after the call arrow, before descending. PlantUML only. */

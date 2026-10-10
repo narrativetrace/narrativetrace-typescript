@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { readFileSync, statSync } from "node:fs";
+import { lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from "node:fs";
+import { sep } from "node:path";
 
 /**
- * The three filesystem questions the installer's readers ask, answered the same way in both of them.
+ * The filesystem questions the installer's readers ask, answered the same way in both of them.
  *
  * INTENT: "absent", "unreadable" and "not text" lead to opposite decisions — absent means create, and
  * creating over a file we could not read would destroy it. One module decides which is which, so the
@@ -34,6 +35,57 @@ function decoder(): TextDecoder {
 export function isDirectory(path: string): boolean {
   try {
     return statSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * What a symbolic link points at, exactly as the filesystem reports it, or `undefined` when the path
+ * is not one.
+ *
+ * @llmNote This is the ONLY question a skill path may be asked before "is it a directory": `statSync`
+ * follows links, so a link to the other flavour's page would otherwise read as a directory of ours and
+ * the next write would land at the far end of it. A link that cannot be read at all answers
+ * `undefined`, which leads to a refusal rather than to a write — the safe side of the only failure
+ * mode left.
+ */
+export function symlinkTargetOf(path: string): string | undefined {
+  try {
+    return readlinkSync(path);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Whether a REAL directory is at the path — a symbolic link to one is not.
+ *
+ * @llmNote The no-follow counterpart of {@link isDirectory}, and the one every skill path uses. Node's
+ * `statSync` follows the last element of a path, which is exactly the mistake rule 18 exists to
+ * forbid.
+ */
+export function isDirectoryNoFollow(path: string): boolean {
+  try {
+    return lstatSync(path).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether a path REALLY resolves inside a directory — links, chains and all.
+ *
+ * @llmNote The boundary is a separator, never a bare prefix: a sibling named `…-abcx` shares every
+ * character of `…-abc` and is not inside it. A path that resolves to nothing — dangling, or a chain
+ * the filesystem will not follow — answers no, the same answer a path outside gets, because the
+ * installer treats both as reaching nothing of ours.
+ */
+export function resolvesInside(directory: string, path: string): boolean {
+  try {
+    const root = realpathSync(directory);
+    const resolved = realpathSync(path);
+    return resolved === root || resolved.startsWith(root + sep);
   } catch {
     return false;
   }

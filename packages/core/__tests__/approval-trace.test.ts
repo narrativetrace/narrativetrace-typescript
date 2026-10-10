@@ -41,4 +41,23 @@ describe("evaluateApprovalTrace", () => {
     expect(outcome.kind).toBe("lossy-changed");
     if (outcome.kind === "lossy-changed") expect(outcome.received).toBe(current);
   });
+
+  it("tolerates a lossy run whose omission shifted the ids of later siblings", () => {
+    const approved = "#1 - Svc.run()\n  #1.1 - A.a()\n  #1.2 - B.b()\n";
+    const current = "#1 - Svc.run()\n  #1.1 - B.b()\n"; // A.a() dropped; B.b() moved up a position
+    expect(evaluateApprovalTrace(approved, current, "1 event dropped").kind).toBe("lossy-match");
+  });
+
+  it("matches an approved trace written before span ids existed", () => {
+    const approved = "scenario: X\n\n- Svc.run()\n  - A.a()\n";
+    const current = "scenario: X\n\n#1 - Svc.run()\n  #1.1 - A.a()\n";
+    expect(evaluateApprovalTrace(approved, current).kind).toBe("match");
+  });
+
+  it("a lossy diff cites the approved trace's ids on the lines that shifted", () => {
+    const approved = "#1 - Svc.run()\n  #1.1 - A.a()\n";
+    const current = "#1 - Svc.run()\n  #1.1 - C.c()\n  #1.2 - A.a()\n";
+    const outcome = evaluateApprovalTrace(approved, current, "1 event dropped");
+    expect(outcome.kind === "lossy-changed" && outcome.diff).toContain("#1.2 - A.a()  (was #1.1)");
+  });
 });

@@ -5,8 +5,14 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Env } from "../doctor/types.js";
 import { resolvePackageJson } from "../package-resolution.js";
-import { isDirectory, readTextFile } from "./files.js";
-import { type InstalledSkill, installedSkill, SKILL_PAGE } from "./installed-skill.js";
+import {
+  isDirectory,
+  isDirectoryNoFollow,
+  readTextFile,
+  resolvesInside,
+  symlinkTargetOf,
+} from "./files.js";
+import { type InstalledSkill, installedSkill, SKILL_PAGE, skillPageOf } from "./installed-skill.js";
 import { scanMarkedBlocks } from "./marked-block.js";
 import { DEFAULT_OUTPUT_DIRECTORY, type ProjectState, projectState } from "./project-state.js";
 import { coordinateIn } from "./provenance.js";
@@ -55,9 +61,24 @@ function markedRuleFilesIn(projectDirectory: string): Map<string, string> {
   return found;
 }
 
-function skillAt(flavour: SkillFlavour, root: string, name: string): InstalledSkill {
-  const directory = join(root, name);
-  if (!isDirectory(directory)) return installedSkill(flavour, name, "not-a-directory");
+/**
+ * A skill behind a link: what the link says, and the page it reaches — read only when the link really
+ * resolves INSIDE this project, because nothing outside it is ours to stamp or to remove.
+ */
+function linkedSkill(
+  projectDirectory: string,
+  flavour: SkillFlavour,
+  name: string,
+  presence: "linked-directory" | "linked-page",
+  target: string,
+): InstalledSkill {
+  const page = join(projectDirectory, ...skillPageOf(flavour, name).split("/"));
+  const body = resolvesInside(projectDirectory, page) ? (readTextFile(page) ?? "") : "";
+  return installedSkill(flavour, name, presence, "", body, target);
+}
+
+/** A real directory: ours when its page carries the provenance line, somebody else's otherwise. */
+function realSkill(flavour: SkillFlavour, name: string, directory: string): InstalledSkill {
   const page = readTextFile(join(directory, SKILL_PAGE)) ?? "";
   const coordinate = coordinateIn(page);
   return coordinate === undefined
@@ -66,22 +87,70 @@ function skillAt(flavour: SkillFlavour, root: string, name: string): InstalledSk
 }
 
 /**
+ * What sits at one skill's path, WITHOUT following a link on the way (design D5, rule 18). A link is
+ * reported as one, never resolved into "a directory of ours": writing through it would land in
+ * whatever it points at, and after `npx skills add` that is the other flavour's page.
+ */
+function skillAt(
+  projectDirectory: string,
+  flavour: SkillFlavour,
+  root: string,
+  name: string,
+): InstalledSkill {
+  const directory = join(root, name);
+  const toDirectory = symlinkTargetOf(directory);
+  if (toDirectory !== undefined) {
+    return linkedSkill(projectDirectory, flavour, name, "linked-directory", toDirectory);
+  }
+  if (!isDirectoryNoFollow(directory)) return installedSkill(flavour, name, "not-a-directory");
+  const toPage = symlinkTargetOf(join(directory, SKILL_PAGE));
+  return toPage === undefined
+    ? realSkill(flavour, name, directory)
+    : linkedSkill(projectDirectory, flavour, name, "linked-page", toPage);
+}
+
+/** What one flavour's install root holds: a link out of our hands, or the skills under it. */
+export interface InstallRootReading {
+  /** Which install root this is. */
+  readonly flavour: SkillFlavour;
+  /** What the root itself points at, when the root is a symbolic link. */
+  readonly linkedTo: string | undefined;
+  /** The skills found under it — always empty when {@link linkedTo} is set. */
+  readonly skills: readonly InstalledSkill[];
+}
+
+/** One flavour's install root, read once: either a link, or a bounded listing of what is under it. */
+function readInstallRoot(
+  projectDirectory: string,
+  flavour: SkillFlavour,
+  max: number,
+): InstallRootReading {
+  const root = join(projectDirectory, installRootOf(flavour));
+  const linkedTo = symlinkTargetOf(root);
+  if (linkedTo !== undefined) return { flavour, linkedTo, skills: [] };
+  if (!isDirectoryNoFollow(root)) return { flavour, linkedTo: undefined, skills: [] };
+  const skills = readdirSync(root)
+    .sort()
+    .slice(0, max)
+    .map((name) => skillAt(projectDirectory, flavour, root, name));
+  return { flavour, linkedTo: undefined, skills };
+}
+
+/** Both install roots, in the order a plan reads them. */
+export function readInstallRoots(projectDirectory: string, max: number): InstallRootReading[] {
+  return SKILL_FLAVOURS.map((flavour) => readInstallRoot(projectDirectory, flavour, max));
+}
+
+/**
  * Every agent-skill directory found under either install root, in read order.
  *
  * @llmNote Exported for the doctor's {@link buildSnapshot} (environment.ts) to reuse directly —
  * one reader of a project's skill directories, so the doctor and `init` can never disagree about
- * which page is ours.
+ * which page is ours. A flavour whose whole install root is a link contributes nothing: what is
+ * behind it was reached through it, and the doctor diagnoses paths the project owns.
  */
 export function installedSkillsIn(projectDirectory: string, max: number): InstalledSkill[] {
-  const skills: InstalledSkill[] = [];
-  for (const flavour of SKILL_FLAVOURS) {
-    const root = join(projectDirectory, installRootOf(flavour));
-    if (!isDirectory(root)) continue;
-    for (const name of readdirSync(root).sort().slice(0, max)) {
-      skills.push(skillAt(flavour, root, name));
-    }
-  }
-  return skills;
+  return readInstallRoots(projectDirectory, max).flatMap((reading) => [...reading.skills]);
 }
 
 /**
@@ -97,6 +166,15 @@ function outputDirectoryOf(projectDirectory: string, env: Env): string {
   }
   const fromEnv = env.NARRATIVETRACE_OUTPUT_DIR?.trim();
   return fromEnv === undefined || fromEnv === "" ? DEFAULT_OUTPUT_DIRECTORY : fromEnv;
+}
+
+/** The install roots that are themselves links, as the snapshot's flavour → target map. */
+function linkedRootsOf(roots: readonly InstallRootReading[]): Map<SkillFlavour, string> {
+  const linked = new Map<SkillFlavour, string>();
+  for (const reading of roots) {
+    if (reading.linkedTo !== undefined) linked.set(reading.flavour, reading.linkedTo);
+  }
+  return linked;
 }
 
 /**
@@ -115,11 +193,13 @@ export function readProjectState(
   if (!isDirectory(projectDirectory)) {
     throw new TypeError(`${projectDirectory} is not a directory`);
   }
+  const roots = readInstallRoots(projectDirectory, maxSkillDirectories);
   return projectState({
     agentsMd: readTextFile(join(projectDirectory, "AGENTS.md")),
     claudeMd: readTextFile(join(projectDirectory, "CLAUDE.md")),
     claudeDirectory: isDirectory(join(projectDirectory, ".claude")),
-    installedSkills: installedSkillsIn(projectDirectory, maxSkillDirectories),
+    installedSkills: roots.flatMap((reading) => [...reading.skills]),
+    linkedInstallRoots: linkedRootsOf(roots),
     markedRuleFiles: markedRuleFilesIn(projectDirectory),
     outputDirectory: outputDirectoryOf(projectDirectory, env),
     projectVersion: resolvePackageJson(FAMILY_PACKAGE, projectDirectory)?.version,

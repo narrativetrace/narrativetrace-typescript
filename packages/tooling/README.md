@@ -1,9 +1,10 @@
 # @narrativetrace/tooling
 
 The library the `narrativetrace` command line is a launcher over: the doctor's read-only project
-checks, and the installer that copies NarrativeTrace's agent skills into a project. Licensed
-Apache 2.0 — this package is part of the open, standards surface, distinct from the Business
-Source License 1.1 runtime packages published from this repository.
+checks, the framework table they measure a project against, and the installer that copies
+NarrativeTrace's agent skills into a project. Licensed Apache 2.0 — this package is part of the
+open, standards surface, distinct from the Business Source License 1.1 runtime packages published
+from this repository.
 
 Nothing here is a command. `@narrativetrace/cli` owns argument parsing, exit codes and the
 process bindings; this package owns the decisions, so both a CLI and any other host can reach
@@ -26,6 +27,14 @@ console.log(renderHuman(report));
 `node_modules` packages, source and test files, rendered output, the approved-trace directory —
 and every check is a pure function over that snapshot. Zero network. See
 [`@narrativetrace/cli`](../cli/README.md) for the check table and the exit codes.
+
+## The framework table
+
+`FRAMEWORK_ROWS` is the one registry of the integrations this release ships: per framework, the
+dependency that proves a project uses it, the packages its integration adds, the wiring (the text
+of a compiled, tested fixture, bundled here) and the `config.<framework>-*` check the doctor runs
+for it. A framework with no integration shipped is a row too, so the doctor reports it rather than
+an agent guessing one. The documentation's framework table renders from these rows.
 
 ## The installer
 

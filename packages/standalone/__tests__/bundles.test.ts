@@ -37,7 +37,7 @@ describe("ES module bundle", () => {
     // Every non-empty tree opens with its own `trace: <phrase> (<7 hex>)` header (2026-09-13
     // ruling, item 4) — the id is randomly generated, so the phrase is matched, not asserted.
     expect(nt.renderIndentedText(ctx.captureTrace())).toMatch(
-      /^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)\n\nCart\.add\(sku: "P1", qty: 2\) → 2$/,
+      /^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)\n\nCart\.add\(sku: "P1", qty: 2\) → 2 #1$/,
     );
   });
 });
@@ -89,7 +89,7 @@ describe("classic <script> bundle — tracing", () => {
     // Every non-empty tree opens with its own `trace: <phrase> (<7 hex>)` header (2026-09-13
     // ruling, item 4) — the id is randomly generated, so the phrase is matched, not asserted.
     expect(rendered).toMatch(
-      /^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)\n\nCart\.add\(sku: "P1", qty: 2\) → 2$/,
+      /^trace: [a-z]+ [a-z]+ [a-z]+ \([0-9a-f]{7}\)\n\nCart\.add\(sku: "P1", qty: 2\) → 2 #1$/,
     );
   });
 });
@@ -117,7 +117,10 @@ describe("type declarations", () => {
 });
 
 describe("size budget", () => {
-  // ~85 KiB today (raised from 76 KiB, 2026-09-12, for the structural `.nt` artifact block:
+  // ~89 KiB today (raised from 88 KiB, 2026-10-10, for Phase 7's citable span ids:
+  // CitableSpanId and the id each renderer now prints — genuinely new @narrativetrace/core
+  // public API, measured +0.3/+0.9 KiB over the old budget for the ESM/classic bundles).
+  // ~85 KiB before that (raised from 76 KiB, 2026-09-12, for the structural `.nt` artifact block:
   // StructuralTraceRenderer/StructuralProjection, ArtifactIdentity + the output-directory-resolver
   // naming scheme, StructuralDelta/ScenarioDelta/LineDiff, evaluateApprovalTrace, and
   // ScenarioManifest — all genuinely new @narrativetrace/core public API, none of it a
@@ -138,7 +141,7 @@ describe("size budget", () => {
   // budget catches accidental growth (a Node package or a large dependency slipping into
   // `noExternal`) before it reaches a page that loads this on every visit — a few KiB of
   // headroom stays tight enough for that, since a real accidental dependency adds far more.
-  const BUDGET_BYTES = 88 * 1024;
+  const BUDGET_BYTES = 92 * 1024;
 
   test.each([
     ["ES module", ESM_BUNDLE],

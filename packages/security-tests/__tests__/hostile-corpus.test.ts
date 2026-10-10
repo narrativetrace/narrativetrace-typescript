@@ -117,6 +117,7 @@ describe("hostile corpus", () => {
     "names.json",
     "redaction.json",
     "trace-shapes.json",
+    "feedback.json",
   ])("%s stays ASCII on disk", (fileName) => {
     const text = readFileSync(`${CORPUS_DIR}${fileName}`, "utf-8");
     const offending = new Set<number>();

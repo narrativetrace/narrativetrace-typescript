@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { type FlatChildOp, flattenChildOps } from "./child-segment.js";
+import type { CitedNode, FlatChildOp } from "./child-segment.js";
+import { CitableSpanId } from "./citable-span-id.js";
 import { ControlEscape } from "./control-escape.js";
 import { errorMessage, errorTypeName } from "./error-display.js";
 import { displayParamValue } from "./parameter-capture.js";
@@ -79,8 +80,10 @@ function actionPhrase(node: TraceNode): string {
     : humanizeMethod(methodName);
 }
 
-function pushSentence(node: TraceNode, sentences: string[]): void {
-  const subject = `The ${humanizeClassName(node.signature.className)} ${actionPhrase(node)}`;
+// The citable span id follows the action it names — `The order service places order (#1) for …`
+// — so a reader of the prose can point at the same span the structural `.nt` prints.
+function pushSentence({ node, id }: CitedNode, sentences: string[]): void {
+  const subject = `The ${humanizeClassName(node.signature.className)} ${actionPhrase(node)} (${id})`;
   sentences.push(`${subject}${formatParams(node)}${formatOutcome(node)}.`);
 }
 
@@ -94,18 +97,19 @@ interface ProseFrame {
 // The first (and only) visit to a "node" op: the node's own sentence prints regardless of the
 // guard ("contributes itself"); a stopped node gets the marker sentence instead of descending.
 function descendProseNode(
-  node: TraceNode,
+  cited: CitedNode,
   stack: ProseFrame[],
   walk: TreeWalk<TraceNode>,
   sentences: string[],
 ): void {
-  pushSentence(node, sentences);
+  const { node, id } = cited;
+  pushSentence(cited, sentences);
   const stop = walk.enter(node);
   if (stop !== undefined) {
     sentences.push(TREE_WALK_MARKER[stop]);
     return;
   }
-  stack.push({ owner: node, ops: flattenChildOps(node.children), index: 0 });
+  stack.push({ owner: node, ops: CitableSpanId.citedOps(node.children, id), index: 0 });
 }
 
 function stepProseFrame(stack: ProseFrame[], walk: TreeWalk<TraceNode>, sentences: string[]): void {
@@ -120,27 +124,32 @@ function stepProseFrame(stack: ProseFrame[], walk: TreeWalk<TraceNode>, sentence
     renderConcurrentBlock(op.members, sentences);
     return;
   }
-  descendProseNode(op.node, stack, walk, sentences);
+  descendProseNode(op, stack, walk, sentences);
 }
 
 // Explicit-stack (non-recursive) pre-order walk, bounded and cycle-safe via TreeWalk — see
 // markdown-renderer.ts's renderTree for the full rationale; this is the same shape.
 function renderTree(roots: readonly TraceNode[], sentences: string[]): void {
   const walk = new TreeWalk<TraceNode>();
-  const rootOps: FlatChildOp[] = roots.map((node) => ({ kind: "node", node }));
+  const ids = CitableSpanId.idsOf(roots, null);
+  const rootOps: FlatChildOp[] = roots.map((node, i) => ({
+    kind: "node",
+    node,
+    id: ids[i] as string,
+  }));
   const stack: ProseFrame[] = [{ owner: null, ops: rootOps, index: 0 }];
   while (stack.length > 0) {
     stepProseFrame(stack, walk, sentences);
   }
 }
 
-function renderConcurrentBlock(members: readonly TraceNode[], sentences: string[]): void {
-  const labels = members.map(
-    (m) =>
-      `${ControlEscape.sanitize(m.signature.className)}.${ControlEscape.sanitize(m.signature.methodName)}`,
-  );
-  labels.sort();
-  const seqAsync = analyze(members);
+// Members are listed in their id order (`Class.method`, ordinal), each citing its own id.
+function renderConcurrentBlock(cited: readonly CitedNode[], sentences: string[]): void {
+  const labels = CitableSpanId.inIdOrder(cited).map(({ node: m, id }) => {
+    const { className, methodName } = m.signature;
+    return `${ControlEscape.sanitize(className)}.${ControlEscape.sanitize(methodName)} (${id})`;
+  });
+  const seqAsync = analyze(cited.map((member) => member.node));
   const hint = seqAsync.isSequentialAsync ? " (awaited sequentially)" : "";
   sentences.push(`Concurrently: ${labels.join(", ")}${hint}.`);
 }

@@ -17,13 +17,21 @@
  * skill upgrades Node, and no skill can install the skills.
  */
 
+import { frameworkCheckIds } from "../frameworks/framework-table.js";
+
 /** The skill a first install follows: dependencies, parameter names, reporter wiring. */
 export const ADD_NARRATIVE_TRACING = "add-narrative-tracing";
+
+/** The skill that reads what a change did and pins it — it owns turning approval mode on. */
+export const NARRATIVETRACE_VERIFY = "narrativetrace-verify";
 
 /** The skill a wired-but-misbehaving project follows: diagnosis, read-only. */
 export const NARRATIVETRACE_DOCTOR = "narrativetrace-doctor";
 
 const BY_ID: ReadonlyMap<string, string> = new Map([
+  // Every framework check fires because the INSTALL is incomplete for a framework the project
+  // uses — the skill whose framework step applies the doctor's fixes owns it.
+  ...frameworkCheckIds().map((id): [string, string] => [id, ADD_NARRATIVE_TRACING]),
   ["toolchain.vitest-peer", ADD_NARRATIVE_TRACING],
   ["toolchain.sibling-packages", ADD_NARRATIVE_TRACING],
   ["config.reporter-subpath", ADD_NARRATIVE_TRACING],
@@ -33,6 +41,7 @@ const BY_ID: ReadonlyMap<string, string> = new Map([
   ["trap.silent-sink", NARRATIVETRACE_DOCTOR],
   ["trap.redaction-proof", NARRATIVETRACE_DOCTOR],
   ["trap.approval-traces", NARRATIVETRACE_DOCTOR],
+  ["config.approval-mode", NARRATIVETRACE_VERIFY],
   ["trap.llms-before-you-start", ADD_NARRATIVE_TRACING],
 ]);
 

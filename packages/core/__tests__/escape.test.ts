@@ -50,3 +50,19 @@ describe("MarkdownEscape.code", () => {
     expect(MarkdownEscape.code("a``b`c")).toBe("``` a``b`c ```");
   });
 });
+
+describe("ControlEscape — the Unicode line and paragraph separators", () => {
+  // Not ISO controls, but line terminators to JavaScript, java.util.regex and many log viewers,
+  // so a raw one forges a line exactly as \n does (nightly fuzz finding in the Java reference).
+  test("U+2028 renders as an escape, never raw", () => {
+    expect(ControlEscape.sanitize("a b")).toBe("a\\u2028b");
+  });
+
+  test("U+2029 renders as an escape, never raw", () => {
+    expect(ControlEscape.sanitize("a b")).toBe("a\\u2029b");
+  });
+
+  test("their neighbours are ordinary text", () => {
+    expect(ControlEscape.sanitize("‧‪")).toBe("‧‪");
+  });
+});

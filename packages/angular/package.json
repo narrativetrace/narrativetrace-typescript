@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/angular",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Angular integration for NarrativeTrace: DI-wired tracing, an HTTP interceptor, and per-navigation capture",
   "license": "BUSL-1.1",
   "repository": {
@@ -43,7 +43,8 @@
     "@angular/core": ">=17.0.0",
     "@angular/router": ">=17.0.0",
     "@narrativetrace/core": "workspace:*",
-    "@narrativetrace/proxy": "workspace:*"
+    "@narrativetrace/proxy": "workspace:*",
+    "rxjs": "^6.5.3 || ^7.4.0"
   },
   "devDependencies": {
     "@angular/common": "^21.2.22",

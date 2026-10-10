@@ -20,7 +20,7 @@ describe("renderMarkdownBody", () => {
     const tree = traceTree([
       traceNode(methodSignature("OrderService", "placeOrder", []), returned('"OK"'), []),
     ]);
-    expect(renderMarkdownBody(tree)).toBe('- `OrderService.placeOrder()` → `"OK"`');
+    expect(renderMarkdownBody(tree)).toBe('- `OrderService.placeOrder()` → `"OK"` #1');
   });
 });
 
@@ -60,7 +60,7 @@ describe("renderMarkdownDocument", () => {
         "",
         "### Call Flow",
         "",
-        '- `OrderService.placeOrder()` → `"OK"` — 125ms',
+        '- `OrderService.placeOrder()` → `"OK"` — 125ms #1',
       ].join("\n"),
     );
   });
@@ -298,7 +298,7 @@ describe("renderMarkdown", () => {
         "error_count: 0",
         "---",
         "",
-        '- `OrderService.placeOrder(orderId: "order-42")` → `"OK"`',
+        '- `OrderService.placeOrder(orderId: "order-42")` → `"OK"` #1',
       ].join("\n"),
     );
   });
@@ -328,8 +328,8 @@ describe("renderMarkdown", () => {
         "error_count: 0",
         "---",
         "",
-        '- `OrderService.placeOrder()` → `"OK"`',
-        '  - `InventoryService.reserve(productId: "P1")` → `true`',
+        '- `OrderService.placeOrder()` → `"OK"` #1',
+        '  - `InventoryService.reserve(productId: "P1")` → `true` #1.1',
       ].join("\n"),
     );
   });
@@ -354,7 +354,7 @@ describe("renderMarkdown", () => {
         "error_count: 1",
         "---",
         "",
-        "- `PaymentService.charge(amount: 100)` ❌ `Error`: insufficient funds",
+        "- `PaymentService.charge(amount: 100)` ❌ `Error`: insufficient funds #1",
       ].join("\n"),
     );
   });
@@ -393,13 +393,13 @@ describe("renderMarkdown", () => {
       0.5849169999999901,
     );
     const result = renderMarkdownBody(traceTree([node]));
-    expect(result).toBe('- `Svc.op()` → `"OK"` — 0.58ms');
+    expect(result).toBe('- `Svc.op()` → `"OK"` — 0.58ms #1');
   });
 
   test("a multi-millisecond duration with a fractional part rounds to a whole number", () => {
     const node = traceNode(methodSignature("Svc", "op", []), returned('"OK"'), [], 3.7);
     const result = renderMarkdownBody(traceTree([node]));
-    expect(result).toBe('- `Svc.op()` → `"OK"` — 4ms');
+    expect(result).toBe('- `Svc.op()` → `"OK"` — 4ms #1');
   });
 
   test("narration renders in italics below bullet", () => {
@@ -412,7 +412,7 @@ describe("renderMarkdown", () => {
     const result = renderMarkdown(tree);
 
     expect(result).toContain(
-      '- `OrderService.placeOrder()` → `"OK"`\n  *Initiating the order workflow*',
+      '- `OrderService.placeOrder()` → `"OK"` #1\n  *Initiating the order workflow*',
     );
   });
 
@@ -672,16 +672,20 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   // guard on a non-timing test takes a seconds-scale floor, never a millisecond-scale tolerance
   // close enough to the measured run to mistake ordinary contention for a hang. 3000ms is both
   // well past 5x the measured idle run and the floor itself.
+  // Phase 7 (2026-10-10): every line now cites its position-path span id, and at depth d that id
+  // is d segments long, so this chain's output is O(depth²) in EVERY flavour (100–300M chars at
+  // the 10,000 cap, measured 2.8–4.5s run alone; Java's format and cap are the same). The 5x
+  // rule above gives 20000ms. A citable-depth bound is an open question for the format.
   test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
     const result = renderMarkdownBody(traceTree([deepChain(10_001)]));
     expect(result).toContain("… (depth limit)");
-  }, 3_000);
+  }, 20_000);
 
   test("an ordinary tree well within the bound renders exactly as before", () => {
     const child = traceNode(methodSignature("Repo", "find", []), returned('"found"'), []);
     const root = traceNode(methodSignature("Svc", "op", []), returned('"ok"'), [child]);
     expect(renderMarkdownBody(traceTree([root]))).toBe(
-      '- `Svc.op()` → `"ok"`\n  - `Repo.find()` → `"found"`',
+      '- `Svc.op()` → `"ok"` #1\n  - `Repo.find()` → `"found"` #1.1',
     );
   });
 
@@ -698,7 +702,49 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   // guard on a non-timing test takes a seconds-scale floor, never a millisecond-scale tolerance
   // close enough to the measured run to mistake ordinary contention for a hang. 3000ms is both
   // well past 5x the measured idle run and the floor itself.
+  // Phase 7 (2026-10-10): every line now cites its position-path span id, and at depth d that id
+  // is d segments long, so this chain's output is O(depth²) in EVERY flavour (100–300M chars at
+  // the 10,000 cap, measured 2.8–4.5s run alone; Java's format and cap are the same). The 5x
+  // rule above gives 20000ms. A citable-depth bound is an open question for the format.
   test("frontmatter's method_count/error_count do not stack-overflow on a chain just past the depth limit", () => {
     expect(() => renderMarkdown(traceTree([deepChain(10_001)]))).not.toThrow();
-  }, 3_000);
+  }, 20_000);
+});
+
+describe("citable span ids in the Markdown narrative", () => {
+  test("every call line ends with the id the structural trace gives the same call", () => {
+    const child = traceNode(methodSignature("Repo", "find", []), returned('"x"'), [], 350);
+    const root = traceNode(methodSignature("Svc", "op", []), returned(null), [child]);
+    expect(renderMarkdownBody(traceTree([root]))).toBe(
+      '- `Svc.op()` #1\n  - `Repo.find()` → `"x"` — 350ms ⚠️ slow #1.1',
+    );
+  });
+
+  test("the id sits on the call line, not on the narration line under it", () => {
+    const sig = methodSignature("Svc", "op", [], { narration: "Placing the order" });
+    const result = renderMarkdownBody(traceTree([traceNode(sig, returned(null), [])]));
+    expect(result).toBe("- `Svc.op()` #1\n  *Placing the order*");
+  });
+
+  test("fork members cite their Class.method-ordered ids", () => {
+    const g = (cls: string) => concurrencyInfo("g1", `${cls}.run`, "fork-join");
+    const zeta = traceNode(methodSignature("Zeta", "run", []), returned(null), [], 0, 0, g("Zeta"));
+    const alpha = traceNode(
+      methodSignature("Alpha", "run", []),
+      returned(null),
+      [],
+      0,
+      0,
+      g("Alpha"),
+    );
+    const root = traceNode(methodSignature("Svc", "op", []), returned(null), [zeta, alpha]);
+    const result = renderMarkdownBody(traceTree([root]));
+    expect(result).toContain("  - ↦ `Alpha.run()` #1.1");
+    expect(result).toContain("  - ↦ `Zeta.run()` #1.2");
+  });
+
+  test("a thrown call cites its id after the error text", () => {
+    const node = traceNode(methodSignature("Pay", "charge", []), threw(new Error("declined")), []);
+    expect(renderMarkdownBody(traceTree([node]))).toBe("- `Pay.charge()` ❌ `Error`: declined #1");
+  });
 });

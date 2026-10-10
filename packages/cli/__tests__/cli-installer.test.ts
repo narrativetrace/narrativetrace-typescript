@@ -3,11 +3,13 @@
 // Copyright (c) 2026 Empower Agile
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -25,6 +27,9 @@ import { carrierFixture, cleanSnapshot, FIXTURE_CARRIER, FIXTURE_SKILL } from ".
 
 const AGENTS_PAGE = `.agents/skills/${FIXTURE_SKILL}/SKILL.md`;
 const CLAUDE_PAGE = `.claude/skills/${FIXTURE_SKILL}/SKILL.md`;
+
+/** The line `init` adds to a page it installs or adopts, for this fixture's carrier. */
+const PROVENANCE = `<!-- installed by narrativetrace init from ${FIXTURE_CARRIER} — edit the catalogue, not this file -->`;
 
 let project: string;
 let carrierParent: string;
@@ -491,6 +496,84 @@ describe("a project shaped in a way the installer cannot plan against", () => {
     expect(stdout()).toContain("refuse");
     expect(stdout()).toContain("--write-existing");
     expect(stdout()).toContain("# AGENTS.md — refused:");
+  });
+});
+
+/**
+ * Design D5 through the launcher: a project that got the skills from a registry before it ever ran
+ * `init`. `npx skills add` writes the open-standard pages for real and makes `.claude/skills/<name>` a
+ * LINK to them. The proof of adoption is the PLAN — `init --dry-run --json` — never an exit code: a run
+ * that refused everything and a run that adopted everything both exit 0 in a dry run.
+ */
+describe("a project a registry got the skills into first", () => {
+  /** The carrier's own rendering for one flavour, which is exactly what a registry installs. */
+  function rendered(flavour: "agents" | "claude"): string {
+    return readFileSync(
+      join(carrierFixture(carrierParent), flavour, FIXTURE_SKILL, "SKILL.md"),
+      "utf8",
+    );
+  }
+
+  /** The tree `npx skills add` leaves: real `agents` pages, a linked vendor path, a lock file. */
+  function registryTree(page = rendered("agents")): void {
+    mkdirSync(join(project, ".agents/skills", FIXTURE_SKILL), { recursive: true });
+    writeFileSync(join(project, AGENTS_PAGE), page, "utf8");
+    mkdirSync(join(project, ".claude/skills"), { recursive: true });
+    symlinkSync(
+      join(project, ".agents/skills", FIXTURE_SKILL),
+      join(project, ".claude/skills", FIXTURE_SKILL),
+    );
+    writeFileSync(join(project, "skills-lock.json"), '{"skills": []}\n', "utf8");
+  }
+
+  test("the plan says it would adopt the pages and replace the link, with no flag", () => {
+    registryTree();
+
+    const code = init("--dry-run", "--json");
+
+    expect(code).toBe(0);
+    const envelope = JSON.parse(stdout());
+    expect(envelope.actions).toEqual(
+      expect.arrayContaining([
+        { kind: "adopt", path: AGENTS_PAGE, status: "planned" },
+        { kind: "replace-link", path: CLAUDE_PAGE, status: "planned" },
+      ]),
+    );
+    expect(envelope.exitCode).toBe(0);
+  });
+
+  test("applying it leaves each flavour's own page and the registry's lock file untouched", () => {
+    registryTree();
+
+    expect(init()).toBe(0);
+    expect(read(AGENTS_PAGE)).toBe(rendered("agents").replace("---\n\n", `---\n${PROVENANCE}\n\n`));
+    expect(read(CLAUDE_PAGE)).toBe(rendered("claude").replace("---\n\n", `---\n${PROVENANCE}\n\n`));
+    expect(lstatSync(join(project, CLAUDE_PAGE)).isSymbolicLink()).toBe(false);
+    expect(read("skills-lock.json")).toBe('{"skills": []}\n');
+  });
+
+  test("a page from another release is refused, and the refusal names what would allow it", () => {
+    registryTree(rendered("agents").replace("agents body", "another release's body"));
+
+    const code = init("--dry-run", "--json");
+
+    expect(code).toBe(0);
+    const kinds = JSON.parse(stdout()).actions.map(
+      (action: { kind: string; path: string }) => `${action.kind} ${action.path}`,
+    );
+    expect(kinds).toContain(`refuse .agents/skills/${FIXTURE_SKILL}`);
+    expect(kinds).toContain(`refuse .claude/skills/${FIXTURE_SKILL}`);
+  });
+
+  test("a whole linked install root is one refusal, and the other flavour still installs", () => {
+    mkdirSync(join(project, ".agents/skills"), { recursive: true });
+    mkdirSync(join(project, ".claude"), { recursive: true });
+    symlinkSync(join(project, ".agents/skills"), join(project, ".claude/skills"));
+
+    expect(init()).toBe(1);
+    expect(stdout()).toContain("refused refuse  .claude/skills");
+    expect(stdout()).toContain("every skill of this flavour would be written through it");
+    expect(existsSync(join(project, AGENTS_PAGE))).toBe(true);
   });
 });
 

@@ -1,0 +1,5 @@
+{
+  "fixture": "evals/fixtures/feedback-false-positive",
+  "setup": "checkout-install",
+  "turns": { "2": "yes, file it", "3": "yes, file it" }
+}

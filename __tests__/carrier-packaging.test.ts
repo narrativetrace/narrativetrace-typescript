@@ -43,8 +43,16 @@ const CARRIER_ENTRIES = [
   "catalogue.json",
   "agents/narrativetrace-doctor/SKILL.md",
   "agents/add-narrative-tracing/SKILL.md",
+  "agents/narrativetrace-feedback/SKILL.md",
+  "agents/add-narrativetrace-clarity/SKILL.md",
+  "agents/narrativetrace-verify/SKILL.md",
+  "agents/narrativetrace-debug/SKILL.md",
   "claude/narrativetrace-doctor/SKILL.md",
   "claude/add-narrative-tracing/SKILL.md",
+  "claude/narrativetrace-feedback/SKILL.md",
+  "claude/add-narrativetrace-clarity/SKILL.md",
+  "claude/narrativetrace-verify/SKILL.md",
+  "claude/narrativetrace-debug/SKILL.md",
 ] as const;
 
 function allFiles(root: string, prefix = ""): string[] {
@@ -143,7 +151,14 @@ describe("carrier packaging (Java SkillsCarrierJarTest shape)", () => {
   it("catalogue.json names every skill exactly once and points at entries that exist", () => {
     const catalogue = JSON.parse(readFileSync(join(skillsRoot, "catalogue.json"), "utf-8"));
     expect(new Set(catalogue.skills.map((s: { name: string }) => s.name))).toEqual(
-      new Set(["narrativetrace-doctor", "add-narrative-tracing"]),
+      new Set([
+        "narrativetrace-doctor",
+        "add-narrative-tracing",
+        "narrativetrace-feedback",
+        "add-narrativetrace-clarity",
+        "narrativetrace-verify",
+        "narrativetrace-debug",
+      ]),
     );
     for (const skill of catalogue.skills as Array<{ agents: string; claude: string }>) {
       expect(existsSync(join(skillsRoot, skill.agents))).toBe(true);

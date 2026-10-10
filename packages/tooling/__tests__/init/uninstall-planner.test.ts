@@ -80,6 +80,40 @@ describe("the skill directories", () => {
 
     expect(planUninstall(state).actions).toEqual([]);
   });
+
+  // Rule 5, amended by design D5: an uninstall never FOLLOWS a link out of the project. The pages a
+  // registry left behind a link are its own, whatever they say, so neither the link nor what it points
+  // at is ever planned — not even when the page at the far end carries our provenance line, because
+  // deleting through the link would take the OTHER flavour's page with it.
+  test.each([
+    ["a linked skill directory", "linked-directory" as const],
+    ["a linked skill page", "linked-page" as const],
+  ])("never follows %s", (_what, presence) => {
+    const state = projectState({
+      installedSkills: [
+        installedSkill("claude", "a", presence, "", ourSkill().body, "../../.agents/skills/a"),
+      ],
+    });
+
+    expect(planUninstall(state).actions).toEqual([]);
+  });
+
+  test("never touches a whole install root that is a link", () => {
+    const state = projectState({ linkedInstallRoots: new Map([["claude", "../.agents/skills"]]) });
+
+    expect(planUninstall(state).actions).toEqual([]);
+  });
+
+  test("reports the unknown carrier for a project whose pages are all a registry's", () => {
+    const state = projectState({
+      installedSkills: [
+        installedSkill("agents", "a", "foreign", "", "unstamped\n"),
+        installedSkill("claude", "a", "linked-directory", "", "unstamped\n", "../../x"),
+      ],
+    });
+
+    expect(planUninstall(state).carrier).toBe(UNKNOWN_CARRIER);
+  });
 });
 
 describe("the managed section", () => {
@@ -337,6 +371,40 @@ describe("a refresh", () => {
   test("knows whether a project carries an install of ours at all", () => {
     expect(isSkillsInstalled(projectState())).toBe(false);
     expect(isSkillsInstalled(projectState({ installedSkills: [ourSkill()] }))).toBe(true);
+  });
+
+  /**
+   * A refresh may KEEP an install current; it may never START one, and adoption is starting one. The
+   * `adopt` and `replace-link` actions are both dropped, and a project whose pages are ALL a
+   * registry's carries no install of ours — so no carrier is ever resolved for it in the first place.
+   */
+  test("never adopts a registry's pages and never replaces its links", () => {
+    const registryPage = carrierBody(CARRIER, CARRIER.catalogue.skills[0] as never, "agents");
+    const state = projectState({
+      claudeDirectory: true,
+      installedSkills: [
+        ourSkill("a", OLDER),
+        installedSkill("claude", "a", "linked-directory", "", registryPage, "../../x"),
+      ],
+    });
+
+    const plan = planRefresh(state, CARRIER);
+
+    expect(plan.actions.map((action) => action.kind)).toEqual(["replace"]);
+    expect(actionFor(plan, ".agents/skills/a/SKILL.md")?.kind).toBe("replace");
+  });
+
+  test("a project whose every page is a registry's carries no install of ours", () => {
+    const registryPage = carrierBody(CARRIER, CARRIER.catalogue.skills[0] as never, "agents");
+    const state = projectState({
+      installedSkills: [
+        installedSkill("agents", "a", "foreign", "", registryPage),
+        installedSkill("claude", "a", "linked-directory", "", registryPage, "../../x"),
+      ],
+    });
+
+    expect(isSkillsInstalled(state)).toBe(false);
+    expect(planRefresh(state, CARRIER).actions).toEqual([]);
   });
 
   test("a skill directory somebody else owns is not an install of ours", () => {

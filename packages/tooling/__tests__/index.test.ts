@@ -8,6 +8,10 @@ import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import {
   buildSnapshot,
   compareVersions,
+  FRAMEWORK_ROWS,
+  frameworkCheck,
+  frameworkCheckIds,
+  frameworkRowById,
   parseVersion,
   renderHuman,
   renderJson,
@@ -45,5 +49,24 @@ describe("public API surface", () => {
     const b = parseVersion("1.0.0");
     if (!a || !b) throw new Error("unparseable test fixture version");
     expect(compareVersions(a, b)).toBeGreaterThan(0);
+  });
+});
+
+describe("the framework table through the entry point", () => {
+  test("a real Express project without the integration fails its row's check, end to end", () => {
+    writeFileSync(join(dir, "package.json"), JSON.stringify({ dependencies: { express: "5" } }));
+    const report = runDoctor(buildSnapshot(dir, {}));
+    const express = report.findings.find((finding) => finding.id === "config.express-middleware");
+    expect(express?.status).toBe("fail");
+    expect(express?.framework).toBe("express");
+    expect(renderJson(report)).toContain('"framework": "express"');
+  });
+
+  test("exports the rows, their ids and the check factory the doctor itself uses", () => {
+    expect(FRAMEWORK_ROWS.length).toBeGreaterThan(0);
+    expect(frameworkCheckIds()).toContain("config.express-middleware");
+    const row = frameworkRowById("hono");
+    if (!row) throw new Error("the table has a hono row");
+    expect(frameworkCheck(row)(buildSnapshot(dir, {})).id).toBe("config.hono-middleware");
   });
 });

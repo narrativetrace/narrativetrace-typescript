@@ -38,6 +38,7 @@ class CountingGrammar implements SequenceGrammar {
   throwsCount = 0;
   incompletes = 0;
   limitedNotes = 0;
+  spanNotes = 0;
 
   constructor(private readonly delegate: SequenceGrammar) {}
 
@@ -66,6 +67,10 @@ class CountingGrammar implements SequenceGrammar {
   incomplete(target: DiagramLabel): string {
     this.incompletes++;
     return this.delegate.incomplete(target);
+  }
+  spanNote(target: DiagramLabel, spanId: DiagramLabel): string {
+    this.spanNotes++;
+    return this.delegate.spanNote(target, spanId);
   }
   limitedNote(target: DiagramLabel, stop: TreeWalkStop): string {
     this.limitedNotes++;
@@ -161,6 +166,7 @@ function assertOneArrowAndOneOutcomePerNode(root: TraceNode, real: SequenceGramm
 
   expect(counting.callArrows, "call arrows").toBe(expectedNodes);
   expect(counting.outcomes, "outcomes (return + throw + incomplete)").toBe(expectedNodes);
+  expect(counting.spanNotes, "span notes — every call cites its id").toBe(expectedNodes);
   expect(counting.limitedNotes, "limited notes").toBe(limitCount(root));
 }
 

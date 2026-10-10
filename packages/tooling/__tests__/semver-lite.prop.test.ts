@@ -19,12 +19,24 @@ describe("semver-lite properties", () => {
     );
   });
 
+  // The two signs SUM to zero rather than being compared to each other's negation: for two equal
+  // versions both are 0, and `-Math.sign(0)` is -0, which `toBe` (Object.is) does not call 0. That made
+  // the property fail on the seeds that generate a pair of equal versions, which fast-check reaches
+  // often, since it biases towards small values.
   test("compareVersions is antisymmetric", () => {
     fc.assert(
       fc.property(versionArb, versionArb, (a, b) => {
         const cmp = compareVersions(a, b);
         const reverse = compareVersions(b, a);
-        expect(Math.sign(cmp)).toBe(-Math.sign(reverse));
+        expect(Math.sign(cmp) + Math.sign(reverse)).toBe(0);
+      }),
+    );
+  });
+
+  test("compareVersions calls two equal versions equal", () => {
+    fc.assert(
+      fc.property(versionArb, (v) => {
+        expect(compareVersions(v, { ...v })).toBe(0);
       }),
     );
   });

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { CitableSpanId } from "@narrativetrace/core";
 import {
   aliasToken as sanitizeAlias,
   identifier as sanitizeIdentifier,
@@ -85,4 +86,15 @@ function quoted(label: DiagramLabel): DiagramLabel {
   return (NEEDS_QUOTE.test(label) ? `"${label}"` : label) as DiagramLabel;
 }
 
-export const DiagramLabel = { identifier, message, alias, withParameters, quoted };
+/**
+ * A span id (`#1.3`) for a span note. Not trace text at all — a position path the renderer
+ * derived (`CitableSpanId`) — so it is checked against the id grammar instead of sanitized.
+ *
+ * @throws RangeError when `id` is not exactly one well-formed span id.
+ */
+function spanId(id: string): DiagramLabel {
+  if (!CitableSpanId.isWellFormed(id)) throw new RangeError(`not a span id: ${id}`);
+  return id as DiagramLabel;
+}
+
+export const DiagramLabel = { identifier, message, alias, withParameters, quoted, spanId };

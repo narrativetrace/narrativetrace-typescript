@@ -3,29 +3,27 @@
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, test } from "vitest";
 import { renderHuman, renderJson } from "../src/doctor/render.js";
-import type { DoctorReport } from "../src/doctor/types.js";
+import type { DoctorReport, Finding } from "../src/doctor/types.js";
 
-const report: DoctorReport = {
-  exitCode: 1,
-  findings: [
-    {
-      id: "toolchain.node-engine",
-      status: "pass",
-      message: "Node 20.11.0 satisfies the required >=20",
-      fix: "",
-      docUrl: "https://example.invalid/installation-guide.md#prerequisites",
-      skill: null,
-    },
-    {
-      id: "trap.silent-sink",
-      status: "fail",
-      message: "traceObject() is used but no consumer or sink was found",
-      fix: "Attach a BufferedEventConsumer or call captureTrace().",
-      docUrl: "https://example.invalid/configuration-guide.md#8-event-pipeline-buffering",
-      skill: "narrativetrace-doctor",
-    },
-  ],
+const PASSING: Finding = {
+  id: "toolchain.node-engine",
+  status: "pass",
+  message: "Node 20.11.0 satisfies the required >=20",
+  fix: "",
+  docUrl: "https://example.invalid/installation-guide.md#prerequisites",
+  skill: null,
 };
+
+const FAILING: Finding = {
+  id: "trap.silent-sink",
+  status: "fail",
+  message: "traceObject() is used but no consumer or sink was found",
+  fix: "Attach a BufferedEventConsumer or call captureTrace().",
+  docUrl: "https://example.invalid/configuration-guide.md#8-event-pipeline-buffering",
+  skill: "narrativetrace-doctor",
+};
+
+const report: DoctorReport = { exitCode: 1, findings: [PASSING, FAILING] };
 
 describe("renderHuman", () => {
   test("matches the known-good rendering", () => {
@@ -43,7 +41,7 @@ describe("renderHuman", () => {
   test("summarizes a clean report as 'All checks passed.'", () => {
     const clean: DoctorReport = {
       exitCode: 0,
-      findings: [{ ...report.findings[0]!, status: "pass" }],
+      findings: [{ ...PASSING, status: "pass" }],
     };
     expect(renderHuman(clean)).toContain("All checks passed.");
     expect(renderHuman(clean)).not.toContain("Exit code");
@@ -52,7 +50,7 @@ describe("renderHuman", () => {
   test("omits the skill line for a failure the table maps to no skill", () => {
     const unfixable: DoctorReport = {
       exitCode: 1,
-      findings: [{ ...report.findings[1]!, skill: null }],
+      findings: [{ ...FAILING, skill: null }],
     };
     expect(renderHuman(unfixable)).not.toContain("skill:");
   });
@@ -72,7 +70,7 @@ describe("renderJson", () => {
   test("emits a literal null for a finding no skill fixes, never an omitted key", () => {
     const noFix: DoctorReport = {
       exitCode: 0,
-      findings: [report.findings[0]!],
+      findings: [PASSING],
     };
     expect(renderJson(noFix)).toContain('"skill": null');
   });

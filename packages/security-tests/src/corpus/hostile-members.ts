@@ -285,7 +285,7 @@ export class FieldlessAbstractSubclassToStringDoor {
     throw new Error("iterator() must never be called by rendering");
   }
   toString(): string {
-    return [...this].join(",");
+    return [...(this as unknown as Iterable<unknown>)].join(",");
   }
 }
 

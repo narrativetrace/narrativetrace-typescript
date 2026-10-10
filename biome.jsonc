@@ -19,6 +19,9 @@
       "!**/.tools-cache",
       "!.verify-all-logs",
       "!packages/security-tests/hostile-corpus",
+      // A fixture's vendored dependency ships minified ON PURPOSE: the case it serves needs its
+      // cause outside the readable source (Phase 7 verify fixture, Java cross-port item 9).
+      "!packages/skills-catalogue/evals/fixtures/*/vendor",
       "!**/narrativetrace-output",
       // recorded eval outputs are evidence, never formatted
       "!ai-testing"

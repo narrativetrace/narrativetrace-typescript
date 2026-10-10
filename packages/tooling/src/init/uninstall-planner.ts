@@ -28,6 +28,11 @@ import type { ProjectState } from "./project-state.js";
  * its first line) and nothing but our own content is left in it. A file the installer merely appended
  * to is always kept, even if removing our section empties it.
  *
+ * @llmNote It also never FOLLOWS a link out of the project (design D5's amendment to this rule). Only a
+ * presence of `ours` is ever planned, and a linked path is never that however stamped the page at the
+ * far end is: a registry's files — its lock file, its pages behind a link — are left exactly as they
+ * were, and deleting through the link would take the other flavour's page with it.
+ *
  * @sideEffects None. Pure, like the install planner.
  */
 

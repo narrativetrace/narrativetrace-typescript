@@ -15,7 +15,11 @@ src/
 ├── catalogue/
 │   ├── narrativetrace-doctor.ts   # diagnosis, read-only
 │   ├── add-narrative-tracing.ts   # install and first trace
-│   ├── doctor-commands.ts         # shared command/verify strings the two catalogue entries use
+│   ├── narrativetrace-feedback.ts # reports a defect in NarrativeTrace; declares NO allowed tools
+│   ├── add-narrativetrace-clarity.ts # first naming report + optional gate over the Vitest reporter
+│   ├── clarity-commands.ts        # the clarity gate's command literals and verify one-liners
+│   ├── feedback-commands.ts       # the feedback verb's command literals and file paths
+│   ├── doctor-commands.ts         # shared command/verify strings the catalogue entries use
 │   └── pro-listings.ts            # Pro skills, listed (never their instructions)
 ├── catalogue-index.ts     # assembly
 ├── lints.ts               # Tier A: catalogue-wide checks
@@ -30,7 +34,8 @@ src/
 
 Rendering is a build step: `pnpm run skills-render` writes the artifacts, `pnpm run skills-check`
 (wired into `pnpm run check`) fails naming any that drifted from the typed source. Tier A2 (oracle
-replay of a skill's own step data against `examples/sixty-seconds`, no LLM) lives in
+replay of a skill's own step data against `examples/sixty-seconds` — the clarity skill against
+`evals/fixtures/clarity-consumer-solved` — no LLM) lives in
 `__tests__/replay.test.ts`; Tier B (LLM trials) is out of `check`'s scope — see
 `documentation/agent-skills.md` for how the owner runs those.
 

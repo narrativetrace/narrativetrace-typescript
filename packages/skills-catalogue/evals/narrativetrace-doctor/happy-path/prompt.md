@@ -14,7 +14,7 @@ the tool's own findings rather than re-deriving them by hand.
 
 **Grading** (§11.1 split):
 - **Gates** (every model): `graders/verify.sh` — the doctor CLI runs to completion (exit 0 or 1,
-  never 2) and its JSON output is well-formed with all eleven finding ids present.
+  never 2) and its JSON output is well-formed with all twenty-five finding ids present.
 - **Report-only** (cheapest model), gates (mid model+): did the agent's summary correctly
   characterize the one real finding this fixture has (`trap.redaction-proof` fails — the demo has
   no sensitive parameter name to redact) rather than claiming the project is fully clean?

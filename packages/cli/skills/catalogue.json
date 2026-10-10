@@ -9,9 +9,33 @@
     },
     {
       "name": "add-narrative-tracing",
-      "description": "Installs NarrativeTrace into a TypeScript project and gets it to a first trace. Use when NarrativeTrace is not yet installed, a project needs its very first traced call, or traces need to reach a real logger instead of a bare console.log. Installs @narrativetrace/core-node and @narrativetrace/proxy with the project's real package manager, wraps a class with traceObject, renders and runs the first trace, then wires a pino/winston/OpenTelemetry-style consumer so traces reach your logger. Runs narrativetrace doctor to confirm the install is correctly wired — narrativetrace-doctor owns diagnosis from there — then previews installing the NarrativeTrace agent skills for next time (`narrativetrace init --dry-run`); applying that preview is left to the reader. Say 'add narrative tracing to my service', 'install narrativetrace', 'get a trace in 60 seconds', 'wrap this class so I can see a trace', or 'send my traces to my logger' to invoke it.",
+      "description": "Installs NarrativeTrace into a TypeScript project and gets it to a first trace. Use when NarrativeTrace is not yet installed, a project needs its very first traced call, or traces need to reach a real logger instead of a bare console.log. Installs @narrativetrace/core-node and @narrativetrace/proxy with the project's real package manager, wraps a class with traceObject, renders and runs the first trace, then sends it to a real logger (pino, in the worked example). Applies the doctor's framework-wiring fixes for the frameworks the project already uses, and runs narrativetrace doctor to confirm the install is correctly wired — narrativetrace-doctor owns diagnosis from there — then previews installing the NarrativeTrace agent skills for next time (`narrativetrace init --dry-run`); applying that preview is left to the reader. Say 'add narrative tracing to my service', 'install narrativetrace', 'get a trace in 60 seconds', 'wrap this class so I can see a trace', or 'send my traces to my logger' to invoke it.",
       "agents": "agents/add-narrative-tracing/SKILL.md",
       "claude": "claude/add-narrative-tracing/SKILL.md"
+    },
+    {
+      "name": "narrativetrace-feedback",
+      "description": "Reports a defect in NarrativeTrace itself — the library, the doctor, an agent skill, or the published install prompt. Use when a doctor finding is wrong or its fix does not work, when a skill step cannot be followed or its verify cannot be met, when the install prompt is wrong, or when the library misbehaves and the project is configured correctly. Drafts the report from this project (the install coordinates, the doctor's own JSON report, and at most one structural trace), refuses to write one that carries a value from your traces and names the rule that refused it, shows you the whole draft, and then asks once whether to file it publicly. Files nothing without your answer and sends nothing anywhere. Say 'report this to NarrativeTrace', 'the doctor's fix did not work', or 'file a bug about this skill' to invoke it.",
+      "agents": "agents/narrativetrace-feedback/SKILL.md",
+      "claude": "claude/narrativetrace-feedback/SKILL.md"
+    },
+    {
+      "name": "add-narrativetrace-clarity",
+      "description": "Adds or verifies NarrativeTrace Clarity in a TypeScript Vitest project. Use when you want a first naming report, per-element explanations, renames for unclear names, or an explicit clarity quality gate. Registers the clarity reporter in the Vitest config, runs the suite, checks the fresh nonempty results file, reads the scores and issues, applies the report's rename suggestions and re-runs until the gate is clean, and preserves existing thresholds. Repairs a missing or empty results file by making a test capture a traced call; route tracing itself being broken to narrativetrace-doctor. Say 'add a clarity report', 'explain our clarity scores', 'set up a clarity quality gate', 'why is the clarity report empty', or 'which names make the trace hard to read' to invoke it.",
+      "agents": "agents/add-narrativetrace-clarity/SKILL.md",
+      "claude": "claude/add-narrativetrace-clarity/SKILL.md"
+    },
+    {
+      "name": "narrativetrace-verify",
+      "description": "Verifies a change in a TypeScript project by reading what the code actually did before saying it is done. Use after the tests are green and before reporting a change that crosses collaborators, branches, retries, runs async, carries state between calls, or touches code not written in this session — and skip it, saying why, for a pure function or a one-class edit. Writes the intent down first, runs the smallest real path with NarrativeTrace on, reads the value-free structural trace against the intent, opens values only on the span that looks wrong, fixes and re-reads, then pins the flow as an approval baseline behind your yes and reports what the trace showed, citing span ids. Say 'verify this change with the trace', 'check what the code actually did', 'did the flow do what I meant', or 'pin this flow as a baseline' to invoke it.",
+      "agents": "agents/narrativetrace-verify/SKILL.md",
+      "claude": "claude/narrativetrace-verify/SKILL.md"
+    },
+    {
+      "name": "narrativetrace-debug",
+      "description": "Finds the cause of a wrong result in a TypeScript project by reading what the code did with the values, not by stepping through it. Use when a symptom is reported — a wrong amount, a wrong id, a call in the wrong order, a test that fails with a value nobody expected. Reproduces it with the smallest input and NarrativeTrace on, finds the first span where a value diverges and names it by its span id (the sequence diagram first when async work is involved), narrows to that span's sub-tree, fixes it there and checks the structural trace shows nothing else moved, pins the reproduction as a regression test and an approval baseline behind your yes, and reports the root cause by span id. Hands a defect in NarrativeTrace itself to narrativetrace-feedback. Say 'debug this with the trace', 'find where this value goes wrong', or 'why is this result wrong' to invoke it.",
+      "agents": "agents/narrativetrace-debug/SKILL.md",
+      "claude": "claude/narrativetrace-debug/SKILL.md"
     }
   ]
 }

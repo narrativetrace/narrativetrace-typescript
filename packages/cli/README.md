@@ -48,8 +48,28 @@ Mutates nothing.
 | `trap.parameter-arg0` | rendered output has no `arg0`-style placeholder parameter names |
 | `trap.redaction-proof` | a test asserts `[REDACTED]` for a deny-listed parameter name |
 | `trap.approval-traces` | no stale `.received.nt` file sits next to an `.approved.nt` baseline |
+| `config.approval-mode` | committed `.approved.nt` baselines are compared: approval mode is on (`NARRATIVETRACE_APPROVAL=true`, `"approval": "true"` in `narrativetrace.config.json`, or `createNarrativeTest({ approval: true })`) |
 | `trap.llms-before-you-start` | a plain `.js` file using ESM `import` has `"type": "module"` in `package.json` |
 | `config.skills-installed` | the agent skills this project's carrier ships are installed under `.agents/skills/` and stamped with the release this project resolves |
+| `config.vitest-fixture` | a project using Vitest has `@narrativetrace/vitest` installed and a test built with `createNarrativeTest()` (or a NarrativeTrace reporter in `vitest.config`) |
+| `config.express-middleware` | a project using Express has `@narrativetrace/express` installed and `app.use(narrativeTrace(…))` applied |
+| `config.hono-middleware` | a project using Hono has `@narrativetrace/hono` installed and `app.use("*", narrativeTrace(…))` applied |
+| `config.nestjs-module` | a project using NestJS has `@narrativetrace/nestjs` installed and `AutoProxyModule.forRoot(…)` imported |
+| `config.angular-provider` | a project using Angular has `@narrativetrace/angular` installed and `provideNarrativeTrace()` provided |
+| `config.react-provider` | a project using React has `@narrativetrace/react` installed and `<NarrativeTraceProvider>` rendered |
+| `config.react-router-capture` | a project using React Router has `@narrativetrace/react-router` installed and `useNavigationCapture(…)` called |
+| `config.pino-consumer` | a project using pino has `@narrativetrace/pino` installed and `createPinoEventConsumer(…)` in a pipeline |
+| `config.winston-consumer` | a project using winston has `@narrativetrace/winston` installed and `createWinstonEventConsumer(…)` in a pipeline |
+| `config.opentelemetry-consumer` | a project using `@opentelemetry/api` has `@narrativetrace/opentelemetry` installed and `createOtelEventConsumer(…)` in a pipeline |
+| `config.fastify-integration` | reports a Fastify project: no integration is shipped, so there is nothing to wire (never fails) |
+| `config.koa-integration` | reports a Koa project: no integration is shipped, so there is nothing to wire (never fails) |
+
+The `config.<framework>-*` rows come from the framework table `@narrativetrace/tooling` ships, so the
+installed doctor measures a project against the integrations of the release it installed. Each
+failing one prints the install line for the project's own package manager, pinned to its
+NarrativeTrace version, and the wiring lines — the text of a compiled, tested fixture. Every such
+finding carries `"framework": "<row id>"` in the `--json` report. The full table, with the wiring:
+[Complete Reference § Framework Integrations](../../documentation/llms-full.md#framework-integrations).
 
 See the [`narrativetrace-doctor` skill](../skills/README.md) for the thin agent layer over this
 command — the skill runs the same tested tool and interprets its report in context.

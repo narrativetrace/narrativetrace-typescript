@@ -1,13 +1,15 @@
 ---
 name: add-narrative-tracing
-description: "Installs NarrativeTrace into a TypeScript project and gets it to a first trace. Use when NarrativeTrace is not yet installed, a project needs its very first traced call, or traces need to reach a real logger instead of a bare console.log. Installs @narrativetrace/core-node and @narrativetrace/proxy with the project's real package manager, wraps a class with traceObject, renders and runs the first trace, then wires a pino/winston/OpenTelemetry-style consumer so traces reach your logger. Runs narrativetrace doctor to confirm the install is correctly wired — narrativetrace-doctor owns diagnosis from there — then previews installing the NarrativeTrace agent skills for next time (`narrativetrace init --dry-run`); applying that preview is left to the reader. Say 'add narrative tracing to my service', 'install narrativetrace', 'get a trace in 60 seconds', 'wrap this class so I can see a trace', or 'send my traces to my logger' to invoke it."
+description: "Installs NarrativeTrace into a TypeScript project and gets it to a first trace. Use when NarrativeTrace is not yet installed, a project needs its very first traced call, or traces need to reach a real logger instead of a bare console.log. Installs @narrativetrace/core-node and @narrativetrace/proxy with the project's real package manager, wraps a class with traceObject, renders and runs the first trace, then sends it to a real logger (pino, in the worked example). Applies the doctor's framework-wiring fixes for the frameworks the project already uses, and runs narrativetrace doctor to confirm the install is correctly wired — narrativetrace-doctor owns diagnosis from there — then previews installing the NarrativeTrace agent skills for next time (`narrativetrace init --dry-run`); applying that preview is left to the reader. Say 'add narrative tracing to my service', 'install narrativetrace', 'get a trace in 60 seconds', 'wrap this class so I can see a trace', or 'send my traces to my logger' to invoke it."
 when_to_use: "A project does not have NarrativeTrace yet, or has the packages installed but has never produced a trace, or traces print to the console but nothing forwards them to a real logger."
-allowed-tools: pnpm, npx, node
+allowed-tools: Bash(pnpm *), Bash(npx *), Bash(node *)
 ---
 
 # add-narrative-tracing
 
 ## 1. Install with the real toolchain
+
+**when:** if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — add only the dependencies and leave the project's `main` field and start scripts as they are; otherwise install as written
 
 ```bash
 pnpm install --frozen-lockfile
@@ -17,7 +19,19 @@ pnpm install --frozen-lockfile
 
 **failure:** vitest peer mismatch breaks the library's own build from a clean install — an installed vitest version outside @narrativetrace/vitest's declared peer range. Fix: run the narrativetrace-doctor skill's toolchain.vitest-peer check, then install a version satisfying the printed range
 
-## 2. First trace: wrap, call, render, run
+## 2. Wire the frameworks this project already uses
+
+```bash
+npx @narrativetrace/cli doctor || true
+```
+
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const bad=r.findings.filter(f=>f.framework&&f.status!=='pass'); if(bad.length>0){console.error(JSON.stringify(bad)); process.exit(1);}"`
+
+**failure:** the verify exits 1, printing the config.<framework>-* findings that fail — the project uses a framework whose NarrativeTrace integration is not installed, or is installed but never wired. Fix: run the doctor; apply every config.<framework>-* fix it prints, in order, as printed, then run the doctor again; a framework it reports as having no integration shipped is left alone
+
+## 3. First trace: wrap, call, render, run
+
+**when:** if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — do not add a demo file: run the application the way it already runs, exercise one real boundary, and read that request's trace; the verify below is for the console demo, and in an existing application the step is done when that request's trace is in the output; otherwise create the smallest console demo as follows
 
 <!-- snippet: examples/sixty-seconds/index.js -->
 ```js
@@ -45,7 +59,7 @@ console.log(renderMarkdownBody(context.captureTrace()));
 
 **failure:** parameters render as arg0, arg1, ... — parameter names of a class you don't own (or a build that strips them) are lost at compile time. Fix: pass them explicitly: traceObject(target, context, { methodName: ["paramA", "paramB"] })
 
-## 3. Send it to your logger
+## 4. Send it to your logger
 
 <!-- snippet: examples/sixty-seconds/index-with-logger.js -->
 ```js
@@ -99,15 +113,17 @@ console.log(renderMarkdownBody(context.captureTrace()));
 
 **verify:** `node index-with-logger.js`
 
-## 4. Run the doctor and resolve its findings
+## 5. Run the doctor and resolve its findings
 
 ```bash
 npx @narrativetrace/cli doctor || true
 ```
 
-**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==12) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==25) process.exit(1);"`
 
-## 5. Install the skills for next time
+## 6. Install the skills for next time
+
+**Flagged:** judgmental — the reply names the hand-off: the next session verifies with narrativetrace-verify — once a change's tests are green, it reads the trace before it reports
 
 ```bash
 npx @narrativetrace/cli init --dry-run
@@ -122,5 +138,5 @@ npx @narrativetrace/cli init --dry-run
 ## Never
 
 - Never assume a step worked without running its verify. (self-reported success overstates reality — a build claimed green that does not reproduce from clean is not evidence)
-- Never skip the final narrativetrace doctor call. (it is the seam that catches anything these four steps did not — narrativetrace-doctor owns diagnosis from here)
+- Never skip the final narrativetrace doctor call. (it is the seam that catches anything the steps before it did not — narrativetrace-doctor owns diagnosis from here)
 - Never run `narrativetrace init` without `--dry-run` from this skill. (the prompt's own step 3 human gate applies the plan only after a person has seen the diff — this skill only shows it)

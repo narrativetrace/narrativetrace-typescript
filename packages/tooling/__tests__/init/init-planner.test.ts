@@ -309,6 +309,199 @@ describe("the skill directories", () => {
   });
 });
 
+describe("a page a registry installed (D5, rule 17)", () => {
+  /** The carrier's own rendering at a skill path, with nobody's provenance line on it. */
+  function registryPage(flavour: "agents" | "claude" = "agents"): ProjectState {
+    return projectState({
+      installedSkills: [installedSkill(flavour, "a", "foreign", "", fakePage("a", flavour))],
+    });
+  }
+
+  test("adopts a page identical to this carrier's rendering, with no flag", () => {
+    const action = actionFor(planInstall(registryPage(), CARRIER), ".agents/skills/a/SKILL.md");
+
+    expect(action?.kind).toBe("adopt");
+    expect(action?.before).toBe(fakePage("a", "agents"));
+    expect(action?.after).toBe(ourPage());
+    expect(planExitCode(planInstall(registryPage(), CARRIER))).toBe(0);
+  });
+
+  test("adds only the provenance line, so nothing of anybody's is overwritten", () => {
+    const action = actionFor(planInstall(registryPage(), CARRIER), ".agents/skills/a/SKILL.md");
+
+    expect((action?.after ?? "").replace(`${provenanceLine(FAKE_COORDINATE)}\n`, "")).toBe(
+      action?.before,
+    );
+  });
+
+  test("adopts the page a registry checked out with the other line ending", () => {
+    const state = projectState({
+      installedSkills: [
+        installedSkill(
+          "agents",
+          "a",
+          "foreign",
+          "",
+          fakePage("a", "agents").replaceAll("\n", "\r\n"),
+        ),
+      ],
+    });
+
+    expect(actionFor(planInstall(state, CARRIER), ".agents/skills/a/SKILL.md")?.kind).toBe("adopt");
+  });
+
+  test("adopts the vendor flavour at the vendor path too", () => {
+    const state = projectState({
+      claudeDirectory: true,
+      installedSkills: [installedSkill("claude", "a", "foreign", "", fakePage("a", "claude"))],
+    });
+
+    const action = actionFor(planInstall(state, CARRIER), ".claude/skills/a/SKILL.md");
+    expect(action?.kind).toBe("adopt");
+    expect(action?.after).toBe(ourPage("a", "claude"));
+  });
+
+  // Rule 21: order, not a flag — a --force run over a registry tree adopts rather than overwrites,
+  // so the dangerous combination behaves like the safe one.
+  test("adopts rather than overwrites even when forced", () => {
+    expect(
+      actionFor(planInstall(registryPage(), CARRIER, PERMISSIVE), ".agents/skills/a/SKILL.md")
+        ?.kind,
+    ).toBe("adopt");
+  });
+
+  test.each([
+    ["one trailing space", fakePage("a", "agents").replace("name: a", "name: a ")],
+    ["a reordered frontmatter key", "---\ndescription: d-a\nname: a\n---\n\n# a (agents)\n"],
+    ["the final newline lost", fakePage("a", "agents").trimEnd()],
+    ["another release's wording", fakePage("a", "agents").replace("# a", "# a v2")],
+    ["the other flavour's page", fakePage("a", "claude")],
+  ])("refuses a page that differs by %s", (_what, page) => {
+    const state = projectState({
+      installedSkills: [installedSkill("agents", "a", "foreign", "", page)],
+    });
+
+    const action = actionFor(planInstall(state, CARRIER), ".agents/skills/a");
+    expect(action?.kind).toBe("refuse");
+    expect(action?.reason).toContain("--force");
+  });
+
+  test("plans nothing for a page a previous run already adopted", () => {
+    const state = projectState({
+      installedSkills: [installedSkill("agents", "a", "ours", FAKE_COORDINATE, ourPage())],
+    });
+
+    expect(planInstall(state, CARRIER, initOptions({ scope: "skills" })).actions).toEqual([]);
+  });
+});
+
+/**
+ * A symbolic link where a skill's directory or page belongs — what `npx skills add` leaves at the
+ * vendor path (design D5, rules 18–20). Writing through it would land in whatever it points at, so the
+ * link itself is replaced whenever what it reaches is a page this install owns or would adopt, and
+ * refused otherwise. No flag appears here: `--force` covers foreign CONTENT, and a link is structure.
+ */
+describe("a skill path a registry linked (rules 18, 19, 20)", () => {
+  /** The vendor path is a link to the open-standard page a registry really wrote. */
+  function linkedVendorSkill(body: string, presence = "linked-directory" as const): ProjectState {
+    return projectState({
+      claudeDirectory: true,
+      installedSkills: [
+        installedSkill("agents", "a", "foreign", "", fakePage("a", "agents")),
+        installedSkill("claude", "a", presence, "", body, "../../.agents/skills/a"),
+      ],
+    });
+  }
+
+  test("replaces a link whose page this install would adopt, and writes its own flavour", () => {
+    const plan = planInstall(linkedVendorSkill(fakePage("a", "agents")), CARRIER);
+
+    const action = actionFor(plan, ".claude/skills/a/SKILL.md");
+    expect(action?.kind).toBe("replace-link");
+    expect(action?.link).toBe(".claude/skills/a");
+    expect(action?.target).toBe("../../.agents/skills/a");
+    expect(action?.before).toBe("");
+    expect(action?.after).toBe(ourPage("a", "claude"));
+    expect(planExitCode(plan)).toBe(0);
+  });
+
+  test("replaces a link to a page a previous install of ours already stamped", () => {
+    const action = actionFor(
+      planInstall(linkedVendorSkill(ourPage()), CARRIER),
+      ".claude/skills/a/SKILL.md",
+    );
+
+    expect(action?.kind).toBe("replace-link");
+    expect(action?.after).toBe(ourPage("a", "claude"));
+  });
+
+  test("replaces a linked page inside a real directory, at the page itself", () => {
+    const action = actionFor(
+      planInstall(linkedVendorSkill(fakePage("a", "agents"), "linked-page"), CARRIER),
+      ".claude/skills/a/SKILL.md",
+    );
+
+    expect(action?.kind).toBe("replace-link");
+    expect(action?.link).toBe(".claude/skills/a/SKILL.md");
+  });
+
+  test("refuses a link with no page of ours at the other end", () => {
+    const action = actionFor(planInstall(linkedVendorSkill(""), CARRIER), ".claude/skills/a");
+
+    expect(action?.kind).toBe("refuse");
+    expect(action?.reason).toContain("no page of narrativetrace's at the other end");
+  });
+
+  test("refuses a link to a page nobody can place, and says a flag will not help", () => {
+    const state = linkedVendorSkill("somebody else's page\n");
+
+    for (const options of [initOptions(), PERMISSIVE]) {
+      const action = actionFor(planInstall(state, CARRIER, options), ".claude/skills/a");
+      expect(action?.kind).toBe("refuse");
+      expect(action?.reason).toContain("--force covers content, never a link");
+    }
+  });
+
+  test("refuses a whole linked install root once, not once per skill", () => {
+    const state = projectState({
+      claudeDirectory: true,
+      linkedInstallRoots: new Map([["claude", "../.agents/skills"]]),
+    });
+
+    const plan = planInstall(state, TWO_SKILLS);
+
+    expect(plan.actions.filter((action) => action.kind === "refuse")).toHaveLength(1);
+    expect(actionFor(plan, ".claude/skills")?.reason).toContain("every skill of this flavour");
+    expect(actionFor(plan, ".agents/skills/a/SKILL.md")?.kind).toBe("create");
+    expect(actionFor(plan, ".agents/skills/b/SKILL.md")?.kind).toBe("create");
+  });
+
+  test("refuses a linked install root even when forced", () => {
+    const state = projectState({
+      claudeDirectory: true,
+      linkedInstallRoots: new Map([["claude", "../.agents/skills"]]),
+    });
+
+    expect(actionFor(planInstall(state, CARRIER, PERMISSIVE), ".claude/skills")?.kind).toBe(
+      "refuse",
+    );
+  });
+
+  test("plans nothing at all for a linked root the project was never getting", () => {
+    const state = projectState({ linkedInstallRoots: new Map([["claude", "../elsewhere"]]) });
+
+    expect(actionFor(planInstall(state, CARRIER), ".claude/skills")).toBeUndefined();
+  });
+
+  test("never plans two actions on one path over a registry tree", () => {
+    const state = linkedVendorSkill(fakePage("a", "agents"));
+
+    const paths = planInstall(state, CARRIER, PERMISSIVE).actions.map((action) => action.path);
+
+    expect(new Set(paths).size).toBe(paths.length);
+  });
+});
+
 describe("scope, rule files and the plan's own shape", () => {
   test("plans only the half it was asked for", () => {
     const skillsOnly = planInstall(projectState(), CARRIER, initOptions({ scope: "skills" }));

@@ -5,6 +5,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type {
   CorpusCase,
+  FeedbackCase,
   GraphCase,
   HeaderCase,
   RedactionCase,
@@ -192,4 +193,25 @@ export function hostileTraceShapes(): readonly TraceShapeCase[] {
 
 function toTraceShapeCase(node: RawCase): TraceShapeCase {
   return { id: node.id, description: node.description, kind: node.kind, n: node.n };
+}
+
+let feedbacksCache: FeedbackCase[] | undefined;
+/** Problem-report text for the value-free gate — the accepted half carries equal weight, because
+ * a gate that refuses an install coordinate or a finding id is one an agent learns to route
+ * around (see the corpus README). */
+export function hostileFeedbacks(): readonly FeedbackCase[] {
+  if (feedbacksCache === undefined) {
+    feedbacksCache = rawCases("feedback.json", "cases").map(toFeedbackCase);
+  }
+  return feedbacksCache;
+}
+
+function toFeedbackCase(node: RawCase): FeedbackCase {
+  return {
+    id: node.id,
+    description: node.description,
+    value: materialize(node, "value"),
+    expect: node.expect ?? "",
+    ...(node.rule !== undefined && { rule: node.rule }),
+  };
 }

@@ -20,12 +20,26 @@ import { renderUnifiedDiff } from "./unified-diff.js";
 /** How wide a status or kind column is padded, so the paths line up. */
 const COLUMN = 8;
 
+/** What an adoption says, so a person knows that nothing of theirs was overwritten. */
+// snippet:begin adoptedNote
+const ADOPTED = "adopted: identical to this carrier's page, so only the provenance line is added";
+// snippet:end adoptedNote
+
 function pad(word: string): string {
   return word.length >= COLUMN ? `${word} ` : `${word}        `.slice(0, COLUMN);
 }
 
-function reasonSuffix(action: Action): string {
-  return action.kind === "refuse" ? ` — ${action.reason}` : "";
+/**
+ * What a line says after the path: why a refusal refused, or — for an adoption — that nothing of
+ * anybody's was overwritten. Asked by BOTH the plan's text and the report's, because an adoption a
+ * person only sees in a preview is an adoption they were never told about.
+ */
+function note(action: Action): string {
+  if (action.kind === "refuse") return ` — ${action.reason}`;
+  if (action.kind === "adopt") return ` — ${ADOPTED}`;
+  return action.kind === "replace-link"
+    ? ` — replaces the symbolic link ${action.link} → ${action.target}`
+    : "";
 }
 
 /** One line per action, refusals marked, with the carrier and the counts at the top. */
@@ -34,9 +48,7 @@ export function renderPlanText(plan: InitPlan): string {
   const header = `narrativetrace — ${plan.carrier}`;
   if (planIsEmpty(plan)) return `${header}\nnothing to do.\n`;
   const counts = `${plan.actions.length} action(s), ${planRefusals(plan).length} refusal(s)`;
-  const lines = plan.actions.map(
-    (action) => `${pad(action.kind)}${action.path}${reasonSuffix(action)}`,
-  );
+  const lines = plan.actions.map((action) => `${pad(action.kind)}${action.path}${note(action)}`);
   return [header, counts, "", ...lines, ""].join("\n");
 }
 
@@ -47,7 +59,7 @@ export function renderReportText(report: ExecutionReport): string {
   const lines = report.results.map(
     (result) =>
       `${pad(result.status)}${pad(result.action.kind)}${result.action.path}` +
-      `${result.detail === "" ? "" : ` — ${result.detail}`}`,
+      `${result.detail === "" ? note(result.action) : ` — ${result.detail}`}`,
   );
   return [
     `narrativetrace — ${report.carrier}`,

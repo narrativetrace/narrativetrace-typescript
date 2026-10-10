@@ -1,7 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { FRAMEWORK_ROWS } from "../frameworks/framework-table.js";
+import { checkApprovalMode } from "./checks/approval-mode.js";
 import { checkApprovalTraces } from "./checks/approval-traces.js";
+import { frameworkCheck } from "./checks/framework-wiring.js";
 import { checkLlmsBeforeYouStart } from "./checks/llms-before-you-start.js";
 import { checkNodeEngine } from "./checks/node-engine.js";
 import { checkOutputEnv } from "./checks/output-env.js";
@@ -16,8 +19,10 @@ import { checkVitestPeer } from "./checks/vitest-peer.js";
 import type { DoctorCheck, DoctorReport, DoctorSnapshot } from "./types.js";
 
 /**
- * Every check `narrativetrace doctor` runs, in stable, documented order. Adding a check means
- * appending here — the id is what stays stable across releases, not the position.
+ * Every check `narrativetrace doctor` runs, in stable, documented order: the twelve hand-written
+ * checks, then one per framework-table row that has a check of its own, in table order. Adding a
+ * hand-written check means appending to the first part; adding a framework means adding a row —
+ * the id is what stays stable across releases, not the position.
  */
 export const DOCTOR_CHECKS: readonly DoctorCheck[] = [
   checkNodeEngine,
@@ -30,8 +35,10 @@ export const DOCTOR_CHECKS: readonly DoctorCheck[] = [
   checkParameterArg0,
   checkRedactionProof,
   checkApprovalTraces,
+  checkApprovalMode,
   checkLlmsBeforeYouStart,
   checkSkillsInstalled,
+  ...FRAMEWORK_ROWS.filter((row) => row.check.kind !== "existing-check").map(frameworkCheck),
 ];
 
 /** Runs every check over `snapshot` and derives the process exit code. Read-only: mutates nothing. */

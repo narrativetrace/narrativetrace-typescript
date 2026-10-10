@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { isSubsequence, unifiedLineDiff } from "./line-diff.js";
 import { structuralDelta } from "./structural-delta.js";
 
 /**
@@ -35,8 +34,8 @@ export type ApprovalTraceOutcome =
  * @param current the current run's rendered `.nt` document.
  * @param lossNote when the run was incomplete (the best-effort capture path dropped events or
  * refused an async scope), a human-readable description of what was lost — switches the comparison
- * to subsequence containment (absences tolerated and named; anything added, renamed or reordered
- * still fails) instead of byte equality, since a lossy run's missing branches are evidence about the
+ * to subsequence containment (absences tolerated and named, even where they shifted later span
+ * ids; anything added, renamed or reordered still fails) instead of line equality, since a lossy run's missing branches are evidence about the
  * machine, not about the code.
  */
 export function evaluateApprovalTrace(
@@ -63,13 +62,10 @@ function evaluateLossy(
   current: string,
   lossNote: string,
 ): ApprovalTraceOutcome {
-  if (isSubsequence(approvedTrace, current)) {
+  const delta = structuralDelta(approvedTrace, current);
+  if (delta.onlyOmits) {
     const note = `consistent with approved trace, but this run was incomplete (${lossNote})`;
     return { kind: "lossy-match", note };
   }
-  return {
-    kind: "lossy-changed",
-    diff: unifiedLineDiff(approvedTrace, current),
-    received: current,
-  };
+  return { kind: "lossy-changed", diff: delta.diff, received: current };
 }

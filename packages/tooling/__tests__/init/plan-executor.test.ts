@@ -3,11 +3,13 @@
 // Copyright (c) 2026 Empower Agile
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,6 +21,7 @@ import {
   deleteFile,
   refuse,
   replaceBlock,
+  replaceLink,
 } from "../../src/init/action.js";
 import { reportExitCode, reportHasRefusals } from "../../src/init/execution-report.js";
 import { initPlan } from "../../src/init/init-plan.js";
@@ -173,6 +176,127 @@ describe("refusals", () => {
       "refused",
       "applied",
     ]);
+  });
+});
+
+/**
+ * Rule 14, amended by design D5: the executor never writes or deletes THROUGH a symbolic link it was
+ * not told about. The planners refuse every link they can SEE; this is the guarantee for one they
+ * cannot — a link made between the read and the write, or one further up the path than a planner looks.
+ * Defence in depth, which the cross-port note makes non-optional: the executor carries its own guard
+ * rather than trusting the planner.
+ */
+describe("a symbolic link on the way", () => {
+  function linkTo(at: string, target: string): void {
+    mkdirSync(join(dir, at, ".."), { recursive: true });
+    symlinkSync(target, join(dir, at));
+  }
+
+  test("refuses to write through a link at the path itself and leaves the target alone", () => {
+    writeFileSync(join(dir, "real.md"), "theirs\n");
+    linkTo("AGENTS.md", join(dir, "real.md"));
+
+    const report = applyPlan(plan(replaceBlock("AGENTS.md", "old\n", "new\n")), dir);
+
+    expect(report.results[0]?.status).toBe("refused");
+    expect(report.results[0]?.detail).toContain(
+      "is a symbolic link, and nothing is written through",
+    );
+    expect(read("real.md")).toBe("theirs\n");
+  });
+
+  test("refuses to write through a link further up the path", () => {
+    mkdirSync(join(dir, ".agents/skills/real"), { recursive: true });
+    linkTo(".agents/skills/a", join(dir, ".agents/skills/real"));
+
+    const report = applyPlan(plan(createFile(".agents/skills/a/SKILL.md", "page\n")), dir);
+
+    expect(report.results[0]?.status).toBe("refused");
+    expect(existsSync(join(dir, ".agents/skills/real/SKILL.md"))).toBe(false);
+  });
+
+  test("refuses to delete through a link and leaves the registry's own page", () => {
+    mkdirSync(join(dir, ".agents/skills/real"), { recursive: true });
+    writeFileSync(join(dir, ".agents/skills/real/SKILL.md"), "theirs\n");
+    linkTo(".claude/skills/a", join(dir, ".agents/skills/real"));
+
+    const report = applyPlan(
+      plan(
+        deleteFile(".claude/skills/a/SKILL.md", "theirs\n"),
+        deleteDirectory(".claude/skills/a"),
+      ),
+      dir,
+    );
+
+    expect(report.results.map((result) => result.status)).toEqual(["refused", "refused"]);
+    expect(read(".agents/skills/real/SKILL.md")).toBe("theirs\n");
+  });
+
+  test("replaces a link with a real file and leaves what it pointed at exactly as it was", () => {
+    mkdirSync(join(dir, ".agents/skills/a"), { recursive: true });
+    writeFileSync(join(dir, ".agents/skills/a/SKILL.md"), "the open-standard page\n");
+    linkTo(".claude/skills/a", join(dir, ".agents/skills/a"));
+
+    const report = applyPlan(
+      plan(
+        replaceLink(
+          ".claude/skills/a",
+          ".claude/skills/a/SKILL.md",
+          "../../.agents/skills/a",
+          "the vendor page\n",
+        ),
+      ),
+      dir,
+    );
+
+    expect(report.results[0]?.status).toBe("applied");
+    expect(lstatSync(join(dir, ".claude/skills/a")).isDirectory()).toBe(true);
+    expect(read(".claude/skills/a/SKILL.md")).toBe("the vendor page\n");
+    expect(read(".agents/skills/a/SKILL.md")).toBe("the open-standard page\n");
+  });
+
+  test("replaces a linked page inside a real directory", () => {
+    mkdirSync(join(dir, ".agents/skills/a"), { recursive: true });
+    writeFileSync(join(dir, ".agents/skills/a/SKILL.md"), "the open-standard page\n");
+    linkTo(".claude/skills/a/SKILL.md", join(dir, ".agents/skills/a/SKILL.md"));
+
+    applyPlan(
+      plan(
+        replaceLink(
+          ".claude/skills/a/SKILL.md",
+          ".claude/skills/a/SKILL.md",
+          "../../../.agents/skills/a/SKILL.md",
+          "the vendor page\n",
+        ),
+      ),
+      dir,
+    );
+
+    expect(lstatSync(join(dir, ".claude/skills/a/SKILL.md")).isSymbolicLink()).toBe(false);
+    expect(read(".claude/skills/a/SKILL.md")).toBe("the vendor page\n");
+    expect(read(".agents/skills/a/SKILL.md")).toBe("the open-standard page\n");
+  });
+
+  // The link is gone, so the write that follows creates a real path — but a link FURTHER UP was never
+  // the planner's to see, and writing through it is still forbidden.
+  test("refuses a replacement whose own path runs through another link", () => {
+    mkdirSync(join(dir, "elsewhere/skills"), { recursive: true });
+    linkTo(".claude/skills", join(dir, "elsewhere/skills"));
+
+    const report = applyPlan(
+      plan(
+        replaceLink(
+          ".claude/skills/a",
+          ".claude/skills/a/SKILL.md",
+          "../../x",
+          "the vendor page\n",
+        ),
+      ),
+      dir,
+    );
+
+    expect(report.results[0]?.status).toBe("refused");
+    expect(existsSync(join(dir, "elsewhere/skills/a"))).toBe(false);
   });
 });
 

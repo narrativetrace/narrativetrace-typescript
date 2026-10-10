@@ -64,4 +64,83 @@ describe("structuralDelta", () => {
     const delta = structuralDelta(baseline, current);
     expect(delta.summary).toBe("+1 call A.a, +1 call B.b");
   });
+
+  it("a baseline written before span ids existed still matches the same flow with ids", () => {
+    const old = "scenario: X\n\n- Svc.run()\n  - Ledger.record()\n";
+    const now = "scenario: X\n\n#1 - Svc.run()\n  #1.1 - Ledger.record()\n";
+    expect(structuralDelta(old, now).unchanged).toBe(true);
+  });
+
+  it("a CRLF checkout of the baseline is not a structural change", () => {
+    const crlf = "scenario: X\r\n\r\n#1 - Svc.run()\r\n";
+    expect(structuralDelta(crlf, "scenario: X\n\n#1 - Svc.run()\n").unchanged).toBe(true);
+  });
+
+  it("a missing final newline is not a structural change", () => {
+    expect(structuralDelta("#1 - Svc.run()", "#1 - Svc.run()\n").unchanged).toBe(true);
+  });
+
+  it("an extra blank line IS a change — only terminators and the final newline are set aside", () => {
+    expect(structuralDelta("#1 - Svc.run()\n", "\n#1 - Svc.run()\n").unchanged).toBe(false);
+  });
+
+  it("an inserted call cites the id each shifted sibling had before (was #id)", () => {
+    const baseline = "#1 - Svc.run()\n  #1.1 - A.a()\n  #1.2 - B.b()\n";
+    const current = "#1 - Svc.run()\n  #1.1 - New.call()\n  #1.2 - A.a()\n  #1.3 - B.b()\n";
+    expect(structuralDelta(baseline, current).diff).toBe(
+      " #1 - Svc.run()\n" +
+        "+  #1.1 - New.call()\n" +
+        "   #1.2 - A.a()  (was #1.1)\n" +
+        "   #1.3 - B.b()  (was #1.2)\n",
+    );
+  });
+
+  it("an id-free baseline has no id to cite, so its context lines print as the current run does", () => {
+    const baseline = "- Svc.run()\n  - A.a()\n";
+    const current = "#1 - Svc.run()\n  #1.1 - New.call()\n  #1.2 - A.a()\n";
+    expect(structuralDelta(baseline, current).diff).toBe(
+      " #1 - Svc.run()\n+  #1.1 - New.call()\n   #1.2 - A.a()\n",
+    );
+  });
+
+  it("a removed line prints as the baseline wrote it, an added one as the current run does", () => {
+    const delta = structuralDelta("#1 - Old.call()\n", "#1 - New.call()\n");
+    expect(delta.diff).toBe("-#1 - Old.call()\n+#1 - New.call()\n");
+  });
+
+  it("the summary counts calls whatever ids they carry", () => {
+    const delta = structuralDelta("#1 - Svc.run()\n", "#1 - Svc.run()\n  #1.1 - Ledger.record()\n");
+    expect(delta.summary).toBe("+1 call Ledger.record");
+  });
+});
+
+describe("structuralDelta(...).onlyOmits — the question to ask of an incomplete run", () => {
+  it("an omission that shifts later ids is still only an omission", () => {
+    const baseline = "#1 - Svc.run()\n  #1.1 - A.a()\n  #1.2 - B.b()\n";
+    const current = "#1 - Svc.run()\n  #1.1 - B.b()\n";
+    expect(structuralDelta(baseline, current).onlyOmits).toBe(true);
+  });
+
+  it("an added call is not an omission", () => {
+    const baseline = "#1 - Svc.run()\n";
+    const current = "#1 - Svc.run()\n  #1.1 - B.b()\n";
+    expect(structuralDelta(baseline, current).onlyOmits).toBe(false);
+  });
+});
+
+describe("structuralDelta — its inputs", () => {
+  it.each([
+    [undefined, "#1 - A.b()\n"],
+    ["#1 - A.b()\n", undefined],
+  ])("refuses a missing document (%j, %j): an absent baseline is a new scenario, not a delta", (baseline, current) => {
+    expect(() =>
+      structuralDelta(baseline as unknown as string, current as unknown as string),
+    ).toThrow(
+      new TypeError("structuralDelta compares two documents; an absent baseline is not one"),
+    );
+  });
+
+  it("counts a call line that lost its parentheses by its whole name", () => {
+    expect(structuralDelta("- A.b\n", "").summary).toBe("-1 call A.b");
+  });
 });

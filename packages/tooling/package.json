@@ -1,7 +1,7 @@
 {
   "name": "@narrativetrace/tooling",
-  "version": "0.2.0",
-  "description": "The library behind the narrativetrace CLI: the doctor's eleven read-only project checks and the agent-skills installer, with Node built-ins as its only dependency",
+  "version": "0.3.0",
+  "description": "The library behind the narrativetrace CLI: the doctor's read-only project checks, the framework table it measures a project against, and the agent-skills installer, with Node built-ins as its only dependency",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

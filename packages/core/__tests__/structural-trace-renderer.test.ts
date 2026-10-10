@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -15,7 +15,11 @@ import {
   traceNode,
   traceTree,
 } from "../src/index.js";
-import { renderStructural, renderStructuralDocument } from "../src/structural-trace-renderer.js";
+import {
+  renderStructural,
+  renderStructuralDocument,
+  structuralSubtreeKey,
+} from "../src/structural-trace-renderer.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -27,7 +31,7 @@ describe("renderStructural — the AI-safe structural trace artifact (.nt, ADR-0
       [],
       1,
     );
-    expect(renderStructural(traceTree([node]))).toBe("- AuditSink.record(entry)\n");
+    expect(renderStructural(traceTree([node]))).toBe("#1 - AuditSink.record(entry)\n");
   });
 
   it("renders the exception type but never the message", () => {
@@ -38,7 +42,7 @@ describe("renderStructural — the AI-safe structural trace artifact (.nt, ADR-0
       1,
     );
     const result = renderStructural(traceTree([node]));
-    expect(result).toBe("- PaymentGateway.charge() !! Error\n");
+    expect(result).toBe("#1 - PaymentGateway.charge() !! Error\n");
     expect(result).not.toContain("4111");
   });
 
@@ -66,15 +70,15 @@ describe("renderStructural — the AI-safe structural trace artifact (.nt, ADR-0
       2,
     );
     expect(renderStructural(traceTree([parent]))).toBe(
-      "- TripSettlementService.recordExpense(tripName)\n" +
-        "  - ExpenseValidator.ensureValid(expense)\n" +
-        "  - TripLedger.recordExpense()\n",
+      "#1 - TripSettlementService.recordExpense(tripName)\n" +
+        "  #1.1 - ExpenseValidator.ensureValid(expense)\n" +
+        "  #1.2 - TripLedger.recordExpense()\n",
     );
   });
 
   it("renders an in-flight marker for an incomplete call", () => {
     const node = traceNode(methodSignature("Svc", "hang", []), incomplete(), [], 0);
-    expect(renderStructural(traceTree([node]))).toBe("- Svc.hang() ?? incomplete\n");
+    expect(renderStructural(traceTree([node]))).toBe("#1 - Svc.hang() ?? incomplete\n");
   });
 
   it("renders byte-identical output for identical behavior regardless of values and timings", () => {
@@ -124,41 +128,63 @@ describe("renderStructural — the AI-safe structural trace artifact (.nt, ADR-0
     );
     const result = renderStructural(traceTree([parent]));
     expect(result).toBe(
-      "- CheckoutService.quote() → value\n" +
+      "#1 - CheckoutService.quote() → value\n" +
         "  ~ fork [2]\n" +
-        "    - DiscountEngine.calculate() → value\n" +
-        "    - StockService.check() → value\n",
+        "    #1.1 - DiscountEngine.calculate() → value\n" +
+        "    #1.2 - StockService.check() → value\n",
     );
     expect(result).not.toContain("pool-1");
   });
 
-  it("renders a fire-and-forget launch as a marker with children, skipping the launcher's own line", () => {
+  it("renders a fire-and-forget launch as one position whose workers each render as themselves", () => {
     const info = concurrencyInfo("faf-1", "pool-9", "fire-and-forget");
-    const work = traceNode(
+    const template = traceNode(methodSignature("Mail", "render", []), returned('"t"'), [], 1);
+    const mail = traceNode(
       methodSignature("NotificationService", "send", []),
       returned(null),
-      [],
+      [template],
       1,
-    );
-    const launcher = traceNode(
-      methodSignature("NotificationService", "launch", []),
-      incomplete(),
-      [work],
-      0,
       0,
       info,
     );
+    const audit = traceNode(
+      methodSignature("AuditSink", "write", []),
+      returned(null),
+      [],
+      1,
+      0,
+      info,
+    );
+    const close = traceNode(methodSignature("CheckoutService", "close", []), returned(null), [], 1);
     const parent = traceNode(
       methodSignature("CheckoutService", "complete", []),
       returned(null),
-      [launcher],
+      [mail, audit, close],
       2,
     );
     expect(renderStructural(traceTree([parent]))).toBe(
-      "- CheckoutService.complete()\n" +
-        "  ~ fire-and-forget\n" +
-        "    - NotificationService.send()\n",
+      "#1 - CheckoutService.complete()\n" +
+        "  #1.1 ~ fire-and-forget\n" +
+        "    #1.1.1 - NotificationService.send()\n" +
+        "      #1.1.1.1 - Mail.render() → value\n" +
+        "    #1.1.2 - AuditSink.write()\n" +
+        "  #1.2 - CheckoutService.close()\n",
     );
+  });
+
+  it("numbers async roots by Class.method under their marker", () => {
+    const info = concurrencyInfo("async-1", "Root", "async");
+    const late = traceNode(methodSignature("Zeta", "run", []), returned(null), [], 1, 0, info);
+    const early = traceNode(methodSignature("Alpha", "run", []), returned(null), [], 1, 0, info);
+    expect(renderStructural(traceTree([late, early]))).toBe(
+      "~ async [2]\n  #1 - Alpha.run()\n  #2 - Zeta.run()\n",
+    );
+  });
+
+  it("a subtree key prints no id for its own root, so equal shapes give equal keys anywhere", () => {
+    const leaf = traceNode(methodSignature("Repo", "load", []), returned('"x"'), [], 1);
+    const node = traceNode(methodSignature("Svc", "run", []), returned(null), [leaf], 1);
+    expect(structuralSubtreeKey(node)).toBe("- Svc.run()\n  #1 - Repo.load() → value\n");
   });
 
   it("document form carries only the stable scenario header", () => {
@@ -168,7 +194,7 @@ describe("renderStructural — the AI-safe structural trace artifact (.nt, ADR-0
       "Weekend trip settles with three transfers",
     );
     expect(result).toBe(
-      "scenario: Weekend trip settles with three transfers\n\n" + "- Svc.run()\n",
+      "scenario: Weekend trip settles with three transfers\n\n" + "#1 - Svc.run()\n",
     );
   });
 
@@ -183,7 +209,7 @@ describe("renderStructural — the AI-safe structural trace artifact (.nt, ADR-0
       412,
     );
     const result = renderStructural(traceTree([node]));
-    expect(result).toBe("- OrderService.placeOrder(customerId, quantity) → value\n");
+    expect(result).toBe("#1 - OrderService.placeOrder(customerId, quantity) → value\n");
     expect(result).not.toContain("C-123");
     expect(result).not.toContain("412");
   });
@@ -288,3 +314,54 @@ describe("renderStructuralDocument — cross-runtime conformance", () => {
     expect(rendered).toBe(golden);
   });
 });
+
+/**
+ * The spec lives at the repository root, which Stryker's package-only sandbox does not contain — the
+ * same reason the catalogue's repo-reading tests skip there (`REPO_ROOT_REACHABLE`).
+ */
+const SPEC = join(__dirname, "..", "..", "..", "documentation", "structural-trace-format.md");
+
+describe.skipIf(!existsSync(SPEC))(
+  "documentation/structural-trace-format.md — the spec's example is what the renderer writes",
+  () => {
+    it("prints the Content example byte for byte, span ids included", () => {
+      const spec = readFileSync(SPEC, "utf-8");
+      const example = /## Content\n\n```\n([\s\S]*?)```/.exec(spec)?.[1];
+      const p = (name: string) => parameterCapture(name, '"v"', false);
+      const leaf = (cls: string, method: string, params: string[], value: string | null) =>
+        traceNode(methodSignature(cls, method, params.map(p)), returned(value), [], 1);
+      const fork = (cls: string, method: string, params: string[]) =>
+        traceNode(
+          methodSignature(cls, method, params.map(p)),
+          returned('"x"'),
+          [],
+          1,
+          0,
+          concurrencyInfo("fork-1", `${cls}.${method}`, "fork-join"),
+        );
+      const record = traceNode(
+        methodSignature("TripSettlementService", "recordExpense", [p("tripName"), p("expense")]),
+        returned(null),
+        [
+          leaf("ExpenseValidator", "ensureValid", ["expense"], null),
+          leaf("TripLedger", "recordExpense", ["tripName", "expense"], null),
+        ],
+      );
+      const settle = traceNode(
+        methodSignature("TripSettlementService", "settleTrip", [p("tripName")]),
+        returned('"plan"'),
+        [
+          leaf("TripLedger", "expensesOf", ["tripName"], '"e"'),
+          fork("StockService", "check", []),
+          fork("BalanceCalculator", "computeBalances", ["expenses"]),
+        ],
+      );
+      expect(
+        renderStructuralDocument(
+          traceTree([record, settle]),
+          "Weekend trip settles with three transfers",
+        ),
+      ).toBe(example);
+    });
+  },
+);

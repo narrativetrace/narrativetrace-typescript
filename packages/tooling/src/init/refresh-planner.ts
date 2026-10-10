@@ -41,6 +41,11 @@ function isStale(state: ProjectState, coordinate: string): boolean {
  * The install plan, kept down to the actions that REWRITE something already ours. Every other kind — a
  * page to create, a section to append, an import line to add, a refusal — is dropped here, which is what
  * keeps a refresh from starting an install nobody asked for.
+ *
+ * @llmNote That includes `adopt` and `replace-link` (design D5): adopting a registry's page, or turning
+ * its link into a path of ours, is STARTING an install, and a refresh may only keep one current. A
+ * project whose pages are all a registry's therefore carries no install of ours at all — see
+ * {@link isSkillsInstalled} — so nothing ever reaches for a carrier on its behalf.
  */
 function rewrites(state: ProjectState, carrier: Carrier): readonly Action[] {
   if (!isStale(state, carrier.coordinate)) return [];

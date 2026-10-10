@@ -3,18 +3,27 @@
 // Copyright (c) 2026 Empower Agile
 import {
   type Action,
+  adoptPage,
   appendBlock,
   appendLine,
   createFile,
   isFileEdit,
   refuse,
   replaceBlock,
+  replaceLink,
 } from "./action.js";
+import { isAdoptable } from "./adoption.js";
 import { renderAgentsMdBlock } from "./agents-md-block.js";
 import { type Carrier, carrierBody } from "./carrier.js";
 import { type InitOptions, includesAgentsMd, includesSkills, initOptions } from "./init-options.js";
 import { type InitPlan, initPlan } from "./init-plan.js";
-import { type InstalledSkill, skillDirectoryOf, skillPageOf } from "./installed-skill.js";
+import {
+  type InstalledSkill,
+  isLinkedPresence,
+  linkedAtOf,
+  skillDirectoryOf,
+  skillPageOf,
+} from "./installed-skill.js";
 import {
   CREATED_NOTE,
   endsInsideFence,
@@ -25,9 +34,14 @@ import {
   scanMarkedBlocks,
   withEol,
 } from "./marked-block.js";
-import { installedSkillAt, type ProjectState } from "./project-state.js";
-import { stampProvenance } from "./provenance.js";
-import { SKILL_FLAVOURS, type SkillEntry, type SkillFlavour } from "./skill-catalogue.js";
+import { installedSkillAt, linkedInstallRootOf, type ProjectState } from "./project-state.js";
+import { coordinateIn, stampProvenance } from "./provenance.js";
+import {
+  installRootOf,
+  SKILL_FLAVOURS,
+  type SkillEntry,
+  type SkillFlavour,
+} from "./skill-catalogue.js";
 
 /**
  * Decides what an install would do — and nothing else.
@@ -72,13 +86,37 @@ function write(page: string, current: string, content: string): Action {
   return current === "" ? createFile(page, content) : replaceBlock(page, current, content);
 }
 
-function foreign(
-  options: InitOptions,
-  directory: string,
-  page: string,
-  current: string,
-  content: string,
-): Action {
+/**
+ * What the carrier renders for one skill path, and what would be written there: the three texts every
+ * decision about that path needs, so no decision takes six arguments to reach.
+ */
+interface PageWrite {
+  /** The project-relative page path. */
+  readonly path: string;
+  /** The carrier's rendering for this flavour, unstamped — what adoption compares against. */
+  readonly rendered: string;
+  /** The same page with this carrier's provenance line — what gets written. */
+  readonly content: string;
+  /**
+   * This skill's rendering in EVERY flavour, unstamped. A link at the vendor path points at the
+   * open-standard page, so deciding about a link means comparing against both.
+   */
+  readonly renderings: readonly string[];
+}
+
+/**
+ * A directory somebody else's tool wrote. A page equal to what this carrier renders is ADOPTED — it is
+ * our own page, installed by a registry rather than by us, so stamping it takes nothing from anybody.
+ * Anything else is a refusal until `--force` says otherwise.
+ *
+ * @llmNote Adoption is reached BEFORE the force check on purpose (rule 21): a `--force` run over a
+ * registry tree adopts rather than overwrites, so the dangerous combination behaves like the safe one.
+ */
+function foreign(options: InitOptions, installed: InstalledSkill, page: PageWrite): Action {
+  const directory = skillDirectoryOf(installed.flavour, installed.name);
+  if (isAdoptable(installed.body, page.rendered)) {
+    return adoptPage(page.path, installed.body, page.content);
+  }
   if (!options.force) {
     return refuse(
       directory,
@@ -86,7 +124,7 @@ function foreign(
         " skill, or move the directory aside",
     );
   }
-  return write(page, current, content);
+  return write(page.path, installed.body, page.content);
 }
 
 /**
@@ -100,12 +138,53 @@ function flavoursFor(state: ProjectState, options: InitOptions): readonly SkillF
   return vendor ? SKILL_FLAVOURS : ["agents"];
 }
 
+/**
+ * Whether a page reached through a link is one this install would own anyway: already stamped, or
+ * identical to what this carrier renders for EITHER flavour. Either flavour, because the link a
+ * registry leaves at the vendor path points at the open-standard page.
+ */
+function isOursOrAdoptable(body: string, renderings: readonly string[]): boolean {
+  if (coordinateIn(body) !== undefined) return true;
+  return renderings.some((rendered) => isAdoptable(body, rendered));
+}
+
+/** Why a link was refused: the link, where it goes, and what to do about it. */
+function refuseLink(at: string, installed: InstalledSkill, tail: string): Action {
+  return refuse(at, `${at} is a symbolic link to ${installed.link}${tail}`);
+}
+
+/**
+ * A symbolic link where a skill's directory or page belongs. Writing through it would land in whatever
+ * it points at — after `npx skills add`, the OTHER flavour's page — so the link itself is replaced
+ * whenever what it reaches is a page this install owns or would adopt, and refused otherwise. No flag
+ * appears here (rule 19): `--force` covers foreign CONTENT, and a link is structure.
+ */
+function linked(installed: InstalledSkill, page: PageWrite): Action {
+  const at = linkedAtOf(installed);
+  if (installed.body === "") {
+    return refuseLink(
+      at,
+      installed,
+      ", and there is no page of narrativetrace's at the other end — remove the link and run the" +
+        " install again",
+    );
+  }
+  if (!isOursOrAdoptable(installed.body, page.renderings)) {
+    return refuseLink(
+      at,
+      installed,
+      ", a page narrativetrace did not install — remove the link and run the install again; --force" +
+        " covers content, never a link",
+    );
+  }
+  return replaceLink(at, page.path, installed.link, page.content);
+}
+
 /** What to do about a skill path that already holds something. */
 function actionForExisting(
   installed: InstalledSkill,
   options: InitOptions,
-  page: string,
-  content: string,
+  page: PageWrite,
 ): Action {
   const directory = skillDirectoryOf(installed.flavour, installed.name);
   if (installed.presence === "not-a-directory") {
@@ -114,8 +193,9 @@ function actionForExisting(
       `${directory} is not a directory — move it aside and run the install again`,
     );
   }
-  if (installed.presence === "ours") return write(page, installed.body, content);
-  return foreign(options, directory, page, installed.body, content);
+  if (isLinkedPresence(installed.presence)) return linked(installed, page);
+  if (installed.presence === "ours") return write(page.path, installed.body, page.content);
+  return foreign(options, installed, page);
 }
 
 function skillAction(
@@ -125,18 +205,53 @@ function skillAction(
   skill: SkillEntry,
   flavour: SkillFlavour,
 ): Action {
-  const page = skillPageOf(flavour, skill.name);
-  const content = stampProvenance(carrierBody(carrier, skill, flavour), carrier.coordinate);
+  const rendered = carrierBody(carrier, skill, flavour);
+  const page: PageWrite = {
+    path: skillPageOf(flavour, skill.name),
+    rendered,
+    content: stampProvenance(rendered, carrier.coordinate),
+    renderings: SKILL_FLAVOURS.map((each) => carrierBody(carrier, skill, each)),
+  };
   const installed = installedSkillAt(state, flavour, skill.name);
   return installed === undefined
-    ? createFile(page, content)
-    : actionForExisting(installed, options, page, content);
+    ? createFile(page.path, page.content)
+    : actionForExisting(installed, options, page);
+}
+
+/**
+ * The refusal a whole linked install root gets — once, rather than once per skill (rule 20): one link
+ * is one decision, and a refusal per skill would also put several actions on the one path a plan
+ * allows only one of.
+ */
+function refuseLinkedRoot(flavour: SkillFlavour, target: string): Action {
+  const root = installRootOf(flavour);
+  return refuse(
+    root,
+    `${root} is a symbolic link to ${target} — every skill of this flavour would be written through` +
+      " it; remove the link, or run the install where it points",
+  );
+}
+
+/** The flavours anything may be written into, and a refusal for each whose root is a link. */
+function writableFlavours(
+  state: ProjectState,
+  options: InitOptions,
+  actions: Action[],
+): SkillFlavour[] {
+  const writable: SkillFlavour[] = [];
+  for (const flavour of flavoursFor(state, options)) {
+    const linkedTo = linkedInstallRootOf(state, flavour);
+    if (linkedTo === undefined) writable.push(flavour);
+    else actions.push(refuseLinkedRoot(flavour, linkedTo));
+  }
+  return writable;
 }
 
 function planSkills(state: ProjectState, carrier: Carrier, options: InitOptions): Action[] {
   const actions: Action[] = [];
+  const writable = writableFlavours(state, options, actions);
   for (const skill of carrier.catalogue.skills) {
-    for (const flavour of flavoursFor(state, options)) {
+    for (const flavour of writable) {
       actions.push(skillAction(state, carrier, options, skill, flavour));
     }
   }

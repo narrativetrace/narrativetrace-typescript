@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/skills-catalogue",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "The typed agent-skills catalogue: one skill per capability, rendered to SKILL.md and the AGENTS.md snippet",
   "license": "BUSL-1.1",
   "private": true,
@@ -40,6 +40,12 @@
     "mutate": "stryker run"
   },
   "devDependencies": {
+    "@narrativetrace/clarity": "workspace:*",
+    "@narrativetrace/cli": "workspace:*",
+    "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/proxy": "workspace:*",
+    "@narrativetrace/tooling": "workspace:*",
+    "@narrativetrace/vitest": "workspace:*",
     "@types/node": "^25.0.0"
   }
 }

@@ -3,11 +3,13 @@
 // Copyright (c) 2026 Empower Agile
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
+  MARKETPLACE,
   PRO_LISTINGS,
   renderAgentsMdSnippet,
   renderAgentsSkill,
   renderCarrierCatalogueJson,
   renderClaudeSkill,
+  renderMarketplaceJson,
   SKILLS,
   spliceAgentsMdSection,
 } from "@narrativetrace/skills-catalogue";
@@ -48,6 +50,14 @@ const PLATFORM_RENDERERS = [
 /** Both carrier homes' `catalogue.json` — byte-identical, one root per D1. */
 const CARRIER_CATALOGUE_ROOTS = ["packages/skills", "packages/cli/skills"] as const;
 
+/**
+ * `.claude-plugin/marketplace.json` — the file that makes this repository a plugin marketplace
+ * (phase-4-design-2026-09-27.md D2). Outside `.claude/` on purpose: the vendor reads it from the
+ * repository ROOT, and the plugin it lists is rooted at `./.claude` (the Claude-flavour pages
+ * above), so a marketplace file inside the plugin would be a directory listing itself.
+ */
+const MARKETPLACE_JSON_PATH = ".claude-plugin/marketplace.json";
+
 function renderedSkillFiles(): ReadonlyMap<string, string> {
   const files = new Map<string, string>();
   for (const skill of SKILLS) {
@@ -64,7 +74,11 @@ function renderedCatalogueFiles(): ReadonlyMap<string, string> {
 }
 
 function allRenderedFiles(): ReadonlyMap<string, string> {
-  return new Map([...renderedSkillFiles(), ...renderedCatalogueFiles()]);
+  return new Map([
+    ...renderedSkillFiles(),
+    ...renderedCatalogueFiles(),
+    [MARKETPLACE_JSON_PATH, renderMarketplaceJson(MARKETPLACE)],
+  ]);
 }
 
 function renderedAgentsMd(): string {

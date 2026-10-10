@@ -174,3 +174,27 @@ export interface TraceShapeCase {
   /** Chain length, or ring length (`1` is a node holding itself). */
   readonly n: number;
 }
+
+/**
+ * One row of `feedback.json`: problem-report text, and which way the value-free gate must decide
+ * about it.
+ *
+ * `rule` is the rule id whose presence a `rejected` row asserts, and is absent on an `accepted`
+ * row. A rejected row asserts CONTAINMENT rather than equality: a leak has a shape, not an id, and
+ * a pasted rendered line legitimately breaks the call rule and the duration rule at once.
+ */
+export interface FeedbackCase {
+  readonly id: string;
+  readonly description: string;
+  /** The report text under test, every `\uXXXX` escape already decoded. */
+  readonly value: string;
+  /** `"rejected"` or `"accepted"`. */
+  readonly expect: string;
+  /** The `vf.*` rule id a rejected row must be refused by; absent on an accepted row. */
+  readonly rule?: string;
+}
+
+/** Whether this row must be refused by the gate, rather than being filable as it stands. */
+export function mustBeRejected(feedbackCase: FeedbackCase): boolean {
+  return feedbackCase.expect === "rejected";
+}

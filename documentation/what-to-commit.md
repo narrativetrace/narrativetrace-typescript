@@ -24,6 +24,8 @@ is on every other NarrativeTrace runtime.
 | `<approvedDir>/**/*.incomplete.nt` | No | Written instead of `.received.nt` when the run itself was incomplete (a shed event, or a refused async scope) — compared by subsequence containment, never promotable |
 | `glossary.json` / `glossary.md` | **Yes**, if glossary harvesting is used | Committed at the repository root once harvested; the committed file is what clarity scoring and vocabulary checks read back on every subsequent run — "one file, one review workflow" |
 | `.claude/skills/**/SKILL.md`, `.agents/skills/**/SKILL.md`, the `AGENTS.md` `<!-- narrativetrace:skills:* -->` section | **Yes** | Build output from `packages/skills-catalogue`'s typed catalogue (`pnpm run skills-render`), not test-run output — committed the same way `glossary.json` is: regenerated, reviewed in diffs, and checked against drift (`pnpm run skills-check`, wired into `pnpm run check`) rather than hand-edited |
+| `skills-lock.json` | **Yes**, if your team uses `npx skills add` | Written at the project root by `npx skills add` — the registry's own record of what it installed and from where; commit it the same way you would any other dependency lock file your team relies on |
+| `.claude-plugin/marketplace.json` | **Yes** | This repository's own listing (Phase 4): build output from the same typed catalogue as the row above, rendered and checked against the same drift test (`pnpm run skills-check`) — never hand-edited |
 
 In a project that ran [`narrativetrace init`](../packages/cli/README.md#narrativetrace-init) those
 same two paths (and the `AGENTS.md` section) are the ones to commit, and each installed `SKILL.md`
@@ -33,6 +35,10 @@ check tells a current install from a stale one, so a page committed without it b
 nobody can safely remove or refresh. The `AGENTS.md` section a consumer commits sits between
 `<!-- narrativetrace:start ... -->` and `<!-- narrativetrace:end -->`: whatever you write outside
 those markers is yours and survives every re-run, and whatever is inside them is replaced.
+
+A personal plugin install (Claude Code's `/plugin install narrativetrace-typescript@narrativetrace-typescript`)
+writes nothing into the project at all — it lives in your own plugin cache, so there is nothing of
+it to commit.
 
 Everything under `narrativetrace-output/` is output. Add it to `.gitignore`
 if you have not already:

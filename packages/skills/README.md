@@ -1,6 +1,6 @@
 # @narrativetrace/skills
 
-The published skills carrier: `narrativetrace-doctor` and `add-narrative-tracing` as resources —
+The published skills carrier: `narrativetrace-doctor`, `add-narrative-tracing`, `narrativetrace-feedback` and `add-narrativetrace-clarity` as resources —
 one `SKILL.md` per platform (`agents/`, `claude/`) plus a versionless `catalogue.json`. No code —
 what an installer reads out of this package is text. The typed catalogue that renders it (the
 schema, the lints, the eval harness) lives in the private `@narrativetrace/skills-catalogue`;
@@ -11,15 +11,19 @@ drifts from the typed source.
 ```
 agents/
 ├── narrativetrace-doctor/SKILL.md
-└── add-narrative-tracing/SKILL.md
+├── add-narrative-tracing/SKILL.md
+├── narrativetrace-feedback/SKILL.md
+└── add-narrativetrace-clarity/SKILL.md
 claude/
 ├── narrativetrace-doctor/SKILL.md
-└── add-narrative-tracing/SKILL.md
+├── add-narrative-tracing/SKILL.md
+├── narrativetrace-feedback/SKILL.md
+└── add-narrativetrace-clarity/SKILL.md
 catalogue.json
 ```
 
 `agents/` is Codex's own discovered `.agents/skills/` layout; `claude/` is Claude's plugin
-layout — the two directories hold the same two skills with different frontmatter, never a
+layout — the two directories hold the same four skills with different frontmatter, never a
 rendering choice made by whatever reads this package. `catalogue.json` names every skill once
 (`{name, description, agents, claude}`) with no version literal: the stamp is this package's own
 `package.json` version, read by whatever consumes the carrier, so a copy can never go stale

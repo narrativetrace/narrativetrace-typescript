@@ -63,7 +63,7 @@ console.log(renderMarkdownBody(context.captureTrace()));
 Run `node index.js`. Expected output (your duration will differ):
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.87ms
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.39ms #1
 ```
 <!-- /snippet -->
 Add `index.test.js` next to it — this is the prompt's own step 4, proving redaction:
@@ -107,14 +107,44 @@ Run `npx vitest run`. It passes, and the rendered trace inside it shows `[REDACT
 ## Agent skills
 - `add-narrative-tracing` — Installs NarrativeTrace into a TypeScript project and gets it to a first trace. Use when NarrativeTrace is not yet installed, a project needs its very first traced call, or traces need to reach a real logger instead of a bare console.log.
 - `narrativetrace-doctor` — Diagnoses a NarrativeTrace TypeScript install and configuration. Use when nothing is being traced, traces aren't showing up, the vitest config crashes on load, parameter names render as arg0/arg1, or you are not sure NarrativeTrace is wired up correctly. Read-only — makes no changes.
+- `narrativetrace-feedback` — Reports a defect in NarrativeTrace itself: a doctor check that is wrong or whose fix does not work, a skill step that cannot be followed, wording in the install prompt that led somewhere wrong, or the library misbehaving on a correctly configured project. Drafts the report from your project (the install coordinates, the doctor's own JSON report, and at most one structural trace), refuses to write one that carries a value from your traces and names the rule that refused it, shows you the whole draft, and asks once whether to file it publicly. Files nothing without your answer and sends nothing anywhere. Say 'report this to NarrativeTrace' or 'the doctor's fix did not work' to invoke it.
+- `add-narrativetrace-clarity` — Adds or verifies NarrativeTrace Clarity in a TypeScript Vitest project. Use when you want a first naming report, per-element explanations, renames for unclear names, or an explicit clarity quality gate. Registers the clarity reporter in the Vitest config, runs the suite, checks the fresh nonempty results file, reads the scores and issues, applies the report's rename suggestions and re-runs until the gate is clean, and preserves existing thresholds. Route tracing itself being broken to narrativetrace-doctor.
+- `narrativetrace-verify` — Verifies a change by reading what the code actually did before saying it is done. Use after the tests are green and before reporting a change that crosses collaborators, branches, retries, runs async, carries state between calls, or touches code not written in this session — and skip it, saying why, for a pure function or a one-class edit. Writes the intent down first, runs the smallest real path, reads the value-free structural trace against the intent, opens values only on the span that looks wrong, then pins the flow as an approval baseline behind your yes and reports what the trace showed, citing span ids (`#1.3`).
+- `narrativetrace-debug` — Finds the cause of a wrong result by reading what the code did with the values, not by stepping through it. Reproduces the symptom with tracing on, names the first span where a value diverges by its span id before changing any code, fixes it there, checks the structural trace shows nothing else moved, pins the reproduction as a regression test and an approval baseline behind your yes, and reports the root cause by span id. Hands a defect in NarrativeTrace itself to narrativetrace-feedback.
 
-`npx --yes @narrativetrace/cli init` installs both under `.claude/skills/{add-narrative-tracing,narrativetrace-doctor}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor}/` (Codex), and the always-on `AGENTS.md` pointer, in one step — `--dry-run` first to preview the diff. Copying the rendered files by hand still works too. Full descriptions and triggers: [Agent Skills](agent-skills.md).
+`npx --yes @narrativetrace/cli init` installs all six under `.claude/skills/{narrativetrace-doctor,add-narrative-tracing,narrativetrace-feedback,add-narrativetrace-clarity,narrativetrace-verify,narrativetrace-debug}/`, `.agents/skills/{narrativetrace-doctor,add-narrative-tracing,narrativetrace-feedback,add-narrativetrace-clarity,narrativetrace-verify,narrativetrace-debug}/` (Codex), and the always-on `AGENTS.md` pointer, in one step — `--dry-run` first to preview the diff. Copying the rendered files by hand still works too. Full descriptions and triggers: [Agent Skills](agent-skills.md).
+
+They are also reachable from two registries, each landing the same pages `init` then adopts. The Claude Code plugin marketplace carries them too: `/plugin marketplace add narrativetrace/narrativetrace-typescript`, then `/plugin install narrativetrace-typescript@narrativetrace-typescript` — then run `npx --yes @narrativetrace/cli init --dry-run`, read the diff, and run it without the flag so `AGENTS.md` points at them. `npx skills add narrativetrace/narrativetrace-typescript` installs the open-standard pages directly into the project — then run `npx --yes @narrativetrace/cli init --dry-run`, read the diff, and run it without the flag so `AGENTS.md` points at them.
 
 ## The doctor
 ```bash
 npx --yes @narrativetrace/cli doctor
 ```
-The install block above does not put the CLI in your project — `npx` fetches it on demand, and `--yes` keeps that fetch from stopping at a confirmation prompt; add `@narrativetrace/cli` as a dev dependency if you want it resolved locally. Read-only, zero network: it reads `package.json`, resolvable packages, and your source/test files, and prints a one-liner, a fix and a doc link per finding. Twelve checks: toolchain versions, config shape, the common traps (silent sink, `arg0` parameters, unproven redaction, stale approval traces, a project that never read llms.txt) — and whether the agent skills above are installed under `.agents/skills/` and stamped with the release this project resolves. Exit `0` clean, `1` findings, `2` could not run.
+The install block above does not put the CLI in your project — `npx` fetches it on demand, and `--yes` keeps that fetch from stopping at a confirmation prompt; add `@narrativetrace/cli` as a dev dependency if you want it resolved locally. Read-only, zero network: it reads `package.json`, resolvable packages, and your source/test files, and prints a one-liner, a fix and a doc link per finding. Twenty-five checks: toolchain versions, config shape, the common traps (silent sink, `arg0` parameters, unproven redaction, stale approval traces, committed approval baselines with approval mode off, a project that never read llms.txt), whether the agent skills above are installed under `.agents/skills/` and stamped with the release this project resolves — and one per framework the project uses, from the framework table the installed doctor carries: the framework is detected but its integration is not installed, or installed but never wired, and the fix prints the install line and the wiring. Exit `0` clean, `1` findings, `2` could not run.
+
+<!-- covered-frameworks:begin -->
+Covered frameworks (each row of the doctor's framework table): Vitest (`config.vitest-fixture`); Express (`config.express-middleware`); Hono (`config.hono-middleware`); NestJS (`config.nestjs-module`); Angular (`config.angular-provider`); React (`config.react-provider`); React Router (`config.react-router-capture`); Pino (`config.pino-consumer`); Winston (`config.winston-consumer`); OpenTelemetry (`config.opentelemetry-consumer`); Default logger (Pino) (`trap.silent-sink`); Fastify (no integration shipped, `config.fastify-integration` reports it); Koa (no integration shipped, `config.koa-integration` reports it).
+<!-- covered-frameworks:end -->
+
+## Report a problem
+
+If NarrativeTrace, this file, a skill or the doctor is wrong, ask your agent to use the `narrativetrace-feedback` skill: it drafts the report from your project, refuses to write one that carries a value from your traces, shows you the whole thing, and files nothing until you say so. Nothing is sent anywhere — the draft is yours until you submit it yourself.
+
+<!-- snippet: packages/skills-catalogue/src/catalogue/feedback-commands.ts region=reportCommands -->
+```ts
+const REPORT_FLAGS =
+  '--category <category> --step "<where it happened>" --did "<what you did>"' +
+  ' --happened "<what happened>" --expected "<what you expected>"';
+
+/** Drafts the report, checks it carries no values, and prints the whole thing. */
+export const DRAFT_REPORT = `npx @narrativetrace/cli feedback draft ${REPORT_FLAGS}`;
+
+/** Prints the pre-filled issue-form URL for the same report, once the user has said yes. */
+export const PRINT_URL = `npx @narrativetrace/cli feedback url ${REPORT_FLAGS}`;
+```
+<!-- /snippet -->
+
+`feedback draft` writes `narrativetrace-output/feedback/feedback-draft.md` and `feedback-body.md`, and exits 2 naming a `vf.*` rule if a field carries a value instead of a description. `feedback url` then prints the pre-filled issue form for `github.com/narrativetrace/narrativetrace-typescript`, which you open and submit under your own account, pasting the body file into its last box; `feedback gh` prints the exact `gh issue create` line when `gh` is signed in, and never runs it. Filing is public: it shows that your project uses NarrativeTrace.
 
 ## Field notes from AI agents (self-reported, not a benchmark)
 We asked AI agents to build a claims service with NarrativeTrace and write up the experience for another engineer, naming what was awkward. Prompted, one run each, unedited, model named; we wrote the library. The reports so far are from the Java runtime; the same exercise runs for TypeScript next, and the principle they describe — the trace as evidence, redaction by parameter name, output on by default — is the same here. All six reports, the exact prompt and the task: https://narrativetrace.ai/#agents-saying
@@ -125,7 +155,8 @@ We asked AI agents to build a claims service with NarrativeTrace and write up th
 ## Docs
 
 - [Complete Reference](llms-full.md): Full API reference, 18-package map, configuration, concurrency, integration guides, architecture decisions, and troubleshooting
-- [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — and `narrativetrace-doctor` — a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor`, installable today via `.claude/skills/{add-narrative-tracing,narrativetrace-doctor}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor}/` (Codex), or the always-on `AGENTS.md` pointer
+- [Framework Integration Guide](framework-integration-guide.md): Express, Hono, browser, and AsyncLocalStorage integration paths, with the shared-context safety notes
+- [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — `narrativetrace-doctor` — a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor` — `narrativetrace-feedback` — report a defect in NarrativeTrace with your approval — and `add-narrativetrace-clarity` — a first naming report and an optional clarity gate over the Vitest reporter, installable today via `.claude/skills/{add-narrative-tracing,narrativetrace-doctor,narrativetrace-feedback,add-narrativetrace-clarity}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor,narrativetrace-feedback,add-narrativetrace-clarity}/` (Codex), or the always-on `AGENTS.md` pointer
 
 ## Sections in Complete Reference
 
@@ -139,8 +170,8 @@ We asked AI agents to build a claims service with NarrativeTrace and write up th
 - Vitest API: narrativeTest, createNarrativeTest, createNarrativeTest(...).each, writeTraceOutput, writeStructuralOutput, evaluateApprovalTrace, ClaritySuiteReporter, StructuralSuiteReporter, ManifestSuiteReporter, runIdentity (the run has a name)
 - Diagrams API: renderMermaidSequence, renderPlantUmlSequence
 - Clarity API: analyzeClarity, renderClaritySuiteReport, exportClarityJson, the clarity gate CLI
-- Runtime adapters: express, hono, nestjs, angular, react, react-router
-- Observability: observability enricher, opentelemetry bridge, winston, pino consumers
+- Runtime Adapters API: express, hono, nestjs, angular, react, react-router
+- Observability API: observability enricher, opentelemetry bridge, winston, pino consumers
 - Configuration: NarrativeTraceConfig, TracingLevel, RenderOptions, MarkdownOptions, NARRATIVETRACE_* env
 - Architecture decisions: eager serialization, ALS vs stack-based context, frozen immutable data
 - Troubleshooting: common issues and fixes

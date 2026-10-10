@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-// ISO control: C0 (0x00-0x1F) and C1 (0x7F-0x9F).
-function isIsoControl(code: number): boolean {
-  return code <= 0x1f || (code >= 0x7f && code <= 0x9f);
+// A character that ends or splits a line for some consumer of the diagram: an ISO control (C0
+// 0x00-0x1F, C1 0x7F-0x9F incl. U+0085) or U+2028/U+2029. The Unicode separators are not controls,
+// yet JavaScript (Mermaid's own runtime), regex engines and most viewers treat them as line
+// terminators — a mid-string one in a participant name broke the Mermaid statement grammar (Java
+// nightly fuzz finding, 2026-10-10).
+function endsALine(code: number): boolean {
+  return code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029;
 }
 
 const MAX_IDENTIFIER_LENGTH = 200;
 
 /**
- * Folds every ISO control character (notably CR/LF) in interpolated diagram text to a single
+ * Folds every ISO control character (notably CR/LF) and U+2028/U+2029 in interpolated diagram text to a single
  * space so a rendered value cannot inject a new diagram statement — e.g. a Mermaid `click` or
  * PlantUML `!include` directive (diagram-injection / SSRF / local-file read). Port of Java
  * `diagrams/DiagramText.message`.
@@ -21,7 +25,7 @@ export function message(text: string): string {
   let out = "";
   for (const ch of text) {
     const code = ch.codePointAt(0) ?? 0;
-    out += isIsoControl(code) ? " " : ch;
+    out += endsALine(code) ? " " : ch;
   }
   return out;
 }

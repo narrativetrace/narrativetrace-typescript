@@ -37,6 +37,10 @@ grammar.throwArrow(label, label, "Error");
 grammar.incomplete("target");
 // @ts-expect-error limitedNote's target must be a DiagramLabel, not a raw string
 grammar.limitedNote("target", stop);
+// @ts-expect-error spanNote's target must be a DiagramLabel, not a raw string
+grammar.spanNote("target", label);
+// @ts-expect-error spanNote's id must be a DiagramLabel, not a raw string
+grammar.spanNote(label, "#1");
 // @ts-expect-error activate's target must be a DiagramLabel, not a raw string
 grammar.activate?.("target");
 // @ts-expect-error deactivate's target must be a DiagramLabel, not a raw string
@@ -50,5 +54,6 @@ grammar.returnArrow(label, label, label);
 grammar.throwArrow(label, label, label);
 grammar.incomplete(label);
 grammar.limitedNote(label, stop);
+grammar.spanNote(label, label);
 grammar.activate?.(label);
 grammar.deactivate?.(label);

@@ -37,7 +37,18 @@ export interface SnippetStep {
   readonly mask?: string;
 }
 
-export type StepBody = CommandStep | SnippetStep;
+/**
+ * A step that shows a few lines the reader adds to their OWN project (a config switch, an option)
+ * — code that exists nowhere in this repository, so there is no file for a {@link SnippetStep} to
+ * point at. Nothing to replay: a reader's project is not the fixture.
+ */
+export interface CodeStep {
+  readonly kind: "code";
+  readonly language: string;
+  readonly code: string;
+}
+
+export type StepBody = CommandStep | SnippetStep | CodeStep;
 
 /** Symptom → cause → fix, verbose enough to act on (skill-design.md §2: every fallible step carries this). */
 export interface FailureNote {
@@ -54,12 +65,47 @@ export interface SkillStep {
   readonly failure?: readonly FailureNote[];
   /** e.g. `"unstudied — eval cell pending"`. */
   readonly flag?: string;
+  /**
+   * When present, rendered as a `**when:**` line under the heading: the step applies only then, and
+   * the line says what to do instead. Prose a reader or agent branches on — never a framework list.
+   */
+  readonly condition?: string;
 }
 
 /** A `never`/`always` rule WITH its reason (skill-design.md §2: "naked prohibitions don't [survive]"). */
 export interface ReasonedRule {
   readonly rule: string;
   readonly reason: string;
+}
+
+/**
+ * A named block of reference text a skill renders after its steps — a table or a short list the
+ * steps point at, which is neither a step nor an always/never rule. Port of Java `SkillSection`.
+ *
+ * INTENT: two skills that read traces share one "how to read a trace" text; a section is how that
+ * text is written once in the catalogue and rendered into both pages identically, instead of being
+ * copied into a step's prose where the copies drift. Build one with {@link skillSection}.
+ */
+export interface SkillSection {
+  /** Rendered as a level-two heading: one line of text, not itself a heading marker. */
+  readonly heading: string;
+  /** The section's body, rendered as written. */
+  readonly markdown: string;
+}
+
+/**
+ * A {@link SkillSection}, checked.
+ *
+ * @throws TypeError when the heading is blank, spans more than one line (LF or CR), or starts
+ * with `#`; or when the body is blank.
+ */
+export function skillSection(heading: string, markdown: string): SkillSection {
+  if (heading.trim() === "") throw new TypeError("a SkillSection's heading must not be blank");
+  if (/[\r\n]/.test(heading) || heading.startsWith("#")) {
+    throw new TypeError(`a SkillSection's heading is one line of text, not markdown: ${heading}`);
+  }
+  if (markdown.trim() === "") throw new TypeError("a SkillSection's markdown must not be blank");
+  return { heading, markdown };
 }
 
 export interface Skill {
@@ -81,6 +127,8 @@ export interface Skill {
   readonly steps: readonly SkillStep[];
   readonly always: readonly ReasonedRule[];
   readonly never: readonly ReasonedRule[];
+  /** Reference text rendered after the steps, before the rules — see {@link SkillSection}. */
+  readonly references?: readonly SkillSection[];
   /** Emitted into `allowed-tools` (skill-design.md §2) — the command vocabulary this skill uses. */
   readonly allowedTools: readonly string[];
 }
@@ -106,6 +154,46 @@ export function vocabularyViolations(skill: Skill): readonly string[] {
   return commandStrings(skill)
     .filter((cmd) => !(COMMAND_VOCABULARY as readonly string[]).includes(firstToken(cmd)))
     .map((cmd) => `${skill.canonicalName}: ${cmd}`);
+}
+
+/**
+ * The Claude-flavour `allowed-tools` spelling of one vocabulary command: the `Bash(<command> *)`
+ * tool pattern (e.g. `git` -> `Bash(git *)`).
+ *
+ * Verified against Claude Code's documented syntax: a permission rule is spelled `Tool` or
+ * `Tool(specifier)`, and `allowed-tools` lists TOOLS, not commands — so a bare `git` there names a
+ * tool that does not exist and pre-approves nothing at all, while the tool the steps actually use
+ * (`Bash`) stays unlisted. The trailing `" *"` is load-bearing twice over: a rule's wildcard must
+ * sit after the subcommand (the words before it are what limit the rule), and a trailing `" *"`
+ * also matches the bare command, which is what lets `Bash(./gradlew *)` cover a plain `./gradlew`.
+ *
+ * The ONLY place a platform spelling of the vocabulary is written: a hand-written `Bash(git *)` in
+ * the catalogue would render as `Bash(Bash(git *) *)` — a rule matching nothing — caught by
+ * {@link allowedToolsViolations}.
+ */
+export function claudeToolPattern(command: string): string {
+  return `Bash(${command} *)`;
+}
+
+/**
+ * Every declared `allowedTools` entry that is not a bare command of the closed vocabulary: an
+ * entry outside {@link COMMAND_VOCABULARY}, or one already written in a platform's own rendered
+ * spelling (a `Bash(...)` tool pattern). Pins the split {@link claudeToolPattern} and the Claude
+ * renderer depend on: the catalogue declares commands, the renderer spells them, and neither side
+ * may quietly become the other.
+ */
+export function allowedToolsViolations(skill: Skill): readonly string[] {
+  const violations: string[] = [];
+  for (const tool of skill.allowedTools) {
+    if (tool.includes("(")) {
+      violations.push(
+        `${skill.canonicalName}: allowed tool "${tool}" is a rendered platform spelling — declare the bare command and let the renderer spell it`,
+      );
+    } else if (!(COMMAND_VOCABULARY as readonly string[]).includes(tool)) {
+      violations.push(`${skill.canonicalName}: allowed tool "${tool}" is outside the vocabulary`);
+    }
+  }
+  return violations;
 }
 
 /** `description` fits the per-skill budget (catalogue-wide budget is a separate index-level lint). */

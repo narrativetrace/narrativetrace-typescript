@@ -55,6 +55,7 @@ describe("renderPlantUmlSequence", () => {
         "  participant OrderService as OS",
         '  OS -> OS : placeOrder(orderId: "order-42")',
         "  activate OS",
+        "  hnote over OS : #1",
         '  OS --> OS : "OK"',
         "  deactivate OS",
         "@enduml",
@@ -84,8 +85,10 @@ describe("renderPlantUmlSequence", () => {
         "  participant InventoryService as IS",
         "  OS -> OS : placeOrder()",
         "  activate OS",
+        "  hnote over OS : #1",
         '  OS -> IS : reserve(productId: "P1")',
         "  activate IS",
+        "  hnote over IS : #1.1",
         "  IS --> OS : true",
         "  deactivate IS",
         '  OS --> OS : "OK"',
@@ -184,10 +187,13 @@ describe("renderPlantUmlSequence", () => {
         "  participant Database as DA",
         "  OS -> OS : placeOrder()",
         "  activate OS",
+        "  hnote over OS : #1",
         "  OS -> IS : reserve()",
         "  activate IS",
+        "  hnote over IS : #1.1",
         "  IS -> DA : query()",
         "  activate DA",
+        "  hnote over DA : #1.1.1",
         '  DA --> IS : "row"',
         "  deactivate DA",
         "  IS --> OS : true",
@@ -341,9 +347,13 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
   // guard on a non-timing test takes a seconds-scale floor, never a millisecond-scale tolerance
   // close enough to the measured run to mistake ordinary contention for a hang. 3000ms is both
   // well past 5x the measured idle run and the floor itself.
+  // Phase 7 (2026-10-10): every line now cites its position-path span id, and at depth d that id
+  // is d segments long, so this chain's output is O(depth²) in EVERY flavour (100–300M chars at
+  // the 10,000 cap, measured 2.8–4.5s run alone; Java's format and cap are the same). The 5x
+  // rule above gives 20000ms. A citable-depth bound is an open question for the format.
   test("does not stack-overflow on a chain just past the depth limit, and marks it", () => {
     expect(renderPlantUmlSequence(traceTree([deepChain(10_001)]))).toContain("… (depth limit)");
-  }, 3_000);
+  }, 20_000);
 });
 
 // Same fix, same shared sequence-walk traversal, as mermaid-sequence.test.ts's own

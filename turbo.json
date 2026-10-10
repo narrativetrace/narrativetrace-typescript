@@ -13,12 +13,57 @@
     "test": {
       "dependsOn": ["build"]
     },
-    "coverage": {
+    "@narrativetrace/core#test": {
       "dependsOn": ["build"],
-      "outputs": ["coverage/**"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/documentation/structural-trace-format.md"]
+    },
+    "@narrativetrace/core#coverage": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/documentation/structural-trace-format.md"]
+    },
+    "@narrativetrace/tooling#test": {
+      "dependsOn": ["build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.github/ISSUE_TEMPLATE/narrativetrace-report.yml",
+        "$TURBO_ROOT$/packages/skills/**",
+        "$TURBO_ROOT$/packages/cli/skills/**"
+      ]
+    },
+    "@narrativetrace/tooling#coverage": {
+      "dependsOn": ["build"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.github/ISSUE_TEMPLATE/narrativetrace-report.yml",
+        "$TURBO_ROOT$/packages/skills/**",
+        "$TURBO_ROOT$/packages/cli/skills/**"
+      ]
+    },
+    "@narrativetrace/skills-catalogue#test": {
+      "dependsOn": ["build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.agents/**",
+        "$TURBO_ROOT$/.claude/skills/**",
+        "$TURBO_ROOT$/.claude-plugin/**",
+        "$TURBO_ROOT$/documentation/**"
+      ]
     },
     "@narrativetrace/skills-catalogue#coverage": {
       "dependsOn": ["build", "@narrativetrace/example-sixty-seconds#coverage"],
+      "outputs": ["coverage/**"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/.agents/**",
+        "$TURBO_ROOT$/.claude/skills/**",
+        "$TURBO_ROOT$/.claude-plugin/**",
+        "$TURBO_ROOT$/documentation/**"
+      ]
+    },
+    "coverage": {
+      "dependsOn": ["build"],
       "outputs": ["coverage/**"]
     },
     "bench": {

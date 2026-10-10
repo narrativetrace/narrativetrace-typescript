@@ -5,7 +5,8 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { createFile, refuse } from "../../src/init/action.js";
+import { adoptPage, createFile, refuse, replaceBlock, replaceLink } from "../../src/init/action.js";
+import { isAdoptable } from "../../src/init/adoption.js";
 import { renderAgentsMdBlock } from "../../src/init/agents-md-block.js";
 import { openCarrier, resolveCarrier } from "../../src/init/carrier.js";
 import { readSkillCatalogue } from "../../src/init/catalogue-reader.js";
@@ -13,7 +14,7 @@ import { appliedAction, executionReport } from "../../src/init/execution-report.
 import { initOptions } from "../../src/init/init-options.js";
 import { initPlan } from "../../src/init/init-plan.js";
 import { planInstall } from "../../src/init/init-planner.js";
-import { installedSkill } from "../../src/init/installed-skill.js";
+import { installedSkill, linkedAtOf } from "../../src/init/installed-skill.js";
 import { applyPlan } from "../../src/init/plan-executor.js";
 import { projectState } from "../../src/init/project-state.js";
 import { readProjectState } from "../../src/init/project-state-reader.js";
@@ -107,6 +108,47 @@ describe("what an install refuses, and how it says so", () => {
 
     expect(reasonFor(state, ".agents/skills/a")).toBe(
       ".agents/skills/a is not a directory — move it aside and run the install again",
+    );
+  });
+
+  test("a whole install root that is a symbolic link", () => {
+    const state = projectState({
+      claudeDirectory: true,
+      linkedInstallRoots: new Map([["claude", "../.agents/skills"]]),
+    });
+
+    expect(reasonFor(state, ".claude/skills")).toBe(
+      ".claude/skills is a symbolic link to ../.agents/skills — every skill of this flavour would be" +
+        " written through it; remove the link, or run the install where it points",
+    );
+  });
+
+  test("a link with no page of ours at the other end", () => {
+    const state = projectState({
+      claudeDirectory: true,
+      installedSkills: [
+        installedSkill("claude", "a", "linked-directory", "", "", "../../.agents/skills/a"),
+      ],
+    });
+
+    expect(reasonFor(state, ".claude/skills/a")).toBe(
+      ".claude/skills/a is a symbolic link to ../../.agents/skills/a, and there is no page of" +
+        " narrativetrace's at the other end — remove the link and run the install again",
+    );
+  });
+
+  test("a link to a page narrativetrace did not install", () => {
+    const state = projectState({
+      claudeDirectory: true,
+      installedSkills: [
+        installedSkill("claude", "a", "linked-page", "", "theirs\n", "../../elsewhere/SKILL.md"),
+      ],
+    });
+
+    expect(reasonFor(state, ".claude/skills/a/SKILL.md")).toBe(
+      ".claude/skills/a/SKILL.md is a symbolic link to ../../elsewhere/SKILL.md, a page" +
+        " narrativetrace did not install — remove the link and run the install again; --force covers" +
+        " content, never a link",
     );
   });
 
@@ -225,6 +267,71 @@ describe("what a guard says about a missing argument", () => {
     [() => initPlan("", false, []), "a plan names the carrier it came from"],
     [() => executionReport("", []), "a report names the carrier the plan came from"],
     [() => refuse("AGENTS.md", " "), "a refusal must carry a reason naming what it refused"],
+    // A caller from JavaScript can hand over `null` for any of these; the type says otherwise.
+    [
+      () => refuse("AGENTS.md", undefined as never),
+      "a refusal must carry a reason naming what it refused",
+    ],
+    [
+      () => replaceLink(".claude/skills/a", ".claude/skills/a/SKILL.md", " ", "x\n"),
+      "replacing a link names what it pointed at",
+    ],
+    [
+      () => replaceLink(".claude/skills/a", ".claude/skills/a/SKILL.md", undefined as never, "x\n"),
+      "replacing a link names what it pointed at",
+    ],
+    [
+      () => replaceLink(".claude/skills/a", ".claude/skills/a/SKILL.md", "../x", ""),
+      "a link is replaced by a page, never by an empty file",
+    ],
+    [
+      () => replaceLink(".claude/skills/a", ".agents/skills/a/SKILL.md", "../x", "y\n"),
+      ".agents/skills/a/SKILL.md is not behind the link .claude/skills/a",
+    ],
+    [
+      () => installedSkill("claude", "a", "linked-directory"),
+      "a linked presence names what the link points at, and only a linked one does",
+    ],
+    [
+      () => linkedAtOf(installedSkill("agents", "a", "foreign")),
+      "nothing links to .agents/skills/a",
+    ],
+    [
+      () => adoptPage(".agents/skills/a/SKILL.md", "", "x\n"),
+      "there is nothing to adopt where there is no page",
+    ],
+    // Both sides of the comparison, because a guard on one of two operands reads as a guard on both.
+    [() => isAdoptable(undefined as never, "x"), "adoption compares two pages, never null"],
+    [() => isAdoptable("x", undefined as never), "adoption compares two pages, never null"],
+    [
+      () =>
+        projectState({
+          installedSkills: [
+            installedSkill("agents", "a", "foreign"),
+            installedSkill("agents", "a", "foreign"),
+          ],
+        }),
+      "a project state must describe one path once, got agents/a, agents/a",
+    ],
+    [
+      () =>
+        projectState({
+          installedSkills: [installedSkill("claude", "a", "foreign")],
+          linkedInstallRoots: new Map([["claude", "../x"]]),
+        }),
+      "a linked install root hides every skill under it, got claude/a",
+    ],
+    [
+      () =>
+        projectState({
+          installedSkills: [
+            installedSkill("claude", "a", "foreign"),
+            installedSkill("claude", "b", "foreign"),
+          ],
+          linkedInstallRoots: new Map([["claude", "../x"]]),
+        }),
+      "a linked install root hides every skill under it, got claude/a, claude/b",
+    ],
     [
       () => appliedAction(createFile("a.md", "x"), "refused", " "),
       "a refusal carries the reason it refused — a.md gives none",
@@ -232,6 +339,10 @@ describe("what a guard says about a missing argument", () => {
     [
       () => createFile("AGENTS.md", undefined as never),
       'an action\'s after text is "" when absent, never null',
+    ],
+    [
+      () => replaceBlock("AGENTS.md", undefined as never, "x\n"),
+      'an action\'s before text is "" when absent, never null',
     ],
     [() => installedSkill("agents", " ", "foreign"), "an installed skill's name must not be blank"],
     [

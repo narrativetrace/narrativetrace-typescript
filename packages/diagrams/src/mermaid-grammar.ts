@@ -21,5 +21,6 @@ export const MERMAID_GRAMMAR: SequenceGrammar = {
   returnArrow: (target, caller, message) => `  ${target}-->>${caller}: ${message}`,
   throwArrow: (target, caller, exceptionType) => `  ${target}-x${caller}: ${exceptionType}`,
   incomplete: (target) => `  Note over ${target}: in-flight`,
+  spanNote: (target, spanId) => `  Note over ${target}: ${spanId}`,
   limitedNote: (target, stop) => `  Note over ${target}: ${TREE_WALK_MARKER[stop]}`,
 };

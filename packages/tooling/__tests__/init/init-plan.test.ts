@@ -4,6 +4,7 @@
 import { describe, expect, test } from "vitest";
 import {
   type Action,
+  adoptPage,
   appendBlock,
   appendLine,
   createFile,
@@ -12,6 +13,7 @@ import {
   isFileEdit,
   refuse,
   replaceBlock,
+  replaceLink,
 } from "../../src/init/action.js";
 import { includesAgentsMd, includesSkills, initOptions } from "../../src/init/init-options.js";
 import {
@@ -51,6 +53,62 @@ describe("one action", () => {
     expect(action.after).toBe("new\n");
   });
 
+  // The three fields only some kinds use are `""` on every other kind, which is what lets the renderer
+  // and the executor read them without asking what kind they have first.
+  test("an ordinary edit carries no reason, no link and no target", () => {
+    const action = replaceBlock("AGENTS.md", "old\n", "new\n");
+
+    expect(action.reason).toBe("");
+    expect(action.link).toBe("");
+    expect(action.target).toBe("");
+  });
+
+  test("a replaced link carries the link, its target and the page it writes", () => {
+    const action = replaceLink(
+      ".claude/skills/a",
+      ".claude/skills/a/SKILL.md",
+      "../../.agents/skills/a",
+      "page\n",
+    );
+
+    expect(action.kind).toBe("replace-link");
+    expect(action.path).toBe(".claude/skills/a/SKILL.md");
+    expect(action.link).toBe(".claude/skills/a");
+    expect(action.target).toBe("../../.agents/skills/a");
+    expect(action.before).toBe("");
+    expect(action.after).toBe("page\n");
+    expect(action.reason).toBe("");
+    expect(isFileEdit(action)).toBe(true);
+  });
+
+  test("a replaced link normalizes both its paths and still checks the page is behind it", () => {
+    const action = replaceLink(
+      "./.claude/skills/a",
+      ".claude/skills/a/x/../SKILL.md",
+      "../x",
+      "p\n",
+    );
+
+    expect(action.link).toBe(".claude/skills/a");
+    expect(action.path).toBe(".claude/skills/a/SKILL.md");
+  });
+
+  // A sibling whose name merely STARTS with the link's is not behind it: the boundary is a separator.
+  test("refuses a page beside the link rather than behind it", () => {
+    expect(() =>
+      replaceLink(".claude/skills/a", ".claude/skills/ax/SKILL.md", "../x", "p\n"),
+    ).toThrow(/is not behind the link/);
+  });
+
+  test("an adopted page keeps the page it found and adds only what it writes", () => {
+    const action = adoptPage(".agents/skills/a/SKILL.md", "theirs\n", "theirs stamped\n");
+
+    expect(action.kind).toBe("adopt");
+    expect(action.before).toBe("theirs\n");
+    expect(action.after).toBe("theirs stamped\n");
+    expect(isFileEdit(action)).toBe(true);
+  });
+
   test("an append computes its after from what was there", () => {
     const action = appendBlock("AGENTS.md", "# Title\n", "block\n");
 
@@ -86,6 +144,10 @@ describe("one action", () => {
     expect(action.kind).toBe("refuse");
     expect(action.reason).toBe("exists and carries no section");
     expect(isFileEdit(action)).toBe(false);
+    // A refusal is a decision about a file, never a text for one: an executor that read these would
+    // write the words of the refusal into the project.
+    expect(action.before).toBe("");
+    expect(action.after).toBe("");
   });
 
   test.each([

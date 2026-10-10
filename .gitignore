@@ -43,6 +43,9 @@ demo-trace.log
 
 # Session hardening progress notes (untracked working records)
 .hardening-progress-*.md
+# A FAILED Tier B trial's transcript and blocked-command log (evals/runner.ts keepFailedEvidence):
+# kept for reading after the trial's work directory is deleted, never committed.
+packages/skills-catalogue/.evals-evidence/
 .next-run-progress.md
 
 

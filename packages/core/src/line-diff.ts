@@ -11,12 +11,16 @@
  * lines always precede their replacements. Port of Java `output.LineDiff`.
  */
 
+/**
+ * A document's lines, without their terminators: LF, CRLF and a lone CR all end a line (Java
+ * `String.lines()`), and a final terminator opens no empty last line. Line endings are a checkout's
+ * encoding (`core.autocrlf`), never structure.
+ */
 function splitLines(document: string): readonly string[] {
-  return document.length === 0
-    ? []
-    : document
-        .split("\n")
-        .filter((_line, index, all) => index < all.length - 1 || all[index] !== "");
+  if (document.length === 0) return [];
+  const lines = document.split(/\r\n|\r|\n/);
+  if (lines[lines.length - 1] === "") lines.pop();
+  return lines;
 }
 
 /**
@@ -64,6 +68,14 @@ function fillRow(
   }
 }
 
+/** Both documents, each as its printed lines and the keys those lines are matched on. */
+interface Sides {
+  readonly baseline: readonly string[];
+  readonly baselineKeys: readonly string[];
+  readonly current: readonly string[];
+  readonly currentKeys: readonly string[];
+}
+
 /** A cursor's position in each document while backtracking the LCS table. */
 interface DiffCursor {
   baselineIndex: number;
@@ -79,55 +91,77 @@ function favorsDeletion(table: readonly number[][], cursor: DiffCursor): boolean
 }
 
 /**
- * Emits exactly one line for the cursor's current position and advances it: unchanged context, a
- * deletion, or an insertion. Ties resolve to deletion (see {@link favorsDeletion}), guaranteeing a
- * removed line is emitted before its replacement insertion.
+ * Emits exactly one line for the cursor's current position and advances it: unchanged context (two
+ * lines whose KEYS agree, rendered by `context`), a deletion, or an insertion. Ties resolve to
+ * deletion (see {@link favorsDeletion}), guaranteeing a removed line is emitted before its
+ * replacement insertion.
  */
 function emitNextLine(
   table: readonly number[][],
-  baseline: readonly string[],
-  current: readonly string[],
+  sides: Sides,
   cursor: DiffCursor,
+  context: ContextLine,
 ): string {
   const { baselineIndex, currentIndex } = cursor;
-  if (baseline[baselineIndex] === current[currentIndex]) {
+  const was = sides.baseline[baselineIndex] as string;
+  if (sides.baselineKeys[baselineIndex] === sides.currentKeys[currentIndex]) {
     cursor.baselineIndex++;
     cursor.currentIndex++;
-    return ` ${baseline[baselineIndex] as string}`;
+    return ` ${context(was, sides.current[currentIndex] as string)}`;
   }
   if (favorsDeletion(table, cursor)) {
     cursor.baselineIndex++;
-    return `-${baseline[baselineIndex] as string}`;
+    return `-${was}`;
   }
   cursor.currentIndex++;
-  return `+${current[currentIndex] as string}`;
+  return `+${sides.current[currentIndex] as string}`;
 }
 
-function render(
-  table: readonly number[][],
-  baseline: readonly string[],
-  current: readonly string[],
-): string {
+function render(table: readonly number[][], sides: Sides, context: ContextLine): string {
   const lines: string[] = [];
   const cursor: DiffCursor = { baselineIndex: 0, currentIndex: 0 };
-  while (cursor.baselineIndex < baseline.length && cursor.currentIndex < current.length) {
-    lines.push(emitNextLine(table, baseline, current, cursor));
+  while (
+    cursor.baselineIndex < sides.baseline.length &&
+    cursor.currentIndex < sides.current.length
+  ) {
+    lines.push(emitNextLine(table, sides, cursor, context));
   }
-  while (cursor.baselineIndex < baseline.length) {
-    lines.push(`-${baseline[cursor.baselineIndex++] as string}`);
+  while (cursor.baselineIndex < sides.baseline.length) {
+    lines.push(`-${sides.baseline[cursor.baselineIndex++] as string}`);
   }
-  while (cursor.currentIndex < current.length) {
-    lines.push(`+${current[cursor.currentIndex++] as string}`);
+  while (cursor.currentIndex < sides.current.length) {
+    lines.push(`+${sides.current[cursor.currentIndex++] as string}`);
   }
   return lines.length === 0 ? "" : `${lines.join("\n")}\n`;
 }
 
+/** The key two lines are matched on: equal keys are context even when the lines' bytes differ. */
+export type LineKey = (line: string) => string;
+
+/** Renders a matched pair (baseline line, current line) as one context line. */
+export type ContextLine = (was: string, now: string) => string;
+
 /**
  * Full unified line diff between two whole documents. Artifacts are small (one test scenario), so
  * no hunk elision is applied — the whole document stays readable.
+ *
+ * @param key what lines are matched on (default: the line itself). Removed lines print as the
+ * baseline wrote them, added lines as the current document does.
+ * @param context how a matched pair prints (default: the current document's line).
  */
-export function unifiedLineDiff(baseline: string, current: string): string {
+export function unifiedLineDiff(
+  baseline: string,
+  current: string,
+  key: LineKey = (line) => line,
+  context: ContextLine = (_was, now) => now,
+): string {
   const baselineLines = splitLines(baseline);
   const currentLines = splitLines(current);
-  return render(lcsTable(baselineLines, currentLines), baselineLines, currentLines);
+  const sides: Sides = {
+    baseline: baselineLines,
+    baselineKeys: baselineLines.map(key),
+    current: currentLines,
+    currentKeys: currentLines.map(key),
+  };
+  return render(lcsTable(sides.baselineKeys, sides.currentKeys), sides, context);
 }

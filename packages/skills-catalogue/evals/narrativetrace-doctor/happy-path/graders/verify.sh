@@ -18,10 +18,11 @@ if [ "$exit_code" -ne 1 ]; then
   exit 1
 fi
 
-echo "$report" | node -e '
+# printf, never echo: dash's echo turns the JSON's escaped \n back into a line break.
+printf '%s\n' "$report" | node -e '
   const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
-  if (!Array.isArray(report.findings) || report.findings.length !== 11) {
-    console.error("expected 11 findings, got", report.findings?.length);
+  if (!Array.isArray(report.findings) || report.findings.length !== 25) {
+    console.error("expected 25 findings, got", report.findings?.length);
     process.exit(1);
   }
   const byId = new Map(report.findings.map((f) => [f.id, f]));

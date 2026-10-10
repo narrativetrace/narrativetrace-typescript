@@ -51,3 +51,13 @@ describe("unifiedLineDiff", () => {
     expect(unifiedLineDiff("", "")).toBe("");
   });
 });
+
+describe("unifiedLineDiff — the first row and column of the table matter", () => {
+  it("a line moved from the top to the bottom is removed first and added last", () => {
+    expect(unifiedLineDiff("x\na\nb\n", "a\nb\nx\n")).toBe("-x\n a\n b\n+x\n");
+  });
+
+  it("two lines swapped keep the longer common run as context", () => {
+    expect(unifiedLineDiff("a\nb\n", "b\na\n")).toBe("-a\n b\n+a\n");
+  });
+});

@@ -29,6 +29,16 @@ describe("renderAgentsSkill", () => {
     expect(renderAgentsSkill(withWhen, () => "")).not.toContain("when_to_use");
   });
 
+  it("renders no empty fence for a step that runs nothing, same body as the Claude flavour", () => {
+    const skill: Skill = {
+      ...BASE,
+      steps: [{ title: "Ask", body: { kind: "commands", commands: [] }, flag: "judgmental" }],
+    };
+    const body = (page: string) => page.slice(page.indexOf("# example-skill"));
+    expect(renderAgentsSkill(skill, () => "")).not.toContain("```");
+    expect(body(renderAgentsSkill(skill, () => ""))).toBe(body(renderClaudeSkill(skill, () => "")));
+  });
+
   it("never emits allowed-tools", () => {
     expect(renderAgentsSkill(BASE, () => "")).not.toContain("allowed-tools");
   });
@@ -64,5 +74,21 @@ describe("renderAgentsSkill", () => {
     expect(bodyOf(renderAgentsSkill(skill, resolveSnippet))).toBe(
       bodyOf(renderClaudeSkill(skill, resolveSnippet)),
     );
+  });
+
+  it("renders the same when line as the Claude flavour", () => {
+    const skill: Skill = {
+      ...BASE,
+      steps: [
+        {
+          title: "Conditional step",
+          body: { kind: "commands", commands: ["pnpm test"] },
+          condition: "only when the project has no entry point",
+        },
+      ],
+    };
+    const line = "**when:** only when the project has no entry point";
+    expect(renderAgentsSkill(skill, () => "")).toContain(line);
+    expect(renderClaudeSkill(skill, () => "")).toContain(line);
   });
 });

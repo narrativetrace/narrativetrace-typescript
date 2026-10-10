@@ -1,4 +1,4 @@
-<!-- source: README.md blob fbc0e14876e6 | translated: 2026-09-20 | reviewed: - -->
+<!-- source: README.md blob 36a4ffac44b7 | translated: 2026-10-09 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
@@ -496,7 +496,7 @@ Aprofundando:
 - [Privacidade e ocultação](documentation/pt-BR/privacidade-e-ocultacao.md) — o contrato de ocultação linha por linha, verificado contra o código
 - [O que commitar](documentation/pt-BR/o-que-commitar.md) — quais arquivos gerados são saída de execução e quais (se algum) são baselines revisadas
 - [Solução de problemas](documentation/pt-BR/solucao-de-problemas.md) — sintoma → causa → solução para os modos de falha que as pessoas realmente encontram
-- [Habilidades de agente](documentation/pt-BR/habilidades-de-agente.md) — `narrativetrace-doctor`, uma habilidade de agente fina e somente leitura sobre `npx --yes @narrativetrace/cli doctor`
+- [Habilidades de agente](documentation/pt-BR/habilidades-de-agente.md) — `add-narrative-tracing`, `narrativetrace-doctor` (uma habilidade de agente fina e somente leitura sobre `npx --yes @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify` e `narrativetrace-debug`
 - [Guia de clareza](documentation/pt-BR/guia-de-clareza.md) — modelo de pontuação, componentes de NLP, scanner estático
 - [Guia de integração de frameworks](documentation/pt-BR/guia-de-integracao-de-frameworks.md) — Express, Hono, navegador, AsyncLocalStorage
 - [Guia de exemplos](documentation/pt-BR/guia-de-exemplos.md) — o lançador `pnpm demo` e os exemplos executáveis: ecommerce, clarity, Minecraft, JavaScript puro, Express, Hono, distribuído (Docker + Jaeger), navegador
@@ -632,7 +632,8 @@ O que isso significa para os pacotes deste repositório:
 
 | Parte | Licença |
 |---|---|
-| O runtime — cada pacote `@narrativetrace/*` publicado a partir deste repositório | [BSL 1.1](LICENSE) (SPDX `BUSL-1.1`), convertendo-se para Apache 2.0 quatro anos após cada release |
+| O runtime — cada outro pacote `@narrativetrace/*` publicado a partir deste repositório | [BSL 1.1](LICENSE) (SPDX `BUSL-1.1`), convertendo-se para Apache 2.0 quatro anos após cada release |
+| `@narrativetrace/cli`, `@narrativetrace/skills`, `@narrativetrace/tooling`, e as páginas de skills geradas e o arquivo de marketplace (`.claude/skills/**`, `.agents/skills/**`, `.claude-plugin/marketplace.json`) | [Apache 2.0](LICENSE-APACHE), veja [NOTICE](NOTICE) |
 | A API de anotações/decorators, a especificação do formato de saída e a rubrica de clareza | [Apache 2.0](LICENSE-APACHE) (a separação em pacote próprio ainda está pendente — veja abaixo) |
 | A prosa da documentação | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 

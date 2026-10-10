@@ -33,3 +33,20 @@ paths = [
   '''packages/nestjs/__tests__/parameter-redaction\.test\.ts''',
   '''packages/proxy/__tests__/parameter-name-redaction\.test\.ts''',
 ]
+
+# Second false positive, 2026-10-08 (Phase 5 milestone 2): the value-free gate's own vocabulary test
+# proves that credential-PREFIX shapes are refused before a report can be filed, which is only
+# provable with strings that genuinely carry those prefixes. All four are the synthetic vectors the
+# shared cross-runtime corpus already carries verbatim
+# (`packages/security-tests/hostile-corpus/feedback.json`, rows `value-shape-github-token`,
+# `value-shape-github-fine-grained-token`, `value-shape-sk-prefixed-api-key`,
+# `value-shape-aws-access-key-id`) — documented, valueless, and authenticating nothing. The corpus
+# file itself does not trip this rule because JSON's quoting is not the `key = "value"` assignment
+# shape `generic-api-key` looks for; the TypeScript table form is. Scoped to that one rule and that
+# one file, rather than concatenating the fixtures out of parts: a fixture spelled in halves to
+# dodge a scanner is a fixture the next reader reassembles, and this test's whole subject is what
+# those bytes look like.
+[[allowlists]]
+description = "synthetic credential-prefix fixtures in the value-free vocabulary test exist to prove those prefixes are refused"
+targetRules = ["generic-api-key"]
+paths = ['''packages/tooling/__tests__/feedback/secret-vocabulary\.test\.ts''']

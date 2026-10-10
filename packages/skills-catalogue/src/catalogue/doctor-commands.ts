@@ -9,14 +9,38 @@
  */
 
 /**
- * Runs `narrativetrace doctor` and asserts the report is well-formed (parses, carries all twelve
- * finding ids) — the mechanical floor a step can claim just from "doctor ran". It does NOT assert
+ * Runs `narrativetrace doctor` and asserts the report is well-formed (parses, carries one finding
+ * per check the doctor's registry runs) — the mechanical floor a step can claim just from "doctor
+ * ran". The count is typed, not imported: this catalogue sits BELOW the tooling layer (the
+ * architecture test), so `add-narrative-tracing.test.ts` holds it to `DOCTOR_CHECKS.length`
+ * instead, and a check added to the doctor fails there until this moves with it. It does NOT assert
  * any finding's pass/fail *value*: those are already unit-tested per-check at the CLI layer, and a
  * project's report legitimately fails some checks while still being well-formed — that is doctor
  * working correctly, not a defect in whatever step is running this.
  */
-export const DOCTOR_REPORT_WELL_FORMED =
-  "npx @narrativetrace/cli doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==12) process.exit(1);\"";
+/** How many checks the doctor runs: twelve hand-written plus one per framework-table row. */
+export const DOCTOR_CHECK_COUNT = 25;
+
+export const DOCTOR_REPORT_WELL_FORMED = `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==${DOCTOR_CHECK_COUNT}) process.exit(1);"`;
+
+/** Runs the doctor for its report, whatever it finds — a failing finding is the step's input. */
+export const RUN_DOCTOR = "npx @narrativetrace/cli doctor || true";
+
+/**
+ * Every framework finding holds — the framework step's own claim. Selects them by the report's
+ * `framework` field, never by a list of check ids: which frameworks exist is the INSTALLED doctor's
+ * answer (its own framework table), so this command cannot go stale when a release adds a row. A
+ * framework reported as having no integration shipped always passes, so it never blocks the step.
+ */
+export const FRAMEWORK_FINDINGS_HOLD =
+  "npx @narrativetrace/cli doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const bad=r.findings.filter(f=>f.framework&&f.status!=='pass'); if(bad.length>0){console.error(JSON.stringify(bad)); process.exit(1);}\"";
+
+/**
+ * The framework step's hand-off, word for word across the runtimes (Phase 6 cross-port item 5).
+ * Names no framework on purpose.
+ */
+export const APPLY_FRAMEWORK_FIXES =
+  "run the doctor; apply every config.<framework>-* fix it prints, in order, as printed, then run the doctor again; a framework it reports as having no integration shipped is left alone";
 
 /**
  * Every `toolchain.*` finding holds (status `pass`) — the install step's own claim, not a repeat of
@@ -53,10 +77,12 @@ export const REDACTION_TEST_GUIDANCE =
 
 /**
  * Opens the newest rendered Markdown trace under the output directory — never a fixture path, so
- * the same command works whatever a real project scenario is named.
+ * the same command works whatever a real project scenario is named. The `feedback` subdirectory is
+ * skipped: it holds the problem report's own Markdown files, which are newer than any trace the
+ * moment a report is drafted and are not traces.
  */
 export const OPEN_NEWEST_RENDERED_TRACE =
-  "node -e \"const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):[p];});}const files=walk('narrativetrace-output').filter(f=>f.endsWith('.md'));if(!files.length){console.error('no rendered .md file found under narrativetrace-output');process.exit(1);}const newest=files.map(f=>[f,fs.statSync(f).mtimeMs]).sort((a,b)=>b[1]-a[1])[0][0];console.log(newest);console.log(fs.readFileSync(newest,'utf8'));\"";
+  "node -e \"const fs=require('fs'),path=require('path');function walk(d){return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?walk(p):[p];});}const files=walk('narrativetrace-output').filter(f=>f.endsWith('.md')&&!f.split(path.sep).includes('feedback'));if(!files.length){console.error('no rendered .md file found under narrativetrace-output');process.exit(1);}const newest=files.map(f=>[f,fs.statSync(f).mtimeMs]).sort((a,b)=>b[1]-a[1])[0][0];console.log(newest);console.log(fs.readFileSync(newest,'utf8'));\"";
 
 /**
  * If a `.received.nt` sits beside an `.approved.nt`, diffs them; otherwise shows the newest

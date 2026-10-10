@@ -62,22 +62,39 @@ found under the same name by another:
 ```
 scenario: Weekend trip settles with three transfers
 
-- TripSettlementService.recordExpense(tripName, expense)
-  - ExpenseValidator.ensureValid(expense)
-  - TripLedger.recordExpense(tripName, expense)
-- TripSettlementService.settleTrip(tripName) → value
-  - TripLedger.expensesOf(tripName) → value
+#1 - TripSettlementService.recordExpense(tripName, expense)
+  #1.1 - ExpenseValidator.ensureValid(expense)
+  #1.2 - TripLedger.recordExpense(tripName, expense)
+#2 - TripSettlementService.settleTrip(tripName) → value
+  #2.1 - TripLedger.expensesOf(tripName) → value
   ~ fork [2]
-    - BalanceCalculator.computeBalances(expenses) → value
-    - StockService.check() → value
+    #2.2 - BalanceCalculator.computeBalances(expenses) → value
+    #2.3 - StockService.check() → value
 ```
 
 - **Header:** `scenario: <humanized test name>` + blank line. Nothing
   else — no result, no trace ids/names, no dates. One invocation of a
   `.each` row is `scenario: <humanized test name> #<index>` — an
   interpolated label never reaches it.
-- **Call line:** `ClassName.methodName(paramName, paramName)` — names
-  only, capture order, two-space indent per depth.
+- **Call line:** `#id - ClassName.methodName(paramName, paramName)` —
+  names only, capture order, two-space indent per depth; the span id is
+  the first token after the indent.
+- **Span id:** the call's position in the tree — `#1` is the first root
+  call, `#1.3` its third child, `#1.3.2` that child's second child.
+  Every sibling list (roots, a call's children, the work a
+  fire-and-forget launched) is numbered in the order this format prints
+  it: plain calls in capture order, the members of one fork or async
+  group by `Class.method` (two members with the same `Class.method` keep
+  capture order), and a fire-and-forget launch takes one position — its
+  id opens the `~ fire-and-forget` line and the launched calls nest under
+  it. Ids are derived by the renderer from the tree (`CitableSpanId`),
+  never captured or stored, so the same flow always gets the same ids; an
+  inserted call shifts its later siblings, and the approval diff says so
+  (`(was #1.2)`). Every other flavour prints the same id for the same
+  call (a trailing `#1.3` in the indented text and Markdown narratives,
+  `(#1.3)` in prose, a note in the Mermaid and PlantUML sequence
+  diagrams), so a report, a review and an approval diff can all point at
+  one span. An id carries no value.
 - **Outcome kinds:** non-void return ` → value`; void: nothing (the
   Returned-null contract); thrown ` !! ExceptionSimpleName` (type is
   structure; the message is a value and never appears); unmatched
@@ -87,11 +104,13 @@ scenario: Weekend trip settles with three transfers
   `~ async [n]`, both with members **sorted by `Class.method`** — capture
   order across concurrent tasks is the scheduler's choice, not behaviour, so
   the artifact states the set and nesting of concurrent work and never its
-  order. Fire-and-forget renders `~ fire-and-forget` + children (the
-  launching call itself is not part of this scenario's shape, only the work
-  it started is). Thread/task identity never appears.
+  order. Fire-and-forget renders `#id ~ fire-and-forget` + the launched
+  calls, laid out like any other sibling list: this runtime tags each
+  detached task's own root call, and every one of them prints as itself.
+  Thread/task identity never appears.
 - **Excluded by design:** all argument/return values, exception
-  messages, durations, timestamps, thread identity, trace/span ids,
+  messages, durations, timestamps, thread identity, captured trace/span
+  ids (the W3C ones — the position ids above are derived, not captured),
   trace names, **run ids/names**, run results, and narration.
 - **Encoding:** UTF-8, LF, trailing newline. Identifiers pass through
   control-character sanitization.
@@ -100,7 +119,10 @@ scenario: Weekend trip settles with three transfers
 
 1. **Deterministic:** identical behavior ⇒ byte-identical file. This
    is what makes the artifact the approval baseline and the
-   conformance-fixture golden format.
+   conformance-fixture golden format. Comparison sets span ids, line
+   terminators and a final newline aside: a baseline written before ids
+   existed, or checked out with CRLF line endings, still matches a
+   current run of the same flow, and is never rewritten to add them.
 2. **Value-free:** zero prompt-injection surface, zero PII, minimal
    tokens — safe to hand to an AI agent by default.
 3. **Division of labor:** the artifact asserts behavioral *shape*;

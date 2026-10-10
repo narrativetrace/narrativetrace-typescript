@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: BUSL-1.1
+# Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
+# Copyright (c) 2026 Empower Agile
+# Trigger cases (skill-harness-design.md section 4.3): must fire on the positive phrasings, must
+# stay quiet on the negative ones. Gates on rate, target >=90%. The positives are what a person
+# asks for when they want the naming report or its gate; the negatives are the neighbouring skills'
+# requests and the questions about the library that are not a request to set anything up.
+
+positive:
+  - "add a clarity report to this project"
+  - "run the NarrativeTrace clarity gate"
+  - "explain our clarity scores"
+  - "show which method names make the trace hard to read"
+  - "set up a clarity quality gate"
+  - "why is the clarity report empty"
+  - "register the ClaritySuiteReporter in our vitest config"
+  - "check naming quality in our NarrativeTrace traces"
+  - "make the clarity gate fail on low scores"
+  - "rename the unclear names the clarity report flags"
+  - "our tests write traces but there is no clarity-results.json"
+
+negative:
+  - "add narrative tracing to my service"
+  - "check my narrativetrace setup"
+  - "why isn't anything being traced"
+  - "generate a glossary from these classes"
+  - "render a Mermaid sequence diagram"
+  - "upgrade narrativetrace to the latest version"
+  - "wire the Express middleware"
+  - "what does traceObject do"
+  - "fix the doctor's redaction finding"
+  - "report a bug in NarrativeTrace"

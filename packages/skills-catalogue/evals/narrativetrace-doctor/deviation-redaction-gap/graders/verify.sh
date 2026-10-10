@@ -15,7 +15,8 @@ if [ "$exit_code" -ne 1 ]; then
   exit 1
 fi
 
-echo "$report" | node -e '
+# printf, never echo: dash's echo turns the JSON's escaped \n back into a line break.
+printf '%s\n' "$report" | node -e '
   const report = JSON.parse(require("fs").readFileSync(0, "utf8"));
   const byId = new Map(report.findings.map((f) => [f.id, f]));
   if (byId.get("trap.redaction-proof")?.status !== "fail") {

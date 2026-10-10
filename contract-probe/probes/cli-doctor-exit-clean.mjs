@@ -15,6 +15,13 @@
 // test is really executed and really passes before doctor is asked anything. Explicit parameter
 // names keep `trap.parameter-arg0` satisfied by the artifacts the run leaves behind, exactly as
 // the troubleshooting guide tells an adopter to do.
+//
+// Since the skills carrier ships (0.2.0), a healthy install also has the agent skills installed:
+// `config.skills-installed` is a doctor finding, and the documented setup installs them with the
+// published CLI's own `init` verb before the doctor is first run. The fixture does the same —
+// `init` is run for real, against the CLI under test — and the first contract run against 0.2.0
+// (2026-10-06) is how this was learned: doctor exited 1 on `config.skills-installed` and the probe
+// read it as the CLI not exiting clean, a report aimed at the fixture rather than the package.
 import { spawnSync } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
 import { assertFixtureRan, couldNotProbe, runVitest } from "./probe-support.mjs";
@@ -45,6 +52,15 @@ test("contract probe proves redaction", ({ narrativeContext }) => {
 let observed = "exit-nonzero";
 try {
   assertFixtureRan(runVitest([TEST_FILE]), 1, true);
+  const init = spawnSync("npx", ["narrativetrace", "init"], { encoding: "utf-8" });
+  // `init` is the fixture's own setup step, not the claim under test: when it cannot run, the
+  // claim has no fixture to be asked against, which is "could not probe", never "fails".
+  if (init.status !== 0) {
+    couldNotProbe(
+      `narrativetrace init did not exit 0 (status ${init.status})`,
+      `${init.stdout ?? ""}${init.stderr ?? ""}`,
+    );
+  }
   const doctor = spawnSync("npx", ["narrativetrace", "doctor"], { encoding: "utf-8" });
   const report = `${doctor.stdout ?? ""}${doctor.stderr ?? ""}`;
   // Exit 2 is doctor's own "could not run" — its answer to this claim is then no answer at all.
@@ -55,6 +71,10 @@ try {
 } finally {
   rmSync(TEST_FILE, { force: true });
   rmSync(OUTPUT_DIR, { recursive: true, force: true });
+  // The CLI's own uninstall verb takes back everything its init wrote (both skill flavours and
+  // the managed context-file section); the scratch project is disposable, so its exit code is
+  // not a finding here.
+  spawnSync("npx", ["narrativetrace", "uninstall"], { encoding: "utf-8" });
 }
 
 /** The [FAIL] lines only, so a red verdict names which check objected instead of just "nonzero". */

@@ -37,3 +37,46 @@ describe("DiagramLabel.alias", () => {
     expect(alias).toBe("a".repeat(200));
   });
 });
+
+describe("DiagramLabel.spanId — a derived position path, checked rather than sanitized", () => {
+  test("accepts a well-formed span id unchanged", () => {
+    expect(DiagramLabel.spanId("#1.3.2")).toBe("#1.3.2");
+  });
+
+  test.each(["", "#", "1.2", "#1.", "#1\nclick X", "#1 x"])("refuses %j", (id) => {
+    expect(() => DiagramLabel.spanId(id)).toThrow(RangeError);
+  });
+});
+
+// A line terminator for some consumer of the diagram — not only an ISO control. U+2028/U+2029 end
+// a line for JavaScript (Mermaid's own runtime) and most viewers; mirrors the Java nightly finding
+// of 2026-10-10.
+describe("DiagramLabel line-terminator folding", () => {
+  const terminators = [
+    "\u2028",
+    "\u2029",
+    "\u0085",
+    "\u0000",
+    "\u001f",
+    "\u007f",
+    "\u009f",
+    "\r",
+    "\n",
+  ];
+
+  test.each(terminators)("a name folds %j to a space", (sep) => {
+    expect(DiagramLabel.identifier(`A${sep}B`)).toBe("A B");
+  });
+
+  test.each(terminators)("a message folds %j to a space", (sep) => {
+    expect(DiagramLabel.message(`A${sep}B`)).toBe("A B");
+  });
+
+  test("a name made only of separators is unnamed", () => {
+    expect(DiagramLabel.identifier("\u2028\u2029\u0085")).toBe("<unnamed>");
+  });
+
+  test("near-miss neighbours of the separators are kept", () => {
+    expect(DiagramLabel.message("\u2027\u202a")).toBe("\u2027\u202a");
+  });
+});

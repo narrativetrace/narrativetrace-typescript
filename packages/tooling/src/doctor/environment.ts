@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
+import { FEEDBACK_SUBDIRECTORY } from "../feedback/feedback-paths.js";
 import { resolveCarrier } from "../init/carrier.js";
 import type { InstalledSkill } from "../init/installed-skill.js";
 import { DEFAULT_MAX_SKILL_DIRECTORIES, installedSkillsIn } from "../init/project-state-reader.js";
 import { readJsonFile, resolvePackageJson } from "../package-resolution.js";
+import { LOCKFILES, packageManagerOf } from "./package-manager.js";
 import type { DoctorSnapshot, Env, PackageJsonLike } from "./types.js";
 
 const EXCLUDED_DIRS = new Set([
@@ -39,9 +41,12 @@ const BASE_PACKAGES = [
 
 const MAX_FILES = 20_000;
 
-type Bucket = "output" | "approved" | "source" | "skip";
+const MANIFEST = "package.json";
+
+type Bucket = "output" | "approved" | "manifest" | "source" | "skip";
 
 interface WalkState {
+  readonly manifests: Map<string, PackageJsonLike>;
   readonly sourceFiles: Map<string, string>;
   readonly outputFiles: Map<string, string>;
   readonly approvedDirFiles: Map<string, string>;
@@ -73,6 +78,18 @@ function safeRead(path: string): string {
   }
 }
 
+/** A manifest's parsed object, or `undefined` for one that does not parse to an object. */
+function parseManifest(text: string): PackageJsonLike | undefined {
+  try {
+    const parsed: unknown = JSON.parse(text);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? (parsed as PackageJsonLike)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function listDirectory(dir: string): string[] {
   try {
     return readdirSync(dir);
@@ -81,10 +98,22 @@ function listDirectory(dir: string): string[] {
   }
 }
 
+/**
+ * Which bucket `rel` belongs to. The feedback verb's own subdirectory of the output directory is
+ * SKIPPED: a problem report is not rendered trace output, and reading it as such made the doctor
+ * report on its own words — the attached doctor JSON names `arg0` in a doc URL, so
+ * `trap.parameter-arg0` failed on every project the moment it had drafted one report, and the next
+ * draft carried that false finding (found by a Tier B fixture, 2026-10-08).
+ */
 function classify(rel: string, outputDirName: string, approvedDirName: string): Bucket {
-  const topSegment = rel.split("/")[0];
-  if (topSegment === outputDirName) return "output";
+  const segments = rel.split("/");
+  const topSegment = segments[0];
+  if (topSegment === outputDirName) {
+    const inFeedback = segments.length > 2 && segments[1] === FEEDBACK_SUBDIRECTORY;
+    return inFeedback ? "skip" : "output";
+  }
   if (topSegment === approvedDirName) return "approved";
+  if (segments[segments.length - 1] === MANIFEST) return "manifest";
   // Stryker disable next-line StringLiteral: the "source" branch string is equivalent — bucketFor
   // below routes anything that isn't "output" or "approved" into sourceFiles by default, so
   // whether this literal reads "source" or something else never changes which map a file lands
@@ -123,6 +152,11 @@ function visitEntry(ctx: WalkContext, dir: string, entry: string): void {
   const rel = relative(ctx.root, full);
   const kind = classify(rel, ctx.output, ctx.approved);
   if (kind === "skip") return;
+  if (kind === "manifest") {
+    const manifest = parseManifest(safeRead(full));
+    if (manifest) ctx.state.manifests.set(rel, manifest);
+    return;
+  }
   bucketFor(ctx.state, kind).set(rel, safeRead(full));
 }
 
@@ -138,6 +172,7 @@ function visitEntry(ctx: WalkContext, dir: string, entry: string): void {
  */
 function walk(root: string, output: string, approved: string): WalkState {
   const state: WalkState = {
+    manifests: new Map(),
     sourceFiles: new Map(),
     outputFiles: new Map(),
     approvedDirFiles: new Map(),
@@ -208,6 +243,36 @@ function agentSkillsIn(cwd: string, bundledSkillsDirectory: string | undefined):
   };
 }
 
+/** {@link walk} over `cwd`, with the output and approved directories the environment names. */
+function walkFor(cwd: string, env: Env): WalkState {
+  const output = env.NARRATIVETRACE_OUTPUT_DIR ?? "narrativetrace-output";
+  const approved = env.NARRATIVETRACE_APPROVED_DIR ?? "narratives";
+  return walk(cwd, output, approved);
+}
+
+/** The lockfiles present at the project root — never a workspace member's. */
+function rootLockfiles(cwd: string): string[] {
+  return LOCKFILES.filter((name) => existsSync(join(cwd, name)));
+}
+
+/** The root manifest and the package manager it, or the root lockfile, names. */
+function rootHalf(cwd: string): Pick<DoctorSnapshot, "rootPackageJson" | "packageManager"> {
+  const rootPackageJson = readJsonFile(join(cwd, MANIFEST));
+  return { rootPackageJson, packageManager: packageManagerOf(rootPackageJson, rootLockfiles(cwd)) };
+}
+
+/** The runtime's two config source names, in the order `resolveConfig` lists them. */
+const CONFIG_SOURCES = ["narrativetrace.config.json", ".narrativetracerc.json"] as const;
+
+/** The first config source present at the root, as raw text (omitted when there is none). */
+function projectConfigOf(cwd: string): Pick<DoctorSnapshot, "projectConfig"> {
+  for (const name of CONFIG_SOURCES) {
+    const path = join(cwd, name);
+    if (existsSync(path)) return { projectConfig: readFileSync(path, "utf8") };
+  }
+  return {};
+}
+
 /**
  * Builds a {@link DoctorSnapshot} from the real filesystem rooted at `cwd`. The one impure module.
  *
@@ -220,14 +285,14 @@ export function buildSnapshot(
   env: Env,
   bundledSkillsDirectory?: string,
 ): DoctorSnapshot {
-  const output = env.NARRATIVETRACE_OUTPUT_DIR ?? "narrativetrace-output";
-  const approved = env.NARRATIVETRACE_APPROVED_DIR ?? "narratives";
-  const { sourceFiles, outputFiles, approvedDirFiles } = walk(cwd, output, approved);
+  const { manifests, sourceFiles, outputFiles, approvedDirFiles } = walkFor(cwd, env);
   return {
     cwd,
     nodeVersion: process.version.replace(/^v/, ""),
     env,
-    rootPackageJson: readJsonFile(join(cwd, "package.json")),
+    ...rootHalf(cwd),
+    ...projectConfigOf(cwd),
+    manifests,
     sourceFiles,
     outputFiles,
     approvedDirFiles,
