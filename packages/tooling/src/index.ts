@@ -117,6 +117,7 @@ export {
   openCarrier,
   resolveCarrier,
 } from "./init/carrier.js";
+export { CURSOR_FRONTMATTER, renderCursorRule } from "./init/cursor-rule.js";
 export {
   type AppliedAction,
   type AppliedStatus,
@@ -150,16 +151,25 @@ export {
   renderReportJson,
   renderReportText,
 } from "./init/plan-renderer.js";
+export { type PointerReading, type PointerStatus, readPointers } from "./init/pointer-reading.js";
 export {
   DEFAULT_OUTPUT_DIRECTORY,
   type ProjectState,
   type ProjectStateInput,
   projectState,
+  type UnwritablePointer,
 } from "./init/project-state.js";
 export { readProjectState } from "./init/project-state-reader.js";
 export { isSkillsInstalled, planRefresh } from "./init/refresh-planner.js";
 export type { SkillCatalogue, SkillEntry, SkillFlavour } from "./init/skill-catalogue.js";
 export { planUninstall } from "./init/uninstall-planner.js";
 export { carrierVersionWarning } from "./init/version-guard.js";
+export {
+  MANUAL_LANE,
+  type PlatformRow,
+  type Pointer,
+  platformRow,
+} from "./platforms/platform-row.js";
+export { CURSOR_RULE_TEXT, PLATFORM_ROWS, platformRowById } from "./platforms/platform-table.js";
 export type { Version } from "./semver-lite.js";
 export { compareVersions, parseVersion, satisfiesRange } from "./semver-lite.js";

@@ -1,0 +1,4 @@
+{
+  "fixture": "evals/fixtures/existing-service-checkout",
+  "setup": "checkout-install"
+}

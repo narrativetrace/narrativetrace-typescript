@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import type { InstalledSkill } from "../init/installed-skill.js";
+import type { PointerReading } from "../init/pointer-reading.js";
 
 /**
  * The doctor's world-view, decoupled from the real filesystem: every check is a pure function
@@ -69,6 +70,12 @@ export interface DoctorSnapshot {
   readonly installedPackages: ReadonlyMap<string, PackageJsonLike>;
   /** Every agent-skill directory found under either install root, in read order. */
   readonly installedSkills: readonly InstalledSkill[];
+  /**
+   * One reading per detected platform whose row has a pointer file, in platform-table order — the
+   * installer's own reading, so the doctor and `init` agree on what "present" means. Empty also when
+   * the project could not be read: the doctor reports on a project, it does not require one.
+   */
+  readonly pointerReadings: readonly PointerReading[];
   /** Every skill name the resolved carrier's catalogue lists, or empty when none could be resolved. */
   readonly catalogueSkills: readonly string[];
 }

@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 5cbf82132ccd | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 40cf04c0beea | translated: 2026-09-13 | reviewed: - -->
 # Guía de integración de frameworks de NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | **Español** | [Português](../pt-BR/guia-de-integracao-de-frameworks.md) | [简体中文](../zh-CN/框架集成指南.md)
@@ -9,7 +9,8 @@ Esta guía cubre la integración de NarrativeTrace en aplicaciones web y en el n
 
 | Paquete | Propósito |
 |---|---|
-| `@narrativetrace/core` | `SyncNarrativeContext`, `AsyncNarrativeContext` — contexto y renderizadores |
+| `@narrativetrace/core` | `SyncNarrativeContext` — contexto y renderizadores |
+| `@narrativetrace/core-node` | `AsyncNarrativeContext` — contexto por solicitud sobre `AsyncLocalStorage`; reexporta todo lo de `core` |
 | `@narrativetrace/proxy` | `traceObject()` — interceptación de métodos basada en ES Proxy |
 | `@narrativetrace/browser` | `renderToConsole`, `postToCollector` — salida específica del navegador |
 | `@narrativetrace/nestjs` | `AutoProxyModule`, `NoAutoProxy`, `NarrativeStorage` — módulo de auto-proxy para NestJS |
@@ -25,7 +26,7 @@ Trazado por petición usando `AsyncNarrativeContext` (envuelve `AsyncLocalStorag
 
 ```ts
 import express from "express";
-import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
 
 const config = new NarrativeTraceConfig();
@@ -68,6 +69,20 @@ app.listen(3000);
 3. Al finalizar la respuesta, la traza se captura, se renderiza y el contexto se reinicia
 4. Las peticiones concurrentes tienen trazas completamente aisladas
 
+### `traceparent` saliente
+
+Para que un servicio llamado que también esté instrumentado se una a la traza del llamante, envía el `traceparent` actual en las llamadas HTTP hechas desde código con traza. `tracedFetch(ctx)` es el equivalente en Node del `tracedFetch` del navegador — la misma llamada en ambos lados; `traceparentHeaders(ctx)` devuelve `{ traceparent }` (o `{}` si no hay ningún span activo) para cualquier otro cliente. Un `traceparent` que tú mismo establezcas nunca se sobrescribe.
+
+```typescript
+import { tracedFetch, traceparentHeaders } from "@narrativetrace/core-node";
+
+const fetchWithTrace = tracedFetch(asyncContext); // global fetch, Node 20+
+await fetchWithTrace("http://inventory/reserve", { method: "POST" });
+
+// any other client (http, axios, undici):
+const headers = { ...traceparentHeaders(asyncContext) }; // {} when no span is active
+```
+
 ### Exportación de trazas personalizada
 
 Sustituye el manejador `res.on("finish")` por tu propio exportador — la captura, la exportación y el
@@ -101,7 +116,7 @@ El mismo patrón que Express, usando la API de middleware de Hono:
 
 ```ts
 import { Hono } from "hono";
-import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
 
 const config = new NarrativeTraceConfig();
@@ -226,7 +241,7 @@ someAsyncApi.onComplete(() => {
 `AsyncNarrativeContext` envuelve `AsyncLocalStorage` de Node para ofrecer aislamiento de trazas por petición:
 
 ```ts
-import { AsyncNarrativeContext, NarrativeTraceConfig } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig } from "@narrativetrace/core-node";
 
 const config = new NarrativeTraceConfig();
 const asyncContext = new AsyncNarrativeContext(config);
@@ -244,7 +259,7 @@ asyncContext.run(() => {
 - `run(fn)` — crea un nuevo `SyncNarrativeContext` dentro de `AsyncLocalStorage` y ejecuta `fn`
 - Todas las llamadas a `enterMethod`/`exitMethodWithReturn`/`exitMethodWithException` delegan en el store actual
 - `captureTrace()` devuelve únicamente el árbol de traza del store actual
-- Si se llama fuera de un `run()`, delega en un contexto por defecto
+- Si se llama fuera de un `run()`, delega en un contexto por defecto común a todo el proceso, que no contiene ningún span de ese `run()`: `captureTrace()` devuelve ahí un árbol vacío. Captura dentro del ámbito y llama a `reset()` en un `finally` (el recorrido completo de una petición está en `llms.txt`, «Tracing a request in production»)
 
 ### Aislamiento de peticiones concurrentes
 
@@ -260,6 +275,60 @@ asyncContext.run(() => {
   tracedService.handleOrder("order-2");
 });
 ```
+
+### Trazar un módulo de funciones sueltas
+
+`traceObject` envuelve un objeto, así que un módulo que exporta funciones sueltas las envuelve como un único objeto y reexporta las copias trazadas con los nombres originales. Quien importa sigue escribiendo `import { applyDiscount } from "./pricing.js"` y recibe la función trazada:
+
+```ts
+import { traceObject } from "@narrativetrace/proxy";
+import { context } from "./request-scope.js";
+
+function applyDiscount(price: number, percent: number): number {
+  return price - (price * percent) / 100;
+}
+
+const { applyDiscount: tracedApplyDiscount } = traceObject({ applyDiscount }, context, {
+  className: "Pricing",
+  methods: { applyDiscount: { params: ["price", "percent"] } },
+});
+
+// Importers get the traced function; calls made inside this module still reach the plain one.
+export { tracedApplyDiscount as applyDiscount };
+```
+
+`className` da nombre a la clase del span, ya que una función suelta no tiene ninguna. Las llamadas hechas *dentro* del módulo —una función que llama a otra por su nombre directo— llegan a la función original y esquivan el proxy, así que no producen span; solo se trazan las llamadas que cruzan el límite del módulo a través de los nombres exportados. Para trazar una llamada interna, hazla pasar también por el objeto trazado.
+
+### Compartir un contexto entre bundles
+
+OpenNext, los servidores personalizados de Next y los puntos de entrada envoltorio de Cloudflare Workers pueden evaluar tu entrada y tus manejadores como grafos de módulos separados, de modo que un `new AsyncNarrativeContext(...)` a nivel de módulo se ejecuta una vez por grafo y cada grafo traza en su propio contexto. Un patrón que funciona —es un patrón, no una API de NarrativeTrace— guarda el único contexto en una ranura `globalThis[Symbol.for("…")]` y entrega a cada bundle un proxy de reenvío que busca el contexto en cada llamada, sin conservar nunca una referencia capturada en el momento de la importación:
+
+```ts
+import {
+  AsyncNarrativeContext,
+  type NarrativeContext,
+  NarrativeTraceConfig,
+} from "@narrativetrace/core-node";
+
+const SLOT = Symbol.for("narrativetrace.shared-context");
+const slots = globalThis as { [SLOT]?: AsyncNarrativeContext };
+
+function sharedContext(): AsyncNarrativeContext {
+  slots[SLOT] ??= new AsyncNarrativeContext(new NarrativeTraceConfig());
+  return slots[SLOT];
+}
+
+// Resolves the shared context on every call, so no bundle keeps a copy captured at import time.
+export const context: NarrativeContext = new Proxy({} as NarrativeContext, {
+  get(_target, property) {
+    const shared = sharedContext();
+    const value = Reflect.get(shared, property, shared);
+    return typeof value === "function" ? value.bind(shared) : value;
+  },
+});
+```
+
+Importa `context` desde este módulo en todos los sitios donde habrías creado uno. La clave de `Symbol.for` es el contrato entre bundles: elige una cadena y mantenla idéntica en todos.
 
 ## 5. Integración manual (SyncNarrativeContext)
 

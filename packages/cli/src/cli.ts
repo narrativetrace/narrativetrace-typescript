@@ -75,13 +75,15 @@ Nothing is sent anywhere. Exit 0 = drafted, 1 = that channel is not available, 2
 const DOCTOR_USAGE = `narrativetrace doctor [--json]
 
 Read-only. Checks toolchain/install state, configuration, and known traps against the current
-project. Exit 0 = clean, 1 = findings, 2 = could not run.`;
+project. Fails the build on a failing finding — the report is written first, so "doctor green" is
+exit 0. Exit 0 = clean, 1 = findings, 2 = could not run. There is no opt-out: a pipeline that wants
+the report alone reads \`--json\` and ignores the code.`;
 
 const INSTALLER_OPTIONS = `  --dry-run         Show the plan and the unified diff. Writes nothing, always exits 0.
   --write-existing  Permission to touch an AGENTS.md or CLAUDE.md that is already there.
   --force           Permission to overwrite a skill directory somebody else owns.
   --only <half>     skills | agents-md. Both halves by default.
-  --vendor <vendor> claude | none. Detected from the project by default.
+  --vendor <vendor> claude | none. claude by default: Claude Code loads .claude/skills only.
   --from <dir>      A directory holding the carrier: a checked-out @narrativetrace/skills, or an
                     unpacked tarball of one. The copy bundled with this CLI by default.
   --json            Machine-readable output instead of human text.
@@ -90,8 +92,9 @@ Exit 0 = applied (or a dry run), 1 = something was refused, 2 = could not run.`;
 
 const INIT_USAGE = `narrativetrace init [options]
 
-Copies the NarrativeTrace agent skills into .agents/skills/ (and .claude/skills/ where the project
-is one of that vendor's) and writes one marked section into AGENTS.md. Zero network.
+Copies the NarrativeTrace agent skills into .agents/skills/ and .claude/skills/ (the only directory
+Claude Code loads; --vendor none leaves it out) and writes one marked section into AGENTS.md. Zero
+network.
 
 Run it again to refresh: this CLI installs no build hook and schedules nothing, so a re-run IS the
 refresh. On a project that already carries the skills it rewrites only our own pages and our own

@@ -1,4 +1,4 @@
-<!-- source: documentation/agent-skills.md blob 1b2fe91ce174 | translated: 2026-10-09 | reviewed: - -->
+<!-- source: documentation/agent-skills.md blob afd8e4960d1b | translated: 2026-10-15 | reviewed: - -->
 # Habilidades de agente
 
 [English](../agent-skills.md) | [Español](../es/habilidades-de-agente.md) | **Português** | [简体中文](../zh-CN/智能体技能.md)
@@ -9,7 +9,7 @@ agente pode ou não ler. Uma habilidade é deliberadamente fina — a lógica de
 ou geração vive em código de biblioteca testado; o trabalho da própria habilidade é saber quando
 agir, invocar esse código testado, e interpretar o resultado no contexto.
 
-## Seis habilidades: preparação, diagnóstico, clareza, relato, verificação e depuração
+## Sete habilidades: preparação, diagnóstico, clareza, relato, verificação, depuração e explicação
 
 - **`add-narrative-tracing`** — instala o NarrativeTrace em um projeto e o leva ao primeiro trace:
   instalar com o toolchain real, conectar os frameworks que o projeto já usa rodando o doctor e
@@ -54,6 +54,15 @@ agir, invocar esse código testado, e interpretar o resultado no contexto.
   que oculta), corrige ali, confere que o trace estrutural não mostra mais nada se movendo, e fixa a
   reprodução como teste de regressão atrás do mesmo portão. Um defeito no próprio NarrativeTrace vai
   para `narrativetrace-feedback` em vez de ser contornado.
+- **`narrativetrace-explain`** — responde a "mostre o que minha aplicação realmente faz" quando nada
+  está quebrado e nenhuma mudança precisa ser lida: a única habilidade que parte de uma pergunta e não
+  de um problema. Primeiro decide se um trace compensa — uma função pura, ou uma pergunta que dez linhas
+  de código resolvem, é respondida a partir do código, sem instalar nem executar nada, e ela diz isso.
+  Caso contrário, escolhe **um** cenário que já exercita o fluxo (instalando por meio de
+  `add-narrative-tracing` quando o projeto não tem rastreamento), o executa como está, lê o `.nt`
+  estrutural sem valores na ordem em que rodou, abre valores só onde a pergunta precisa, e explica a
+  execução por id de span — marcando cada inferência e nomeando o código que nenhum span cobre. Não
+  corrige nada: um defeito vai para `narrativetrace-debug`, uma mudança sua para `narrativetrace-verify`.
 
 Elas se compõem: um projeto novo começa com `add-narrative-tracing`; um projeto que já tem o
 NarrativeTrace instalado, onde algo não está funcionando, começa com `narrativetrace-doctor`.
@@ -66,15 +75,18 @@ futura vai cuidar da geração (escrever o teste de prova de ocultação que o d
 para você adicionar hoje).
 `narrativetrace-verify` é onde a próxima sessão começa quando o rastreamento funciona — o último
 passo da habilidade de instalação passa o bastão para ela — e `narrativetrace-debug` é onde começa
-um sintoma relatado. Ambas renderizam uma única seção compartilhada de "como ler um trace", então
-nunca ensinam duas maneiras de ler o mesmo arquivo.
+um sintoma relatado; `narrativetrace-explain` é onde começa uma pergunta sobre o que a aplicação faz.
+As três renderizam uma única seção compartilhada de "como ler um trace", então nunca ensinam duas
+maneiras de ler o mesmo arquivo.
 
 ## Instalando-as
 
 - **`npx @narrativetrace/cli init`** — o caminho mais rápido, para qualquer projeto: primeiro
   mostra uma prévia do plano e um diff unificado (`--dry-run`, não escreve nada), depois aplica
-  exatamente o que a prévia mostrou. Copia as seis habilidades para `.agents/skills/` — e para
-  `.claude/skills/` quando o projeto é daquele fornecedor — e escreve uma seção marcada no
+  exatamente o que a prévia mostrou. Copia as sete habilidades para `.agents/skills/` — e também
+  para `.claude/skills/`, sempre: o Claude Code carrega as habilidades do projeto somente desse
+  diretório, nunca de `.agents/skills`, e o Cursor e o GitHub Copilot também o leem (`--vendor none`
+  o desativa) — e escreve uma seção marcada no
   `AGENTS.md`; um `CLAUDE.md` que já exista recebe uma linha `@AGENTS.md`, nenhum é criado. Rode de
   novo a qualquer momento para atualizar: não há gancho de build, e uma nova execução reescreve
   somente as páginas e a seção que lhe pertencem. Veja
@@ -88,39 +100,35 @@ nunca ensinam duas maneiras de ler o mesmo arquivo.
   [`.claude/skills/narrativetrace-feedback/`](../../.claude/skills/narrativetrace-feedback/SKILL.md) e
   [`.claude/skills/add-narrativetrace-clarity/`](../../.claude/skills/add-narrativetrace-clarity/SKILL.md) e
   [`.claude/skills/narrativetrace-verify/`](../../.claude/skills/narrativetrace-verify/SKILL.md) e
-  [`.claude/skills/narrativetrace-debug/`](../../.claude/skills/narrativetrace-debug/SKILL.md),
+  [`.claude/skills/narrativetrace-debug/`](../../.claude/skills/narrativetrace-debug/SKILL.md) e
+  [`.claude/skills/narrativetrace-explain/`](../../.claude/skills/narrativetrace-explain/SKILL.md),
   cada diretório nomeado com o nome canônico da sua habilidade — o prefixo do plugin do Claude é o
   único lugar onde um segmento abreviado é legítimo, e nada neste repositório é um plugin. Copie
   qualquer um deles para o `.claude/skills/<nome>/` do seu próprio projeto e o Claude a
   reconhece sozinho, invocável pelo nome (`add-narrative-tracing` / `narrativetrace-doctor` /
-  `narrativetrace-feedback` / `add-narrativetrace-clarity` / `narrativetrace-verify` / `narrativetrace-debug`) diretamente. **Codex**: os `SKILL.md` gerados também vivem em
-  [`.agents/skills/add-narrative-tracing/`](../../.agents/skills/add-narrative-tracing/SKILL.md) e
-  [`.agents/skills/narrativetrace-doctor/`](../../.agents/skills/narrativetrace-doctor/SKILL.md) e
-  [`.agents/skills/narrativetrace-feedback/`](../../.agents/skills/narrativetrace-feedback/SKILL.md) e
-  [`.agents/skills/add-narrativetrace-clarity/`](../../.agents/skills/add-narrativetrace-clarity/SKILL.md) e
-  [`.agents/skills/narrativetrace-verify/`](../../.agents/skills/narrativetrace-verify/SKILL.md) e
-  [`.agents/skills/narrativetrace-debug/`](../../.agents/skills/narrativetrace-debug/SKILL.md) —
-  o layout que a CLI do Codex descobre sozinha, subindo do diretório de trabalho até a raiz do
-  repositório (e também `~/.agents/skills` para habilidades globais de usuário). Seu frontmatter é
-  um subconjunto estrito do da Claude (apenas `name` e `description` — sem `when_to_use`, sem
-  `allowed-tools`), então o mesmo corpo de página é distribuído sob os dois layouts. Fonte:
-  developers.openai.com/codex/skills e developers.openai.com/codex/concepts/customization
-  (obtido em 2026-09-13).
+  `narrativetrace-feedback` / `add-narrativetrace-clarity` / `narrativetrace-verify` / `narrativetrace-debug` / `narrativetrace-explain`) diretamente.
+  Todas as outras plataformas — Codex, Antigravity, Cursor, Replit, GitHub Copilot — leem em vez disso as
+  páginas `.agents/skills/` do padrão aberto; como cada uma obtém essas páginas, e o arquivo apontador que o
+  `init` escreve para ela, está em [Use o NarrativeTrace com seu agente](use-narrativetrace-com-seu-agente.md).
 - **Qualquer agente, qualquer plataforma**: todo agente que lê `AGENTS.md` vê o apontador sempre
   ativo que o próprio `AGENTS.md` deste repositório carrega entre seus marcadores
-  `<!-- narrativetrace:skills:start -->` — o nome e a descrição das seis habilidades, para que um
+  `<!-- narrativetrace:skills:start -->` — o nome e a descrição das sete habilidades, para que um
   agente que nunca pensou em procurá-las ainda assim saiba que elas existem.
-- **Gemini** está no roteiro mas ainda não foi construído.
 
 Uma prévia `--dry-run --json` contra um projeto vazio se parece com isto:
 
 ```json
 {
-  "carrier": "@narrativetrace/skills@0.3.0",
+  "carrier": "@narrativetrace/skills@0.4.0",
   "actions": [
     {
       "kind": "create",
       "path": ".agents/skills/narrativetrace-doctor/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-doctor/SKILL.md",
       "status": "planned"
     },
     {
@@ -130,7 +138,17 @@ Uma prévia `--dry-run --json` contra um projeto vazio se parece com isto:
     },
     {
       "kind": "create",
+      "path": ".claude/skills/add-narrative-tracing/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
       "path": ".agents/skills/narrativetrace-feedback/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-feedback/SKILL.md",
       "status": "planned"
     },
     {
@@ -140,12 +158,37 @@ Uma prévia `--dry-run --json` contra um projeto vazio se parece com isto:
     },
     {
       "kind": "create",
+      "path": ".claude/skills/add-narrativetrace-clarity/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
       "path": ".agents/skills/narrativetrace-verify/SKILL.md",
       "status": "planned"
     },
     {
       "kind": "create",
+      "path": ".claude/skills/narrativetrace-verify/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
       "path": ".agents/skills/narrativetrace-debug/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-debug/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".agents/skills/narrativetrace-explain/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-explain/SKILL.md",
       "status": "planned"
     },
     {
@@ -233,10 +276,11 @@ Nenhuma habilidade é editada à mão.
 `packages/skills-catalogue/src/catalogue/narrativetrace-doctor.ts`,
 `packages/skills-catalogue/src/catalogue/narrativetrace-feedback.ts`,
 `packages/skills-catalogue/src/catalogue/add-narrativetrace-clarity.ts`,
-`packages/skills-catalogue/src/catalogue/narrativetrace-verify.ts` e
-`packages/skills-catalogue/src/catalogue/narrativetrace-debug.ts` são as seis fontes de verdade
-(a seção de leitura, o portão de aprovação e a fixação que as três últimas compartilham são
-escritos uma só vez, ao lado delas);
+`packages/skills-catalogue/src/catalogue/narrativetrace-verify.ts`,
+`packages/skills-catalogue/src/catalogue/narrativetrace-debug.ts` e
+`packages/skills-catalogue/src/catalogue/narrativetrace-explain.ts` são as sete fontes de verdade
+(a seção de leitura que as três últimas compartilham, e o portão de aprovação e a fixação que verify e
+debug compartilham, são escritos uma só vez, ao lado delas);
 `pnpm run skills-render` regenera as páginas `.claude/skills/` e `.agents/skills/` de cada
 habilidade, e a
 seção do próprio `AGENTS.md` deste repositório, a partir delas, e `pnpm run skills-check`
@@ -254,6 +298,10 @@ o harness deixar de perguntar justamente onde perguntar é o ponto. Um terceiro 
 linha para as duas habilidades que promovem uma linha de base de aprovação
 (`narrativetrace-verify`, `narrativetrace-debug`): uma habilidade que roda o comando de aprovação
 não declara nenhuma ferramenta permitida.
+
+## Context7
+
+O Context7 indexa os arquivos Markdown e de texto deste repositório — os arquivos da raiz e `documentation/`, sem as traduções — e serve seus blocos de código a agentes de programação; a configuração fica em [`context7.json`](../../context7.json), na raiz do repositório. `pnpm run context7-check` a valida contra a cópia versionada de `https://context7.com/schema/context7.json`, que é atualizada à mão: baixe essa URL de novo para `tools/context7-schema.json` e atualize a data em `tools/context7-schema.fetched` (semântica dos campos: `https://context7.com/docs/library-owners`, lida em 2026-10-12).
 
 ## Veja também
 

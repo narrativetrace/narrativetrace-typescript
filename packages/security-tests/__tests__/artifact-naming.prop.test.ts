@@ -26,6 +26,9 @@ import { treeOf, writtenArtifactsNamed } from "../src/oracle/emitters.js";
 
 const MAX_COMPONENT_BYTES = 255;
 
+/** The BMP block U+FDD0..U+FDEF, U+FFFE/U+FFFF, and the supplementary pair U+1FFFE/U+1FFFF. */
+const NONCHARACTERS = "a\uFDD0\uFDEF\uFFFE\uFFFF\u{1FFFE}\u{1FFFF}\u{10FFFF}b";
+
 function sandboxFor(root: string, id: string): string {
   const dir = join(root, `case-${id}`);
   mkdirSync(dir, { recursive: true });
@@ -88,6 +91,33 @@ describe("artifact naming", () => {
       }
     } finally {
       rmSync(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  // APFS refuses U+FFFE/U+FFFF, U+FDD0..U+FDEF and every other Unicode noncharacter in a file name
+  // (`Illegal byte sequence`) where ext4 writes them, so the corpus's `noncharacter` row can be
+  // green on Linux and red the first time it runs on a Mac (Java, 2026-10-10). This runtime never
+  // had the defect — `sanitizeFileName` folds every segment to ASCII — and this pins WHY it
+  // holds: the property is "ASCII only", which excludes the whole class, not just the two scalars.
+  test("every path element a hostile name produces is ASCII, so no noncharacter can reach a filesystem", () => {
+    const dir = mkdtempSync(join(tmpdir(), "narrativetrace-naming-ascii-"));
+    try {
+      const tree = treeOf('"probe"', '"result"');
+      const hostile = [...hostileNames().map((name) => name.value), NONCHARACTERS];
+      for (const [index, value] of hostile.entries()) {
+        const output = join(dir, `case-${index}`);
+        writtenArtifactsNamed(tree, output, value, value);
+        for (const file of filesUnder(output)) {
+          for (const component of relative(output, file).split(sep)) {
+            expect(
+              component,
+              `case ${index}: '${component}' carries a non-ASCII character`,
+            ).toMatch(/^[\x20-\x7e]+$/u);
+          }
+        }
+      }
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 

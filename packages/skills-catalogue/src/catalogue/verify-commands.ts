@@ -2,8 +2,9 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 /**
- * The commands of `narrativetrace-verify` and `narrativetrace-debug`, in the closed TypeScript
- * vocabulary — each one what an ADOPTER runs in their own project. Port of Java `VerifyCommands`.
+ * The commands of `narrativetrace-verify`, `narrativetrace-debug` and `narrativetrace-explain`, in
+ * the closed TypeScript vocabulary — each one what an ADOPTER runs in their own project. Port of
+ * Java `VerifyCommands` and `ExplainCommands`.
  *
  * Tier A2 replays every one against `examples/sixty-seconds`, the placeholder filled with that
  * fixture's flow test. The listing commands print paths (and, for a review copy, its text) and
@@ -52,3 +53,9 @@ export const THE_REPRODUCTION = "<the test that reproduces the symptom>";
 
 /** Runs the reproducing test — red until the fix, its `.md` and diagram written either way. */
 export const REPRODUCE = `npx vitest run ${THE_REPRODUCTION}`;
+
+/** The placeholder an agent replaces with the one test that exercises the flow it was asked about. */
+export const THE_SCENARIO = "<the test that exercises the flow you were asked about>";
+
+/** Runs the one scenario, as found — the explain skill's run; the vitest fixture traces it. */
+export const RUN_THE_SCENARIO = `npx vitest run ${THE_SCENARIO}`;

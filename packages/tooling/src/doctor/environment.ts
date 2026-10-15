@@ -6,7 +6,12 @@ import { join, relative } from "node:path";
 import { FEEDBACK_SUBDIRECTORY } from "../feedback/feedback-paths.js";
 import { resolveCarrier } from "../init/carrier.js";
 import type { InstalledSkill } from "../init/installed-skill.js";
-import { DEFAULT_MAX_SKILL_DIRECTORIES, installedSkillsIn } from "../init/project-state-reader.js";
+import { type PointerReading, readPointers } from "../init/pointer-reading.js";
+import {
+  DEFAULT_MAX_SKILL_DIRECTORIES,
+  installedSkillsIn,
+  readProjectState,
+} from "../init/project-state-reader.js";
 import { readJsonFile, resolvePackageJson } from "../package-resolution.js";
 import { LOCKFILES, packageManagerOf } from "./package-manager.js";
 import type { DoctorSnapshot, Env, PackageJsonLike } from "./types.js";
@@ -230,15 +235,33 @@ function catalogueSkillsIn(cwd: string, bundledSkillsDirectory: string | undefin
   }
 }
 
+/**
+ * The installer's reading of each detected platform's pointer, or none when the project cannot be
+ * read: an unreadable file is "cannot tell" here, never a crash — the doctor reports on a project.
+ */
+function pointerReadingsIn(cwd: string, env: Env): PointerReading[] {
+  try {
+    return readPointers(readProjectState(cwd, env));
+  } catch {
+    return [];
+  }
+}
+
 interface AgentSkillsHalf {
   readonly installedSkills: InstalledSkill[];
+  readonly pointerReadings: PointerReading[];
   readonly catalogueSkills: string[];
 }
 
 /** The agent-skills half of a snapshot: what is installed, and what the carrier's catalogue lists. */
-function agentSkillsIn(cwd: string, bundledSkillsDirectory: string | undefined): AgentSkillsHalf {
+function agentSkillsIn(
+  cwd: string,
+  env: Env,
+  bundledSkillsDirectory: string | undefined,
+): AgentSkillsHalf {
   return {
     installedSkills: installedSkillsIn(cwd, DEFAULT_MAX_SKILL_DIRECTORIES),
+    pointerReadings: pointerReadingsIn(cwd, env),
     catalogueSkills: catalogueSkillsIn(cwd, bundledSkillsDirectory),
   };
 }
@@ -297,6 +320,6 @@ export function buildSnapshot(
     outputFiles,
     approvedDirFiles,
     installedPackages: resolveInstalledPackages(cwd),
-    ...agentSkillsIn(cwd, bundledSkillsDirectory),
+    ...agentSkillsIn(cwd, env, bundledSkillsDirectory),
   };
 }

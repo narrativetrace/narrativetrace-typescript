@@ -10,6 +10,7 @@ import {
   checkQuota,
   isoWeek,
   parseQuotaMarkdown,
+  skipReason,
   spendCountThisWeek,
 } from "../quota.js";
 
@@ -22,7 +23,7 @@ Some prose.
 | platform | plan tier | weekly allowance |
 |---|---|---|
 | codex | basic | 4 |
-| gemini | not installed | 0 |
+| antigravity | subscription | 0 |
 
 ## Spend log
 
@@ -55,7 +56,7 @@ describe("parseQuotaMarkdown", () => {
     const ledger = parseQuotaMarkdown(SAMPLE);
     expect(ledger.allowances).toEqual([
       { platform: "codex", planTier: "basic", weeklyAllowance: 4 },
-      { platform: "gemini", planTier: "not installed", weeklyAllowance: 0 },
+      { platform: "antigravity", planTier: "subscription", weeklyAllowance: 0 },
     ]);
   });
 
@@ -109,7 +110,7 @@ describe("spendCountThisWeek", () => {
     const ledger = parseQuotaMarkdown(SAMPLE);
     expect(spendCountThisWeek(ledger, "codex", "2026-W37")).toBe(2);
     expect(spendCountThisWeek(ledger, "codex", "2026-W38")).toBe(0);
-    expect(spendCountThisWeek(ledger, "gemini", "2026-W37")).toBe(0);
+    expect(spendCountThisWeek(ledger, "antigravity", "2026-W37")).toBe(0);
   });
 });
 
@@ -133,9 +134,9 @@ describe("checkQuota", () => {
     expect(decision.reason).toMatch(/ledger\/quota\.md/);
   });
 
-  it("refuses a platform whose allowance is 0 (e.g. gemini before install)", () => {
+  it("refuses a platform whose allowance is 0 (e.g. antigravity before install)", () => {
     const ledger = parseQuotaMarkdown(SAMPLE);
-    const decision = checkQuota(ledger, "gemini", now);
+    const decision = checkQuota(ledger, "antigravity", now);
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toMatch(/no override/);
   });
@@ -145,6 +146,53 @@ describe("checkQuota", () => {
     const decision = checkQuota(ledger, "claude", now);
     expect(decision.allowed).toBe(false);
     expect(decision.reason).toMatch(/no allowance row/);
+  });
+});
+
+describe("skipReason", () => {
+  const ledger = parseQuotaMarkdown(
+    SAMPLE.replace("| antigravity |", "| cursor | not installed | 0 |\n| antigravity |"),
+  );
+
+  it("names the tool and the ledger when a sporadic lane's allowance is 0 — not installed yet", () => {
+    expect(skipReason("cursor", ledger)).toBe(
+      "SKIP: the cursor lane did not run — its `agent` CLI is not installed or signed in " +
+        "(weekly allowance 0 in ledger/quota.md); the owner raises the allowance once it is",
+    );
+    expect(skipReason("antigravity", ledger)).toContain("its `agy` CLI");
+  });
+
+  it("is one line", () => {
+    expect(skipReason("cursor", ledger)).not.toContain("\n");
+  });
+
+  it("is nothing for a lane with allowance left", () => {
+    expect(skipReason("codex", ledger)).toBeUndefined();
+  });
+
+  it("is nothing for a platform with no row at all — that stays a refusal", () => {
+    expect(skipReason("cursor", parseQuotaMarkdown(SAMPLE))).toBeUndefined();
+  });
+
+  it("is nothing for a spent allowance — that stays a refusal too", () => {
+    const spent = parseQuotaMarkdown(
+      SAMPLE.replace("| codex | basic | 4 |", "| codex | basic | 2 |"),
+    );
+    expect(skipReason("codex", spent)).toBeUndefined();
+  });
+
+  it("is nothing for claude, which is exempt from the sporadic policy — even with a 0 row", () => {
+    const withClaudeRow = parseQuotaMarkdown(
+      SAMPLE.replace("| antigravity |", "| claude | max | 0 |\n| antigravity |"),
+    );
+    expect(skipReason("claude", withClaudeRow)).toBeUndefined();
+  });
+
+  it("is nothing for a name that is no platform at all, whatever its row says", () => {
+    const odd = parseQuotaMarkdown(
+      SAMPLE.replace("| antigravity |", "| mistral | x | 0 |\n| antigravity |"),
+    );
+    expect(skipReason("mistral", odd)).toBeUndefined();
   });
 });
 

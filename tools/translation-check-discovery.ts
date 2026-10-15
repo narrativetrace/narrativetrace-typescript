@@ -40,9 +40,13 @@ export function parseHeader(firstLine: string): TranslationHeader | undefined {
   };
 }
 
-/** A file under `documentation/<lang>/` (any subdirectory of `documentation/` except `i18n`) — a translation header is mandatory there. */
+/**
+ * A file under `documentation/<lang>/` (any subdirectory of `documentation/` except `i18n`, the
+ * translation platform's own manifest, and `recipes`, the English recipe pages) — a translation
+ * header is mandatory there.
+ */
 export function isLanguageDirFile(path: string): boolean {
-  return /^documentation\/(?!i18n\/)[^/]+\//.test(path);
+  return /^documentation\/(?!(?:i18n|recipes)\/)[^/]+\//.test(path);
 }
 
 const SKIPPED_DIRS = new Set(["node_modules", "dist", "coverage"]);

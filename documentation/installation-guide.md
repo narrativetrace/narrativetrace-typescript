@@ -125,7 +125,7 @@ Features:
 Per-request tracing in web applications using `AsyncNarrativeContext`:
 
 ```ts
-import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
 import express from "express";
 
@@ -262,7 +262,7 @@ pnpm test
 
 If using `createNarrativeTest`, trace files appear in the configured output directory:
 
-```
+```text
 narrativetrace-output/
 ├── customer_places_order.md
 ├── customer_places_order.json

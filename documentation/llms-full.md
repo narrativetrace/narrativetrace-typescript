@@ -124,7 +124,7 @@ integration). Every package depends only on `core` (and occasionally a sibling);
 
 ### Dependency graph
 
-```
+```text
 @narrativetrace/core (zero deps)
 ├── @narrativetrace/core-node   → core
 ├── @narrativetrace/core-web    → core
@@ -170,7 +170,7 @@ bg.launch((ctx) => traceObject(notificationService, ctx).sendReceipt('C1'));
 The Markdown renderer surfaces the concurrency structure and where time actually went, including
 join wait-analysis:
 
-```
+```markdown
 - ⑂ fork [2 tasks]
   - ↦ `InventoryService.check("P1")` → `true` — 40ms
   - ↦ `PricingService.quote("P1")` → `"12.50"` — 110ms
@@ -325,8 +325,10 @@ changing the class.
 
 Wraps `AsyncLocalStorage` for per-request trace isolation in server environments.
 
+Import it from `@narrativetrace/core-node`, not `core`. Call `captureTrace()` inside `run()` — outside it you read the process-wide default scope, which holds none of the request's spans — and `reset()` in a `finally`.
+
 ```ts
-import { AsyncNarrativeContext, NarrativeTraceConfig } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig } from "@narrativetrace/core-node";
 
 const asyncContext = new AsyncNarrativeContext(new NarrativeTraceConfig());
 
@@ -811,17 +813,17 @@ Rendered from the doctor's own framework table, which ships inside `@narrativetr
 
 | Framework | Detected by | Install (npm) | Wiring | Doctor check |
 |---|---|---|---|---|
-| Vitest | a vitest dependency | `npm install --save-dev @narrativetrace/vitest@0.3.0 @narrativetrace/proxy@0.3.0` | a test built with `createNarrativeTest()`, or a NarrativeTrace reporter in `vitest.config` | `config.vitest-fixture` |
-| Express | an express dependency | `npm install @narrativetrace/express@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-node@0.3.0 @narrativetrace/observability@0.3.0` | `app.use(narrativeTrace(…))` before the routes, printing each request's trace | `config.express-middleware` |
-| Hono | a hono dependency | `npm install @narrativetrace/hono@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-node@0.3.0 @narrativetrace/observability@0.3.0` | `app.use("*", narrativeTrace(…))` before the routes, printing each request's trace | `config.hono-middleware` |
-| NestJS | an @nestjs/core dependency | `npm install @narrativetrace/nestjs@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-node@0.3.0 @narrativetrace/observability@0.3.0` | `AutoProxyModule.forRoot({ onRequestComplete })` in the root module's imports | `config.nestjs-module` |
-| Angular | an @angular/core dependency | `npm install @narrativetrace/angular@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/proxy@0.3.0` | `provideNarrativeTrace()` in the application config's providers | `config.angular-provider` |
-| React | a react dependency | `npm install @narrativetrace/react@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/core-web@0.3.0 @narrativetrace/proxy@0.3.0` | `<NarrativeTraceProvider>` around the app | `config.react-provider` |
-| React Router | a react-router or react-router-dom dependency | `npm install @narrativetrace/react-router@0.3.0 @narrativetrace/react@0.3.0 @narrativetrace/core@0.3.0` | a component calling `useNavigationCapture(…)`, rendered inside the router and the provider | `config.react-router-capture` |
-| Pino | a pino dependency | `npm install @narrativetrace/pino@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/observability@0.3.0` | a pipeline built from this project's pino logger, passed to its narrative context | `config.pino-consumer` |
-| Winston | a winston dependency | `npm install @narrativetrace/winston@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/observability@0.3.0` | a pipeline built from this project's winston logger, passed to its narrative context | `config.winston-consumer` |
-| OpenTelemetry | an @opentelemetry/api dependency | `npm install @narrativetrace/opentelemetry@0.3.0 @narrativetrace/core@0.3.0` | a pipeline built from this project's tracer, passed to its narrative context | `config.opentelemetry-consumer` |
-| Default logger (Pino) | no logger: none of pino, winston or @opentelemetry/api is declared | `npm install @narrativetrace/pino@0.3.0 @narrativetrace/core@0.3.0 @narrativetrace/observability@0.3.0 pino` | a pipeline built from this project's pino logger, passed to its narrative context | `trap.silent-sink` (existing) |
+| Vitest | a vitest dependency | `npm install --save-dev @narrativetrace/vitest@0.4.0 @narrativetrace/proxy@0.4.0` | a test built with `createNarrativeTest()`, or a NarrativeTrace reporter in `vitest.config` | `config.vitest-fixture` |
+| Express | an express dependency | `npm install @narrativetrace/express@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/core-node@0.4.0 @narrativetrace/observability@0.4.0` | `app.use(narrativeTrace(…))` before the routes, printing each request's trace | `config.express-middleware` |
+| Hono | a hono dependency | `npm install @narrativetrace/hono@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/core-node@0.4.0 @narrativetrace/observability@0.4.0` | `app.use("*", narrativeTrace(…))` before the routes, printing each request's trace | `config.hono-middleware` |
+| NestJS | an @nestjs/core dependency | `npm install @narrativetrace/nestjs@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/core-node@0.4.0 @narrativetrace/observability@0.4.0` | `AutoProxyModule.forRoot({ onRequestComplete })` in the root module's imports | `config.nestjs-module` |
+| Angular | an @angular/core dependency | `npm install @narrativetrace/angular@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/proxy@0.4.0` | `provideNarrativeTrace()` in the application config's providers | `config.angular-provider` |
+| React | a react dependency | `npm install @narrativetrace/react@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/core-web@0.4.0 @narrativetrace/proxy@0.4.0` | `<NarrativeTraceProvider>` around the app | `config.react-provider` |
+| React Router | a react-router or react-router-dom dependency | `npm install @narrativetrace/react-router@0.4.0 @narrativetrace/react@0.4.0 @narrativetrace/core@0.4.0` | a component calling `useNavigationCapture(…)`, rendered inside the router and the provider | `config.react-router-capture` |
+| Pino | a pino dependency | `npm install @narrativetrace/pino@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/observability@0.4.0` | a pipeline built from this project's pino logger, passed to its narrative context | `config.pino-consumer` |
+| Winston | a winston dependency | `npm install @narrativetrace/winston@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/observability@0.4.0` | a pipeline built from this project's winston logger, passed to its narrative context | `config.winston-consumer` |
+| OpenTelemetry | an @opentelemetry/api dependency | `npm install @narrativetrace/opentelemetry@0.4.0 @narrativetrace/core@0.4.0` | a pipeline built from this project's tracer, passed to its narrative context | `config.opentelemetry-consumer` |
+| Default logger (Pino) | no logger: none of pino, winston or @opentelemetry/api is declared | `npm install @narrativetrace/pino@0.4.0 @narrativetrace/core@0.4.0 @narrativetrace/observability@0.4.0 pino` | a pipeline built from this project's pino logger, passed to its narrative context | `trap.silent-sink` (existing) |
 | Fastify | a fastify dependency | — | no NarrativeTrace integration is shipped for it | `config.fastify-integration` (reports it) |
 | Koa | a koa dependency | — | no NarrativeTrace integration is shipped for it | `config.koa-integration` (reports it) |
 
@@ -1269,7 +1271,6 @@ app.use((req, res, next) => {
 import {
   NarrativeTraceConfig,
   SyncNarrativeContext,
-  AsyncNarrativeContext,
   NOOP_CONTEXT,
   type NarrativeContext,
   type TracingLevel,
@@ -1290,6 +1291,9 @@ import {
   frameScenario,
   hasAnyError,
 } from "@narrativetrace/core";
+
+// Per-request context on Node (re-exports everything above too)
+import { AsyncNarrativeContext } from "@narrativetrace/core-node";
 
 // Proxy
 import { traceObject, traced, narrated, onError, notTraced } from "@narrativetrace/proxy";
@@ -1324,7 +1328,7 @@ context.reset();
 ```
 
 Output:
-```
+```text
 OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)
   CustomerService.findCustomer(customerId: "C1") -> {"id": "C1", "name": "Alice", "tier": "gold"}
   ProductCatalogService.lookupPrice(productId: "P1") -> 29.99

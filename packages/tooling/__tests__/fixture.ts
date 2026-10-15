@@ -17,6 +17,7 @@ export function snapshot(overrides: Partial<DoctorSnapshot> = {}): DoctorSnapsho
     approvedDirFiles: new Map(),
     installedPackages: new Map(),
     installedSkills: [],
+    pointerReadings: [],
     catalogueSkills: [],
     ...overrides,
   };

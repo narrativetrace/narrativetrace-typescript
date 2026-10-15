@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, it } from "vitest";
-import { scriptedReplies } from "../case-turns.js";
+import { freshTurnsFrom, scriptedReplies } from "../case-turns.js";
 
 /**
  * The scripted user replies a case declares in its own `case.json`, keyed BY TURN NUMBER. Every
@@ -56,5 +56,46 @@ describe("scriptedReplies", () => {
   ])("refuses %s, naming the manifest", (_label, turns, reason) => {
     expect(() => scriptedReplies(MANIFEST, turns)).toThrow(reason);
     expect(() => scriptedReplies(MANIFEST, turns)).toThrow(MANIFEST);
+  });
+});
+
+/**
+ * A fresh turn is a scripted turn that opens a NEW session instead of resuming the one before it —
+ * the only way to measure what a LATER session finds, which is what "does the agent see the skills
+ * the install left?" asks (item 166: the install went green and the next session listed no skill).
+ */
+describe("freshTurnsFrom", () => {
+  it("is empty for a case that declares none — every turn resumes", () => {
+    expect(freshTurnsFrom(MANIFEST, undefined, 1)).toEqual([]);
+  });
+
+  it("reads the scripted turn that opens a fresh session", () => {
+    expect(freshTurnsFrom(MANIFEST, [3], 2)).toEqual([3]);
+  });
+
+  it("orders turns numerically and drops a repeat", () => {
+    expect(freshTurnsFrom(MANIFEST, [11, 3, 3], 10)).toEqual([3, 11]);
+  });
+
+  it.each([
+    ["an object", { "2": true }, /array of turn numbers/],
+    ["a string", "2", /array of turn numbers/],
+    ["a turn given as text", ["two"], /not a turn number/],
+    ["a fractional turn", [2.5], /not a turn number/],
+    ["a negative turn", [-2], /not a turn number/],
+  ])("refuses %s", (_name, declared, message) => {
+    expect(() => freshTurnsFrom(MANIFEST, declared, 2)).toThrow(message);
+  });
+
+  it("refuses turn 1, which is a fresh session by definition and so hides a typo", () => {
+    expect(() => freshTurnsFrom(MANIFEST, [1], 2)).toThrow(/turn 1/);
+  });
+
+  it("refuses a fresh turn with no scripted reply — a turn with nothing to say", () => {
+    expect(() => freshTurnsFrom(MANIFEST, [3], 1)).toThrow(/scripts no reply for it/);
+  });
+
+  it("refuses an empty list, as it refuses an empty turns object", () => {
+    expect(() => freshTurnsFrom(MANIFEST, [], 2)).toThrow(/lists no turn/);
   });
 });

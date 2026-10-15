@@ -23,7 +23,15 @@ export const ISSUE_URL = "https://github.com/narrativetrace/narrativetrace-types
 
 /** One turn: the words the user was given, and everything the agent did with them. */
 export function newTurn(number, userText) {
-  return { number, userText, texts: [], commands: [], results: new Map(), denials: [] };
+  return {
+    number,
+    userText,
+    texts: [],
+    commands: [],
+    results: new Map(),
+    denials: [],
+    availableSkills: [],
+  };
 }
 
 /** Everything the agent SAID in a turn, as one block of text. */
@@ -74,6 +82,11 @@ function absorbBlock(turn, block) {
 function absorb(turn, event) {
   if (event.subtype === "permission_denied") {
     turn.denials.push(String(event.tool_name ?? ""));
+    return;
+  }
+  if (event.type === "system" && event.subtype === "init") {
+    // What the agent of THIS turn can see: the init event lists the skills loaded for the session.
+    turn.availableSkills = Array.isArray(event.skills) ? event.skills.map(String) : [];
     return;
   }
   if (event.type === "result" && typeof event.result === "string") {

@@ -160,6 +160,9 @@ describe("the managed section", () => {
   });
 });
 
+/** The explicit opt-out: the open-standard pages alone. */
+const OPEN_STANDARD_ONLY = initOptions({ vendorClaude: "off" });
+
 describe("the vendor context file", () => {
   test("creates no vendor context file when the project has none", () => {
     expect(actionFor(planInstall(projectState(), CARRIER, PERMISSIVE), CLAUDE_MD)).toBeUndefined();
@@ -222,7 +225,10 @@ describe("the skill directories", () => {
     }
   });
 
-  test("installs the vendor flavour where the vendor is detected", () => {
+  // Claude Code loads project skills from .claude/skills ONLY (never .agents/skills), so a fresh
+  // project without the vendor flavour has skills its own agent cannot see while the doctor reports
+  // them installed (found on a fresh project, 2026-10-10). Other editors' agents read that directory too.
+  test("installs the vendor flavour on every project because Claude Code reads nothing else", () => {
     const detected = planInstall(projectState({ claudeDirectory: true }), CARRIER);
     const byContextFile = planInstall(projectState({ claudeMd: "@AGENTS.md\n" }), CARRIER);
 
@@ -230,10 +236,10 @@ describe("the skill directories", () => {
     expect(actionFor(byContextFile, ".claude/skills/a/SKILL.md")).toBeDefined();
     expect(
       actionFor(planInstall(projectState(), CARRIER), ".claude/skills/a/SKILL.md"),
-    ).toBeUndefined();
+    ).toBeDefined();
   });
 
-  test("obeys an explicit vendor choice over detection", () => {
+  test("obeys an explicit vendor choice", () => {
     const on = planInstall(projectState(), CARRIER, initOptions({ vendorClaude: "on" }));
     const off = planInstall(
       projectState({ claudeDirectory: true }),
@@ -251,7 +257,7 @@ describe("the skill directories", () => {
       installedSkills: [installedSkill("agents", "a", "ours", FAKE_COORDINATE, ourPage())],
     });
 
-    expect(planInstall(state, CARRIER).actions).toEqual([]);
+    expect(planInstall(state, CARRIER, OPEN_STANDARD_ONLY).actions).toEqual([]);
   });
 
   test("upgrades a skill installed from an older carrier without any flag", () => {
@@ -391,7 +397,9 @@ describe("a page a registry installed (D5, rule 17)", () => {
       installedSkills: [installedSkill("agents", "a", "ours", FAKE_COORDINATE, ourPage())],
     });
 
-    expect(planInstall(state, CARRIER, initOptions({ scope: "skills" })).actions).toEqual([]);
+    const options = initOptions({ scope: "skills", vendorClaude: "off" });
+
+    expect(planInstall(state, CARRIER, options).actions).toEqual([]);
   });
 });
 
@@ -487,10 +495,12 @@ describe("a skill path a registry linked (rules 18, 19, 20)", () => {
     );
   });
 
-  test("plans nothing at all for a linked root the project was never getting", () => {
+  test("plans nothing at all for a linked root the project opted out of", () => {
     const state = projectState({ linkedInstallRoots: new Map([["claude", "../elsewhere"]]) });
 
-    expect(actionFor(planInstall(state, CARRIER), ".claude/skills")).toBeUndefined();
+    expect(
+      actionFor(planInstall(state, CARRIER, OPEN_STANDARD_ONLY), ".claude/skills"),
+    ).toBeUndefined();
   });
 
   test("never plans two actions on one path over a registry tree", () => {
@@ -507,7 +517,10 @@ describe("scope, rule files and the plan's own shape", () => {
     const skillsOnly = planInstall(projectState(), CARRIER, initOptions({ scope: "skills" }));
     const sectionOnly = planInstall(projectState(), CARRIER, initOptions({ scope: "agents-md" }));
 
-    expect(skillsOnly.actions.map((action) => action.path)).toEqual([".agents/skills/a/SKILL.md"]);
+    expect(skillsOnly.actions.map((action) => action.path)).toEqual([
+      ".agents/skills/a/SKILL.md",
+      ".claude/skills/a/SKILL.md",
+    ]);
     expect(sectionOnly.actions.map((action) => action.path)).toEqual([AGENTS_MD]);
   });
 

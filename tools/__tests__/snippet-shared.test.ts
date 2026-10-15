@@ -10,6 +10,7 @@ import {
   englishDocPages,
   extractRegion,
   parseSnippetBlocks,
+  recipePages,
   resolveSnippetSource,
   stripLicenseHeader,
 } from "../snippet-shared.js";
@@ -335,5 +336,22 @@ describe("englishDocPages", () => {
 
   it("returns an empty list when the directory does not exist", () => {
     expect(englishDocPages(join(dir, "nope"))).toEqual([]);
+  });
+});
+
+describe("recipePages", () => {
+  const dir = mkdtempSync(join(tmpdir(), "snippet-recipes-"));
+  afterEach(() => rmSync(dir, { recursive: true, force: true }));
+
+  it("lists the recipe directory's pages, sorted, and nothing nested below it", () => {
+    mkdirSync(join(dir, "nested"), { recursive: true });
+    writeFileSync(join(dir, "b.md"), "", "utf-8");
+    writeFileSync(join(dir, "a.md"), "", "utf-8");
+    writeFileSync(join(dir, "nested", "c.md"), "", "utf-8");
+    expect(recipePages(dir)).toEqual([join(dir, "a.md"), join(dir, "b.md")]);
+  });
+
+  it("returns an empty list when the project has no recipes", () => {
+    expect(recipePages(join(dir, "nope"))).toEqual([]);
   });
 });

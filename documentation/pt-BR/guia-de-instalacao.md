@@ -1,4 +1,4 @@
-<!-- source: documentation/installation-guide.md blob 06b45493a3de | translated: 2026-09-12 | reviewed: - -->
+<!-- source: documentation/installation-guide.md blob 9e5ce6bb69af | translated: 2026-09-12 | reviewed: - -->
 
 # Guia de instalação do NarrativeTrace TypeScript
 
@@ -130,7 +130,7 @@ Funcionalidades:
 Tracing por requisição em aplicações web usando `AsyncNarrativeContext`:
 
 ```ts
-import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
 import express from "express";
 
@@ -268,7 +268,7 @@ pnpm test
 
 Se estiver usando `createNarrativeTest`, os arquivos de trace aparecem no diretório de saída configurado:
 
-```
+```text
 narrativetrace-output/
 ├── customer_places_order.md
 ├── customer_places_order.json

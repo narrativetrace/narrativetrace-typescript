@@ -4,12 +4,12 @@
 /**
  * Tier B platform presets (skill-harness-design.md §5.1; the sporadic-lanes note,
  * skill-evals-multi-platform-2026-09-13.md, owner-ruled 2026-09-13): fills `run.ts`'s
- * `--agent-command` seam for each of the three supported CLIs so a trial can be started with just
+ * `--agent-command` seam for each of the four supported CLIs so a trial can be started with just
  * `--platform` — never invented for a platform the seam doesn't name, and always overridable by
  * passing `--agent-command` explicitly (the preset is a default, not a lock-in).
  */
 
-export const PLATFORMS = ["claude", "codex", "gemini"] as const;
+export const PLATFORMS = ["claude", "codex", "antigravity", "cursor"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
 
@@ -18,14 +18,23 @@ export function isPlatform(value: string): value is Platform {
 }
 
 /**
- * Codex and Gemini sit on cheaper plans and run under the sporadic policy (never scheduled,
- * promotion points only, quota-guarded, Tier A/A2-green precondition). Claude runs on the
- * harness's own regular cadence and is exempt from all three.
+ * Codex, Antigravity and Cursor sit on cheaper plans and run under the sporadic policy (never
+ * scheduled, promotion points only, quota-guarded, Tier A/A2-green precondition). Claude runs on
+ * the harness's own regular cadence and is exempt from all three.
  */
-export const SPORADIC_PLATFORMS: readonly Platform[] = ["codex", "gemini"];
+export const SPORADIC_PLATFORMS: readonly Platform[] = ["codex", "antigravity", "cursor"];
 
 export function isSporadicPlatform(platform: Platform): boolean {
   return (SPORADIC_PLATFORMS as readonly string[]).includes(platform);
+}
+
+/**
+ * The executable a trial on this platform starts — what a skip line names when the lane cannot run.
+ * Cursor's headless CLI is `agent`, not `cursor`; Antigravity's is `agy`.
+ */
+export function cliToolOf(platform: Platform): string {
+  if (platform === "cursor") return "agent";
+  return platform === "antigravity" ? "agy" : platform;
 }
 
 /**
@@ -52,11 +61,25 @@ function codexCommand(model: string, skill: string): string {
   return `codex exec --sandbox ${sandbox} --skip-git-repo-check --model ${model} "{prompt}"`;
 }
 
-/** Gemini `--approval-mode`: `plan` (its read-only mode) for a read-only skill, `auto_edit` otherwise. */
-function geminiCommand(model: string, skill: string): string {
-  const approvalMode = isReadOnlySkill(skill) ? "plan" : "auto_edit";
-  return `gemini -p "{prompt}" --model ${model} --approval-mode ${approvalMode}`;
-}
+/**
+ * Cursor's headless CLI (`agent -p`, verified against cursor.com/docs/cli/headless 2026-10-10).
+ * `--force` applies edits and runs commands without a confirmation nobody is there to give, for
+ * every skill — the doctor included, which diagnoses by running a command. No `--model`: the
+ * runner's model argument is a ledger label, and one that is not a Cursor model name would fail the
+ * trial before the agent starts.
+ */
+const CURSOR_COMMAND = 'agent -p "{prompt}" --output-format text --force';
+
+/**
+ * Antigravity's headless CLI (`agy -p`, verified against `agy --help` of CLI 1.3.3 and a real
+ * print-mode run, 2026-10-10). `--dangerously-skip-permissions` is the only headless auto-approval
+ * the CLI has — no `--yolo`, no approval mode; `--mode plan` exists but a doctor trial RUNS a
+ * command, so plan mode would measure the sandbox — and it therefore rides every skill, exactly like
+ * Cursor's `--force`. `--model` is passed: the ledger's model is one of `agy models`' slugs
+ * (`gemini-3.8-flash-low` is the cheapest), so the Cursor lane's reason for omitting it does not
+ * apply.
+ */
+const ANTIGRAVITY_FLAGS = "--output-format text --dangerously-skip-permissions";
 
 /**
  * What the Claude CLI is allowed to do in a trial, as a comma-separated `--allowed-tools` list —
@@ -111,7 +134,8 @@ export function presetAgentCommand(platform: Platform, model: string, skill: str
     return `claude -p "{prompt}" --model ${model} --allowed-tools "${CLAUDE_TOOLS}" ${CLAUDE_NO_MCP} ${CLAUDE_TRANSCRIPT_FORMAT}`;
   }
   if (platform === "codex") return codexCommand(model, skill);
-  return geminiCommand(model, skill);
+  if (platform === "cursor") return CURSOR_COMMAND;
+  return `agy -p "{prompt}" --model ${model} ${ANTIGRAVITY_FLAGS}`;
 }
 
 /**
@@ -123,7 +147,9 @@ export function presetAgentCommand(platform: Platform, model: string, skill: str
  * `--resume` were verified by hand in the container the trials run in, and no other CLI's were. A
  * platform that could open a conversation but not resume it would run its "second turn" as a fresh
  * session with no memory of the draft, where "nothing was filed" is true for a reason that has
- * nothing to do with the gate under test.
+ * nothing to do with the gate under test. Antigravity is the near miss: `agy --conversation <id>`
+ * resumes one, but no flag lets the runner choose the id on turn 1 — it would have to be read back out
+ * of the first turn's output, which has not been verified in the container.
  */
 function multiTurn(
   platform: Platform,

@@ -5,6 +5,7 @@
 packages:
   - "packages/*"
   - "examples/*"
+  - "recipes/*"
 
 # Supply-chain hardening (Semgrep `package_managers.pnpm.*`, run once during the
 # security-tooling pass). `minimumReleaseAge` (quarantine every dependency version

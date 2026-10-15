@@ -14,6 +14,7 @@
 # output, written by the redaction test this same prompt adds in step 4 — which "run the program"
 # never asks for.
 set -e
+. "$(dirname "$0")/bounded.sh"
 
 service="$1"
 if [ -z "$service" ]; then
@@ -46,13 +47,13 @@ has_start_script() {
 }
 
 if has_start_script; then
-  timeout 120 npm start --silent >"$log" 2>&1 || {
+  bounded 120 npm start --silent >"$log" 2>&1 || {
     echo "\`npm start\` failed — the prompt says to run the program and read its output" >&2
     cat "$log" >&2
     exit 1
   }
 elif [ -f index.js ]; then
-  timeout 120 node index.js >"$log" 2>&1 || {
+  bounded 120 node index.js >"$log" 2>&1 || {
     echo "\`node index.js\` failed — the prompt says to run the program and read its output" >&2
     cat "$log" >&2
     exit 1

@@ -17,8 +17,8 @@
  *
  * @llmNote The two differ by two frontmatter fields, so the carrier ships both rather than making
  * the installer synthesise one from the other — rendering belongs in the catalogue package, not in
- * the installer. `agents` is written into every project; `claude` only where a project is detected
- * as that vendor's, or where the caller asked for it explicitly (the planner owns that decision).
+ * the installer. `agents` is written into every project, and so is `claude` unless the caller turned it
+ * off (the planner owns that decision).
  */
 export type SkillFlavour = "agents" | "claude";
 

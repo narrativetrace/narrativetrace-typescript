@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { platformRowById } from "../platforms/platform-table.js";
 import type { InstalledSkill } from "./installed-skill.js";
 import type { SkillFlavour } from "./skill-catalogue.js";
 
@@ -23,13 +24,19 @@ import type { SkillFlavour } from "./skill-catalogue.js";
 /** Where rendered traces land when a project says nothing else. */
 export const DEFAULT_OUTPUT_DIRECTORY = "narrativetrace-output";
 
+/** Where a pointer path is blocked, and why — the refusal names `at`, which may be a directory above it. */
+export interface UnwritablePointer {
+  readonly at: string;
+  readonly why: string;
+}
+
 /** What the installer knows about one consumer project. */
 export interface ProjectState {
   /** The project's `AGENTS.md`, byte for byte, or `undefined` when it has none. */
   readonly agentsMd: string | undefined;
   /** The project's `CLAUDE.md`, byte for byte, or `undefined` when it has none. */
   readonly claudeMd: string | undefined;
-  /** Whether the vendor directory exists — one half of the vendor-detection rule. */
+  /** Whether the vendor directory exists. Read for the report; the planner no longer gates on it. */
   readonly claudeDirectory: boolean;
   /** Every skill directory found under either install root, in read order. */
   readonly installedSkills: readonly InstalledSkill[];
@@ -44,6 +51,24 @@ export interface ProjectState {
    * CREATES one of these; it keeps an existing block up to date.
    */
   readonly markedRuleFiles: ReadonlyMap<string, string>;
+  /**
+   * The ids of the platform-table rows whose marker the project carries — `.cursor/`, `replit.md`, … —
+   * read by exact path, so a near miss such as `.cursorx/` proves nothing.
+   */
+  readonly detectedPlatforms: ReadonlySet<string>;
+  /**
+   * Each platform pointer file that exists, byte for byte, by project-relative path. A path that runs
+   * through a symbolic link is never here: see {@link pointersBehindLinks}.
+   */
+  readonly pointerFiles: ReadonlyMap<string, string>;
+  /**
+   * Pointer paths the installer cannot plan against, with why: a directory where the file belongs, a
+   * file where a directory belongs, or bytes that are not UTF-8. Never in {@link pointerFiles}; a plan
+   * REFUSES them, because creating over something it could not read would destroy it.
+   */
+  readonly pointersUnwritable: ReadonlyMap<string, UnwritablePointer>;
+  /** Pointer paths where the file, or a directory above it, is a symbolic link — never read or written. */
+  readonly pointersBehindLinks: ReadonlySet<string>;
   /** Where this project's rendered traces land, detected or {@link DEFAULT_OUTPUT_DIRECTORY}. */
   readonly outputDirectory: string;
   /**
@@ -81,6 +106,40 @@ function requireNothingBehindALinkedRoot(
   }
 }
 
+function requireKnownPlatforms(detected: ReadonlySet<string>): void {
+  const unknown = [...detected].filter((id) => platformRowById(id) === undefined);
+  if (unknown.length > 0) {
+    throw new TypeError(
+      `a project state names platform-table rows only, got ${unknown.join(", ")}`,
+    );
+  }
+}
+
+/** The platform half of a snapshot, copied so the caller's collections are never shared. */
+function platformFieldsOf(
+  input: ProjectStateInput,
+): Pick<
+  ProjectState,
+  "detectedPlatforms" | "pointerFiles" | "pointersBehindLinks" | "pointersUnwritable"
+> {
+  const detectedPlatforms = new Set(input.detectedPlatforms ?? []);
+  requireKnownPlatforms(detectedPlatforms);
+  return {
+    detectedPlatforms,
+    pointerFiles: new Map(input.pointerFiles ?? []),
+    pointersBehindLinks: new Set(input.pointersBehindLinks ?? []),
+    pointersUnwritable: new Map(input.pointersUnwritable ?? []),
+  };
+}
+
+function requireOutputDirectory(directory: string | undefined): string {
+  const outputDirectory = directory ?? DEFAULT_OUTPUT_DIRECTORY;
+  if (outputDirectory.trim() === "") {
+    throw new TypeError("a project state names where traces land, never an empty directory");
+  }
+  return outputDirectory;
+}
+
 /**
  * A validated, frozen snapshot.
  *
@@ -92,11 +151,9 @@ export function projectState(input: ProjectStateInput = {}): ProjectState {
   const linkedInstallRoots = new Map(input.linkedInstallRoots ?? []);
   requireOnePathOnce(installedSkills);
   requireNothingBehindALinkedRoot(installedSkills, linkedInstallRoots);
-  const outputDirectory = input.outputDirectory ?? DEFAULT_OUTPUT_DIRECTORY;
-  if (outputDirectory.trim() === "") {
-    throw new TypeError("a project state names where traces land, never an empty directory");
-  }
+  const outputDirectory = requireOutputDirectory(input.outputDirectory);
   return Object.freeze({
+    ...platformFieldsOf(input),
     agentsMd: input.agentsMd,
     claudeMd: input.claudeMd,
     claudeDirectory: input.claudeDirectory ?? false,

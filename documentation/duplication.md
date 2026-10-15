@@ -155,7 +155,7 @@ from jscpd's native output. Two things are specific to this port's tool:
 
 The console prints one summary line per run:
 
-```
+```text
 duplication: main 16.1% of lines in 128 clusters (largest 1559 tokens
 packages/core/src/trace-namer.ts:1 ↔ packages/core/src/trace-namer.ts:264)
 · test 34.7% in 912 clusters (reported, not gated)

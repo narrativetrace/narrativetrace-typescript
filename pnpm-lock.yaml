@@ -26,6 +26,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: ^3.2.7
         version: 3.2.7(vitest@3.2.7(@types/node@25.5.0)(jsdom@26.1.0)(sass@1.97.3)(tsx@4.21.0)(yaml@2.9.0))
+      ajv:
+        specifier: ^8.18.0
+        version: 8.18.0
       fast-check:
         specifier: ^4.5.3
         version: 4.5.3
@@ -1019,6 +1022,24 @@ importers:
       winston:
         specifier: ^3.17.0
         version: 3.19.0
+
+  recipes/checkout:
+    devDependencies:
+      '@narrativetrace/core-node':
+        specifier: workspace:*
+        version: link:../../packages/core-node
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../../packages/pino
+      '@narrativetrace/proxy':
+        specifier: workspace:*
+        version: link:../../packages/proxy
+      '@narrativetrace/vitest':
+        specifier: workspace:*
+        version: link:../../packages/vitest
+      pino:
+        specifier: 9.11.0
+        version: 9.11.0
 
 packages:
 

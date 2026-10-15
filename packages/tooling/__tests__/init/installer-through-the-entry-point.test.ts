@@ -10,9 +10,11 @@ import {
   type InitPlan,
   initOptions,
   openCarrier,
+  PLATFORM_ROWS,
   planExitCode,
   planInstall,
   planUninstall,
+  readPointers,
   readProjectState,
   renderPlan,
   reportExitCode,
@@ -83,6 +85,20 @@ describe.skipIf(!REPO_ROOT_REACHABLE)("an install driven from outside the packag
     expect(existsSync(join(project, "AGENTS.md"))).toBe(false);
   });
 
+  test("a bare project gets the vendor flavour too, because Claude Code loads nothing else", () => {
+    applyPlan(install(), project);
+
+    expect(read(".claude/skills/narrativetrace-doctor/SKILL.md")).toContain("narrativetrace init");
+    expect(existsSync(join(project, "CLAUDE.md"))).toBe(false);
+  });
+
+  test("--vendor off leaves a bare project with the open-standard pages alone", () => {
+    applyPlan(install(initOptions({ vendorClaude: "off" })), project);
+
+    expect(existsSync(join(project, ".agents/skills/narrativetrace-doctor/SKILL.md"))).toBe(true);
+    expect(existsSync(join(project, ".claude"))).toBe(false);
+  });
+
   test("the vendor flavour lands too where the project looks like that vendor's", () => {
     writeFileSync(join(project, "CLAUDE.md"), "# Rules\n");
     mkdirSync(join(project, ".claude"), { recursive: true });
@@ -103,5 +119,23 @@ describe.skipIf(!REPO_ROOT_REACHABLE)("an install driven from outside the packag
     expect(reportExitCode(report)).toBe(1);
     expect(read("AGENTS.md")).toBe("# My own instructions\n");
     expect(renderPlan(plan)).toContain("--write-existing");
+  });
+
+  test("a project on two platforms gets both pointers, reads current, and gives them back", () => {
+    mkdirSync(join(project, ".cursor"));
+    writeFileSync(join(project, ".replit"), "run = 'x'\n");
+
+    applyPlan(install(), project);
+
+    expect(PLATFORM_ROWS.map((row) => row.id)).toContain("cursor");
+    expect(read(".cursor/rules/narrativetrace.mdc")).toContain(".agents/skills");
+    expect(read("replit.md")).toContain("narrativetrace:start");
+    expect(readPointers(readProjectState(project)).map((reading) => reading.status)).toEqual([
+      "section",
+      "section",
+    ]);
+    applyPlan(planUninstall(readProjectState(project)), project);
+    expect(existsSync(join(project, ".cursor/rules/narrativetrace.mdc"))).toBe(false);
+    expect(existsSync(join(project, "replit.md"))).toBe(false);
   });
 });

@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import type { InstalledSkill } from "../../init/installed-skill.js";
+import type { PointerReading } from "../../init/pointer-reading.js";
 import { versionOf } from "../../init/version-guard.js";
 import { DOC } from "../doc-urls.js";
 import { fail, pass } from "../finding.js";
@@ -98,13 +99,67 @@ function incomplete(missing: readonly string[]) {
   );
 }
 
-function upToDate(ours: readonly InstalledSkill[], projectVersion: string) {
+/** `"; Cursor pointer present and current, …"` — empty when no platform needs a pointer. */
+function pointersCurrent(readings: readonly PointerReading[]): string {
+  if (readings.length === 0) return "";
+  return `; ${readings.map((r) => `${r.platformName} pointer present and current`).join(", ")}`;
+}
+
+function upToDate(
+  ours: readonly InstalledSkill[],
+  projectVersion: string,
+  readings: readonly PointerReading[],
+) {
   return pass(
     ID,
     `All ${ours.length} agent skill(s) are installed and current for` +
-      ` @narrativetrace/core@${projectVersion}`,
+      ` @narrativetrace/core@${projectVersion}${pointersCurrent(readings)}`,
     DOC.agentSkillsInstalling,
   );
+}
+
+function pointersWrong(problems: readonly string[]) {
+  return fail(
+    ID,
+    `The agent skills are installed, but ${problems.join("; ")}`,
+    `Run \`${INIT_DRY_RUN}\`, read the diff, then run it without the flag. A rule file or section` +
+      " that is identical to this release's is adopted as it stands; where the file exists and has" +
+      " no section of ours, add --write-existing; a link must be removed by hand.",
+    DOC.agentSkillsInstalling,
+  );
+}
+
+/** One sentence for a pointer that is missing, foreign, linked, unstamped or not current. */
+function pointerProblem(reading: PointerReading, projectVersion: string): string | undefined {
+  const where = `${reading.platformName} pointer ${reading.path}`;
+  switch (reading.status) {
+    case "absent":
+      return `${where} is missing`;
+    case "linked":
+      return `${where} is behind a symbolic link, and nothing is written through one`;
+    case "foreign":
+      return `${where} exists but has no NarrativeTrace section of ours`;
+    case "section":
+      return sectionProblem(reading, where, projectVersion);
+  }
+}
+
+function sectionProblem(
+  reading: PointerReading,
+  where: string,
+  projectVersion: string,
+): string | undefined {
+  if (reading.coordinate === "") {
+    return `${where} carries no stamp, so no release it describes can be named — init will adopt it`;
+  }
+  if (versionOf(reading.coordinate) === projectVersion) return undefined;
+  return `${where} was written for ${reading.coordinate}, project resolves ${projectVersion}`;
+}
+
+function pointerProblems(readings: readonly PointerReading[], projectVersion: string): string[] {
+  return readings
+    .map((reading) => pointerProblem(reading, projectVersion))
+    .filter((problem): problem is string => problem !== undefined);
 }
 
 /**
@@ -124,6 +179,11 @@ function upToDate(ours: readonly InstalledSkill[], projectVersion: string) {
  * `npx` can resolve a different CLI release than the project's own `@narrativetrace/core`, so
  * comparing whole coordinates would blame the pages for something the CLI's own resolution chose.
  *
+ * @llmNote Platform pointers (Phase 8 D2) are judged after the skills: for each DETECTED platform
+ * whose row has a pointer file, the line says "pointer present and current", and the check FAILS on a
+ * missing, foreign, linked, stale or unstamped one. The installer's own reading decides which — this
+ * check never scans marker text. A platform the project is not on is never asked about.
+ *
  * @llmNote Only `.agents/skills/` counts. The vendor copy is written only where a project is
  * detected as that vendor's, so a project carrying the vendor copy alone is a project the
  * open-standard install never reached.
@@ -136,5 +196,9 @@ export const checkSkillsInstalled: DoctorCheck = (snapshot) => {
   const staleStamps = staleStampsOf(ours, projectVersion);
   if (staleStamps.length > 0) return stale(staleStamps, projectVersion);
   const missing = missingOf(snapshot);
-  return missing.length === 0 ? upToDate(ours, projectVersion) : incomplete(missing);
+  if (missing.length > 0) return incomplete(missing);
+  const problems = pointerProblems(snapshot.pointerReadings, projectVersion);
+  return problems.length === 0
+    ? upToDate(ours, projectVersion, snapshot.pointerReadings)
+    : pointersWrong(problems);
 };

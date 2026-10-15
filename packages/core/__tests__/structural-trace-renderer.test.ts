@@ -326,7 +326,7 @@ describe.skipIf(!existsSync(SPEC))(
   () => {
     it("prints the Content example byte for byte, span ids included", () => {
       const spec = readFileSync(SPEC, "utf-8");
-      const example = /## Content\n\n```\n([\s\S]*?)```/.exec(spec)?.[1];
+      const example = /## Content\n\n```(?:text)?\n([\s\S]*?)```/.exec(spec)?.[1];
       const p = (name: string) => parameterCapture(name, '"v"', false);
       const leaf = (cls: string, method: string, params: string[], value: string | null) =>
         traceNode(methodSignature(cls, method, params.map(p)), returned(value), [], 1);

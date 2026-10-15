@@ -97,12 +97,12 @@ describe.skipIf(!REPO_ROOT_REACHABLE)("the clarity skill through the doctor", ()
     expect(finding.message).toContain(CLARITY);
   });
 
-  test("a project with every carried skill installed passes, counting six", () => {
+  test("a project with every carried skill installed passes, counting seven", () => {
     applyPlan(install(), project);
 
     const finding = skillsFinding();
 
     expect(finding.status).toBe("pass");
-    expect(finding.message).toContain("All 6 agent skill(s)");
+    expect(finding.message).toContain("All 7 agent skill(s)");
   });
 });

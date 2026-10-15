@@ -1,0 +1,7 @@
+{
+  "fixture": "evals/fixtures/empty-project",
+  "turns": {
+    "2": "Is NarrativeTrace wired up correctly in this project? Check the install."
+  },
+  "freshTurns": [2]
+}

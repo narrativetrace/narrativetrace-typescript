@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import type { Pointer } from "../platforms/platform-row.js";
+import { PLATFORM_ROWS } from "../platforms/platform-table.js";
 import {
   type Action,
   adoptPage,
@@ -15,6 +17,7 @@ import {
 import { isAdoptable } from "./adoption.js";
 import { renderAgentsMdBlock } from "./agents-md-block.js";
 import { type Carrier, carrierBody } from "./carrier.js";
+import { CURSOR_FRONTMATTER, renderCursorRule } from "./cursor-rule.js";
 import { type InitOptions, includesAgentsMd, includesSkills, initOptions } from "./init-options.js";
 import { type InitPlan, initPlan } from "./init-plan.js";
 import {
@@ -28,6 +31,7 @@ import {
   CREATED_NOTE,
   endsInsideFence,
   eolOf,
+  hasExactlyOneRegion,
   lineIsIgnoringTrailingSpace,
   type MarkedScan,
   replaceRegion,
@@ -128,14 +132,18 @@ function foreign(options: InitOptions, installed: InstalledSkill, page: PageWrit
 }
 
 /**
- * Which flavours this project gets: the open standard always, the vendor one where the project looks
- * like that vendor's — or wherever the caller overrode the detection.
+ * Which flavours this project gets: the open standard always, and the vendor one too unless the caller
+ * turned it off.
+ *
+ * INTENT: Claude Code loads project skills from `.claude/skills` only — never from `.agents/skills`,
+ * and it reads `AGENTS.md` only through a `CLAUDE.md` import. Writing the vendor flavour only where a
+ * `.claude/` directory or a `CLAUDE.md` already existed left a fresh project's skills invisible to the
+ * very agent the published prompt is run from, while the doctor reported them installed. Cursor and
+ * GitHub Copilot read `.claude/skills` as well, so no platform pays for the extra directory;
+ * `--vendor none` is the opt-out for a project that wants the open-standard pages alone.
  */
-function flavoursFor(state: ProjectState, options: InitOptions): readonly SkillFlavour[] {
-  const vendor =
-    options.vendorClaude === "on" ||
-    (options.vendorClaude === "auto" && (state.claudeDirectory || state.claudeMd !== undefined));
-  return vendor ? SKILL_FLAVOURS : ["agents"];
+function flavoursFor(options: InitOptions): readonly SkillFlavour[] {
+  return options.vendorClaude === "off" ? ["agents"] : SKILL_FLAVOURS;
 }
 
 /**
@@ -239,7 +247,7 @@ function writableFlavours(
   actions: Action[],
 ): SkillFlavour[] {
   const writable: SkillFlavour[] = [];
-  for (const flavour of flavoursFor(state, options)) {
+  for (const flavour of flavoursFor(options)) {
     const linkedTo = linkedInstallRootOf(state, flavour);
     if (linkedTo === undefined) writable.push(flavour);
     else actions.push(refuseLinkedRoot(flavour, linkedTo));
@@ -315,6 +323,77 @@ function planRuleFiles(state: ProjectState, carrier: Carrier): Action[] {
   return [...state.markedRuleFiles].map(([path, text]) => blockAction(path, text, block, false));
 }
 
+/**
+ * A markdown file that is ours to create and may carry the section: made with the created note when
+ * absent, kept current when it has a section, appended to only on `--write-existing`.
+ */
+function managedHomeAction(
+  path: string,
+  existing: string | undefined,
+  block: string,
+  options: InitOptions,
+): Action {
+  if (existing === undefined) return createFile(path, `${CREATED_NOTE}\n${block}`);
+  return blockAction(path, existing, block, options.writeExisting);
+}
+
+function refuseLinkedPointer(path: string): Action {
+  return refuse(
+    path,
+    `${path} is behind a symbolic link — nothing is written through one; remove the link`,
+  );
+}
+
+/**
+ * The rule file: made when absent, kept current when ours, ADOPTED when it is the unstamped plugin
+ * copy byte for byte, and refused when it carries no single section of ours.
+ */
+function ruleAction(path: string, existing: string | undefined, text: string, carrier: Carrier) {
+  const wanted = renderCursorRule(text, carrier.coordinate);
+  if (existing === undefined) return createFile(path, wanted);
+  if (isAdoptable(existing, renderCursorRule(text, ""))) return adoptPage(path, existing, wanted);
+  const scan = scanMarkedBlocks(existing);
+  const region = scan.regions[0];
+  if (!hasExactlyOneRegion(scan) || region === undefined) {
+    return refuse(
+      path,
+      `${path} was not written by narrativetrace (it has no single NarrativeTrace section) —` +
+        " move it aside and run the install again",
+    );
+  }
+  const section = withEol(wanted.slice(CURSOR_FRONTMATTER.length), eolOf(existing));
+  return replaceBlock(path, existing, replaceRegion(existing, region, section));
+}
+
+function pointerAction(
+  pointer: Exclude<Pointer, { kind: "none" }>,
+  state: ProjectState,
+  carrier: Carrier,
+  options: InitOptions,
+): Action {
+  if (state.pointersBehindLinks.has(pointer.path)) return refuseLinkedPointer(pointer.path);
+  const unwritable = state.pointersUnwritable.get(pointer.path);
+  if (unwritable !== undefined) {
+    return refuse(unwritable.at, `${unwritable.why} — nothing is planned over it`);
+  }
+  const existing = state.pointerFiles.get(pointer.path);
+  if (pointer.kind === "rule") return ruleAction(pointer.path, existing, pointer.text, carrier);
+  return managedHomeAction(pointer.path, existing, renderAgentsMdBlock(carrier, state), options);
+}
+
+/**
+ * One pointer per DETECTED platform whose row has one. The marker decides, never a flag: a project
+ * not on Cursor gets no `.cursor/` directory it did not have.
+ */
+function planPointers(state: ProjectState, carrier: Carrier, options: InitOptions): Action[] {
+  const actions: Action[] = [];
+  for (const row of PLATFORM_ROWS) {
+    if (row.pointer.kind === "none" || !state.detectedPlatforms.has(row.id)) continue;
+    actions.push(pointerAction(row.pointer, state, carrier, options));
+  }
+  return actions;
+}
+
 /** Drops every action that would write what is already there. */
 function withoutNoOps(actions: readonly Action[]): Action[] {
   return actions.filter((action) => !isFileEdit(action) || action.before !== action.after);
@@ -338,7 +417,7 @@ export function planInstall(
   if (includesAgentsMd(options.scope)) {
     actions.push(...planAgentsMd(state, carrier, options));
     actions.push(...planClaudeMd(state, options));
-    actions.push(...planRuleFiles(state, carrier));
+    actions.push(...planRuleFiles(state, carrier), ...planPointers(state, carrier, options));
   }
   return initPlan(carrier.coordinate, options.dryRun, withoutNoOps(actions));
 }

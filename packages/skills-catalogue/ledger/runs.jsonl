@@ -38,3 +38,14 @@
 {"date":"2026-10-09T21:15:14.121Z","skill":"narrativetrace-debug","case":"debug-value-divergence","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
 {"date":"2026-10-09T21:16:17.814Z","skill":"narrativetrace-debug","case":"debug-value-divergence","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
 {"date":"2026-10-09T21:17:23.695Z","skill":"narrativetrace-debug","case":"debug-value-divergence","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"fail"}
+{"date":"2026-10-10T22:03:51.672Z","skill":"add-narrative-tracing","case":"fresh-session-sees-the-skills","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"fail"}
+{"date":"2026-10-10T23:24:10.828Z","skill":"add-narrative-tracing","case":"fresh-session-sees-the-skills","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:05:21.916Z","skill":"narrativetrace-explain","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:06:04.616Z","skill":"narrativetrace-explain","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:06:42.055Z","skill":"narrativetrace-explain","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:07:19.575Z","skill":"narrativetrace-explain","case":"explain-an-unfamiliar-flow","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:07:56.757Z","skill":"narrativetrace-explain","case":"explain-an-unfamiliar-flow","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:08:34.451Z","skill":"narrativetrace-explain","case":"explain-an-unfamiliar-flow","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:08:53.970Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:09:10.509Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-15T10:09:26.213Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}

@@ -27,7 +27,8 @@ export interface SkillLike {
 const PLATFORM_COLUMNS = [
   { key: "claude", header: "Claude" },
   { key: "codex", header: "Codex" },
-  { key: "gemini", header: "Gemini" },
+  { key: "antigravity", header: "Antigravity" },
+  { key: "cursor", header: "Cursor" },
 ] as const;
 
 /** One JSON object per non-blank line, the shape `run.ts`'s `appendLedgerRow` writes. */

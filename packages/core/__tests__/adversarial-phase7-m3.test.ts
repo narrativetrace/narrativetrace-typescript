@@ -17,11 +17,7 @@ import {
   traceTree,
   unifiedLineDiff,
 } from "../src/index.js";
-import {
-  renderStructural,
-  renderStructuralDocument,
-  structuralSubtreeKey,
-} from "../src/structural-trace-renderer.js";
+import { renderStructural, structuralSubtreeKey } from "../src/structural-trace-renderer.js";
 
 function call(cls: string, method: string, children: readonly TraceNode[] = []): TraceNode {
   return traceNode(methodSignature(cls, method, []), returned(null), children);

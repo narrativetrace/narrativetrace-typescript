@@ -288,11 +288,11 @@ describe("case setup (adversarial)", () => {
     expect(commands[commands.length - 1]?.argv).toContain("init");
   });
 
-  test("setupCommands maps the codex and gemini platforms to vendor none, not claude", () => {
-    const init = (platform: "codex" | "gemini") =>
+  test("setupCommands maps the codex and antigravity platforms to vendor none, not claude", () => {
+    const init = (platform: "codex" | "antigravity") =>
       setupCommands([PKG("@narrativetrace/cli")], "/work", "/p", platform).at(-1)?.argv;
     expect(init("codex")).toEqual(expect.arrayContaining(["--vendor", "none"]));
-    expect(init("gemini")).toEqual(expect.arrayContaining(["--vendor", "none"]));
+    expect(init("antigravity")).toEqual(expect.arrayContaining(["--vendor", "none"]));
   });
 
   test("isCaseSetup rejects a near-miss spelling and an inherited object key", () => {

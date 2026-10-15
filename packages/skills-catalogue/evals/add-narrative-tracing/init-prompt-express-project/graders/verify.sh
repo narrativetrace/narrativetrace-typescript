@@ -34,6 +34,8 @@ test -f src/order-service.js || {
 
 node --test test/app.test.js
 
+. "$here/../../bounded.sh"
+
 sh "$here/../../grade-the-prompt.sh" OrderService
 
 report=$(npx @narrativetrace/cli doctor --json || true)
@@ -51,7 +53,7 @@ printf '%s\n' "$report" | node -e '
   console.log("config.express-middleware:", finding.message);
 '
 
-output=$(timeout 120 npm start --silent 2>&1) || {
+output=$(bounded 120 npm start --silent 2>&1) || {
   echo "\`npm start\` failed:" >&2
   printf '%s\n' "$output" >&2
   exit 1

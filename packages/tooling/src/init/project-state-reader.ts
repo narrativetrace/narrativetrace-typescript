@@ -5,16 +5,25 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Env } from "../doctor/types.js";
 import { resolvePackageJson } from "../package-resolution.js";
+import { PLATFORM_ROWS } from "../platforms/platform-table.js";
 import {
+  existsNoFollow,
   isDirectory,
   isDirectoryNoFollow,
+  isFile,
   readTextFile,
   resolvesInside,
+  runsThroughLink,
   symlinkTargetOf,
 } from "./files.js";
 import { type InstalledSkill, installedSkill, SKILL_PAGE, skillPageOf } from "./installed-skill.js";
 import { scanMarkedBlocks } from "./marked-block.js";
-import { DEFAULT_OUTPUT_DIRECTORY, type ProjectState, projectState } from "./project-state.js";
+import {
+  DEFAULT_OUTPUT_DIRECTORY,
+  type ProjectState,
+  projectState,
+  type UnwritablePointer,
+} from "./project-state.js";
 import { coordinateIn } from "./provenance.js";
 import { installRootOf, SKILL_FLAVOURS, type SkillFlavour } from "./skill-catalogue.js";
 
@@ -59,6 +68,76 @@ function markedRuleFilesIn(projectDirectory: string): Map<string, string> {
     if (content !== undefined && carriesMarkers(content)) found.set(relative, content);
   }
   return found;
+}
+
+/** What the project's platform markers and pointer files say, read once and never followed. */
+interface PlatformReading {
+  readonly detectedPlatforms: Set<string>;
+  readonly pointerFiles: Map<string, string>;
+  readonly pointersBehindLinks: Set<string>;
+  readonly pointersUnwritable: Map<string, UnwritablePointer>;
+}
+
+/**
+ * Which platform-table rows the project is on, and what each row's pointer file says now. Markers are
+ * exact paths looked up without following a link; a pointer file is read only when no element of its
+ * path is a symbolic link, because nothing is ever written through one.
+ */
+function readPlatforms(projectDirectory: string): PlatformReading {
+  const reading: PlatformReading = {
+    detectedPlatforms: new Set(),
+    pointerFiles: new Map(),
+    pointersBehindLinks: new Set(),
+    pointersUnwritable: new Map(),
+  };
+  for (const row of PLATFORM_ROWS) {
+    if (row.markerPaths.some((marker) => existsNoFollow(join(projectDirectory, marker)))) {
+      reading.detectedPlatforms.add(row.id);
+    }
+    if (row.pointer.kind !== "none") readPointer(projectDirectory, row.pointer.path, reading);
+  }
+  return reading;
+}
+
+function readPointer(projectDirectory: string, path: string, reading: PlatformReading): void {
+  if (runsThroughLink(projectDirectory, path)) {
+    reading.pointersBehindLinks.add(path);
+    return;
+  }
+  const blocked =
+    notAFilePath(projectDirectory, path) ?? undecodable(projectDirectory, path, reading);
+  if (blocked !== undefined) reading.pointersUnwritable.set(path, blocked);
+}
+
+/** Why a path cannot hold a file — an ancestor that is not a directory, or itself not a file — if so. */
+function notAFilePath(projectDirectory: string, path: string): UnwritablePointer | undefined {
+  const elements = path.split("/");
+  let walked = projectDirectory;
+  for (const [index, element] of elements.entries()) {
+    walked = join(walked, element);
+    if (!existsNoFollow(walked)) return undefined;
+    const last = index === elements.length - 1;
+    const at = elements.slice(0, index + 1).join("/");
+    if (!last && !isDirectory(walked)) return { at, why: `${at} is not a directory` };
+    if (last && !isFile(walked)) return { at, why: `${at} is not a file` };
+  }
+  return undefined;
+}
+
+/** Reads the pointer file into the snapshot, or says why its bytes cannot be planned against. */
+function undecodable(
+  projectDirectory: string,
+  path: string,
+  reading: PlatformReading,
+): UnwritablePointer | undefined {
+  try {
+    const text = readTextFile(join(projectDirectory, ...path.split("/")));
+    if (text !== undefined) reading.pointerFiles.set(path, text);
+    return undefined;
+  } catch (cause) {
+    if (cause instanceof TypeError) return { at: path, why: `${path} is not valid UTF-8` };
+    throw cause;
+  }
 }
 
 /**
@@ -195,13 +274,23 @@ export function readProjectState(
   }
   const roots = readInstallRoots(projectDirectory, maxSkillDirectories);
   return projectState({
-    agentsMd: readTextFile(join(projectDirectory, "AGENTS.md")),
-    claudeMd: readTextFile(join(projectDirectory, "CLAUDE.md")),
-    claudeDirectory: isDirectory(join(projectDirectory, ".claude")),
+    ...readPlatforms(projectDirectory),
+    ...readContextFiles(projectDirectory),
     installedSkills: roots.flatMap((reading) => [...reading.skills]),
     linkedInstallRoots: linkedRootsOf(roots),
-    markedRuleFiles: markedRuleFilesIn(projectDirectory),
     outputDirectory: outputDirectoryOf(projectDirectory, env),
     projectVersion: resolvePackageJson(FAMILY_PACKAGE, projectDirectory)?.version,
   });
+}
+
+/** The context files a project may carry, and the vendor directory beside them. */
+function readContextFiles(
+  projectDirectory: string,
+): Pick<ProjectState, "agentsMd" | "claudeMd" | "claudeDirectory" | "markedRuleFiles"> {
+  return {
+    agentsMd: readTextFile(join(projectDirectory, "AGENTS.md")),
+    claudeMd: readTextFile(join(projectDirectory, "CLAUDE.md")),
+    claudeDirectory: isDirectory(join(projectDirectory, ".claude")),
+    markedRuleFiles: markedRuleFilesIn(projectDirectory),
+  };
 }

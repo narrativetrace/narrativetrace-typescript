@@ -94,3 +94,53 @@ export function scriptedReplies(manifestPath: string, turns: unknown): readonly 
   );
   return entries.map(([, text]) => text);
 }
+
+/**
+ * The turns `freshTurns` (the manifest's parsed `"freshTurns"` field) declares as opening a NEW
+ * session rather than resuming the conversation, ascending and without repeats; empty when the field
+ * is absent. `replyCount` is how many scripted replies the case has, so the last turn it can reach is
+ * `replyCount + 1`.
+ *
+ * Written for one question — what does a LATER session find? — which the install cases could not
+ * ask: an install that goes green in the session that ran it says nothing about the next session,
+ * and on 2026-10-10 the next session listed no skill at all (item 166).
+ *
+ * @throws {Error} naming `manifestPath` for a field that is not an array of whole turn numbers, an
+ * empty one, turn 1 (a fresh session by definition), or a turn the case scripts no reply for.
+ */
+export function freshTurnsFrom(
+  manifestPath: string,
+  freshTurns: unknown,
+  replyCount: number,
+): readonly number[] {
+  if (freshTurns === undefined) return [];
+  if (!Array.isArray(freshTurns)) {
+    throw new Error(`${manifestPath} must declare "freshTurns" as an array of turn numbers`);
+  }
+  if (freshTurns.length === 0) {
+    throw new Error(`${manifestPath} declares "freshTurns" and lists no turn in it`);
+  }
+  const turns = freshTurns.map((turn) => freshTurn(manifestPath, turn, replyCount + 1));
+  return [...new Set(turns)].sort((a, b) => a - b);
+}
+
+function freshTurn(manifestPath: string, turn: unknown, lastTurn: number): number {
+  if (typeof turn !== "number" || !Number.isInteger(turn) || turn < 1) {
+    throw new Error(
+      `${manifestPath} declares a fresh turn ${JSON.stringify(turn)}, which is not a turn number`,
+    );
+  }
+  if (turn === 1) {
+    throw new Error(
+      `${manifestPath} declares "freshTurns" at turn 1 — turn 1 is a fresh session by definition, ` +
+        "so the first turn that can be fresh is 2",
+    );
+  }
+  if (turn > lastTurn) {
+    throw new Error(
+      `${manifestPath} declares turn ${turn} in "freshTurns" but scripts no reply for it — a ` +
+        "fresh turn with nothing to say cannot be driven",
+    );
+  }
+  return turn;
+}

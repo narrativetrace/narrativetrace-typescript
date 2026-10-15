@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, it } from "vitest";
 import {
+  cliToolOf,
   isPlatform,
   isReadOnlySkill,
   isSporadicPlatform,
@@ -15,8 +16,8 @@ import {
 } from "../platform-presets.js";
 
 describe("PLATFORMS / isPlatform", () => {
-  it("accepts exactly claude, codex and gemini", () => {
-    expect(PLATFORMS).toEqual(["claude", "codex", "gemini"]);
+  it("accepts exactly claude, codex, antigravity and cursor", () => {
+    expect(PLATFORMS).toEqual(["claude", "codex", "antigravity", "cursor"]);
   });
 
   it("rejects an unknown platform string", () => {
@@ -30,10 +31,11 @@ describe("PLATFORMS / isPlatform", () => {
 });
 
 describe("isSporadicPlatform", () => {
-  it("is true for codex and gemini, false for claude", () => {
-    expect(SPORADIC_PLATFORMS).toEqual(["codex", "gemini"]);
+  it("is true for codex, antigravity and cursor, false for claude", () => {
+    expect(SPORADIC_PLATFORMS).toEqual(["codex", "antigravity", "cursor"]);
+    expect(isSporadicPlatform("cursor")).toBe(true);
     expect(isSporadicPlatform("codex")).toBe(true);
-    expect(isSporadicPlatform("gemini")).toBe(true);
+    expect(isSporadicPlatform("antigravity")).toBe(true);
     expect(isSporadicPlatform("claude")).toBe(false);
   });
 });
@@ -88,16 +90,37 @@ describe("presetAgentCommand", () => {
     );
   });
 
-  it("builds the gemini preset in plan (read-only) approval mode for a read-only skill", () => {
-    expect(presetAgentCommand("gemini", "flash", "narrativetrace-doctor")).toBe(
-      'gemini -p "{prompt}" --model flash --approval-mode plan',
+  it("builds the antigravity preset with the model slug and the one headless approval flag", () => {
+    expect(presetAgentCommand("antigravity", "gemini-3.8-flash-low", "narrativetrace-doctor")).toBe(
+      'agy -p "{prompt}" --model gemini-3.8-flash-low --output-format text --dangerously-skip-permissions',
     );
   });
 
-  it("builds the gemini preset in auto_edit approval mode for a non-read-only skill", () => {
-    expect(presetAgentCommand("gemini", "flash", "add-narrative-tracing")).toBe(
-      'gemini -p "{prompt}" --model flash --approval-mode auto_edit',
+  it("builds the same antigravity preset for a skill that edits files: no approval mode exists", () => {
+    expect(presetAgentCommand("antigravity", "m", "add-narrative-tracing")).toBe(
+      'agy -p "{prompt}" --model m --output-format text --dangerously-skip-permissions',
     );
+  });
+});
+
+describe("the cursor preset (headless `agent -p`, verified against cursor.com/docs/cli/headless)", () => {
+  it("applies edits and runs commands with --force, for every skill, the doctor included", () => {
+    for (const skill of ["narrativetrace-doctor", "add-narrative-tracing"]) {
+      expect(presetAgentCommand("cursor", "ignored", skill)).toBe(
+        'agent -p "{prompt}" --output-format text --force',
+      );
+    }
+  });
+
+  it("passes no --model: the runner's model argument is a ledger label, not a Cursor model name", () => {
+    expect(presetAgentCommand("cursor", "haiku", "narrativetrace-doctor")).not.toContain("haiku");
+  });
+
+  it("names `agent`, not `cursor`, as the executable a skip line points at", () => {
+    expect(cliToolOf("cursor")).toBe("agent");
+    expect(cliToolOf("codex")).toBe("codex");
+    expect(cliToolOf("antigravity")).toBe("agy");
+    expect(cliToolOf("claude")).toBe("claude");
   });
 });
 
@@ -116,7 +139,8 @@ describe("presetFirstTurnCommand / presetResumedTurnCommand", () => {
 
   it.each([
     "codex",
-    "gemini",
+    "antigravity",
+    "cursor",
   ] as const)("has neither half for %s, whose multi-turn flags were never verified here", (platform) => {
     expect(presetFirstTurnCommand(platform, "m", "narrativetrace-feedback")).toBeUndefined();
     expect(presetResumedTurnCommand(platform, "m", "narrativetrace-feedback")).toBeUndefined();

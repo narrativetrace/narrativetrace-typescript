@@ -47,12 +47,14 @@ const CARRIER_ENTRIES = [
   "agents/add-narrativetrace-clarity/SKILL.md",
   "agents/narrativetrace-verify/SKILL.md",
   "agents/narrativetrace-debug/SKILL.md",
+  "agents/narrativetrace-explain/SKILL.md",
   "claude/narrativetrace-doctor/SKILL.md",
   "claude/add-narrative-tracing/SKILL.md",
   "claude/narrativetrace-feedback/SKILL.md",
   "claude/add-narrativetrace-clarity/SKILL.md",
   "claude/narrativetrace-verify/SKILL.md",
   "claude/narrativetrace-debug/SKILL.md",
+  "claude/narrativetrace-explain/SKILL.md",
 ] as const;
 
 function allFiles(root: string, prefix = ""): string[] {
@@ -158,6 +160,7 @@ describe("carrier packaging (Java SkillsCarrierJarTest shape)", () => {
         "add-narrativetrace-clarity",
         "narrativetrace-verify",
         "narrativetrace-debug",
+        "narrativetrace-explain",
       ]),
     );
     for (const skill of catalogue.skills as Array<{ agents: string; claude: string }>) {

@@ -472,3 +472,30 @@ describe("buildSnapshot — the project's NarrativeTrace config source", () => {
     expect(buildSnapshot(dir, {}).rootPackageJson?.scripts?.test).toContain("APPROVAL=true");
   });
 });
+
+describe("buildSnapshot — platform pointers", () => {
+  test("reads a pointer for each detected platform, and none for one the project is not on", () => {
+    mkdirSync(join(dir, ".cursor"));
+    write("replit.md", "# Notes\n");
+    const readings = buildSnapshot(dir, {}).pointerReadings;
+    expect(readings.map((reading) => [reading.platformId, reading.status])).toEqual([
+      ["cursor", "absent"],
+      ["replit", "foreign"],
+    ]);
+  });
+
+  test("reads nothing for a near-miss marker", () => {
+    mkdirSync(join(dir, ".cursorx"));
+    expect(buildSnapshot(dir, {}).pointerReadings).toEqual([]);
+  });
+
+  test("reads a pointer file that is not text as foreign, never crashing or dropping it", () => {
+    mkdirSync(join(dir, ".cursor"));
+    writeFileSync(join(dir, "replit.md"), Buffer.from([0xff, 0xfe, 0xfd]));
+    const readings = buildSnapshot(dir, {}).pointerReadings;
+    expect(readings.map((reading) => [reading.platformId, reading.status])).toEqual([
+      ["cursor", "absent"],
+      ["replit", "foreign"],
+    ]);
+  });
+});

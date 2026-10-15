@@ -18,8 +18,8 @@ import { REGISTRY_SURFACE } from "../staged-snapshot.js";
  */
 
 describe("REGISTRY_PRE_STEPS", () => {
-  it("is exactly the two registries this port documents and replays", () => {
-    expect(REGISTRY_PRE_STEPS).toEqual(["claude-marketplace", "npx-skills"]);
+  it("is the two registries this port documents and replays, and its own installer", () => {
+    expect(REGISTRY_PRE_STEPS).toEqual(["claude-marketplace", "npx-skills", "narrativetrace-init"]);
   });
 
   it("accepts its own members and nothing else", () => {
@@ -70,6 +70,24 @@ describe("registryCommands — the documented lines, verbatim", () => {
   });
 });
 
+describe("narrativetrace-init — this checkout's own installer as a delivery", () => {
+  it("runs the checkout's built CLI `init` in the project and stages nothing", () => {
+    expect(preStepCommands("narrativetrace-init", "/repo", "/work/staged")).toEqual([
+      ["node", "/repo/packages/cli/bin/narrativetrace.js", "init"],
+    ]);
+  });
+
+  it("never reaches for a published package", () => {
+    const [command] = preStepCommands("narrativetrace-init", "/repo", "/work/staged");
+
+    expect(command?.join(" ")).not.toMatch(/npx|npm|@narrativetrace/);
+  });
+
+  it("is a command of its own, not a registry's lines against a staged tree", () => {
+    expect(registryCommands("narrativetrace-init", "/work/staged")).toEqual([]);
+  });
+});
+
 describe("preStepCommands — staging first, the registry's own lines after", () => {
   it("stages HEAD's registry surface before the tool that reads it runs", () => {
     const commands = preStepCommands("npx-skills", "/repo", "/work/staged");
@@ -81,7 +99,7 @@ describe("preStepCommands — staging first, the registry's own lines after", ()
   });
 
   it("stages the same surface whichever registry reads it", () => {
-    for (const preStep of REGISTRY_PRE_STEPS) {
+    for (const preStep of REGISTRY_PRE_STEPS.filter((id) => id !== "narrativetrace-init")) {
       const [archive] = preStepCommands(preStep, "/repo", "/work/staged");
       const separator = (archive as readonly string[]).indexOf("--");
 

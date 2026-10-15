@@ -1,6 +1,6 @@
 # existing-service-checkout
 
-The narrativetrace-verify cases' fixture (Phase 7 milestone 3, this port): a billing service with a
+The narrativetrace-verify and narrativetrace-explain cases' fixture (Phase 7 milestone 3, this port): a billing service with a
 checkout flow and NarrativeTrace already installed through the case's `checkout-install` setup.
 Never copied into a trial (the harness skips a fixture's root README).
 
@@ -20,4 +20,7 @@ Never copied into a trial (the harness skips a fixture's root README).
 - `feeFor` in `src/late-fees.js` is a pure function with its own unit test — the skip case's
   subject.
 
-Cases: `narrativetrace-verify/verify-unintended-interaction`, `narrativetrace-verify/verify-skip`.
+Cases: `narrativetrace-verify/verify-unintended-interaction`, `narrativetrace-verify/verify-skip`,
+`narrativetrace-explain/explain-an-unfamiliar-flow`, `narrativetrace-explain/happy-path`,
+`narrativetrace-explain/pure-function-control` (the checkout flow is the explain cases' subject,
+`feeFor` the control's).

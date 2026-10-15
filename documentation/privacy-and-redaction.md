@@ -50,6 +50,16 @@ way to reach `RedactionPolicy.DISABLED` is application code calling those
 functions directly — a deliberate, reviewable act in your own source, never
 a configuration flag or environment variable a deploy can flip.
 
+## Custom name patterns (direct rendering only)
+
+`RedactionPolicy.ofPatterns(patterns)` builds a policy from your own case- and accent-insensitive substring list, and `RenderOptions.redactionPolicy` is where `renderValue()`/`renderStructured()` accept it. Both are public exports of `@narrativetrace/core`, and both are narrower than they look:
+
+- **It replaces the built-in list; it does not extend it.** `ofPatterns(["email", "phone"])` redacts a field named `email` or `phone` and nothing else: a field named `password` renders in clear under that policy. To keep the defaults, repeat the words you still want in your own list.
+- **It matches field names, not values.** An email address or phone number stored under a field named `contact` is not caught. Value-shape masking (JWT, card number, `Set-Cookie`, …) stays on, and it is the only value-side check.
+- **It reaches only the renderers you call yourself.** `traceObject()` and every integration built on it always use the default policy and take no `redactionPolicy` option, so a custom policy never changes what a trace captures. This is the floor described above, not a gap to be configured away.
+
+For a parameter that must be redacted on a traced call, name it so the default list matches (`ssn`, `token`, …) or list its index: `traceObject(service, context, { methods: { register: { notTraced: [1] } } })` redacts the second argument of `register` whatever its name, and `@notTraced(1)` does the same under decorators.
+
 ## What redacts, and what outranks what
 
 Three independent mechanisms apply to every captured/rendered value:

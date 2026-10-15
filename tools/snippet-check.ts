@@ -3,10 +3,12 @@
 // Copyright (c) 2026 Empower Agile
 import { readFileSync } from "node:fs";
 import { SKILLS } from "@narrativetrace/skills-catalogue";
+import { check as checkAsyncContextImports } from "./async-context-import.js";
 import {
   applyMask,
   englishDocPages,
   parseSnippetBlocks,
+  recipePages,
   resolveSnippetSource,
   rootReadmePage,
 } from "./snippet-shared.js";
@@ -42,7 +44,12 @@ function skillPages(): string[] {
 
 function findSnippetDrifts(): Drift[] {
   const drifts: Drift[] = [];
-  for (const page of [...englishDocPages(), ...rootReadmePage(), ...skillPages()]) {
+  for (const page of [
+    ...englishDocPages(),
+    ...recipePages(),
+    ...rootReadmePage(),
+    ...skillPages(),
+  ]) {
     const text = readFileSync(page, "utf-8");
     for (const block of parseSnippetBlocks(page, text)) {
       const embedded = applyMask(block.contentLines.join("\n"), block.mask);
@@ -97,4 +104,15 @@ if (versionTalk.length > 0) {
   process.exit(1);
 }
 
-console.log("snippet-check: every embedded snippet matches its source, and no page talks versions");
+const wrongImports = checkAsyncContextImports(process.cwd());
+if (wrongImports.length > 0) {
+  console.error(
+    `snippet-check failed: ${wrongImports.length} wrong AsyncNarrativeContext import(s):`,
+  );
+  for (const problem of wrongImports) console.error(`  ${problem}`);
+  process.exit(1);
+}
+
+console.log(
+  "snippet-check: every embedded snippet matches its source, no page talks versions, and AsyncNarrativeContext is imported from core-node",
+);

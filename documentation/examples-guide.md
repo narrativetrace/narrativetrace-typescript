@@ -190,7 +190,7 @@ Five microservices running in Docker containers, connected via HTTP, with distri
 
 **Architecture:**
 
-```
+```text
 Browser → Gateway (:3000) → Customer-Catalog (:3001)
                            → Inventory (:3002)
                            → Payment (:3003) → Fraud (:3004)
@@ -261,7 +261,7 @@ pnpm run example:minecraft
 ```
 
 **Output:**
-```
+```text
 WorldServer.playerJoined(playerName: "Steve")
   WorldGenerator.generateChunk(x: 0, z: 0) -> {"x": 0, "z": 0, "biome": "plains", ...}
   PlayerInventory.addItem(item: {"name": "oak_log", ...}, quantity: 4) -> true

@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/skills-catalogue",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "The typed agent-skills catalogue: one skill per capability, rendered to SKILL.md and the AGENTS.md snippet",
   "license": "BUSL-1.1",
   "private": true,

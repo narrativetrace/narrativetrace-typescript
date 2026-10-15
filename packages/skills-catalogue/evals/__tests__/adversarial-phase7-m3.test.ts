@@ -2,12 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, it } from "vitest";
-import {
-  editsSource,
-  inSource,
-  shapeOf,
-  shellWritesSource,
-} from "../narrativetrace-debug/grade-the-debug.mjs";
+import { inSource, shapeOf, shellWritesSource } from "../narrativetrace-debug/grade-the-debug.mjs";
 import {
   callAndId,
   follows,

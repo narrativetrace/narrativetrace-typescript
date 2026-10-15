@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { appendFileSync } from "node:fs";
+import { cliToolOf, isPlatform, isSporadicPlatform } from "./platform-presets.js";
 
 /**
  * The sporadic-lanes quota guard (skill-evals-multi-platform-2026-09-13.md, owner-ruled
@@ -114,6 +115,27 @@ export function checkQuota(
     };
   }
   return { allowed: true };
+}
+
+/**
+ * The one line a lane prints INSTEAD of running when its weekly allowance is zero, or `undefined`
+ * when the lane should go on to the tier and quota checks.
+ *
+ * @llmNote A zero allowance row is the owner's own "the CLI is not installed or signed in yet" (the
+ * ledger convention for Antigravity and Cursor), so the lane skips and the run exits green — it never
+ * fails a build over a tool nobody has installed. A MISSING row, a spent allowance and a red tier
+ * are not that state: they stay refusals.
+ */
+export function skipReason(platform: string, ledger: QuotaLedger): string | undefined {
+  if (!isPlatform(platform) || !isSporadicPlatform(platform)) return undefined;
+  const notInstalled = ledger.allowances.some(
+    (row) => row.platform === platform && row.weeklyAllowance === 0,
+  );
+  if (!notInstalled) return undefined;
+  return (
+    `SKIP: the ${platform} lane did not run — its \`${cliToolOf(platform)}\` CLI is not installed` +
+    " or signed in (weekly allowance 0 in ledger/quota.md); the owner raises the allowance once it is"
+  );
 }
 
 /** Appends one spend row to `quotaPath`'s "## Spend log" pipe table. */

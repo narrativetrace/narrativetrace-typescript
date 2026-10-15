@@ -4,7 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { checkApprovalMode } from "../src/doctor/checks/approval-mode.js";
 import { looksStructural } from "../src/feedback/structural-trace.js";
-import { pkg, snapshot, withFiles, withPackages } from "./fixture.js";
+import { pkg, snapshot, withFiles } from "./fixture.js";
 
 const BASELINE = withFiles({ "narratives/order/places_order.approved.nt": "scenario: x\n" });
 

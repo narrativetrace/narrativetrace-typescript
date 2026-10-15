@@ -22,6 +22,10 @@ import {
 import type { ProListing } from "../src/pro-listing.js";
 import { renderAgentsSkill } from "../src/render/agents-skills.js";
 import { renderClaudeSkill } from "../src/render/claude.js";
+import {
+  renderCursorMarketplaceJson,
+  renderCursorPluginJson,
+} from "../src/render/cursor-plugin-json.js";
 import { renderMarketplaceJson } from "../src/render/marketplace-json.js";
 import type { Skill } from "../src/skill.js";
 import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
@@ -253,6 +257,16 @@ const JUDGMENTAL_STEP_TITLES = new Set([
   "Check that nothing else moved",
   "Keep the reproduction as the regression test",
   "Report the root cause as the trace showed it",
+  // narrativetrace-explain: a cost decision, a chosen scenario, a read in order, a hand-off and an
+  // explanation by span id — each judged on the reply.
+  "Decide whether the source already answers it, and say so",
+  "Choose the one scenario that already exercises the flow",
+  "Install tracing first when the project has none",
+  "Run that one scenario with tracing on",
+  "Read the structural trace first, in the order it ran",
+  "Open values only where the question needs one",
+  "Hand off when it stops being an explanation",
+  "Explain the run by span id, and mark what you inferred",
 ]);
 
 const REPORTING_COMMAND = "npx @narrativetrace/cli feedback url --category library";
@@ -447,13 +461,11 @@ if (REPO_ROOT_REACHABLE) {
 describe.skipIf(!REPO_ROOT_REACHABLE)(
   "rendered SKILL.md matches the typed catalogue (build-step drift check)",
   () => {
-    // Dynamic, not a top-level import: a top-level `tools/snippet-shared.js` import would be
-    // resolved when this FILE loads, regardless of skipIf — including inside Stryker's
-    // package-only sandbox (see REPO_ROOT_REACHABLE's own comment), where `tools/`, a
-    // repo-root-only directory, is simply not there. Deferred to inside the one test body that
-    // actually needs it, so a skipped run never attempts the resolution at all.
+    // Dynamic and rooted at REPO_ROOT, not a source-relative `../../../tools` import: inside
+    // Stryker's sandbox (`<package>/.stryker-tmp/sandbox-*`) that relative path misses `tools/`,
+    // while REPO_ROOT walks up to the real checkout.
     async function resolveSnippetFromRepo(): Promise<(p: string) => string> {
-      const { stripLicenseHeader } = await import("../../../tools/snippet-shared.js");
+      const { stripLicenseHeader } = await import(join(REPO_ROOT, "tools", "snippet-shared.js"));
       return (p: string) =>
         stripLicenseHeader(readFileSync(join(REPO_ROOT, p), "utf-8")).replace(/\n$/, "");
     }
@@ -475,6 +487,26 @@ describe.skipIf(!REPO_ROOT_REACHABLE)(
     it("marketplace.json", () => {
       const path = join(REPO_ROOT, ".claude-plugin", "marketplace.json");
       expect(readFileSync(path, "utf-8")).toBe(renderMarketplaceJson(MARKETPLACE));
+    });
+
+    it("the Cursor plugin manifests (.cursor-plugin/)", () => {
+      const read = (name: string) => readFileSync(join(REPO_ROOT, ".cursor-plugin", name), "utf-8");
+      expect(read("plugin.json")).toBe(renderCursorPluginJson(MARKETPLACE));
+      expect(read("marketplace.json")).toBe(renderCursorMarketplaceJson(MARKETPLACE));
+    });
+
+    it("the Cursor manifests and the Claude marketplace name the same plugin", () => {
+      const listingName = `"name": ${JSON.stringify(MARKETPLACE.name)}`;
+      const description = JSON.stringify(MARKETPLACE.pluginDescription);
+      for (const file of [
+        ".claude-plugin/marketplace.json",
+        ".cursor-plugin/plugin.json",
+        ".cursor-plugin/marketplace.json",
+      ]) {
+        const text = readFileSync(join(REPO_ROOT, file), "utf-8");
+        expect(text, file).toContain(listingName);
+        expect(text, file).toContain(description);
+      }
     });
 
     it("the plugin source directory holds every skill page the catalogue declares", () => {

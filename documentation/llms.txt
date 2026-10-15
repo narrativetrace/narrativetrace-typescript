@@ -63,7 +63,7 @@ console.log(renderMarkdownBody(context.captureTrace()));
 Run `node index.js`. Expected output (your duration will differ):
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.39ms #1
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.42ms #1
 ```
 <!-- /snippet -->
 Add `index.test.js` next to it — this is the prompt's own step 4, proving redaction:
@@ -96,7 +96,64 @@ test("redacts a deny-listed parameter", ({ narrativeContext }) => {
 <!-- /snippet -->
 Run `npx vitest run`. It passes, and the rendered trace inside it shows `[REDACTED]` for `paymentToken`.
 
+## Runtime support
+Which package runs where, as far as this repository can show. "Tested" means a test in this repository asserts it; "expected to work" means the sources make no Node-only demand but nothing here runs it there.
+
+| Package | Imports from Node | Node 20+ | Cloudflare Workers | Browser | Deno / Bun |
+|---|---|---|---|---|---|
+| `@narrativetrace/core` | none (architecture test) | tested | expected to work | expected to work | expected to work |
+| `@narrativetrace/proxy` | none (architecture test) | tested | expected to work | expected to work | expected to work |
+| `@narrativetrace/core-node` | `node:async_hooks`, `node:crypto`, `node:fs` | tested | needs the `nodejs_compat` flag; not tested here | no | not tested here |
+| `@narrativetrace/core-web`, `@narrativetrace/browser`, `@narrativetrace/standalone` | none (architecture test) | tested | expected to work | intended runtime | expected to work |
+
+What `core-node` uses each built-in for: `node:async_hooks` is `AsyncLocalStorage`, the per-request scope behind `AsyncNarrativeContext`; `node:crypto` is the random source for trace and span ids; `node:fs` reads the optional project config file and is only called through `resolveConfig`, `readFileConfig` or `readProjectFile`. The imports sit at module load, so the runtime must provide all three modules even if you never read a file. `core` and `proxy` mint ids from Web Crypto (`globalThis.crypto.getRandomValues`) when no runtime adapter registered a generator. Where `AsyncLocalStorage` is unavailable, `SyncNarrativeContext` from `core` needs no Node module — but it does not isolate concurrent requests from each other.
+
+## Tracing a request in production
+One `AsyncNarrativeContext` per process, one `context.run(...)` per request, the export inside it. Import `AsyncNarrativeContext` from `@narrativetrace/core-node` — `core` does not export it publicly. `captureTrace()` MUST be called inside `run()`: it reads the current scope, so outside it you read the process-wide default scope, which holds none of the request's spans, and the tree comes back empty. Call `reset()` in a `finally`, so a throwing export cannot leave the request's spans in the shared pipeline.
+<!-- snippet: examples/express/src/request-scope.ts -->
+```ts
+import {
+  AsyncNarrativeContext,
+  NarrativeTraceConfig,
+  renderIndentedText,
+} from "@narrativetrace/core-node";
+import { traceObject } from "@narrativetrace/proxy";
+
+// One context for the process; one run() scope per request.
+export const context = new AsyncNarrativeContext(new NarrativeTraceConfig());
+
+class OrderService {
+  placeOrder(customerId: string, quantity: number): string {
+    return `ORD-${customerId}-${quantity}`;
+  }
+}
+
+const orders = traceObject(new OrderService(), context, { placeOrder: ["customerId", "quantity"] });
+
+export async function handleRequest(
+  customerId: string,
+  exportTrace: (trace: string) => void = console.log,
+): Promise<string> {
+  return context.run(async () => {
+    try {
+      const orderId = orders.placeOrder(customerId, 2);
+      // captureTrace() reads the current scope: call it here, inside run().
+      exportTrace(renderIndentedText(context.captureTrace()));
+      return orderId;
+    } finally {
+      context.reset();
+    }
+  });
+}
+```
+<!-- /snippet -->
+The console line is the simplest export. To send the same spans to a real sink, give the context a pipeline that carries a consumer next to the buffered one that backs `captureTrace()`: `@narrativetrace/pino` (`createPinoEventConsumer`), `@narrativetrace/winston` (`createWinstonEventConsumer`) or `@narrativetrace/opentelemetry` (`createOtelEventConsumer`) — the wiring is in the [Framework Integration Guide](framework-integration-guide.md), sections 8 and 9. `@narrativetrace/express` and `@narrativetrace/hono` ship middleware that opens the per-request `run()` for you.
+
+To trace a module of plain functions rather than a class, wrap them as one object and re-export the traced copies — `const { fn: tracedFn } = traceObject({ fn }, context, { className: "Pricing", methods: { fn: { params: ["a", "b"] } } }); export { tracedFn as fn };` — see "Tracing a module of plain functions" in the Framework Integration Guide for the limit. A bundler that evaluates your entry and your handlers as separate module graphs (OpenNext, Next custom servers, Workers wrapper entries) needs one shared context: "Sharing one context across bundles" in the same guide.
+
 ## Before you start
+- Install every `@narrativetrace/*` package at one version: each peers on `@narrativetrace/core` at the exact version it was published with (`core-node` and `core-web` depend on it the same way), so mixed versions end in `ERESOLVE`.
+- Licence: free and source-available under BSL 1.1 (Apache 2.0 four years after each release); the terms are in each package's `LICENSE` and the `license` field is `BUSL-1.1`.
 - Parameter names of classes you don't own are lost at compile time — pass them explicitly (`traceObject(target, context, { placeOrder: [...] })`) or every argument renders as `arg0`, `arg1`, ...; unrecognised option keys there throw, naming the accepted ones, rather than being silently ignored.
 - `@narrativetrace/vitest` peers on vitest `1.x`, `2.x`, or `3.x` (tested, not just declared); register `ClaritySuiteReporter`/`GlossarySuiteReporter` from the `@narrativetrace/vitest/reporters` subpath in `vitest.config.ts`, never the package root — the root also loads `vitest` itself, which crashes config loading on every version.
 - `DualPathPipeline`'s buffered argument defaults itself when `null`/omitted, so adding a Winston/Pino/OTel consumer never makes `captureTrace()` silently empty; pass an explicit `new BufferedEventConsumer()` when you want to size it yourself.
@@ -111,8 +168,9 @@ Run `npx vitest run`. It passes, and the rendered trace inside it shows `[REDACT
 - `add-narrativetrace-clarity` — Adds or verifies NarrativeTrace Clarity in a TypeScript Vitest project. Use when you want a first naming report, per-element explanations, renames for unclear names, or an explicit clarity quality gate. Registers the clarity reporter in the Vitest config, runs the suite, checks the fresh nonempty results file, reads the scores and issues, applies the report's rename suggestions and re-runs until the gate is clean, and preserves existing thresholds. Route tracing itself being broken to narrativetrace-doctor.
 - `narrativetrace-verify` — Verifies a change by reading what the code actually did before saying it is done. Use after the tests are green and before reporting a change that crosses collaborators, branches, retries, runs async, carries state between calls, or touches code not written in this session — and skip it, saying why, for a pure function or a one-class edit. Writes the intent down first, runs the smallest real path, reads the value-free structural trace against the intent, opens values only on the span that looks wrong, then pins the flow as an approval baseline behind your yes and reports what the trace showed, citing span ids (`#1.3`).
 - `narrativetrace-debug` — Finds the cause of a wrong result by reading what the code did with the values, not by stepping through it. Reproduces the symptom with tracing on, names the first span where a value diverges by its span id before changing any code, fixes it there, checks the structural trace shows nothing else moved, pins the reproduction as a regression test and an approval baseline behind your yes, and reports the root cause by span id. Hands a defect in NarrativeTrace itself to narrativetrace-feedback.
+- `narrativetrace-explain` — Explains what an application or a flow actually does, with nothing broken and no change needing verification. Decides first whether a trace is worth it (a question ten lines of source answer is answered from the source, with no install and no run), otherwise runs one existing scenario with tracing on, reads the value-free structural trace in the order it ran, and explains the run by span id, marking what it inferred and naming the code no span covered. Hands a defect to narrativetrace-debug, a change to narrativetrace-verify.
 
-`npx --yes @narrativetrace/cli init` installs all six under `.claude/skills/{narrativetrace-doctor,add-narrative-tracing,narrativetrace-feedback,add-narrativetrace-clarity,narrativetrace-verify,narrativetrace-debug}/`, `.agents/skills/{narrativetrace-doctor,add-narrative-tracing,narrativetrace-feedback,add-narrativetrace-clarity,narrativetrace-verify,narrativetrace-debug}/` (Codex), and the always-on `AGENTS.md` pointer, in one step — `--dry-run` first to preview the diff. Copying the rendered files by hand still works too. Full descriptions and triggers: [Agent Skills](agent-skills.md).
+`npx --yes @narrativetrace/cli init` installs all seven under `.claude/skills/{narrativetrace-doctor,add-narrative-tracing,narrativetrace-feedback,add-narrativetrace-clarity,narrativetrace-verify,narrativetrace-debug,narrativetrace-explain}/` (the directory Claude Code loads, written on every project; `--vendor none` leaves it out), `.agents/skills/{narrativetrace-doctor,add-narrative-tracing,narrativetrace-feedback,add-narrativetrace-clarity,narrativetrace-verify,narrativetrace-debug,narrativetrace-explain}/` (Codex), and the always-on `AGENTS.md` pointer, in one step — `--dry-run` first to preview the diff. Copying the rendered files by hand still works too. Full descriptions and triggers: [Agent Skills](agent-skills.md). Per-platform install paths — Cursor, Replit, Antigravity, GitHub Copilot, Claude Code — and the pointer files `init` writes for them: [Use NarrativeTrace with your agent](use-with-your-agent.md).
 
 They are also reachable from two registries, each landing the same pages `init` then adopts. The Claude Code plugin marketplace carries them too: `/plugin marketplace add narrativetrace/narrativetrace-typescript`, then `/plugin install narrativetrace-typescript@narrativetrace-typescript` — then run `npx --yes @narrativetrace/cli init --dry-run`, read the diff, and run it without the flag so `AGENTS.md` points at them. `npx skills add narrativetrace/narrativetrace-typescript` installs the open-standard pages directly into the project — then run `npx --yes @narrativetrace/cli init --dry-run`, read the diff, and run it without the flag so `AGENTS.md` points at them.
 
@@ -146,6 +204,16 @@ export const PRINT_URL = `npx @narrativetrace/cli feedback url ${REPORT_FLAGS}`;
 
 `feedback draft` writes `narrativetrace-output/feedback/feedback-draft.md` and `feedback-body.md`, and exits 2 naming a `vf.*` rule if a field carries a value instead of a description. `feedback url` then prints the pre-filled issue form for `github.com/narrativetrace/narrativetrace-typescript`, which you open and submit under your own account, pasting the body file into its last box; `feedback gh` prints the exact `gh issue create` line when `gh` is signed in, and never runs it. Filing is public: it shows that your project uses NarrativeTrace.
 
+## Recipes
+
+One page per problem, in the words a user would type. Each page carries its scenario's code and the real output of a run this build performs — nothing on a recipe page is typed by hand.
+
+- [Add logging to this service](recipes/add-logging-to-this-service.md) — a checkout with no log statement: wrap its collaborators once and every call, with its parameter names and its result, appears in the project's own pino logger.
+- [Help me debug and fix this bug](recipes/help-me-debug-and-fix-this-bug.md) — a declined card leaves the stock reserved: the failing run's narrative shows `reserve`, then `charge` throwing, then nothing, and the fix and the approved baseline that pins it.
+- [Why did this test fail](recipes/why-did-this-test-fail.md) — a red checkout test read span by span against the assertion, where every span agrees with every other and the expectation is what is stale.
+- [Review a complex flow before changing it](recipes/review-a-complex-flow-before-changing-it.md) — one run at `detail` and at `summary`, with the log line that carries values beside the value-free `.nt` an agent reads.
+- [Review a refactoring: did behaviour change](recipes/review-a-refactoring-did-behaviour-change.md) — the tests stay green, the approval diff names the dropped call, and `narrativetrace-approve` is how you say yes.
+
 ## Field notes from AI agents (self-reported, not a benchmark)
 We asked AI agents to build a claims service with NarrativeTrace and write up the experience for another engineer, naming what was awkward. Prompted, one run each, unedited, model named; we wrote the library. The reports so far are from the Java runtime; the same exercise runs for TypeScript next, and the principle they describe — the trace as evidence, redaction by parameter name, output on by default — is the same here. All six reports, the exact prompt and the task: https://narrativetrace.ai/#agents-saying
 - "…the release call is present, generated from a real run, not asserted from inside the process being tested." — Claude Sonnet, 2026-09-11
@@ -156,6 +224,7 @@ We asked AI agents to build a claims service with NarrativeTrace and write up th
 
 - [Complete Reference](llms-full.md): Full API reference, 18-package map, configuration, concurrency, integration guides, architecture decisions, and troubleshooting
 - [Framework Integration Guide](framework-integration-guide.md): Express, Hono, browser, and AsyncLocalStorage integration paths, with the shared-context safety notes
+  - Outbound `traceparent` on Node: `tracedFetch(ctx)` (global `fetch`) and `traceparentHeaders(ctx)` (any other HTTP client), both from `@narrativetrace/core-node`, send the current span's `traceparent` so an instrumented callee joins the caller's trace — the same call as the browser's `tracedFetch`.
 - [Agent Skills](agent-skills.md): `add-narrative-tracing` — install and first trace, ending at the doctor — `narrativetrace-doctor` — a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor` — `narrativetrace-feedback` — report a defect in NarrativeTrace with your approval — and `add-narrativetrace-clarity` — a first naming report and an optional clarity gate over the Vitest reporter, installable today via `.claude/skills/{add-narrative-tracing,narrativetrace-doctor,narrativetrace-feedback,add-narrativetrace-clarity}/`, `.agents/skills/{add-narrative-tracing,narrativetrace-doctor,narrativetrace-feedback,add-narrativetrace-clarity}/` (Codex), or the always-on `AGENTS.md` pointer
 
 ## Sections in Complete Reference

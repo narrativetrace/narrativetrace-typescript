@@ -27,6 +27,12 @@ export { renderSkillBody } from "./render/body.js";
 export type { CarrierCatalogueEntry } from "./render/catalogue-json.js";
 export { carrierCatalogueEntries, renderCarrierCatalogueJson } from "./render/catalogue-json.js";
 export { renderClaudeSkill } from "./render/claude.js";
+export {
+  CURSOR_RULE_PATH,
+  CURSOR_SKILLS_PATH,
+  renderCursorMarketplaceJson,
+  renderCursorPluginJson,
+} from "./render/cursor-plugin-json.js";
 export { renderMarketplaceJson } from "./render/marketplace-json.js";
 export type { StepReplayResult } from "./replay.js";
 export { replaySkill, runReplayCommand } from "./replay.js";

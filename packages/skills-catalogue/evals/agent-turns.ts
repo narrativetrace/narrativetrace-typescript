@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { randomUUID } from "node:crypto";
 import {
   type Platform,
   presetAgentCommand,
@@ -31,6 +32,11 @@ export interface AgentTurns {
   readonly resumedTurnCommand: string | undefined;
   /** One per turn, in order: `prompt.md`, then the case's scripted replies. */
   readonly prompts: readonly string[];
+  /**
+   * The command of every turn that opens a NEW session instead of resuming: the first-turn template
+   * under a session id of its own. Empty for a case that resumes every turn.
+   */
+  readonly freshTurnCommands: ReadonlyMap<number, string>;
 }
 
 export interface TurnsRequest {
@@ -43,6 +49,10 @@ export interface TurnsRequest {
   readonly replies: readonly string[];
   /** The id this TRIAL's conversation is opened and resumed under — never shared across trials. */
   readonly sessionId: string;
+  /** The scripted turns (2 and up) that open a fresh session; see `case-turns.ts`. */
+  readonly freshTurns?: readonly number[] | undefined;
+  /** Mints the id of one fresh session; a uuid each call by default. */
+  readonly freshSessionId?: (() => string) | undefined;
 }
 
 /**
@@ -69,15 +79,40 @@ export function agentTurns(request: TurnsRequest): AgentTurns {
       firstTurnCommand: first === "" ? undefined : first,
       resumedTurnCommand: undefined,
       prompts,
+      freshTurnCommands: new Map(),
     };
   }
   requireNoOverride(request.override);
   requireOpaqueSessionId(request.sessionId);
   return {
-    firstTurnCommand: named(presetFirstTurnCommand, request),
-    resumedTurnCommand: named(presetResumedTurnCommand, request),
+    firstTurnCommand: named(presetFirstTurnCommand, request, request.sessionId),
+    resumedTurnCommand: named(presetResumedTurnCommand, request, request.sessionId),
     prompts,
+    freshTurnCommands: freshCommands(request, prompts.length),
   };
+}
+
+/**
+ * A fresh turn must be the last: the turn after it would have to resume the NEW session, and the
+ * resumed template carries the old id — so the shape is refused rather than resumed silently.
+ */
+function freshCommands(request: TurnsRequest, turnCount: number): ReadonlyMap<number, string> {
+  const commands = new Map<number, string>();
+  for (const turn of request.freshTurns ?? []) {
+    if (!Number.isInteger(turn) || turn < 2 || turn > turnCount) {
+      throw new Error(`fresh turn ${turn} is outside a conversation of ${turnCount}`);
+    }
+    if (turn !== turnCount) {
+      throw new Error(
+        "a fresh turn must be the last turn: the turn after it would have to resume the NEW " +
+          "session, and nothing here carries its id",
+      );
+    }
+    const id = (request.freshSessionId ?? randomUUID)();
+    requireOpaqueSessionId(id);
+    commands.set(turn, named(presetFirstTurnCommand, request, id));
+  }
+  return commands;
 }
 
 /**
@@ -106,6 +141,7 @@ function requireOpaqueSessionId(sessionId: string): void {
 function named(
   preset: (platform: Platform, model: string, skill: string) => string | undefined,
   request: TurnsRequest,
+  sessionId: string,
 ): string {
   const template = preset(request.platform, request.model, request.skill);
   if (template === undefined) {
@@ -114,7 +150,7 @@ function named(
         "verified in the container the trials run in",
     );
   }
-  return template.replace(SESSION_PLACEHOLDER, request.sessionId);
+  return template.replace(SESSION_PLACEHOLDER, sessionId);
 }
 
 /**
@@ -127,5 +163,18 @@ export function commandForTurn(turns: AgentTurns, turn: number): string | undefi
   if (!Number.isInteger(turn) || turn < 1 || turn > turns.prompts.length) {
     throw new Error(`turn ${turn} is outside a conversation of ${turns.prompts.length}`);
   }
-  return turn === 1 ? turns.firstTurnCommand : turns.resumedTurnCommand;
+  return (
+    turns.freshTurnCommands.get(turn) ??
+    (turn === 1 ? turns.firstTurnCommand : turns.resumedTurnCommand)
+  );
+}
+
+/**
+ * Whether `turn` (1-based) opens a new session rather than resuming the conversation.
+ *
+ * @throws {Error} for a turn outside the conversation.
+ */
+export function isFreshTurn(turns: AgentTurns, turn: number): boolean {
+  commandForTurn(turns, turn);
+  return turns.freshTurnCommands.has(turn);
 }

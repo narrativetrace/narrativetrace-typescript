@@ -1,0 +1,6 @@
+scenario: a declined card saves no order
+
+#1 - OrderService.placeOrder(customerId, sku, quantity, cardNumber) !! PaymentDeclinedError
+  #1.1 - InventoryService.reserve(sku, quantity)
+  #1.2 - PaymentService.charge(customerId, amountCents, card) !! PaymentDeclinedError
+  #1.3 - InventoryService.release(sku, quantity)

@@ -4,7 +4,7 @@
 // @vitest-environment jsdom
 import "@narrativetrace/core-web";
 import { NarrativeTraceProvider, useTraced, useTracedFetch } from "@narrativetrace/react";
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { OrderService } from "../client/order-service.js";
 

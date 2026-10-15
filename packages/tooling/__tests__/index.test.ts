@@ -12,7 +12,9 @@ import {
   frameworkCheck,
   frameworkCheckIds,
   frameworkRowById,
+  PLATFORM_ROWS,
   parseVersion,
+  platformRowById,
   renderHuman,
   renderJson,
   runDoctor,
@@ -68,5 +70,12 @@ describe("the framework table through the entry point", () => {
     const row = frameworkRowById("hono");
     if (!row) throw new Error("the table has a hono row");
     expect(frameworkCheck(row)(buildSnapshot(dir, {})).id).toBe("config.hono-middleware");
+  });
+});
+
+describe("the platform table through the entry point", () => {
+  test("exports the rows and the lookup", () => {
+    expect(PLATFORM_ROWS.map((row) => row.id)).toContain("cursor");
+    expect(platformRowById("replit")?.pointer.path).toBe("replit.md");
   });
 });

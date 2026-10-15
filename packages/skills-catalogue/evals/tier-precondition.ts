@@ -20,7 +20,7 @@ export function runCommand(command: string, args: readonly string[], cwd: string
 const TIER_A_AND_A2_FILES = ["__tests__/lints.test.ts", "__tests__/replay.test.ts"] as const;
 
 /**
- * The host/container split (2026-09-14 defect): a sporadic-lane CLI (`codex`, `gemini`) lives only
+ * The host/container split (2026-09-14 defect): a sporadic-lane CLI (`codex`, `agy`, `agent`) lives only
  * on the host, but the toolchain this precondition runs (`pnpm`/`vitest`, and everything the Tier
  * A2 replay's "install with the real toolchain" step needs) lives only in the dev container's own
  * `node_modules` — a host `pnpm install` there aborts (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`).
@@ -68,7 +68,7 @@ export function assertDeterministicTiersGreen(
   } catch (error) {
     throw new Error(
       `Tier A lints / Tier A2 replay are not green (ran ${where}) for ` +
-        "@narrativetrace/skills-catalogue — a sporadic-lane (codex/gemini) trial refuses to start " +
+        "@narrativetrace/skills-catalogue — a sporadic-lane (codex/antigravity/cursor) trial refuses to start " +
         "on top of a known defect. Fix packages/skills-catalogue's own tests before spending " +
         "quota here.",
       { cause: error },

@@ -8,17 +8,17 @@ import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
 
 /**
  * Docs-as-tests applied to the init prompt: a prompt we publish is a prompt we replay, so the
- * published text and the replayed text may never drift apart. The prompt lives in eleven places —
+ * published text and the replayed text may never drift apart. The prompt lives in twelve places —
  * the English README and its three language mirrors (the prompt itself stays in English on
- * purpose; only the sentence introducing it is translated), `documentation/llms.txt`, the five
+ * purpose; only the sentence introducing it is translated), `documentation/llms.txt`, the six
  * Tier B cases whose `prompt.md` IS the prompt and nothing else, and the last positive phrasing in
- * `add-narrative-tracing`'s trigger set. This test is what makes eleven copies safe: they are
+ * `add-narrative-tracing`'s trigger set. This test is what makes twelve copies safe: they are
  * byte-identical or `check` fails.
  *
  * @llmNote The case copies are DISCOVERED, not listed: every `prompt.md` under `evals/` opening
  * with the prompt's first line is a copy of it, so a new case that pastes the prompt is compared
  * whether or not anybody remembered to add it here. A listed-only comparison cannot see a copy
- * nobody listed — which is exactly what a new case is. The five paths expected today are asserted
+ * nobody listed — which is exactly what a new case is. The six paths expected today are asserted
  * to be AMONG what discovery finds, so a case that silently disappears still fails.
  *
  * @llmNote Editing the prompt means editing all eleven. The mirrors' blob-hash headers are a
@@ -41,6 +41,7 @@ const CASES_WHOSE_PROMPT_IS_THE_WHOLE_FILE = [
   `${EVALS_DIR}/add-narrative-tracing/init-prompt-express-project/prompt.md`,
   `${EVALS_DIR}/add-narrative-tracing/registry-claude-marketplace/prompt.md`,
   `${EVALS_DIR}/add-narrative-tracing/registry-npx-skills/prompt.md`,
+  `${EVALS_DIR}/add-narrative-tracing/fresh-session-after-the-prompt/prompt.md`,
 ] as const;
 
 /** Every `prompt.md` under `evals/`, repo-root-relative with `/` separators, in a stable order. */
@@ -115,7 +116,7 @@ describe.skipIf(!REPO_ROOT_REACHABLE)("the published init prompt", () => {
     for (const copy of copies) expect(copy).toBe(copies[0]);
   });
 
-  it("is replayed by the five cases that are expected to carry it", () => {
+  it("is replayed by the six cases that are expected to carry it", () => {
     expect(casePromptsThatArePublished()).toEqual(
       expect.arrayContaining([...CASES_WHOSE_PROMPT_IS_THE_WHOLE_FILE]),
     );

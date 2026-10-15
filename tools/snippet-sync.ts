@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import {
   englishDocPages,
   parseSnippetBlocks,
+  recipePages,
   resolveSnippetSource,
   rootReadmePage,
 } from "./snippet-shared.js";
@@ -26,7 +27,7 @@ function syncSnippetBlocks(): { changedBlocks: number; changedPages: number } {
   let changedBlocks = 0;
   const changedPages = new Set<string>();
 
-  for (const page of [...englishDocPages(), ...rootReadmePage()]) {
+  for (const page of [...englishDocPages(), ...recipePages(), ...rootReadmePage()]) {
     const text = readFileSync(page, "utf-8");
     const lines = text.split("\n");
     const blocks = parseSnippetBlocks(page, text);

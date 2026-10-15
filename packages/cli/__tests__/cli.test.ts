@@ -66,6 +66,12 @@ describe("runCli", () => {
     expect(d.log).toHaveBeenCalledWith(expect.stringContaining("Read-only."));
   });
 
+  test("doctor --help says a failing finding fails the build after the report is written", () => {
+    const d = deps();
+    runCli(["doctor", "--help"], d);
+    expect(d.log).toHaveBeenCalledWith(expect.stringContaining('"doctor green" is\nexit 0'));
+  });
+
   test("doctor -h is an alias for doctor --help", () => {
     const d = deps();
     expect(runCli(["doctor", "-h"], d)).toBe(0);
@@ -110,5 +116,31 @@ describe("runCli", () => {
   test("exits 1 when the doctor finds a failure", () => {
     const d = deps({ buildSnapshot: () => snapshot({ nodeVersion: "16.0.0" }) });
     expect(runCli(["doctor"], d)).toBe(1);
+  });
+
+  // "Doctor green" is exit 0 everywhere (item 165): a script reading the exit code must never see 0
+  // beside a failing finding, and the report it would read is already written when the code is 1.
+  test("writes the human report before it exits 1 on a failing finding", () => {
+    const d = deps({ buildSnapshot: () => snapshot({ nodeVersion: "16.0.0" }) });
+    const code = runCli(["doctor"], d);
+    const [printed] = (d.log as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+    expect(code).toBe(1);
+    expect(printed).toContain("Exit code 1");
+  });
+
+  test("--json carries the failing verdict and exits 1 with it", () => {
+    const d = deps({ buildSnapshot: () => snapshot({ nodeVersion: "16.0.0" }) });
+    const code = runCli(["doctor", "--json"], d);
+    const [printed] = (d.log as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+    expect(code).toBe(1);
+    expect(JSON.parse(printed).exitCode).toBe(1);
+  });
+
+  test("a clean report says exit code 0 and exits 0", () => {
+    const d = deps();
+    const code = runCli(["doctor", "--json"], d);
+    const [printed] = (d.log as ReturnType<typeof vi.fn>).mock.calls[0] as [string];
+    expect(code).toBe(0);
+    expect(JSON.parse(printed).exitCode).toBe(0);
   });
 });

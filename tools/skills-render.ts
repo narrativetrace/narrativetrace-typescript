@@ -9,10 +9,14 @@ import {
   renderAgentsSkill,
   renderCarrierCatalogueJson,
   renderClaudeSkill,
+  renderCursorMarketplaceJson,
+  renderCursorPluginJson,
   renderMarketplaceJson,
   SKILLS,
   spliceAgentsMdSection,
 } from "@narrativetrace/skills-catalogue";
+import { renderCursorRule } from "../packages/tooling/src/init/cursor-rule.js";
+import { CURSOR_RULE_TEXT } from "../packages/tooling/src/platforms/platform-table.js";
 import { stripLicenseHeader } from "./snippet-shared.js";
 
 // Per-commit gate (wired into `pnpm run check`, after `pnpm run build` so
@@ -58,6 +62,15 @@ const CARRIER_CATALOGUE_ROOTS = ["packages/skills", "packages/cli/skills"] as co
  */
 const MARKETPLACE_JSON_PATH = ".claude-plugin/marketplace.json";
 
+/**
+ * The Cursor plugin pair and the one rule they point at (Phase 8 D3): the same listing as the
+ * marketplace above, in Cursor's field names, and the platform table's Cursor pointer rendered with
+ * no stamp — the bytes `init` ADOPTS when a project installed the plugin first.
+ */
+const CURSOR_PLUGIN_JSON_PATH = ".cursor-plugin/plugin.json";
+const CURSOR_MARKETPLACE_JSON_PATH = ".cursor-plugin/marketplace.json";
+const CURSOR_RULE_FILE_PATH = ".cursor/rules/narrativetrace.mdc";
+
 function renderedSkillFiles(): ReadonlyMap<string, string> {
   const files = new Map<string, string>();
   for (const skill of SKILLS) {
@@ -78,6 +91,9 @@ function allRenderedFiles(): ReadonlyMap<string, string> {
     ...renderedSkillFiles(),
     ...renderedCatalogueFiles(),
     [MARKETPLACE_JSON_PATH, renderMarketplaceJson(MARKETPLACE)],
+    [CURSOR_PLUGIN_JSON_PATH, renderCursorPluginJson(MARKETPLACE)],
+    [CURSOR_MARKETPLACE_JSON_PATH, renderCursorMarketplaceJson(MARKETPLACE)],
+    [CURSOR_RULE_FILE_PATH, renderCursorRule(CURSOR_RULE_TEXT, "")],
   ]);
 }
 

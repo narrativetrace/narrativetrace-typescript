@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { lstatSync, readFileSync, readlinkSync, realpathSync, statSync } from "node:fs";
-import { sep } from "node:path";
+import { join, sep } from "node:path";
 
 /**
  * The filesystem questions the installer's readers ask, answered the same way in both of them.
@@ -89,6 +89,31 @@ export function resolvesInside(directory: string, path: string): boolean {
   } catch {
     return false;
   }
+}
+
+/** Whether anything is at the path, a symbolic link — even a dangling one — included. */
+export function existsNoFollow(path: string): boolean {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Whether the path, or a directory above it inside `root`, is a symbolic link.
+ *
+ * @llmNote Walks the project-relative `/`-separated path one element at a time with `lstat`, so a
+ * link anywhere on the way is seen. That is the whole point: nothing is ever written through one.
+ */
+export function runsThroughLink(root: string, relative: string): boolean {
+  let walked = root;
+  for (const element of relative.split("/")) {
+    walked = join(walked, element);
+    if (symlinkTargetOf(walked) !== undefined) return true;
+  }
+  return false;
 }
 
 /** Whether a regular file is there. A directory at that path is not one. */

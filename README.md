@@ -98,7 +98,7 @@ To be precise: a narration template (`@narrated`) is still a hand-written string
 
 Run your code and get execution traces like this:
 
-```
+```text
 OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)
   CustomerService.findCustomer(customerId: "C1") -> {"id": "C1", "name": "Alice", "tier": "gold"}
   ProductCatalogService.lookupPrice(productId: "P1") -> 29.99
@@ -111,7 +111,7 @@ OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)
 
 The trace makes bugs visible:
 
-```
+```text
 OrderService.placeOrder(customerId: "C3", productId: "P1", quantity: 3)
   CustomerService.findCustomer(customerId: "C3") -> {"id": "C3", "name": "Charlie", "tier": "platinum"}
   ProductCatalogService.lookupPrice(productId: "P1") -> 29.99
@@ -127,7 +127,7 @@ OrderService.placeOrder(customerId: "C3", productId: "P1", quantity: 3)
 The same Minecraft "player joins world" flow, traced twice — once with domain names, once with generic names:
 
 **Refactored (clean names):**
-```
+```text
 WorldServer.playerJoined(playerName: "Steve")
   WorldGenerator.generateChunk(x: 0, z: 0) -> {"x": 0, "z": 0, "biome": "plains", "blockCount": 65536}
   PlayerInventory.addItem(item: {"name": "oak_log", "quantity": 4}, quantity: 4) -> true
@@ -137,7 +137,7 @@ WorldServer.playerJoined(playerName: "Steve")
 ```
 
 **Unrefactored (generic names):**
-```
+```text
 GameManager.handle(input: "Steve")
   DataProcessor.process(a: 0, b: 0) -> {"a": 0, "b": 0, "label": "plains", "count": 65536}
   StateManager.update(item: {"name": "oak_log", "quantity": 4}, quantity: 4) -> true
@@ -164,7 +164,7 @@ An independent empirical study, "Do AI Coding Agents Log Like Humans? An Empiric
 
 If the trace *is* the code, then trace quality *is* code quality. NarrativeTrace includes a clarity analyzer that scores your method, class, and parameter names:
 
-```
+```markdown
 ## Clarity Report — Order Placement
 Overall: 0.92 (high)
 
@@ -351,7 +351,7 @@ bg.launch((ctx) => traceObject(notificationService, ctx).sendReceipt('C1'));
 
 The Markdown renderer surfaces the concurrency structure and where time actually went:
 
-```
+```markdown
 - ⑂ fork [2 tasks]
   - ↦ `InventoryService.check("P1")` → `true` — 40ms
   - ↦ `PricingService.quote("P1")` → `"12.50"` — 110ms
@@ -450,11 +450,12 @@ Going deeper:
 - [Privacy and Redaction](documentation/privacy-and-redaction.md) — the row-by-row redaction contract, verified against the code
 - [What to Commit](documentation/what-to-commit.md) — which generated files are run output and which (if any) are reviewed baselines
 - [Troubleshooting](documentation/troubleshooting.md) — symptom → cause → fix for the failure modes people actually hit
-- [Agent Skills](documentation/agent-skills.md) — `add-narrative-tracing`, `narrativetrace-doctor` (a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify` and `narrativetrace-debug`
+- [Agent Skills](documentation/agent-skills.md) — `add-narrative-tracing`, `narrativetrace-doctor` (a thin, read-only agent skill over `npx --yes @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify`, `narrativetrace-debug` and `narrativetrace-explain`
 - [Clarity Guide](documentation/clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](documentation/framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](documentation/examples-guide.md) — the `pnpm demo` launcher and the runnable examples: ecommerce, clarity, Minecraft, plain JavaScript, Express, Hono, distributed (Docker + Jaeger), browser
 - [Feature Guide](documentation/feature-guide.md) — canonical catalog of what this runtime ships, with tier and status
+- [Recipes](documentation/README.md) — one page per problem, with real output: add logging, debug a bug, read a failed test, review a flow, review a refactoring
 
 ## Building from source
 
@@ -531,7 +532,7 @@ private fulfillOrder(order: Order) {
 
 The trace shows which branch ran:
 
-```
+```text
 OrderService.placeOrder(customerId: "C1", productId: "SKU-EBOOK")
   DeliveryService.sendDownloadLink(customerId: "C1", productId: "SKU-EBOOK") -> "https://..."
   NotificationService.confirmOrder(customerId: "C1", orderId: "ORD-001") -> true

@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 51ab64b7da01 | translated: 2026-09-18 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 0280a08aa77e | translated: 2026-09-18 | reviewed: - -->
 # Guia de Configuração do NarrativeTrace TypeScript
 
 [English](../configuration-guide.md) | [Español](../es/guia-de-configuracion.md) | **Português** | [简体中文](../zh-CN/配置指南.md)
@@ -80,7 +80,7 @@ definida, mantém a escrita ativada.
 Os artefatos são agrupados por *módulo* de teste (o nome-base do arquivo de
 teste), com os diagramas em uma árvore espelhada:
 
-```
+```text
 narrativetrace-output/
   order-service/                 # a partir de order-service.test.ts
     places_order.md              # narrative + frontmatter YAML
@@ -141,7 +141,7 @@ Todo cenário do `createNarrativeTest` também escreve um arquivo `.nt` livre
 de valores — apenas nomes, hierarquia de chamadas e tipos de resultado, sem
 valores de argumento ou de retorno — ao lado dos demais artefatos:
 
-```
+```text
 narrativetrace-output/
   structural/
     order-service/
@@ -272,7 +272,7 @@ uma configuração perdida nunca quebra uma execução.
 
 Enviar **os dois** nomes de arquivo aceitos falha a execução imediatamente:
 
-```
+```text
 DuplicateConfigurationError: Multiple NarrativeTrace configuration sources
 found: narrativetrace.config.json, .narrativetracerc.json.
 Keep exactly one and delete the rest.
@@ -378,7 +378,7 @@ class AuthService {
 
 A saída de trace mostra `***` em vez do valor real:
 
-```
+```text
 AuthService.login(username: "admin", password: ***)
 ```
 
@@ -526,14 +526,14 @@ ms, então estourar o padrão exige ~655.000 eventos/s sustentados ao longo
 de uma janela. Durabilidade não é trabalho desse caminho; o consumer
 síncrono do pipeline é quem cuida disso.
 
-```
+```text
 capacidade ≈ pico de eventos/s × pior travamento tolerável de drenagem (segundos)
 memória após alocada ≈ capacidade × ~300 B/evento      (65.536 ≈ ~20 MB)
 ```
 
 Exemplo prático — um serviço a 1.000 req/s, 50 chamadas traceadas por requisição, dois eventos por chamada (enter + exit):
 
-```
+```text
 1.000 × 50 × 2                = 100.000 eventos/s
 100.000 × 0,5 s de travamento  =  50.000 eventos  →  abaixo de 65.536, o padrão aguenta
 ```

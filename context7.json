@@ -1,0 +1,34 @@
+{
+  "$schema": "https://context7.com/schema/context7.json",
+  "projectTitle": "NarrativeTrace for TypeScript",
+  "description": "NarrativeTrace for TypeScript records each traced call, its parameters and its result, forwards them as log lines through the pino or winston bridge, and writes a value-free structural trace per Vitest test. It installs from npm as @narrativetrace/core-node and @narrativetrace/proxy, with @narrativetrace/vitest for tests.",
+  "folders": ["documentation"],
+  "excludeFolders": [
+    "documentation/es",
+    "documentation/pt-BR",
+    "documentation/zh-CN",
+    "documentation/i18n"
+  ],
+  "excludeFiles": [
+    "LEAME.md",
+    "LEIAME.md",
+    "自述文件.md",
+    "contract.yaml",
+    "CODE_OF_CONDUCT.md",
+    "SECURITY.md"
+  ],
+  "rules": [
+    "Install with `npx @narrativetrace/cli init --dry-run`, read the diff, then run it without the flag; it copies agent skills into .agents/skills and .claude/skills and adds a marked section to AGENTS.md.",
+    "Choose one integration per project, as documentation/choosing-an-integration.md says: @narrativetrace/vitest, @narrativetrace/proxy, express, hono, nestjs, angular or react.",
+    "Values matching the redaction rules are replaced with [REDACTED] before any output. Keep secrets out of traced parameters and prove redaction with a test that traces a deny-listed parameter.",
+    "Only wrapped code appears in a trace: pass objects through traceObject and name parameters explicitly. Read the run's actual output before describing what the application did.",
+    "documentation/llms.txt is the curated reference, and documentation/recipes/ holds complete worked examples by problem."
+  ],
+  "previousVersions": [
+    { "tag": "v0.3.0" },
+    { "tag": "v0.2.0" },
+    { "tag": "v0.1.3" },
+    { "tag": "v0.1.2" },
+    { "tag": "v0.1.1" }
+  ]
+}

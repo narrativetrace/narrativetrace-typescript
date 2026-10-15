@@ -13,9 +13,10 @@ import {
 } from "../src/catalogue/doctor-commands.js";
 import { NARRATIVETRACE_DEBUG } from "../src/catalogue/narrativetrace-debug.js";
 import { NARRATIVETRACE_DOCTOR } from "../src/catalogue/narrativetrace-doctor.js";
+import { NARRATIVETRACE_EXPLAIN } from "../src/catalogue/narrativetrace-explain.js";
 import { NARRATIVETRACE_FEEDBACK } from "../src/catalogue/narrativetrace-feedback.js";
 import { NARRATIVETRACE_VERIFY } from "../src/catalogue/narrativetrace-verify.js";
-import { THE_PATH, THE_REPRODUCTION } from "../src/catalogue/verify-commands.js";
+import { THE_PATH, THE_REPRODUCTION, THE_SCENARIO } from "../src/catalogue/verify-commands.js";
 import { replaySkill, runReplayCommand } from "../src/replay.js";
 import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
 
@@ -180,6 +181,23 @@ describe
       );
     }, REPLAY_BUDGET_MS);
 
+    // The explain skill's commands, for real: the scenario run (the flow test stands in for the
+    // test a user's question is about) and the two listings. It runs BEFORE the verify and debug
+    // replays on purpose: theirs run the whole suite, which rewrites the fixture's own trace files
+    // last — the "newest rendered trace" check below depends on that being the last write.
+    beforeAll(async () => {
+      await letTheLoopTurn();
+      replays.set(
+        "narrativetrace-explain",
+        replaySkill(NARRATIVETRACE_EXPLAIN, fixtureDir, (command, cwd) =>
+          runReplayCommand(
+            command.replaceAll(THE_SCENARIO, "__tests__/place-order-flow.test.ts"),
+            cwd,
+          ),
+        ),
+      );
+    }, REPLAY_BUDGET_MS);
+
     // The verify skill's loop and pin, for real: the run step with its placeholder filled by the
     // fixture's own flow test, the listings, the whole-suite approval run (approval mode is OFF in
     // the fixture, so it writes no review copy) and a promotion that finds nothing to promote.
@@ -274,6 +292,16 @@ describe
         "Check that nothing else moved",
         "Run the suite in approval mode and show every .received.nt",
         "Promote what was shown, and nothing else",
+      ]);
+    });
+
+    it("narrativetrace-explain: the scenario run and both listings run for real", () => {
+      const results = resultsFor("narrativetrace-explain");
+      expect(results.filter((r) => !r.ok)).toEqual([]);
+      expect(results.filter((r) => r.ran).map((r) => r.title)).toEqual([
+        "Run that one scenario with tracing on",
+        "Read the structural trace first, in the order it ran",
+        "Open values only where the question needs one",
       ]);
     });
 

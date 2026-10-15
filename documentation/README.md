@@ -21,11 +21,20 @@ Going deeper:
 - [Structural Trace Format](structural-trace-format.md) — the value-free `.nt` artifact, per-invocation identity, and approval traces end to end
 - [What to Commit](what-to-commit.md) — which generated files are run output and which (if any) are reviewed baselines
 - [Troubleshooting](troubleshooting.md) — symptom → cause → fix for the failure modes people actually hit
-- [Agent Skills](agent-skills.md) — `add-narrative-tracing`, `narrativetrace-doctor` (a thin, read-only agent skill over `npx @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify` and `narrativetrace-debug`
+- [Agent Skills](agent-skills.md) — `add-narrative-tracing`, `narrativetrace-doctor` (a thin, read-only agent skill over `npx @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify`, `narrativetrace-debug` and `narrativetrace-explain`
+- [Use NarrativeTrace with your agent](use-with-your-agent.md) — Cursor, Replit, Antigravity, GitHub Copilot and Claude Code: how each gets the skills, the pointer file `init` writes for it, and the evidence behind each row
 - [Clarity Guide](clarity-guide.md) — scoring model, NLP components, static scanner
 - [Framework Integration Guide](framework-integration-guide.md) — Express, Hono, browser, AsyncLocalStorage
 - [Examples Guide](examples-guide.md) — the `pnpm demo` launcher and the runnable examples
 - [Feature Guide](feature-guide.md) — canonical catalog of what this runtime ships, with tier and status
+
+Recipes — one page per problem, in the words a user would type; each carries its scenario's code and the real output of a run this build performs:
+
+- [Add logging to this service](recipes/add-logging-to-this-service.md) — a checkout with no log statement, every call in the project's own pino logger
+- [Help me debug and fix this bug](recipes/help-me-debug-and-fix-this-bug.md) — a declined card leaves the stock reserved: find the missing `release`, fix it, pin it
+- [Why did this test fail](recipes/why-did-this-test-fail.md) — a red test read span by span against its assertion
+- [Review a complex flow before changing it](recipes/review-a-complex-flow-before-changing-it.md) — one run at `detail` and at `summary`, the log beside the value-free `.nt`
+- [Review a refactoring: did behaviour change](recipes/review-a-refactoring-did-behaviour-change.md) — the tests stay green, the approval diff names the dropped call
 
 Gates and tooling (process/contributor content — English only, no translated mirror):
 

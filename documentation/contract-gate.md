@@ -52,7 +52,7 @@ pnpm run contract-check -- --dry-run
 
 A failure names every fact in one line, so a skim is enough:
 
-```
+```text
 documentation/contract.yaml: probed-narrativetrace-output-default documented default "true"
 but probed-narrativetrace-output-default <published-version> (published) reads "false"
 ```

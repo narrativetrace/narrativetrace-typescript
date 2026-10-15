@@ -64,6 +64,7 @@ describe("reading a catalogue", () => {
       "add-narrativetrace-clarity",
       "narrativetrace-verify",
       "narrativetrace-debug",
+      "narrativetrace-explain",
     ]);
     for (const skill of catalogue.skills) {
       for (const flavour of SKILL_FLAVOURS) {

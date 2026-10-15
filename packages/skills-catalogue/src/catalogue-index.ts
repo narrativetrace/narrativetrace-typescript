@@ -5,6 +5,7 @@ import { ADD_NARRATIVE_TRACING } from "./catalogue/add-narrative-tracing.js";
 import { ADD_NARRATIVETRACE_CLARITY } from "./catalogue/add-narrativetrace-clarity.js";
 import { NARRATIVETRACE_DEBUG } from "./catalogue/narrativetrace-debug.js";
 import { NARRATIVETRACE_DOCTOR } from "./catalogue/narrativetrace-doctor.js";
+import { NARRATIVETRACE_EXPLAIN } from "./catalogue/narrativetrace-explain.js";
 import { NARRATIVETRACE_FEEDBACK } from "./catalogue/narrativetrace-feedback.js";
 import { NARRATIVETRACE_VERIFY } from "./catalogue/narrativetrace-verify.js";
 import { PRO_LISTINGS } from "./catalogue/pro-listings.js";
@@ -20,6 +21,7 @@ export const SKILLS: readonly Skill[] = [
   ADD_NARRATIVETRACE_CLARITY,
   NARRATIVETRACE_VERIFY,
   NARRATIVETRACE_DEBUG,
+  NARRATIVETRACE_EXPLAIN,
 ];
 
 /**
@@ -36,7 +38,7 @@ export const MARKETPLACE: MarketplaceListing = {
   owner: { name: "NarrativeTrace", url: "https://narrativetrace.ai" },
   description: "The NarrativeTrace agent skills for TypeScript.",
   pluginDescription:
-    "Install NarrativeTrace in a TypeScript project and reach a first trace, diagnose an install that traces nothing, add or verify a Clarity naming report, report a defect in NarrativeTrace itself with your approval, verify a change by reading its trace and pinning it as a baseline, and debug a wrong result by naming the span where it diverged.",
+    "Install NarrativeTrace in a TypeScript project and reach a first trace, diagnose an install that traces nothing, add or verify a Clarity naming report, report a defect in NarrativeTrace itself with your approval, verify a change by reading its trace and pinning it as a baseline, debug a wrong result by naming the span where it diverged, and explain what an application actually does by reading the trace of one scenario.",
   pluginSource: "./.claude",
   license: "Apache-2.0",
   homepage: "https://narrativetrace.ai",

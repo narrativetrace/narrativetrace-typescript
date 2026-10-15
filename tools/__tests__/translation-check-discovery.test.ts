@@ -82,6 +82,18 @@ describe("isLanguageDirFile", () => {
     expect(isLanguageDirFile("documentation/i18n/manifest.json")).toBe(false);
   });
 
+  it("excludes the English recipe pages, which are sources and not translations", () => {
+    expect(isLanguageDirFile("documentation/recipes/add-logging-to-this-service.md")).toBe(false);
+  });
+
+  it("rejects a sibling directory sharing the 'recipes' prefix without a path delimiter", () => {
+    expect(isLanguageDirFile("documentation/recipesx/a.md")).toBe(true);
+  });
+
+  it("matches a translated recipe under a language directory's own recipes folder", () => {
+    expect(isLanguageDirFile("documentation/es/recetas/anade-registro.md")).toBe(true);
+  });
+
   it("excludes files directly under documentation/ with no subdirectory", () => {
     expect(isLanguageDirFile("documentation/README.md")).toBe(false);
   });

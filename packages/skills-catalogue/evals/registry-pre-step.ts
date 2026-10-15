@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { join } from "node:path";
 import { MARKETPLACE } from "../src/catalogue-index.js";
 import { stagingCommands } from "./staged-snapshot.js";
 
 /**
- * INTENT: the closed vocabulary of REGISTRY deliveries a Tier B case may declare — the step that
- * puts this repository's rendered skill pages where a tool other than our own installer put them,
- * run before the agent starts.
+ * INTENT: the closed vocabulary of deliveries a Tier B case may declare — the step that puts this
+ * repository's rendered skill pages in place before the agent starts: a REGISTRY tool, or our own
+ * installer run by the harness so that a case can ask what a session finds AFTER an install without
+ * the install itself being the agent's work.
  *
  * A closed list rather than a command string in `case.json`: a case file is data, and data that can
  * name any executable is a shell this harness does not have. Each member owns the exact argv a
@@ -23,8 +25,17 @@ import { stagingCommands } from "./staged-snapshot.js";
  * user scope. `npx-skills`: `npx skills add`, which installs the open-standard pages into the
  * project itself. Both are documented in `documentation/llms.txt` and `agent-skills.md`; a registry
  * documented without a replayed case is what docs-as-tests rule 8 forbids.
+ *
+ * `narrativetrace-init`: this checkout's own built CLI, `narrativetrace init`, run in the project.
+ * Nothing is staged and no package is fetched, so what the case measures is the install under test
+ * — never a published release that predates it (the ports' trap, 2026-10-10) and never the agent's
+ * own reading of the install prompt, which it may stop short of.
  */
-export const REGISTRY_PRE_STEPS = ["claude-marketplace", "npx-skills"] as const;
+export const REGISTRY_PRE_STEPS = [
+  "claude-marketplace",
+  "npx-skills",
+  "narrativetrace-init",
+] as const;
 
 export type RegistryPreStep = (typeof REGISTRY_PRE_STEPS)[number];
 
@@ -55,6 +66,7 @@ export function registryCommands(
   preStep: RegistryPreStep,
   stagedSnapshot: string,
 ): readonly (readonly string[])[] {
+  if (preStep === "narrativetrace-init") return [];
   if (preStep === "claude-marketplace") {
     return [
       ["claude", "plugin", "marketplace", "add", stagedSnapshot],
@@ -80,8 +92,14 @@ export function preStepCommands(
   repoRoot: string,
   stagedSnapshot: string,
 ): readonly (readonly string[])[] {
+  if (preStep === "narrativetrace-init") return [checkoutInit(repoRoot)];
   return [
     ...stagingCommands(repoRoot, stagedSnapshot),
     ...registryCommands(preStep, stagedSnapshot),
   ];
+}
+
+/** The checkout's built CLI, `init` — `dist/` must be built, which `pnpm run build` does. */
+function checkoutInit(repoRoot: string): readonly string[] {
+  return ["node", join(repoRoot, "packages", "cli", "bin", "narrativetrace.js"), "init"];
 }

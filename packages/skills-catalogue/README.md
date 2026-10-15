@@ -43,7 +43,7 @@ replay of a skill's own step data against `examples/sixty-seconds` — the clari
 discovery (developers.openai.com/codex/skills,
 developers.openai.com/codex/concepts/customization; fetched 2026-09-13) walks from the working
 directory up to the repository root looking for `.agents/skills/<name>/SKILL.md` (plus
-`~/.agents/skills` for user-global skills) — there is no `.codex/`-prefixed layout. Gemini has no
-documented equivalent yet; when one lands, `render/agents-skills.ts` or `render/claude.ts` is the
-template to follow (a pure `Skill -> string` function plus a `tools/skills-render.ts` file-path
+`~/.agents/skills` for user-global skills) — there is no `.codex/`-prefixed layout. Antigravity reads
+`.agents/skills` as well, so it needs no renderer of its own; a platform with a layout of its own
+would follow `render/agents-skills.ts` or `render/claude.ts` as the template (a pure `Skill -> string` function plus a `tools/skills-render.ts` file-path
 wiring, drift-checked the same way).

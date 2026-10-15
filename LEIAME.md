@@ -1,4 +1,4 @@
-<!-- source: README.md blob 36a4ffac44b7 | translated: 2026-10-09 | reviewed: - -->
+<!-- source: README.md blob 6f98ab862284 | translated: 2026-10-15 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | [Español](LEAME.md) | **Português** | [简体中文](自述文件.md)
@@ -116,7 +116,7 @@ código.
 
 Execute seu código e obtenha traces de execução como este:
 
-```
+```text
 OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)
   CustomerService.findCustomer(customerId: "C1") -> {"id": "C1", "name": "Alice", "tier": "gold"}
   ProductCatalogService.lookupPrice(productId: "P1") -> 29.99
@@ -129,7 +129,7 @@ OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)
 
 O trace torna os bugs visíveis:
 
-```
+```text
 OrderService.placeOrder(customerId: "C3", productId: "P1", quantity: 3)
   CustomerService.findCustomer(customerId: "C3") -> {"id": "C3", "name": "Charlie", "tier": "platinum"}
   ProductCatalogService.lookupPrice(productId: "P1") -> 29.99
@@ -145,7 +145,7 @@ OrderService.placeOrder(customerId: "C3", productId: "P1", quantity: 3)
 O mesmo fluxo "jogador entra no mundo" do Minecraft, traçado duas vezes — uma com nomes de domínio, outra com nomes genéricos:
 
 **Refatorado (nomes limpos):**
-```
+```text
 WorldServer.playerJoined(playerName: "Steve")
   WorldGenerator.generateChunk(x: 0, z: 0) -> {"x": 0, "z": 0, "biome": "plains", "blockCount": 65536}
   PlayerInventory.addItem(item: {"name": "oak_log", "quantity": 4}, quantity: 4) -> true
@@ -155,7 +155,7 @@ WorldServer.playerJoined(playerName: "Steve")
 ```
 
 **Não refatorado (nomes genéricos):**
-```
+```text
 GameManager.handle(input: "Steve")
   DataProcessor.process(a: 0, b: 0) -> {"a": 0, "b": 0, "label": "plains", "count": 65536}
   StateManager.update(item: {"name": "oak_log", "quantity": 4}, quantity: 4) -> true
@@ -182,7 +182,7 @@ Um estudo empírico independente, "Do AI Coding Agents Log Like Humans? An Empir
 
 Se o trace *é* o código, então a qualidade do trace *é* a qualidade do código. O NarrativeTrace inclui um analisador de clareza que pontua os nomes dos seus métodos, classes e parâmetros:
 
-```
+```markdown
 ## Clarity Report — Order Placement
 Overall: 0.92 (high)
 
@@ -374,7 +374,7 @@ bg.launch((ctx) => traceObject(notificationService, ctx).sendReceipt('C1'));
 
 O renderizador Markdown mostra a estrutura de concorrência e para onde o tempo realmente foi:
 
-```
+```markdown
 - ⑂ fork [2 tasks]
   - ↦ `InventoryService.check("P1")` → `true` — 40ms
   - ↦ `PricingService.quote("P1")` → `"12.50"` — 110ms
@@ -496,11 +496,12 @@ Aprofundando:
 - [Privacidade e ocultação](documentation/pt-BR/privacidade-e-ocultacao.md) — o contrato de ocultação linha por linha, verificado contra o código
 - [O que commitar](documentation/pt-BR/o-que-commitar.md) — quais arquivos gerados são saída de execução e quais (se algum) são baselines revisadas
 - [Solução de problemas](documentation/pt-BR/solucao-de-problemas.md) — sintoma → causa → solução para os modos de falha que as pessoas realmente encontram
-- [Habilidades de agente](documentation/pt-BR/habilidades-de-agente.md) — `add-narrative-tracing`, `narrativetrace-doctor` (uma habilidade de agente fina e somente leitura sobre `npx --yes @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify` e `narrativetrace-debug`
+- [Habilidades de agente](documentation/pt-BR/habilidades-de-agente.md) — `add-narrative-tracing`, `narrativetrace-doctor` (uma habilidade de agente fina e somente leitura sobre `npx --yes @narrativetrace/cli doctor`), `add-narrativetrace-clarity`, `narrativetrace-feedback`, `narrativetrace-verify`, `narrativetrace-debug` e `narrativetrace-explain`
 - [Guia de clareza](documentation/pt-BR/guia-de-clareza.md) — modelo de pontuação, componentes de NLP, scanner estático
 - [Guia de integração de frameworks](documentation/pt-BR/guia-de-integracao-de-frameworks.md) — Express, Hono, navegador, AsyncLocalStorage
 - [Guia de exemplos](documentation/pt-BR/guia-de-exemplos.md) — o lançador `pnpm demo` e os exemplos executáveis: ecommerce, clarity, Minecraft, JavaScript puro, Express, Hono, distribuído (Docker + Jaeger), navegador
 - [Guia de funcionalidades](documentation/pt-BR/guia-de-funcionalidades.md) — catálogo canônico do que esta implementação distribui, com tier e status
+- [Receitas](documentation/LEIAME.md) — uma página por problema, com saída real: adicionar logs, depurar um bug, ler um teste que falhou, revisar um fluxo, revisar uma refatoração
 
 ## Compilando a partir do código-fonte
 
@@ -577,7 +578,7 @@ private fulfillOrder(order: Order) {
 
 O trace mostra qual ramo foi executado:
 
-```
+```text
 OrderService.placeOrder(customerId: "C1", productId: "SKU-EBOOK")
   DeliveryService.sendDownloadLink(customerId: "C1", productId: "SKU-EBOOK") -> "https://..."
   NotificationService.confirmOrder(customerId: "C1", orderId: "ORD-001") -> true

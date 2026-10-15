@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob e04eda71aaec | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob 60024a934445 | translated: 2026-09-16 | reviewed: - -->
 # Privacidade e ocultação
 
 [English](../privacy-and-redaction.md) | [Español](../es/privacidad-y-ocultacion.md) | **Português** | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -58,6 +58,16 @@ forma de sobrescrevê-la. A única forma de alcançar
 diretamente — um ato deliberado e revisável no seu próprio código-fonte,
 nunca uma flag de configuração ou variável de ambiente que um deploy possa
 alternar.
+
+## Padrões de nome próprios (apenas renderização direta)
+
+`RedactionPolicy.ofPatterns(patterns)` constrói uma política a partir da sua própria lista de substrings, sem distinguir maiúsculas nem acentos, e `RenderOptions.redactionPolicy` é onde `renderValue()`/`renderStructured()` a aceitam. Ambos são exports públicos de `@narrativetrace/core`, e ambos são mais estreitos do que parecem:
+
+- **Ela substitui a lista embutida; não a amplia.** `ofPatterns(["email", "phone"])` oculta um campo chamado `email` ou `phone` e nada mais: um campo chamado `password` aparece em claro com essa política. Para manter os padrões, repita na sua lista as palavras que quiser preservar.
+- **Ela compara nomes de campo, não valores.** Um endereço de e-mail ou um telefone guardado em um campo chamado `contact` não é detectado. O mascaramento pela forma do valor (JWT, número de cartão, `Set-Cookie`, …) continua ativo e é a única verificação sobre o valor.
+- **Ela só alcança os renderizadores que você mesmo chama.** `traceObject()` e toda integração construída sobre ele usam sempre a política padrão e não aceitam uma opção `redactionPolicy`, então uma política própria nunca muda o que um trace captura. É o piso descrito acima, não uma lacuna a ser configurada.
+
+Para um parâmetro que precisa ser ocultado em uma chamada rastreada, dê a ele um nome que a lista padrão reconheça (`ssn`, `token`, …) ou indique o índice: `traceObject(service, context, { methods: { register: { notTraced: [1] } } })` oculta o segundo argumento de `register` seja qual for o nome, e `@notTraced(1)` faz o mesmo com decoradores.
 
 ## O que oculta, e o que tem prioridade sobre o quê
 

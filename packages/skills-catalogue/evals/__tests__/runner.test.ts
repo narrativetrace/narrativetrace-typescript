@@ -31,7 +31,8 @@ const SAMPLE_QUOTA = (allowance: number) => `# Sporadic eval quota
 | platform | plan tier | weekly allowance |
 |---|---|---|
 | codex | basic | ${allowance} |
-| gemini | not installed | 0 |
+| antigravity | subscription | 0 |
+| cursor | not installed | 0 |
 
 ## Spend log
 
@@ -807,11 +808,59 @@ describe("runTrials — the sporadic-lane refusals and Claude's exemption", () =
     expect(state.ledgerRows).toEqual([]);
   });
 
-  it("a codex trial refuses when the weekly allowance is already spent, with no ledger row", () => {
+  it("a lane whose allowance is 0 skips with one line naming its tool, and runs nothing", () => {
     const state = makeState();
-    const deps = makeDeps(state, { assertTiersGreen: () => {} }, 0);
-    expect(() => runTrials(makeArgs({ platform: "codex" }), deps)).toThrow(/no override/);
+    const lines: string[] = [];
+    const log = vi
+      .spyOn(console, "log")
+      .mockImplementation((line) => void lines.push(String(line)));
+    const deps = makeDeps(
+      state,
+      {
+        assertTiersGreen: () => {
+          throw new Error("a skipped lane must not even check the deterministic tiers");
+        },
+      },
+      4,
+    );
+    try {
+      runTrials(makeArgs({ platform: "cursor" }), deps);
+    } finally {
+      log.mockRestore();
+    }
+    expect(lines).toEqual([
+      expect.stringMatching(/^SKIP: the cursor lane did not run — its `agent` CLI/),
+    ]);
+    expect(state.events).toEqual([]);
     expect(state.ledgerRows).toEqual([]);
+    expect(state.quotaSpend).toEqual([]);
+  });
+
+  it("a codex lane whose allowance was set to 0 skips the same way", () => {
+    const state = makeState();
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    try {
+      runTrials(
+        makeArgs({ platform: "codex" }),
+        makeDeps(state, { assertTiersGreen: () => {} }, 0),
+      );
+      expect(log).toHaveBeenCalledWith(expect.stringContaining("SKIP: the codex lane"));
+    } finally {
+      log.mockRestore();
+    }
+    expect(state.ledgerRows).toEqual([]);
+  });
+
+  it("a platform with no allowance row at all still refuses, rather than skipping", () => {
+    const state = makeState();
+    const deps = makeDeps(state, {
+      assertTiersGreen: () => {},
+      readFile: (path) =>
+        path.endsWith("quota.md")
+          ? SAMPLE_QUOTA(4).replace("| cursor | not installed | 0 |\n", "")
+          : "p",
+    });
+    expect(() => runTrials(makeArgs({ platform: "cursor" }), deps)).toThrow(/no allowance row/);
   });
 
   it("a codex run spends its allowance across trials and refuses the trial that would exceed it", () => {
@@ -995,6 +1044,28 @@ describe("runTrials — a conversation", () => {
     expect(first?.args.slice(-2)).toEqual(["--session-id", "0f8fad5b-d9cb-469f-a165-70867728950e"]);
     expect(second?.args.slice(-2)).toEqual(["--resume", "0f8fad5b-d9cb-469f-a165-70867728950e"]);
     expect(second?.args[1]).toBe("yes, file it");
+  });
+
+  it("opens a NEW session at a fresh turn — the agent of that turn remembers nothing", () => {
+    const state = makeState();
+    const ids = ["11111111-1111-1111-1111-111111111111", "22222222-2222-2222-2222-222222222222"];
+    let next = 0;
+    const fresh = { ...twoTurns, freshTurns: [2] };
+    runTrials(
+      makeArgs(FEEDBACK),
+      caseDeps(state, fresh, { newSessionId: () => ids[next++] as string }),
+    );
+    const [first, second] = state.agentCalls;
+    expect(first?.args.slice(-2)).toEqual(["--session-id", ids[0]]);
+    expect(second?.args.slice(-2)).toEqual(["--session-id", ids[1]]);
+  });
+
+  it("refuses a fresh turn it cannot drive, as a harness error and not a crash", () => {
+    const state = makeState();
+    const broken = { ...twoTurns, freshTurns: [3] };
+    expect(() => runTrials(makeArgs(FEEDBACK), caseDeps(state, broken))).toThrow(
+      /scripts no reply for it/,
+    );
   });
 
   it("gives every trial a conversation of its own", () => {

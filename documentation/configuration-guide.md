@@ -76,7 +76,7 @@ value, including the variable being unset, keeps writing.
 Artifacts are grouped per test *module* (the test file's base name), with
 diagrams in a mirrored tree:
 
-```
+```text
 narrativetrace-output/
   order-service/                 # from order-service.test.ts
     places_order.md              # narrative + YAML frontmatter
@@ -134,7 +134,7 @@ Every `createNarrativeTest` scenario also writes a value-free `.nt` file —
 names, call hierarchy and outcome kinds only, no argument or return values —
 beside the other artifacts:
 
-```
+```text
 narrativetrace-output/
   structural/
     order-service/
@@ -258,7 +258,7 @@ ignored, so a stray setting never breaks a run.
 
 Shipping **both** accepted filenames fails the run immediately:
 
-```
+```text
 DuplicateConfigurationError: Multiple NarrativeTrace configuration sources
 found: narrativetrace.config.json, .narrativetracerc.json.
 Keep exactly one and delete the rest.
@@ -363,7 +363,7 @@ class AuthService {
 
 Trace output shows `***` instead of the actual value:
 
-```
+```text
 AuthService.login(username: "admin", password: ***)
 ```
 
@@ -502,7 +502,7 @@ is stalled* — it is drained every 100 ms, so overflowing the default takes ~65
 events/s sustained across a window. Durability is not this path's job; the
 pipeline's synchronous consumer is.
 
-```
+```text
 capacity ≈ peak events/s × worst tolerable drain stall (seconds)
 memory once allocated ≈ capacity × ~300 B/event      (65,536 ≈ ~20 MB)
 ```
@@ -510,7 +510,7 @@ memory once allocated ≈ capacity × ~300 B/event      (65,536 ≈ ~20 MB)
 Worked example — a service at 1,000 req/s, 50 traced calls per request, two events
 per call (enter + exit):
 
-```
+```text
 1,000 × 50 × 2            = 100,000 events/s
 100,000 × 0.5 s stall     =  50,000 events  →  under 65,536, the default holds
 ```

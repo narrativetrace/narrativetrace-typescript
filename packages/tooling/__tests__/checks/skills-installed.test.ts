@@ -4,6 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { checkSkillsInstalled } from "../../src/doctor/checks/skills-installed.js";
 import { installedSkill } from "../../src/init/installed-skill.js";
+import type { PointerReading, PointerStatus } from "../../src/init/pointer-reading.js";
 import { pkg, snapshot, withPackages } from "../fixture.js";
 
 const PROJECT_VERSION = "1.2.3";
@@ -300,5 +301,91 @@ describe("checkSkillsInstalled", () => {
       );
       expect(finding.status).toBe("pass");
     });
+  });
+});
+
+function pointer(status: PointerStatus, coordinate = "", platformId = "cursor"): PointerReading {
+  const replit = platformId === "replit";
+  return {
+    platformId,
+    platformName: replit ? "Replit" : "Cursor",
+    path: replit ? "replit.md" : ".cursor/rules/narrativetrace.mdc",
+    status,
+    coordinate,
+  };
+}
+
+function withPointers(...pointerReadings: PointerReading[]) {
+  return project({
+    installedSkills: [ours("narrativetrace-doctor"), ours("add-narrative-tracing")],
+    pointerReadings,
+  });
+}
+
+describe("checkSkillsInstalled — platform pointers", () => {
+  test("a current pointer is reported on the passing line, per detected platform", () => {
+    const stamp = `@narrativetrace/skills@${PROJECT_VERSION}`;
+    const finding = checkSkillsInstalled(
+      withPointers(pointer("section", stamp), pointer("section", stamp, "replit")),
+    );
+    expect(finding.status).toBe("pass");
+    expect(finding.message).toContain("; Cursor pointer present and current, Replit pointer");
+  });
+
+  test("a project on no platform with a pointer keeps the plain passing line", () => {
+    expect(checkSkillsInstalled(withPointers()).message).not.toContain("pointer");
+  });
+
+  test.each([
+    ["absent", "is missing"],
+    ["linked", "is behind a symbolic link"],
+    ["foreign", "exists but has no NarrativeTrace section of ours"],
+  ] as const)("a %s pointer fails, naming the platform and the path", (status, words) => {
+    const finding = checkSkillsInstalled(withPointers(pointer(status)));
+    expect(finding.status).toBe("fail");
+    expect(finding.message).toContain(`Cursor pointer .cursor/rules/narrativetrace.mdc ${words}`);
+    expect(finding.fix).toContain("init --dry-run");
+    expect(finding.fix).toContain("adopted as it stands");
+    expect(finding.fix).toContain("--write-existing");
+    expect(finding.fix).toContain("a link must be removed by hand");
+  });
+
+  test("an unstamped pointer fails, saying init will adopt it", () => {
+    const finding = checkSkillsInstalled(withPointers(pointer("section", "")));
+    expect(finding.status).toBe("fail");
+    expect(finding.message).toContain("carries no stamp");
+    expect(finding.message).toContain("init will adopt it");
+  });
+
+  test("a stale pointer fails, naming both releases", () => {
+    const finding = checkSkillsInstalled(
+      withPointers(pointer("section", `@narrativetrace/skills@${OLDER}`)),
+    );
+    expect(finding.status).toBe("fail");
+    expect(finding.message).toContain(`@narrativetrace/skills@${OLDER}`);
+    expect(finding.message).toContain(PROJECT_VERSION);
+  });
+
+  test("a pointer stamped by another CLI coordinate of the same release is current", () => {
+    const other = `@narrativetrace/cli@${PROJECT_VERSION}`;
+    expect(checkSkillsInstalled(withPointers(pointer("section", other))).status).toBe("pass");
+  });
+
+  test("every wrong pointer is named, not only the first", () => {
+    const finding = checkSkillsInstalled(
+      withPointers(pointer("absent"), pointer("linked", "", "replit")),
+    );
+    expect(finding.message).toContain("is missing; Replit pointer replit.md is behind");
+  });
+
+  test("a missing skill is reported before any pointer", () => {
+    const finding = checkSkillsInstalled(
+      project({
+        installedSkills: [ours("narrativetrace-doctor")],
+        pointerReadings: [pointer("absent")],
+      }),
+    );
+    expect(finding.message).toContain("is missing");
+    expect(finding.message).not.toContain("pointer");
   });
 });

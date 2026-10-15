@@ -63,6 +63,17 @@ export class AsyncNarrativeContext implements NarrativeContext {
     return this.current().activeSpanId;
   }
 
+  /**
+   * The current scope's trace id, or `null` when that scope has not traced anything yet.
+   *
+   * @remarks Read by `core`'s `ForkJoinGroup` and `FireAndForgetGroup` (through
+   * `extractTraceId`) so the children they launch continue the launching call's trace instead of
+   * minting their own. Never assigns an id: use {@link traceId} for that.
+   */
+  get currentTraceId(): TraceId | null {
+    return this.current().currentTraceId;
+  }
+
   get storyId(): string | null {
     return this.current().storyId;
   }
@@ -133,6 +144,13 @@ export class AsyncNarrativeContext implements NarrativeContext {
    * reported by the request's capture — while it is still in flight, not only once it finishes. A
    * top-level scope has no parent to register with: it *is* the request, the analogue of Java's
    * per-request thread getting its own `TraceStack`.
+   *
+   * @remarks Call {@link captureTrace} **inside** `fn`. It reads the scope it is called from, and
+   * outside every `run()` that is the process-wide default scope, which holds none of this scope's
+   * spans — it returns an empty tree, not an error. Call {@link reset} in a `finally` inside `fn`
+   * too, so a throwing export cannot leave the request's spans in the shared pipeline. Use one
+   * context per process and one `run()` per request; concurrent top-level scopes never see each
+   * other's spans.
    */
   run<T>(fn: () => T, inheritedTraceId?: TraceId): T {
     const parent = this.storage.getStore();

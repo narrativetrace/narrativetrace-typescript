@@ -23,9 +23,9 @@ export type InitScope =
 
 /** Whether the vendor flavour is installed beside the open-standard one. */
 export type VendorChoice =
-  /** Install it where the project looks like that vendor's. */
+  /** The default: install it, like "on", on every project — Claude Code loads `.claude/skills` only. */
   | "auto"
-  /** Install it, detected or not. */
+  /** Install it, explicitly. */
   | "on"
   /** Never install it. */
   | "off";
@@ -48,7 +48,8 @@ export interface InitOptions {
 }
 
 /**
- * Validated options, defaulting to "write both halves, touch nothing that exists, detect the vendor".
+ * Validated options, defaulting to "write both halves, touch nothing that exists, install both
+ * flavours".
  *
  * @throws {TypeError} when a scope or vendor rule is not one of the known values — the entry point
  * parses these from a command line, so an unknown spelling must fail here rather than read as a

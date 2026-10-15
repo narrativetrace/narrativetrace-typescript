@@ -285,6 +285,17 @@ export function englishDocPages(root = "documentation"): string[] {
 }
 
 /**
+ * The English recipe pages, `documentation/recipes/*.md` — one level below the documentation root,
+ * so {@link englishDocPages} on `documentation` never reaches them, and held to the same no-drift
+ * guarantee: a recipe is documentation whose code and output are embedded from a project this
+ * build compiles and runs (rule 8, docs as tests). Never a translated mirror, which lives under
+ * `documentation/<lang>/`.
+ */
+export function recipePages(root = "documentation/recipes"): string[] {
+  return englishDocPages(root);
+}
+
+/**
  * The repo root's own English README — the first page most readers see, held to the same
  * no-drift guarantee as {@link englishDocPages} (2026-09-18, matching this family's other
  * ports: Python's `_english_markdown_files()` scans its root README the same way). Never a

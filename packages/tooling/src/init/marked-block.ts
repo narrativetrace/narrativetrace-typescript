@@ -37,7 +37,7 @@ const BOM = "﻿";
 
 /** One managed region inside a file. */
 export interface MarkedRegion {
-  /** Offset of the first character of the opening marker's line. */
+  /** Offset of the first character of the opening marker's line, after a byte-order mark on line 1. */
   readonly start: number;
   /** Offset just past the closing marker's line, its terminator included. */
   readonly end: number;
@@ -51,7 +51,7 @@ export interface MarkedRegion {
 export interface MarkedLine {
   /** 1-based line number. */
   readonly number: number;
-  /** Offset of the line's first character. */
+  /** Offset of the line's first character, after the byte-order mark on line 1. */
   readonly start: number;
   /** Offset just past the line's terminator. */
   readonly end: number;
@@ -117,7 +117,14 @@ export function linesOf(text: string): MarkedLine[] {
 /** One line, with the fence state it inherited from the line above folded in. */
 function markedLine(number: number, start: number, raw: string, inFence: boolean): MarkedLine {
   const content = contentOf(raw, number);
-  return { number, start, end: start + raw.length, content, inFence: inFence || isFence(content) };
+  const bom = number === 1 && raw.startsWith(BOM) ? BOM.length : 0;
+  return {
+    number,
+    start: start + bom,
+    end: start + raw.length,
+    content,
+    inFence: inFence || isFence(content),
+  };
 }
 
 /** The bare coordinate between the marker prefix and the comment's close. */
@@ -164,12 +171,20 @@ interface MutableScan {
   open: OpenMarker | undefined;
 }
 
+/**
+ * Whether a line opens a managed region: the marker text, then a space or the comment's close — so
+ * `<!-- narrativetrace:starts -->` is somebody's own text and never a marker.
+ */
+function isStartMarker(content: string): boolean {
+  return content.startsWith(MARKER_START) && /^(?:\s|-->)/.test(content.slice(MARKER_START.length));
+}
+
 /** Finds every managed region in a file. Never throws: a malformed file is described, not read. */
 export function scanMarkedBlocks(text: string): MarkedScan {
   const scan: MutableScan = { regions: [], problems: [], open: undefined };
   for (const line of linesOf(text)) {
     if (line.inFence) continue;
-    if (line.content.startsWith(MARKER_START)) openMarker(scan, line);
+    if (isStartMarker(line.content)) openMarker(scan, line);
     else if (line.content.startsWith(MARKER_END)) closeMarker(scan, line);
   }
   if (scan.open) {

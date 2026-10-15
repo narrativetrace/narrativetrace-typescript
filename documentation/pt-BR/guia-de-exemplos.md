@@ -1,4 +1,4 @@
-<!-- source: documentation/examples-guide.md blob c6ca59b9f82f | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/examples-guide.md blob 6803c120761c | translated: 2026-09-16 | reviewed: - -->
 # Guia de exemplos
 
 [English](../examples-guide.md) | [Español](../es/guia-de-ejemplos.md) | **Português** | [简体中文](../zh-CN/示例指南.md)
@@ -196,7 +196,7 @@ Cinco microsserviços rodando em containers Docker, conectados via HTTP, com cor
 
 **Arquitetura:**
 
-```
+```text
 Browser → Gateway (:3000) → Customer-Catalog (:3001)
                            → Inventory (:3002)
                            → Payment (:3003) → Fraud (:3004)
@@ -268,7 +268,7 @@ pnpm run example:minecraft
 ```
 
 **Saída:**
-```
+```text
 WorldServer.playerJoined(playerName: "Steve")
   WorldGenerator.generateChunk(x: 0, z: 0) -> {"x": 0, "z": 0, "biome": "plains", ...}
   PlayerInventory.addItem(item: {"name": "oak_log", ...}, quantity: 4) -> true

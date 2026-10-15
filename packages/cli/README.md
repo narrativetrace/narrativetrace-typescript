@@ -29,7 +29,10 @@ npx --yes @narrativetrace/cli doctor
 npx --yes @narrativetrace/cli doctor --json
 ```
 
-Exit codes: `0` clean, `1` findings, `2` could not run. Zero network — every check reads only
+Fails the build on a failing finding — the report is written first, so "doctor green" is exit `0`.
+Exit codes: `0` clean, `1` findings, `2` could not run. There is no build-tool integration to opt out
+of (the CLI verb is the one entry point); a pipeline that wants the report alone reads `--json` and
+ignores the code. Zero network — every check reads only
 files already on disk (`package.json`, resolvable `node_modules` packages, source/test files,
 rendered `narrativetrace-output/`, and the approved-trace directory) plus the current environment.
 Mutates nothing.
@@ -80,8 +83,8 @@ same checks in-process.
 
 ## `narrativetrace init`
 
-Copies the NarrativeTrace agent skills into `.agents/skills/` — and into `.claude/skills/` where the
-project is one of that vendor's — and writes one marked section into `AGENTS.md`, so an agent working
+Copies the NarrativeTrace agent skills into `.agents/skills/` — and into `.claude/skills/` on every
+project (the only directory Claude Code loads) — and writes one marked section into `AGENTS.md`, so an agent working
 in the project finds the skills where its own convention says to look. A `CLAUDE.md` that is already
 there gets one `@AGENTS.md` line; none is created.
 
@@ -99,7 +102,7 @@ is what gets written.
 | `--write-existing` | Permission to touch an `AGENTS.md` or `CLAUDE.md` that is already there. |
 | `--force` | Permission to overwrite a skill directory somebody else owns. |
 | `--only skills\|agents-md` | One half of the install. Both halves by default. |
-| `--vendor claude\|none` | Force the vendor flavour on or off. Detected from the project by default. |
+| `--vendor claude\|none` | Force the vendor flavour on or off. On by default: Claude Code loads `.claude/skills` only. |
 | `--from <dir>` | Install from a carrier directory — a checked-out `@narrativetrace/skills`, or an unpacked tarball of one. The copy bundled in this package by default. |
 | `--json` | The `{carrier, actions[{kind, path, status}], exitCode}` envelope instead of human text. |
 

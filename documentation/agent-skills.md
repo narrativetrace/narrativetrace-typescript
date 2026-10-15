@@ -5,7 +5,7 @@ completion on a `verify` step, rather than docs an agent might or might not read
 by design — the checking, diagnosis, or generation logic lives in tested library code; the skill's
 own job is knowing when to act, invoking that tested code, and interpreting the result in context.
 
-## Six skills: setup, diagnosis, clarity, reporting, verifying and debugging
+## Seven skills: setup, diagnosis, clarity, reporting, verifying, debugging and explaining
 
 - **`add-narrative-tracing`** — installs NarrativeTrace into a project and gets it to a first
   trace: install with the real toolchain, wire the frameworks the project already uses by running
@@ -47,6 +47,15 @@ own job is knowing when to act, invoking that tested code, and interpreting the 
   it in that span, checks the structural trace shows nothing else moved, and pins the reproduction
   as a regression test behind the same gate. A defect in NarrativeTrace itself goes to
   `narrativetrace-feedback` instead of being worked around.
+- **`narrativetrace-explain`** — answers "show me what my application actually does" when nothing is
+  broken and no change needs reading: the one skill that starts from a question rather than a
+  problem. It first decides whether a trace is worth it — a pure function, or a question ten lines
+  of source settle, is answered from the source with no install and no run, and it says so. Otherwise it
+  chooses **one** scenario that already exercises the flow (installing through `add-narrative-tracing`
+  when the project has no tracing), runs it as found, reads the value-free structural `.nt` in the
+  order it ran, opens values only where the question needs one, and explains the run by span id —
+  marking every inference and naming the code no span covered. It fixes nothing: a defect goes to
+  `narrativetrace-debug`, a change of your own to `narrativetrace-verify`.
 
 They compose: a brand-new project starts with `add-narrative-tracing`; a project that already has
 NarrativeTrace installed, where something isn't working, starts with `narrativetrace-doctor`.
@@ -58,15 +67,17 @@ path ends when the problem turns out to be ours rather than the project's — th
 closing rule points at it. A later skill will own generation (writing the redaction-proof test the
 doctor can only ask you to add today).
 `narrativetrace-verify` is where the next session starts once tracing works — the install skill's
-last step hands over to it — and `narrativetrace-debug` is where a reported symptom starts. Both
+last step hands over to it — and `narrativetrace-debug` is where a reported symptom starts;
+`narrativetrace-explain` is where a question about what the application does starts. All three
 render one shared "how to read a trace" section, so they never teach two ways to read one file.
 
 ## Installing them
 
 - **`npx @narrativetrace/cli init`** — the fastest path, for any project: previews the plan and a
   unified diff (`--dry-run`, writes nothing), then applies exactly what the preview showed. It
-  copies all six skills into `.agents/skills/` — and into `.claude/skills/` where the project is one
-  of that vendor's — and writes one marked section into `AGENTS.md`; a `CLAUDE.md` that is already
+  copies all seven skills into `.agents/skills/` — and into `.claude/skills/` as well, always: Claude
+  Code loads project skills from that directory only, never from `.agents/skills`, and Cursor and
+  GitHub Copilot read it too (`--vendor none` turns it off) — and writes one marked section into `AGENTS.md`; a `CLAUDE.md` that is already
   there gets one `@AGENTS.md` line, none created. Re-run it any time to refresh: there is no build
   hook, and a re-run rewrites only the pages and section it owns. See
   [`@narrativetrace/cli`](../packages/cli/README.md#narrativetrace-init) for every flag; the preview
@@ -79,40 +90,35 @@ render one shared "how to read a trace" section, so they never teach two ways to
   [`.claude/skills/narrativetrace-feedback/`](../.claude/skills/narrativetrace-feedback/SKILL.md) and
   [`.claude/skills/add-narrativetrace-clarity/`](../.claude/skills/add-narrativetrace-clarity/SKILL.md) and
   [`.claude/skills/narrativetrace-verify/`](../.claude/skills/narrativetrace-verify/SKILL.md) and
-  [`.claude/skills/narrativetrace-debug/`](../.claude/skills/narrativetrace-debug/SKILL.md) in
+  [`.claude/skills/narrativetrace-debug/`](../.claude/skills/narrativetrace-debug/SKILL.md) and
+  [`.claude/skills/narrativetrace-explain/`](../.claude/skills/narrativetrace-explain/SKILL.md) in
   this repository, each directory named after its skill's canonical name — Claude's plugin prefix
   is the only place a shortened segment is legitimate, and nothing in this repository is a plugin.
   Copy any of them into your own project's `.claude/skills/<name>/` and Claude picks it up on
-  its own, invokable by name (`add-narrative-tracing` / `narrativetrace-doctor` / `narrativetrace-feedback` / `add-narrativetrace-clarity` / `narrativetrace-verify` / `narrativetrace-debug`) directly.
-  **Codex**: rendered `SKILL.md` files also live at
-  [`.agents/skills/add-narrative-tracing/`](../.agents/skills/add-narrative-tracing/SKILL.md) and
-  [`.agents/skills/narrativetrace-doctor/`](../.agents/skills/narrativetrace-doctor/SKILL.md) and
-  [`.agents/skills/narrativetrace-feedback/`](../.agents/skills/narrativetrace-feedback/SKILL.md) and
-  [`.agents/skills/add-narrativetrace-clarity/`](../.agents/skills/add-narrativetrace-clarity/SKILL.md) and
-  [`.agents/skills/narrativetrace-verify/`](../.agents/skills/narrativetrace-verify/SKILL.md) and
-  [`.agents/skills/narrativetrace-debug/`](../.agents/skills/narrativetrace-debug/SKILL.md) — the
-  layout the Codex CLI discovers on its own, walking from the working directory up to the repo
-  root (and also `~/.agents/skills` for user-global skills). Its frontmatter is a strict subset of
-  Claude's plugin frontmatter (`name` and `description` only — no `when_to_use`, no
-  `allowed-tools`), so the identical page body ships under both layouts. Source:
-  developers.openai.com/codex/skills and developers.openai.com/codex/concepts/customization
-  (fetched 2026-09-13).
+  its own, invokable by name (`add-narrative-tracing` / `narrativetrace-doctor` / `narrativetrace-feedback` / `add-narrativetrace-clarity` / `narrativetrace-verify` / `narrativetrace-debug` / `narrativetrace-explain`) directly.
+  Every other platform — Codex, Antigravity, Cursor, Replit, GitHub Copilot — reads the open-standard
+  `.agents/skills/` pages instead; how each gets them, and the pointer file `init` writes for it, is in
+  [Use NarrativeTrace with your agent](use-with-your-agent.md).
 - **Any agent, any platform**: every agent that reads `AGENTS.md` sees the always-on pointer this
   repository's own `AGENTS.md` carries between its `<!-- narrativetrace:skills:start -->` markers
-  — all six skills' names and descriptions, so an agent that never thought to look still knows they
+  — all seven skills' names and descriptions, so an agent that never thought to look still knows they
   exist.
-- **Gemini** is on the roadmap but not built yet.
 
 A `--dry-run --json` preview against an empty project looks like this:
 
 <!-- snippet: packages/cli/narrativetrace-output/init-preview.json -->
 ```json
 {
-  "carrier": "@narrativetrace/skills@0.3.0",
+  "carrier": "@narrativetrace/skills@0.4.0",
   "actions": [
     {
       "kind": "create",
       "path": ".agents/skills/narrativetrace-doctor/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-doctor/SKILL.md",
       "status": "planned"
     },
     {
@@ -122,7 +128,17 @@ A `--dry-run --json` preview against an empty project looks like this:
     },
     {
       "kind": "create",
+      "path": ".claude/skills/add-narrative-tracing/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
       "path": ".agents/skills/narrativetrace-feedback/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-feedback/SKILL.md",
       "status": "planned"
     },
     {
@@ -132,12 +148,37 @@ A `--dry-run --json` preview against an empty project looks like this:
     },
     {
       "kind": "create",
+      "path": ".claude/skills/add-narrativetrace-clarity/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
       "path": ".agents/skills/narrativetrace-verify/SKILL.md",
       "status": "planned"
     },
     {
       "kind": "create",
+      "path": ".claude/skills/narrativetrace-verify/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
       "path": ".agents/skills/narrativetrace-debug/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-debug/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".agents/skills/narrativetrace-explain/SKILL.md",
+      "status": "planned"
+    },
+    {
+      "kind": "create",
+      "path": ".claude/skills/narrativetrace-explain/SKILL.md",
       "status": "planned"
     },
     {
@@ -228,9 +269,10 @@ No skill is ever hand-edited.
 `packages/skills-catalogue/src/catalogue/narrativetrace-doctor.ts`,
 `packages/skills-catalogue/src/catalogue/narrativetrace-feedback.ts`,
 `packages/skills-catalogue/src/catalogue/add-narrativetrace-clarity.ts`,
-`packages/skills-catalogue/src/catalogue/narrativetrace-verify.ts` and
-`packages/skills-catalogue/src/catalogue/narrativetrace-debug.ts` are the six sources of truth (the
-reading section, the approval gate and the pin the last three share are written once, beside them);
+`packages/skills-catalogue/src/catalogue/narrativetrace-verify.ts`,
+`packages/skills-catalogue/src/catalogue/narrativetrace-debug.ts` and
+`packages/skills-catalogue/src/catalogue/narrativetrace-explain.ts` are the seven sources of truth (the
+reading section the last three share, and the approval gate and pin verify and debug share, are written once, beside them);
 `pnpm run skills-render` regenerates every skill's `.claude/skills/` and `.agents/skills/` pages
 and this repository's own `AGENTS.md` section from them, and `pnpm run skills-check` (wired into
 `pnpm run check`) fails the build the moment any rendered page drifts from the typed source. Every code
@@ -244,6 +286,10 @@ listed tools for the turn that loads the skill, and a reporting skill that pre-a
 reporting command would stop the harness asking exactly where asking is the point. A third lint
 holds the same line for the two skills that promote an approval baseline (`narrativetrace-verify`,
 `narrativetrace-debug`): a skill that runs the approve command declares no allowed tool at all.
+
+## Context7
+
+Context7 indexes this repository's Markdown and text files — the root-level files and `documentation/`, translated mirrors excluded — and serves their code blocks to coding agents; the configuration lives in [`context7.json`](../context7.json) at the repository root. `pnpm run context7-check` validates it against the committed copy of `https://context7.com/schema/context7.json`, which is refreshed by hand: re-fetch that URL into `tools/context7-schema.json` and update the date in `tools/context7-schema.fetched` (field semantics: `https://context7.com/docs/library-owners`, read 2026-10-12).
 
 ## See also
 

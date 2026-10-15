@@ -46,6 +46,19 @@ describe("AsyncNarrativeContext", () => {
     expect(defaultTree.roots[0]?.signature.className).toBe("Default");
   });
 
+  test("captureTrace() after run() settles sees none of the scope's spans", async () => {
+    const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig());
+
+    const inside = await ctx.run(async () => {
+      ctx.enterMethod("Svc", "op", []);
+      ctx.exitMethodWithReturn(null);
+      return ctx.captureTrace();
+    });
+
+    expect(inside.roots).toHaveLength(1);
+    expect(ctx.captureTrace().roots).toEqual([]);
+  });
+
   test("context propagates across async boundaries", async () => {
     const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig());
 

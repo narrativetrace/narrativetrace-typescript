@@ -20,4 +20,5 @@ export {
   readProjectFile,
 } from "./file-config.js";
 export { type Drainable, type LifecycleEmitter, registerAutoFlush } from "./lifecycle.js";
+export { tracedFetch, traceparentHeaders } from "./outbound-traceparent.js";
 export { type ResolveConfigOptions, resolveConfig } from "./resolve-config.js";

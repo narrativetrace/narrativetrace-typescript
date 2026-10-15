@@ -37,7 +37,9 @@ describe("renderPromotionMarkdown", () => {
   it("marks a skill × platform pair with no rows as 'not yet run'", () => {
     const md = renderPromotionMarkdown(SKILLS, []);
     expect(md).toContain("| `narrativetrace-doctor` | not yet run | not yet run | not yet run |");
-    expect(md).toContain("| `add-narrative-tracing` | not yet run | not yet run | not yet run |");
+    expect(md).toContain(
+      "| `add-narrative-tracing` | not yet run | not yet run | not yet run | not yet run |",
+    );
   });
 
   it("marks the most recent passing trial as green with its model and date", () => {
@@ -63,30 +65,44 @@ describe("renderPromotionMarkdown", () => {
     ];
     const md = renderPromotionMarkdown(SKILLS, runs);
     expect(md).toContain(
-      "| `narrativetrace-doctor` | not yet run | green (mini, 2026-09-09) | not yet run |",
+      "| `narrativetrace-doctor` | not yet run | green (mini, 2026-09-09) | not yet run | not yet run |",
     );
   });
 
   it("marks a pair 'approved' once a green trigger sample AND a green happy-path both landed", () => {
     const runs = [
-      row({ platform: "gemini", case: "happy-path", result: "pass" }),
-      row({ platform: "gemini", case: "trigger-sample", result: "pass" }),
+      row({ platform: "antigravity", case: "happy-path", result: "pass" }),
+      row({ platform: "antigravity", case: "trigger-sample", result: "pass" }),
     ];
     const md = renderPromotionMarkdown(SKILLS, runs);
-    expect(md).toContain("| `narrativetrace-doctor` | not yet run | not yet run | approved |");
+    expect(md).toContain(
+      "| `narrativetrace-doctor` | not yet run | not yet run | approved | not yet run |",
+    );
   });
 
   it("does NOT approve on a green happy-path alone, with no trigger sample", () => {
-    const runs = [row({ platform: "gemini", case: "happy-path", result: "pass" })];
+    const runs = [row({ platform: "antigravity", case: "happy-path", result: "pass" })];
     const md = renderPromotionMarkdown(SKILLS, runs);
     expect(md).toContain(
-      "| `narrativetrace-doctor` | not yet run | not yet run | green (haiku, 2026-09-08) |",
+      "| `narrativetrace-doctor` | not yet run | not yet run | green (haiku, 2026-09-08) | not yet run |",
+    );
+  });
+
+  it("renders a Cursor column and fills it from the cursor lane's own rows", () => {
+    const runs = [row({ platform: "cursor", result: "pass", model: "auto" })];
+    const md = renderPromotionMarkdown(SKILLS, runs);
+    expect(md).toContain("| Skill | Claude | Codex | Antigravity | Cursor |");
+    expect(md).toContain("|---|---|---|---|---|");
+    expect(md).toContain(
+      "| `narrativetrace-doctor` | not yet run | not yet run | not yet run | green (auto, 2026-09-08) |",
     );
   });
 
   it("keeps skill×platform pairs independent — one pair's rows never color another's cell", () => {
     const runs = [row({ skill: "narrativetrace-doctor", platform: "claude", result: "pass" })];
     const md = renderPromotionMarkdown(SKILLS, runs);
-    expect(md).toContain("| `add-narrative-tracing` | not yet run | not yet run | not yet run |");
+    expect(md).toContain(
+      "| `add-narrative-tracing` | not yet run | not yet run | not yet run | not yet run |",
+    );
   });
 });

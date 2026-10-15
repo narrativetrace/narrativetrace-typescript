@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 51ab64b7da01 | translated: 2026-09-18 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 0280a08aa77e | translated: 2026-09-18 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -81,7 +81,7 @@ otro valor, incluida la variable sin definir, mantiene la escritura activa.
 Los artefactos se agrupan por *módulo* de prueba (el nombre base del archivo de prueba), con los
 diagramas en un árbol reflejado:
 
-```
+```text
 narrativetrace-output/
   order-service/                 # desde order-service.test.ts
     places_order.md              # narrativa + frontmatter YAML
@@ -140,7 +140,7 @@ libre de valores — solo nombres, jerarquía de llamadas y tipos de
 resultado, sin valores de argumentos ni de retorno — junto a los demás
 artefactos:
 
-```
+```text
 narrativetrace-output/
   structural/
     order-service/
@@ -269,7 +269,7 @@ modo que un ajuste suelto nunca rompe una ejecución.
 
 Incluir **ambos** nombres de archivo aceptados hace que la ejecución falle de inmediato:
 
-```
+```text
 DuplicateConfigurationError: Multiple NarrativeTrace configuration sources
 found: narrativetrace.config.json, .narrativetracerc.json.
 Keep exactly one and delete the rest.
@@ -373,7 +373,7 @@ class AuthService {
 
 La salida de trazas muestra `***` en lugar del valor real:
 
-```
+```text
 AuthService.login(username: "admin", password: ***)
 ```
 
@@ -512,7 +512,7 @@ Para un proceso de larga duración, el anillo solo tiene que cubrir los eventos 
 predeterminado exige ~655,000 eventos/s sostenidos a lo largo de una ventana. La durabilidad no es
 el trabajo de esta ruta; ese es el trabajo del consumidor síncrono del pipeline.
 
-```
+```text
 capacity ≈ eventos/s pico × peor demora tolerable de drenaje (segundos)
 memoria una vez asignada ≈ capacity × ~300 B/evento      (65,536 ≈ ~20 MB)
 ```
@@ -520,7 +520,7 @@ memoria una vez asignada ≈ capacity × ~300 B/evento      (65,536 ≈ ~20 MB)
 Ejemplo resuelto — un servicio a 1,000 req/s, 50 llamadas trazadas por petición, dos eventos por
 llamada (enter + exit):
 
-```
+```text
 1,000 × 50 × 2             = 100,000 eventos/s
 100,000 × 0.5 s de demora  =  50,000 eventos  →  por debajo de 65,536, se mantiene el valor predeterminado
 ```

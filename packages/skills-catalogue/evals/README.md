@@ -3,7 +3,7 @@
 Engine-neutral cases: fixture + task prompt + world-state verifier, portable by construction.
 **Never run in `pnpm run check`** — Tier A (lints) and Tier A2 (oracle replay) ride `check` every
 commit; Tier B runs through the subscription CLIs, on the regular nightly cadence for the Claude
-lane, sporadically (below) for Codex/Gemini, and change-triggered (not scheduled) for the Arm A′
+lane, sporadically (below) for Codex/Antigravity, and change-triggered (not scheduled) for the Arm A′
 ablation delta.
 
 ## Layout
@@ -54,7 +54,17 @@ evals/
 │   ├── init-prompt-existing-project/  # the PUBLISHED prompt, step 2's second branch
 │   ├── init-prompt-express-project/   # the same prompt on an Express API (see "The framework case")
 │   ├── registry-claude-marketplace/   # the same prompt, reached through the plugin marketplace
-│   └── registry-npx-skills/           # the same prompt, reached through `npx skills add`
+│   ├── registry-npx-skills/           # the same prompt, reached through `npx skills add`
+│   ├── fresh-session-sees-the-skills/
+│   │   ├── case.json           # fixtures/empty-project + "registry": "narrativetrace-init" — the
+│   │   │                       # harness runs THIS CHECKOUT's `init`; the agent gets ONE fresh turn
+│   │   ├── prompt.md           # the doctor-shaped question (not the published prompt)
+│   │   └── graders/verify.sh   # the last turn: its init event lists every skill and it reaches
+│   │                           # for the doctor (grade-the-fresh-session.mjs)
+│   └── fresh-session-after-the-prompt/
+│       ├── case.json           # fixtures/empty-project + "turns": {"2": …} + "freshTurns": [2]
+│       ├── prompt.md           # the published prompt, same bytes — turn 1 is the agent's install
+│       └── graders/verify.sh   # turn 2, a NEW session: the same grader
 ├── add-narrativetrace-clarity/
 │   ├── trigger.yaml
 │   ├── grade-the-clarity-gate.mjs     # everything the happy path grades, one refusal per reason
@@ -76,8 +86,14 @@ evals/
 │   ├── trigger.yaml
 │   ├── grade-the-debug.mjs
 │   └── debug-value-divergence/        # the support ticket; "yes, pin it" at turn 2
+├── narrativetrace-explain/
+│   ├── trigger.yaml
+│   ├── grade-the-explain.mjs
+│   ├── explain-an-unfamiliar-flow/    # the ask names nothing of ours
+│   ├── happy-path/                    # the same ask, the skill named
+│   └── pure-function-control/         # the cost rule: answer from the source, run nothing
 ├── agent-command.ts           # {prompt}-template -> argv, never a shell (the prompt-safety fix)
-├── platform-presets.ts        # --platform claude|codex|gemini -> the --agent-command default
+├── platform-presets.ts        # --platform claude|codex|antigravity|cursor -> the --agent-command default
 ├── tier-precondition.ts       # the sporadic lanes' Tier A/A2-green precondition
 ├── quota.ts                   # the sporadic lanes' weekly-allowance guard (ledger/quota.md)
 ├── registry-pre-step.ts       # the CLOSED vocabulary of registry deliveries a case may declare
@@ -106,17 +122,17 @@ repo's `tools/*-cli.ts` shims: there is nothing in it to unit-test or mutate. Ca
 separate, existing ruling (the catalogue's own wording exclusion) and is deliberately never
 mutated or coverage-measured.
 
-## The sporadic policy (Codex, Gemini)
+## The sporadic policy (Codex, Antigravity, Cursor)
 
-Codex and Gemini sit on cheaper plans than Claude's and must be used sporadically
-(skill-evals-multi-platform-2026-09-13.md, owner-ruled 2026-09-13) — binding for these two lanes
-only, Claude is exempt from all seven rules:
+Codex, Antigravity and Cursor sit on cheaper plans than Claude's and must be used sporadically
+(skill-evals-multi-platform-2026-09-13.md, owner-ruled 2026-09-13; Cursor joined with Phase 8,
+platform pointers and evidence, 2026-10-10) — binding for these three lanes only, Claude is exempt from all seven rules:
 
 1. **Never scheduled.** A cheaper-lane run starts only from an explicit owner go or a promotion
    point (below) — never the nightly, never a cron.
 2. **Promotion points only.** A skill first becoming a release candidate, and each patch release's
    Arm A′ re-run. Nothing else triggers it.
-3. **Deterministic tiers first, always.** `run.ts` refuses to start a codex/gemini trial unless
+3. **Deterministic tiers first, always.** `run.ts` refuses to start a codex/antigravity/cursor trial unless
    `@narrativetrace/skills-catalogue`'s Tier A lints and Tier A2 replay are green at HEAD
    (`tier-precondition.ts`) — a Tier B trial on a skill whose replay is red is quota burned on a
    known defect.
@@ -126,15 +142,16 @@ only, Claude is exempt from all seven rules:
 5. **A weekly allowance per platform, in a ledger the runner reads.** `ledger/quota.md`: plan
    tier, weekly allowance, and every run's spend appended by `run.ts`. The runner refuses a
    platform whose allowance is spent and says so; **there is no override flag** — the owner edits
-   the ledger.
+   the ledger. An allowance of **0** is the owner's "CLI not installed or signed in yet": the lane
+   prints one `SKIP:` line naming its tool and exits green instead of failing the run.
 6. **A cheaper-lane red never blocks.** It files a finding the next Claude-lane run and the
-   skill's author read. Shipping requires Claude green; Codex/Gemini status may be `pending` at
+   skill's author read. Shipping requires Claude green; Codex/Antigravity status may be `pending` at
    ship time.
 7. **Cheapest model per platform, fixed in the ledger.** A skill that passes only on a stronger
    model is a defect signal for the skill's code layer, not a reason to raise the model.
 
 **The host/container split** (defect found and fixed 2026-09-14): the sporadic lanes' CLIs
-(`codex`, `gemini`) live only on the host, but the Tier A/A2 precondition rule 3 runs
+(`codex`, `agy`, `agent`) live only on the host, but the Tier A/A2 precondition rule 3 runs
 (`pnpm`/`vitest`, and everything the Tier A2 replay's install step needs) lives only in the dev
 container's own `node_modules` — a host `pnpm install` there aborts
 (`ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY`). Set `NARRATIVETRACE_EVAL_TOOLCHAIN_EXEC` (e.g.
@@ -143,9 +160,13 @@ its tokens are prepended to the precondition's own argv (`tier-precondition.ts`)
 string-spliced into a shell; unset, it still runs locally as before.
 
 Owner ruling (2026-09-13): **Codex is available now**, on the basic plan, default 4 cases/week
-until the owner sets a different number. **Gemini stays at 0** — the `gemini` preset is built but
-every trial refuses — until the CLI is installed, signed in, and the owner raises the allowance in
-`ledger/quota.md`.
+until the owner sets a different number. **Antigravity replaced the Gemini CLI lane on 2026-10-10**
+and carries the same default allowance (its `agy` CLI is installed and signed in on the owner's
+workstation): `agy -p "{prompt}" --model <slug> --output-format text --dangerously-skip-permissions`
+— no approval mode and no `--yolo` exist; `--model` is one of `agy models`' slugs (verified on
+`agy` 1.3.3). **Cursor starts at 0** (the owner raises the allowance in `ledger/quota.md`) (its headless CLI is `agent`: `agent -p
+"{prompt}" --output-format text --force`, no `--model`, since the runner's model argument is a ledger
+label; verified against cursor.com/docs/cli/headless 2026-10-10).
 
 ## Running a trial
 
@@ -172,9 +193,13 @@ cd packages/skills-catalogue && pnpm exec tsx evals/run.ts --skill narrativetrac
 pnpm exec tsx packages/skills-catalogue/evals/run.ts --skill narrativetrace-doctor --case happy-path \
   --platform codex --model <the plan's cheapest/mini model>
 
-# Gemini — same guards; refuses today (allowance 0 until the CLI is installed).
+# Antigravity — same guards; the model is one of `agy models`' slugs.
 pnpm exec tsx packages/skills-catalogue/evals/run.ts --skill narrativetrace-doctor --case happy-path \
-  --platform gemini --model flash
+  --platform antigravity --model gemini-3.8-flash-low
+
+# Cursor — same guards and the same SKIP line at allowance 0; the model is only a ledger label.
+pnpm exec tsx packages/skills-catalogue/evals/run.ts --skill narrativetrace-doctor --case happy-path \
+  --platform cursor --model auto
 ```
 
 **Prompt safety:** the agent CLI is always spawned as an argv array (`execFile`, never a shell),
@@ -183,9 +208,9 @@ tokenised — so a backtick, `$(...)`, quote, or newline inside the prompt reach
 verbatim and is never parsed as shell syntax (`agent-command.ts`).
 
 The Claude lane runs through the Agent SDK shim (`claude plugin eval` is not enabled for this
-org); Codex/Gemini run their own CLIs headless, each on its own subscription login — the harness
+org); Codex/Antigravity/Cursor run their own CLIs headless, each on its own subscription login — the harness
 never passes an API key. Every run is noted in `ledger/runs.jsonl` regardless of outcome (a
-codex/gemini trial also appends a spend row to `ledger/quota.md`); `ledger/promotion.md` is the
+codex/antigravity/cursor trial also appends a spend row to `ledger/quota.md`); `ledger/promotion.md` is the
 regenerated skill × platform matrix (`tools/promotion-render-cli.ts`) — the runner itself
 regenerates it at the end of every trial (`runner.ts`'s `regeneratePromotion`), so it never drifts
 behind a bare `run.ts` invocation; `pnpm run check`'s `promotion-check` step still drift-checks it
@@ -263,7 +288,8 @@ Each declares its registry in its own `case.json` (`"registry": "npx-skills"`), 
 vocabulary** (`registry-pre-step.ts`): a case file is data, and data that may name any executable is
 a shell this harness does not have. An id outside the vocabulary crashes the run, naming the file
 and the vocabulary, before anything is scaffolded — a registry case that quietly ran no pre-step
-would pass as a plain prompt replay.
+would pass as a plain prompt replay. The vocabulary's third member, `narrativetrace-init`, is not a
+registry at all but this checkout's own installer (see the fresh-session cases below).
 
 Three consequences of that one field, all in `runner.ts` with unit tests:
 
@@ -347,9 +373,34 @@ too much is found (Java cross-port item 8).
 (`"turns": { "2": "yes, file it" }`, `case-turns.ts`) — the one home of the reply; the graders read
 the same field. A trial opens a conversation with `--session-id <uuid>` and resumes it with
 `--resume <uuid>` (Claude only: both verified in this container; no other CLI's were, so a
-multi-turn case on codex or gemini crashes before anything is scaffolded, as does an
+multi-turn case on codex, antigravity or cursor crashes before anything is scaffolded, as does an
 `--agent-command` override, which cannot be both templates). A turn that crashes stops the
 conversation and the grader.
+
+**A scripted turn can open a FRESH session.** `case.json` adds `"freshTurns": [2]`: that turn runs
+the first-turn template under a session id of its own instead of `--resume`, so its agent remembers
+nothing of the turns before it. It exists for one question the install cases cannot ask — what does
+the NEXT session find? Two cases ask it, sharing one grader (`grade-the-fresh-session.mjs`), which
+reads the LAST turn's `system/init` event (the skills the session loaded, `availableSkills` in
+`transcript.mjs`) and requires every catalogue skill there, plus the doctor reached for by skill or
+by command:
+
+- `fresh-session-sees-the-skills` is the INSTALLER's question. Its `case.json` declares the delivery
+  `"registry": "narrativetrace-init"` (`registry-pre-step.ts`): before the agent starts the harness
+  runs THIS CHECKOUT's built CLI, `node packages/cli/bin/narrativetrace.js init`, in the scratch
+  project — nothing staged, no published package — and the agent gets ONE turn, a fresh session with
+  the doctor question. Any lane can run it (`pnpm run build` first: the CLI runs from `dist/`).
+- `fresh-session-after-the-prompt` is the whole real path: the published prompt as turn 1, the
+  agent's own install, a doctor-shaped question as a fresh turn 2. Red here with the other green is
+  the prompt path or a published release behind the installer, not the installer. The first row of
+  the combined case went red because `npx @narrativetrace/cli` fetched the published release, which predates the fix.
+
+Item 166 (2026-10-10): the install went green and
+the next Claude Code session listed no skill, because it loads `.claude/skills` only and the
+installer wrote that directory just where `.claude/` or `CLAUDE.md` already existed. A fresh turn
+must be the last turn (the turn after it would have to resume the new session, and nothing carries
+its id), may not be turn 1, and must have a scripted reply. A red row that lists no skill is the
+defect still open; one that lists them and never calls the doctor is a model reading.
 
 **A case that needs NarrativeTrace already installed** declares `"setup": "checkout-install"`
 (`case-setup.ts`): THIS checkout's packages, packed with `pnpm pack` into the work directory,
@@ -518,3 +569,40 @@ sat in a plain vendored file (read), then in a packed tarball (extracted and rea
 trial did the TRACE catch the ordering; it confirmed a placement the agent had already chosen from
 the code. A "the trace catches it" demonstration needs a cause no code read can reveal (remote
 behaviour, a framework's runtime hook, timing) — an open decision for this suite.
+
+## The explain cases
+
+The seventh skill's three Tier B cases, all on `existing-service-checkout` with `"setup":
+"checkout-install"`; each `prompt.md` is the user's words and nothing else, each case's
+documentation its `graders/verify.sh` header. `grade-the-explain.mjs` reads the transcript through
+`trace-transcript.mjs` like the verify and debug graders.
+
+- **`explain-an-unfamiliar-flow`**: "Show me what this application actually does when an order is
+  placed." — nothing broken, no change, no skill named. Gated: the Skill tool invoked
+  `narrativetrace-explain`; the run left a structural trace; a `.nt` line reached the agent before
+  its answer; the answer cites a span id that trace carries; `src/` and the build files are
+  untouched. Reported, not gated: the calls named in the order they ran, the unobserved code named
+  (the vendored kit is minified and unwrapped, so it has no span), values opened.
+- **`happy-path`**: the same ask with the skill named, graded by the same grader.
+- **`pure-function-control`**: "Explain what feeFor does." — the cost rule. Gated: no build file or
+  source changed, the tests never ran, nothing traced (on disk or in the transcript), and the answer
+  carries the method, the 150-cent rate and the not-late case. Loading the skill to decide is
+  allowed; installing, running or tracing afterwards is the failure.
+
+**Rehearsed before any trial and kept as a test**: `__tests__/explain-grader.test.ts` — fourteen
+solved, untouched and near-miss trials over the real `verify.sh` files (a skipped skill, an answer
+from the source with no run, a trace nobody read, an id in no trace, a rewritten service, an added
+dependency, a suite run "to be sure", a traced pure function, an answer without its numbers), each
+asserting the grader's REASON.
+
+**Trials (2026-10-15, `claude-haiku-5-5`, one trial per invocation, nine rows in `ledger/runs.jsonl`,
+no wording iterated):**
+
+| Case | Result | What it establishes |
+|---|---|---|
+| `explain-an-unfamiliar-flow` | pass ×3 | here the unnamed ask DID invoke the skill, then ran the scenario, read the `.nt` and cited its ids — Java's trials had the same ask unselected (0/6); a different scaffold, so it is a measurement of this fixture's trial, not a claim about autonomous selection |
+| `happy-path` | pass ×3 | the loop once the skill is named: the scenario found not written, the `.nt` read, the calls named in order by id, the unobserved code named |
+| `pure-function-control` | pass ×3 | nothing installed, run or traced, the answer from the source — the skill was NOT invoked in any of the three (`note the skill was invoked: false`), so the row says "no regression", not "the cost rule fired"; two of three replies also did not say why they were not tracing |
+
+`trigger.yaml` (ten positive, twelve negative phrasings) is the Java set with this runtime's names.
+No lane scores trigger cases yet, so no cell of the promotion matrix can reach **approved** on one.

@@ -122,7 +122,7 @@ describe("assertDeterministicTiersGreen", () => {
     };
     expect(() => assertDeterministicTiersGreen("/repo", failing, undefined)).toThrow(
       "Tier A lints / Tier A2 replay are not green (ran locally) for " +
-        "@narrativetrace/skills-catalogue — a sporadic-lane (codex/gemini) trial refuses to " +
+        "@narrativetrace/skills-catalogue — a sporadic-lane (codex/antigravity/cursor) trial refuses to " +
         "start on top of a known defect. Fix packages/skills-catalogue's own tests before " +
         "spending quota here.",
     );
@@ -141,7 +141,7 @@ describe("assertDeterministicTiersGreen", () => {
     ).toThrow(
       "Tier A lints / Tier A2 replay are not green (ran via `docker exec -w /workspace " +
         "narrativetrace-dev`) for @narrativetrace/skills-catalogue — a sporadic-lane " +
-        "(codex/gemini) trial refuses to start on top of a known defect. Fix " +
+        "(codex/antigravity/cursor) trial refuses to start on top of a known defect. Fix " +
         "packages/skills-catalogue's own tests before spending quota here.",
     );
   });

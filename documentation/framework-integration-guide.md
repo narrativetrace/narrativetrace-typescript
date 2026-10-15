@@ -6,7 +6,8 @@ This guide covers integrating NarrativeTrace into web applications and the brows
 
 | Package | Purpose |
 |---|---|
-| `@narrativetrace/core` | `SyncNarrativeContext`, `AsyncNarrativeContext` — context and renderers |
+| `@narrativetrace/core` | `SyncNarrativeContext` — context and renderers |
+| `@narrativetrace/core-node` | `AsyncNarrativeContext` — per-request context on `AsyncLocalStorage`; re-exports everything in `core` |
 | `@narrativetrace/proxy` | `traceObject()` — ES Proxy-based method interception |
 | `@narrativetrace/browser` | `renderToConsole`, `postToCollector` — browser-specific output |
 | `@narrativetrace/nestjs` | `AutoProxyModule`, `NoAutoProxy`, `NarrativeStorage` — NestJS auto-proxy module |
@@ -22,7 +23,7 @@ Per-request tracing using `AsyncNarrativeContext` (wraps `AsyncLocalStorage`):
 
 ```ts
 import express from "express";
-import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
 
 const config = new NarrativeTraceConfig();
@@ -65,6 +66,20 @@ app.listen(3000);
 3. On response finish, the trace is captured, rendered, and the context is reset
 4. Concurrent requests have completely isolated traces
 
+### Outbound `traceparent`
+
+To make a callee that is also instrumented join the caller's trace, send the current `traceparent` on HTTP calls made from traced code. `tracedFetch(ctx)` is the Node counterpart of the browser's `tracedFetch` — the same call on both sides; `traceparentHeaders(ctx)` returns `{ traceparent }` (or `{}` when no span is active) for any other client. A `traceparent` you set yourself is never overwritten.
+
+```typescript
+import { tracedFetch, traceparentHeaders } from "@narrativetrace/core-node";
+
+const fetchWithTrace = tracedFetch(asyncContext); // global fetch, Node 20+
+await fetchWithTrace("http://inventory/reserve", { method: "POST" });
+
+// any other client (http, axios, undici):
+const headers = { ...traceparentHeaders(asyncContext) }; // {} when no span is active
+```
+
 ### Custom trace export
 
 Replace the `res.on("finish")` handler with your own exporter — capture, export and reset each
@@ -98,7 +113,7 @@ Same pattern as Express, using Hono's middleware API:
 
 ```ts
 import { Hono } from "hono";
-import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig, renderIndentedText } from "@narrativetrace/core-node";
 import { traceObject } from "@narrativetrace/proxy";
 
 const config = new NarrativeTraceConfig();
@@ -218,7 +233,7 @@ someAsyncApi.onComplete(() => {
 `AsyncNarrativeContext` wraps Node's `AsyncLocalStorage` to provide per-request trace isolation:
 
 ```ts
-import { AsyncNarrativeContext, NarrativeTraceConfig } from "@narrativetrace/core";
+import { AsyncNarrativeContext, NarrativeTraceConfig } from "@narrativetrace/core-node";
 
 const config = new NarrativeTraceConfig();
 const asyncContext = new AsyncNarrativeContext(config);
@@ -236,7 +251,7 @@ asyncContext.run(() => {
 - `run(fn)` — creates a new `SyncNarrativeContext` inside `AsyncLocalStorage` and executes `fn`
 - All `enterMethod`/`exitMethodWithReturn`/`exitMethodWithException` calls delegate to the current store
 - `captureTrace()` returns only the current store's trace tree
-- If called outside a `run()`, delegates to a default context
+- If called outside a `run()`, delegates to a process-wide default context — which holds none of that `run()`'s spans, so `captureTrace()` there returns an empty tree. Capture inside the scope, and call `reset()` in a `finally` (the full request path is in `llms.txt`, "Tracing a request in production")
 
 ### Concurrent request isolation
 
@@ -252,6 +267,64 @@ asyncContext.run(() => {
   tracedService.handleOrder("order-2");
 });
 ```
+
+### Tracing a module of plain functions
+
+`traceObject` wraps an object, so a module that exports bare functions wraps them as one object and re-exports the traced copies under the original names. Importers keep `import { applyDiscount } from "./pricing.js"` and get the traced function:
+
+<!-- snippet: examples/express/src/pricing.ts -->
+```ts
+import { traceObject } from "@narrativetrace/proxy";
+import { context } from "./request-scope.js";
+
+function applyDiscount(price: number, percent: number): number {
+  return price - (price * percent) / 100;
+}
+
+const { applyDiscount: tracedApplyDiscount } = traceObject({ applyDiscount }, context, {
+  className: "Pricing",
+  methods: { applyDiscount: { params: ["price", "percent"] } },
+});
+
+// Importers get the traced function; calls made inside this module still reach the plain one.
+export { tracedApplyDiscount as applyDiscount };
+```
+<!-- /snippet -->
+
+`className` names the span's class, since a plain function has none. Calls made *inside* the module — one function calling another by its bare name — reach the plain function and bypass the proxy, so they produce no span; only calls that cross the module boundary through the exported names are traced. To trace an inner call, route it through the traced object too.
+
+### Sharing one context across bundles
+
+OpenNext, Next custom servers and Cloudflare Workers wrapper entries can evaluate your entry and your handlers as separate module graphs, so a module-level `new AsyncNarrativeContext(...)` runs once per graph and each graph traces into its own context. A pattern that works — it is a pattern, not a NarrativeTrace API — keeps the one context in a `globalThis[Symbol.for("…")]` slot and hands every bundle a forwarding proxy that looks the context up on each call, never holding a reference captured at import time:
+
+<!-- snippet: examples/express/src/shared-context.ts -->
+```ts
+import {
+  AsyncNarrativeContext,
+  type NarrativeContext,
+  NarrativeTraceConfig,
+} from "@narrativetrace/core-node";
+
+const SLOT = Symbol.for("narrativetrace.shared-context");
+const slots = globalThis as { [SLOT]?: AsyncNarrativeContext };
+
+function sharedContext(): AsyncNarrativeContext {
+  slots[SLOT] ??= new AsyncNarrativeContext(new NarrativeTraceConfig());
+  return slots[SLOT];
+}
+
+// Resolves the shared context on every call, so no bundle keeps a copy captured at import time.
+export const context: NarrativeContext = new Proxy({} as NarrativeContext, {
+  get(_target, property) {
+    const shared = sharedContext();
+    const value = Reflect.get(shared, property, shared);
+    return typeof value === "function" ? value.bind(shared) : value;
+  },
+});
+```
+<!-- /snippet -->
+
+Import `context` from this module everywhere you would have created one. The `Symbol.for` key is the contract between bundles: pick one string and keep it identical in all of them.
 
 ## 5. Manual Integration (SyncNarrativeContext)
 

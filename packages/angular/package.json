@@ -1,6 +1,6 @@
 {
   "name": "@narrativetrace/angular",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Angular integration for NarrativeTrace: DI-wired tracing, an HTTP interceptor, and per-navigation capture",
   "license": "BUSL-1.1",
   "repository": {

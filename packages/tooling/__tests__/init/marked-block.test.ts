@@ -9,6 +9,10 @@ import {
   hasExactlyOneRegion,
   lineIs,
   lineIsIgnoringTrailingSpace,
+  linesOf,
+  MARKER_END,
+  MARKER_START,
+  type MarkedRegion,
   removeLine,
   removeRegion,
   replaceRegion,
@@ -265,5 +269,40 @@ describe("line endings", () => {
   test("rewrites a block's line endings", () => {
     expect(withEol("a\nb\n", "\r\n")).toBe("a\r\nb\r\n");
     expect(withEol("a\r\nb\r\n", "\n")).toBe("a\nb\n");
+  });
+});
+
+describe("a byte-order mark on line 1", () => {
+  const BOM = "\uFEFF";
+  const FILE = `${BOM}${MARKER_START} -->\nx\n${MARKER_END}\n`;
+
+  test("starts the region after the mark, so an edit of it leaves the mark where it was", () => {
+    const region = scanMarkedBlocks(FILE).regions[0] as MarkedRegion;
+    expect(region.start).toBe(1);
+    expect(replaceRegion(FILE, region, "new\n")).toBe(`${BOM}new\n`);
+    expect(removeRegion(FILE, region)).toBe(BOM);
+  });
+
+  test("starts the first line after the mark too", () => {
+    expect(linesOf(`${BOM}abc\n`)[0]?.start).toBe(1);
+  });
+});
+
+describe("a start marker is the marker text, then a space or the comment's close", () => {
+  test.each([
+    "<!-- narrativetrace:starts -->",
+    "<!-- narrativetrace:startx -->",
+    "<!-- narrativetrace:start_here -->",
+  ])("%s is somebody's own text, not a marker", (line) => {
+    expect(scanMarkedBlocks(`${line}\n`)).toEqual({ regions: [], problems: [] });
+  });
+
+  test.each([
+    `${MARKER_START} -->`,
+    `${MARKER_START}-->`,
+    `${MARKER_START} @narrativetrace/skills@1.2.3 -->`,
+    `${MARKER_START}\t-->`,
+  ])("%s opens a region", (line) => {
+    expect(scanMarkedBlocks(`${line}\nx\n${MARKER_END}\n`).regions).toHaveLength(1);
   });
 });

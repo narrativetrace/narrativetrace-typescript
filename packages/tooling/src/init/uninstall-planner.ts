@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { PLATFORM_ROWS } from "../platforms/platform-table.js";
 import { type Action, deleteDirectory, deleteFile, refuse, replaceBlock } from "./action.js";
+import { CURSOR_FRONTMATTER } from "./cursor-rule.js";
 import { type InitOptions, includesAgentsMd, includesSkills, initOptions } from "./init-options.js";
 import { type InitPlan, initPlan } from "./init-plan.js";
 import { AGENTS_MD, CLAUDE_MD, IMPORT_LINE } from "./init-planner.js";
@@ -13,6 +15,7 @@ import {
   removeLine,
   removeRegion,
   scanMarkedBlocks,
+  withEol,
 } from "./marked-block.js";
 import type { ProjectState } from "./project-state.js";
 
@@ -59,7 +62,8 @@ function removeSection(path: string, text: string, mayDelete: boolean): Action[]
     ];
   }
   const withoutSection = removeRegion(text, scan.regions[0] as never);
-  const created = lineIs(withoutSection, CREATED_NOTE);
+  const note = lineIs(withoutSection, CREATED_NOTE);
+  const created = note?.number === 1 ? note : undefined;
   const remainder = created === undefined ? withoutSection : removeLine(withoutSection, created);
   if (mayDelete && created !== undefined && remainder.trim() === "") {
     return [deleteFile(path, text)];
@@ -74,6 +78,44 @@ function planAgentsMd(state: ProjectState): Action[] {
 /** A rule file is never deleted: the installer never created one. */
 function planRuleFiles(state: ProjectState): Action[] {
   return [...state.markedRuleFiles].flatMap(([path, text]) => removeSection(path, text, false));
+}
+
+/** The text without a leading byte-order mark: a mark alone is not content. */
+function withoutByteOrderMark(text: string): string {
+  return text.startsWith("\uFEFF") ? text.slice(1) : text;
+}
+
+/**
+ * A rule file is deleted when nothing but its frontmatter is left once our section is gone — the
+ * installer made it — and otherwise loses only the section, so a rule the user added survives.
+ */
+function removeRule(path: string, text: string): Action[] {
+  const scan = scanMarkedBlocks(text);
+  const region = scan.regions[0];
+  if (!hasExactlyOneRegion(scan) || region === undefined) {
+    if (scan.regions.length === 0 && scan.problems.length === 0) return [];
+    return [
+      refuse(path, `${path} does not carry exactly one NarrativeTrace section — remove it by hand`),
+    ];
+  }
+  const remainder = removeRegion(text, region);
+  const onlyFrontmatter = withEol(withoutByteOrderMark(remainder), "\n") === CURSOR_FRONTMATTER;
+  return [onlyFrontmatter ? deleteFile(path, text) : replaceBlock(path, text, remainder)];
+}
+
+/**
+ * Every platform pointer the table names, whether or not the platform's marker is still there: what
+ * the installer wrote is removed even after the project stopped looking like that platform. A pointer
+ * behind a link was never written by us and is not in the snapshot.
+ */
+function planPointers(state: ProjectState): Action[] {
+  return PLATFORM_ROWS.flatMap(({ pointer }) => {
+    const text = pointer.kind === "none" ? undefined : state.pointerFiles.get(pointer.path);
+    if (pointer.kind === "none" || text === undefined) return [];
+    return pointer.kind === "rule"
+      ? removeRule(pointer.path, text)
+      : removeSection(pointer.path, text, true);
+  });
 }
 
 function planClaudeMd(state: ProjectState): Action[] {
@@ -108,7 +150,12 @@ export function planUninstall(state: ProjectState, options: InitOptions = initOp
   const actions: Action[] = [];
   if (includesSkills(options.scope)) actions.push(...planSkills(state));
   if (includesAgentsMd(options.scope)) {
-    actions.push(...planAgentsMd(state), ...planClaudeMd(state), ...planRuleFiles(state));
+    actions.push(
+      ...planAgentsMd(state),
+      ...planClaudeMd(state),
+      ...planRuleFiles(state),
+      ...planPointers(state),
+    );
   }
   return initPlan(installedCoordinate(state), options.dryRun, actions);
 }

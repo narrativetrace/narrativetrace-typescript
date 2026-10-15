@@ -29,7 +29,7 @@ import {
   registryTarballDir,
   setupCommands,
 } from "./case-setup.js";
-import { scriptedReplies } from "./case-turns.js";
+import { freshTurnsFrom, scriptedReplies } from "./case-turns.js";
 import {
   configDir,
   npmrcPath,
@@ -45,6 +45,7 @@ import {
   parseQuotaMarkdown,
   type QuotaLedger,
   type QuotaSpendRow,
+  skipReason,
 } from "./quota.js";
 import { deliveryCommands, type RegistryDelivery, stagedSnapshotIn } from "./registry-delivery.js";
 import {
@@ -172,7 +173,7 @@ export function parseArgs(argv: readonly string[]): RunArgs {
   const model = get("--model");
   if (!skill || !caseName || !platform || !model || !isPlatform(platform)) {
     throw new Error(
-      "Usage: run.ts --skill <name> --case <name> --platform <claude|codex|gemini> --model <id> " +
+      "Usage: run.ts --skill <name> --case <name> --platform <claude|codex|antigravity|cursor> --model <id> " +
         '[--agent-command "<template with {prompt}>"] [--trials N]',
     );
   }
@@ -223,6 +224,7 @@ interface CaseManifest {
   readonly fixture?: unknown;
   readonly registry?: unknown;
   readonly turns?: unknown;
+  readonly freshTurns?: unknown;
   readonly setup?: unknown;
 }
 
@@ -328,6 +330,31 @@ export function caseReplies(
   const manifestPath = manifestPathFor(evalsDir, skill, caseName);
   try {
     return scriptedReplies(manifestPath, readCaseManifest(manifestPath, deps)?.turns);
+  } catch (error) {
+    throw new HarnessError((error as Error).message);
+  }
+}
+
+/**
+ * The scripted turns this case's `case.json` declares as opening a FRESH session
+ * (`case-turns.ts`'s {@link freshTurnsFrom}); empty when it declares none.
+ *
+ * @throws {HarnessError} for a declaration that cannot be driven as written.
+ */
+export function caseFreshTurns(
+  evalsDir: string,
+  skill: string,
+  caseName: string,
+  deps: Pick<RunnerDeps, "exists" | "readFile">,
+): readonly number[] {
+  const manifestPath = manifestPathFor(evalsDir, skill, caseName);
+  const replies = caseReplies(evalsDir, skill, caseName, deps);
+  try {
+    return freshTurnsFrom(
+      manifestPath,
+      readCaseManifest(manifestPath, deps)?.freshTurns,
+      replies.length,
+    );
   } catch (error) {
     throw new HarnessError((error as Error).message);
   }
@@ -541,6 +568,7 @@ interface CasePlan {
   readonly fixtureDir: string;
   readonly prompt: string;
   readonly replies: readonly string[];
+  readonly freshTurns: readonly number[];
   readonly preStep: RegistryPreStep | undefined;
   readonly setup: CaseSetup | undefined;
 }
@@ -688,6 +716,8 @@ function turnsFor(args: RunArgs, plan: CasePlan, deps: RunnerDeps): AgentTurns {
       firstPrompt: plan.prompt,
       replies: plan.replies,
       sessionId: deps.newSessionId(),
+      freshTurns: plan.freshTurns,
+      freshSessionId: deps.newSessionId,
     });
   } catch (error) {
     throw new HarnessError((error as Error).message);
@@ -776,12 +806,25 @@ function recordSporadicSpend(args: RunArgs, deps: RunnerDeps): QuotaSpendRow {
 }
 
 /**
- * Runs `args.trials` trials of one skill/case/platform/model combination. Codex/Gemini (the
- * sporadic lanes) refuse to start unless Tier A/A2 are green at HEAD and, per trial, unless the
+ * A sporadic lane whose allowance row says 0 prints one SKIP line and runs nothing — its CLI is not
+ * installed yet, which is the owner's state to fix, never a build failure. Claude never reads the
+ * ledger at all.
+ */
+function skipsWithOneLine(platform: Platform, deps: RunnerDeps): boolean {
+  if (!isSporadicPlatform(platform)) return false;
+  const line = skipReason(platform, loadQuotaLedger(deps));
+  if (line !== undefined) console.log(line);
+  return line !== undefined;
+}
+
+/**
+ * Runs `args.trials` trials of one skill/case/platform/model combination. Codex/Antigravity/Cursor (the
+ * sporadic lanes) skip when their allowance is 0 and otherwise refuse to start unless Tier A/A2 are green at HEAD and, per trial, unless the
  * platform's weekly quota still has room this run's own spend included; Claude is exempt from
  * both checks and never appends a quota-spend row.
  */
 export function runTrials(args: RunArgs, deps: RunnerDeps): void {
+  if (skipsWithOneLine(args.platform, deps)) return;
   if (isSporadicPlatform(args.platform)) deps.assertTiersGreen(deps.repoRoot);
 
   const plan = casePlan(args, deps);
@@ -808,6 +851,7 @@ function casePlan(args: RunArgs, deps: RunnerDeps): CasePlan {
     fixtureDir: resolveFixturePath(deps.repoRoot, deps.packageRoot, spec),
     prompt: deps.readFile(promptPath),
     replies: caseReplies(deps.evalsDir, args.skill, args.caseName, deps),
+    freshTurns: caseFreshTurns(deps.evalsDir, args.skill, args.caseName, deps),
     preStep: caseRegistry(deps.evalsDir, args.skill, args.caseName, deps),
     setup: caseSetup(deps.evalsDir, args.skill, args.caseName, deps),
   };

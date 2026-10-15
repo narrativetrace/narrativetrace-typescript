@@ -28,7 +28,9 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.github/ISSUE_TEMPLATE/narrativetrace-report.yml",
         "$TURBO_ROOT$/packages/skills/**",
-        "$TURBO_ROOT$/packages/cli/skills/**"
+        "$TURBO_ROOT$/packages/cli/skills/**",
+        "$TURBO_ROOT$/.cursor/**",
+        "$TURBO_ROOT$/.cursor-plugin/**"
       ]
     },
     "@narrativetrace/tooling#coverage": {
@@ -38,7 +40,9 @@
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/.github/ISSUE_TEMPLATE/narrativetrace-report.yml",
         "$TURBO_ROOT$/packages/skills/**",
-        "$TURBO_ROOT$/packages/cli/skills/**"
+        "$TURBO_ROOT$/packages/cli/skills/**",
+        "$TURBO_ROOT$/.cursor/**",
+        "$TURBO_ROOT$/.cursor-plugin/**"
       ]
     },
     "@narrativetrace/skills-catalogue#test": {
@@ -48,6 +52,7 @@
         "$TURBO_ROOT$/.agents/**",
         "$TURBO_ROOT$/.claude/skills/**",
         "$TURBO_ROOT$/.claude-plugin/**",
+        "$TURBO_ROOT$/.cursor-plugin/**",
         "$TURBO_ROOT$/documentation/**"
       ]
     },
@@ -59,6 +64,7 @@
         "$TURBO_ROOT$/.agents/**",
         "$TURBO_ROOT$/.claude/skills/**",
         "$TURBO_ROOT$/.claude-plugin/**",
+        "$TURBO_ROOT$/.cursor-plugin/**",
         "$TURBO_ROOT$/documentation/**"
       ]
     },

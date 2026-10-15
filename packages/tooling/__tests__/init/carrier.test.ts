@@ -85,6 +85,7 @@ describe.skipIf(!REPO_ROOT_REACHABLE)("the real checked-in carrier", () => {
       "add-narrativetrace-clarity",
       "narrativetrace-verify",
       "narrativetrace-debug",
+      "narrativetrace-explain",
     ]);
   });
 
