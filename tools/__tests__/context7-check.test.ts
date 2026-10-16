@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,11 +11,11 @@ import {
   declaredTags,
   isIndexed,
   loadConfig,
+  previousVersionsCheck,
   schemaViolations,
   untaggedFenceLines,
   untaggedFences,
   versionDrift,
-  versionTags,
 } from "../context7-check.js";
 
 const FENCE = "```";
@@ -46,31 +47,111 @@ describe("context7.json against the committed Context7 schema", () => {
 });
 
 describe("previousVersions derived from the v* tags", () => {
-  it("equals this repository's tags, newest first", () => {
-    const tags = versionTags(process.cwd());
-    if (tags.length > 0) expect(versionDrift(config, tags)).toEqual([]);
+  it("matches this repository's tags plus this build's version", () => {
+    const result = previousVersionsCheck(process.cwd(), config);
+    expect(result.problems).toEqual([]);
   });
 
   it("names a tag the file forgot", () => {
-    expect(versionDrift({ previousVersions: [{ tag: "v1.0.0" }] }, ["v1.1.0", "v1.0.0"])).toEqual([
-      "tag v1.1.0 missing from previousVersions",
-    ]);
+    expect(
+      versionDrift({ previousVersions: [{ tag: "v1.0.0" }] }, ["v1.1.0", "v1.0.0"], "1.1.0"),
+    ).toEqual(["tag v1.1.0 missing from previousVersions"]);
   });
 
   it("names a declared version that is no tag", () => {
-    const drift = versionDrift({ previousVersions: ["v1.0.0", "v0.9"] }, ["v1.0.0"]);
-    expect(drift).toEqual(["previousVersions names v0.9, which is no v* tag"]);
+    const drift = versionDrift({ previousVersions: ["v1.0.0", "v0.9"] }, ["v1.0.0"], "1.0.0");
+    expect(drift).toEqual([
+      "previousVersions names v0.9, which is no v* tag nor this build's version",
+    ]);
   });
 
   it("flags the right set in the wrong order", () => {
     const declared: Context7Config = { previousVersions: [{ tag: "v1.0.0" }, { tag: "v1.1.0" }] };
-    expect(versionDrift(declared, ["v1.1.0", "v1.0.0"])).toHaveLength(1);
+    expect(versionDrift(declared, ["v1.1.0", "v1.0.0"], "1.1.0")).toHaveLength(1);
   });
 
   it("reads a branch entry as a non-tag", () => {
     expect(declaredTags({ previousVersions: [{ branch: "release-1.x" }] })).toEqual([
       "branch:release-1.x",
     ]);
+  });
+});
+
+describe("previousVersions is the v* tags plus this build's version", () => {
+  let repo: string;
+  const git = (...args: string[]) => execFileSync("git", args, { cwd: repo, stdio: "ignore" });
+  const writeVersion = (version: string) => {
+    mkdirSync(join(repo, "packages/core"), { recursive: true });
+    writeFileSync(join(repo, "packages/core/package.json"), JSON.stringify({ version }));
+  };
+  const tag = (name: string) => {
+    writeFileSync(join(repo, `marker-${name}.txt`), name);
+    git("add", ".");
+    git(
+      "-c",
+      "user.name=t",
+      "-c",
+      "user.email=t@t",
+      "-c",
+      "commit.gpgsign=false",
+      "commit",
+      "-m",
+      name,
+    );
+    git("-c", "tag.gpgsign=false", "tag", name);
+  };
+  const listing = (...tags: string[]): Context7Config => ({
+    previousVersions: tags.map((t) => ({ tag: t })),
+  });
+  beforeEach(() => {
+    repo = mkdtempSync(join(tmpdir(), "context7-versions-"));
+    git("init", "-q");
+  });
+  afterEach(() => rmSync(repo, { recursive: true, force: true }));
+
+  it("the build's own version is listed before its tag exists", () => {
+    writeVersion("0.3.0");
+    tag("v0.1.0");
+    tag("v0.2.0");
+    const result = previousVersionsCheck(repo, listing("v0.3.0", "v0.2.0", "v0.1.0"));
+    expect(result).toEqual({ checked: true, problems: [] });
+  });
+
+  it("a file that omits the build's own version is reported", () => {
+    writeVersion("0.3.0");
+    tag("v0.1.0");
+    tag("v0.2.0");
+    const { problems } = previousVersionsCheck(repo, listing("v0.2.0", "v0.1.0"));
+    expect(problems).toContain("tag v0.3.0 missing from previousVersions");
+  });
+
+  it("the release tag's own checkout is clean when the file lists it", () => {
+    writeVersion("0.2.0");
+    tag("v0.1.0");
+    tag("v0.2.0");
+    const result = previousVersionsCheck(repo, listing("v0.2.0", "v0.1.0"));
+    expect(result).toEqual({ checked: true, problems: [] });
+  });
+
+  it("orders numerically, newest first, not lexically", () => {
+    writeVersion("0.10.0");
+    tag("v0.9.0");
+    const result = previousVersionsCheck(repo, listing("v0.10.0", "v0.9.0"));
+    expect(result.problems).toEqual([]);
+  });
+
+  it("a tagged checkout without the version source is a misconfigured gate, not a skip", () => {
+    tag("v0.1.0");
+    expect(() => previousVersionsCheck(repo, listing("v0.1.0"))).toThrow(/packages\/core/);
+  });
+
+  it("a checkout with no tags skips, even without the version source", () => {
+    expect(previousVersionsCheck(repo, listing())).toEqual({ checked: false, problems: [] });
+  });
+
+  it("a directory that is not a git checkout skips", () => {
+    rmSync(join(repo, ".git"), { recursive: true });
+    expect(previousVersionsCheck(repo, listing()).checked).toBe(false);
   });
 });
 

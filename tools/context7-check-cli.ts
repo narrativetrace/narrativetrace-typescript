@@ -3,23 +3,25 @@
 // Copyright (c) 2026 Empower Agile
 import {
   loadConfig,
+  previousVersionsCheck,
   schemaViolations,
   untaggedFences,
-  versionDrift,
-  versionTags,
 } from "./context7-check.js";
 
 // CLI entry `check` runs every commit, no network: `context7.json` must validate against the
-// committed Context7 schema, list exactly the repository's `v*` tags, and every code fence in the
+// committed Context7 schema, list the repository's `v*` tags plus this build's version, and every code fence in the
 // files Context7 indexes must carry a language tag (see context7-check.ts).
 
 const repoRoot = process.cwd();
 const { config, schema } = loadConfig(repoRoot);
 const problems = schemaViolations(config, schema).map((v) => `schema: ${v}`);
-const tags = versionTags(repoRoot);
-if (tags.length === 0)
+const versions = previousVersionsCheck(repoRoot, config);
+if (!versions.checked)
   console.log("context7-check: no v* tags in this checkout — previousVersions drift not checked");
-else problems.push(...versionDrift(config, tags).map((v) => `versions: ${v}`));
+else {
+  problems.push(...versions.problems.map((v) => `versions: ${v}`));
+  console.log("context7-check: previousVersions matches the v* tags plus this build's version");
+}
 problems.push(
   ...untaggedFences(repoRoot, config).map((f) => `untagged code fence: ${f.file}:${f.line}`),
 );

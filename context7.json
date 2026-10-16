@@ -25,6 +25,7 @@
     "documentation/llms.txt is the curated reference, and documentation/recipes/ holds complete worked examples by problem."
   ],
   "previousVersions": [
+    { "tag": "v0.4.0" },
     { "tag": "v0.3.0" },
     { "tag": "v0.2.0" },
     { "tag": "v0.1.3" },

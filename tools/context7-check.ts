@@ -13,7 +13,8 @@ import { publicDocuments } from "./public-documents.js";
 //   1. the file validates against a committed copy of Context7's own JSON schema
 //      (`tools/context7-schema.json`, fetch date in `tools/context7-schema.fetched`; refreshing it
 //      is a manual step, see documentation/agent-skills.md),
-//   2. `previousVersions` is exactly the repository's `v*` tags, derived and never typed,
+//   2. `previousVersions` is the repository's `v*` tags plus this build's own version, newest first,
+//      derived and never typed (the release tag is minted on a tree that must already list it),
 //   3. every code fence in the files Context7 will index carries a language tag (an untagged block
 //      indexes as prose).
 
@@ -40,13 +41,58 @@ export function schemaViolations(config: unknown, schema: object): string[] {
   return (validate.errors ?? []).map((e) => `${e.instancePath || "/"}: ${e.message}`);
 }
 
-/** The `v*` tags of the repository at `repoRoot`, newest first (`--sort=-v:refname`). */
+/**
+ * The `v*` tags of the repository at `repoRoot`, newest first (`--sort=-v:refname`); empty when
+ * `repoRoot` is not a git checkout (the publish verify stages a plain tree).
+ */
 export function versionTags(repoRoot: string): string[] {
-  const out = execFileSync("git", ["tag", "--list", "v*", "--sort=-v:refname"], {
-    cwd: repoRoot,
-    encoding: "utf-8",
-  });
-  return out.split("\n").filter((tag) => tag !== "");
+  try {
+    const out = execFileSync("git", ["tag", "--list", "v*", "--sort=-v:refname"], {
+      cwd: repoRoot,
+      encoding: "utf-8",
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+    return out.split("\n").filter((tag) => tag !== "");
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The build's version: `packages/core/package.json` `"version"`, the single version source
+ * (the single version source every module shares). Throws when it is absent — a misconfigured gate.
+ */
+export function buildVersion(repoRoot: string): string {
+  const file = join(repoRoot, "packages/core/package.json");
+  let version: unknown;
+  try {
+    version = JSON.parse(readFileSync(file, "utf-8")).version;
+  } catch {
+    version = undefined;
+  }
+  if (typeof version !== "string" || version === "")
+    throw new Error(
+      `context7-check: ${file} carries no version — the previousVersions rule needs the build's version`,
+    );
+  return version;
+}
+
+function versionNumbers(tag: string): number[] {
+  return tag
+    .replace(/^v/, "")
+    .split(".")
+    .map((part) => Number.parseInt(part, 10) || 0);
+}
+
+/** `git tag --sort=-v:refname` order: numeric per component, newest first. */
+function newestFirst(left: string, right: string): number {
+  const l = versionNumbers(left);
+  const r = versionNumbers(right);
+  for (let i = 0; i < Math.max(l.length, r.length); i++) {
+    const order = (r[i] ?? 0) - (l[i] ?? 0);
+    if (order !== 0) return order;
+  }
+  return right < left ? -1 : right > left ? 1 : 0;
 }
 
 /** `previousVersions` entries as tags; a branch entry has no tag and is reported as `branch:<name>`. */
@@ -57,17 +103,35 @@ export function declaredTags(config: Context7Config): string[] {
   });
 }
 
-/** Differences between declared `previousVersions` and `tags`; empty when they are equal, in order. */
-export function versionDrift(config: Context7Config, tags: string[]): string[] {
+/**
+ * Differences between declared `previousVersions` and the expected list — `tags` plus this build's
+ * own `v<version>`, de-duplicated, newest first; empty when they are equal, in order.
+ */
+export function versionDrift(config: Context7Config, tags: string[], version: string): string[] {
   const declared = declaredTags(config);
+  const expected = [...new Set([...tags, `v${version}`])].sort(newestFirst);
   const problems: string[] = [];
-  for (const tag of tags)
+  for (const tag of expected)
     if (!declared.includes(tag)) problems.push(`tag ${tag} missing from previousVersions`);
   for (const tag of declared)
-    if (!tags.includes(tag)) problems.push(`previousVersions names ${tag}, which is no v* tag`);
-  if (problems.length === 0 && declared.join() !== tags.join())
+    if (!expected.includes(tag))
+      problems.push(`previousVersions names ${tag}, which is no v* tag nor this build's version`);
+  if (problems.length === 0 && declared.join() !== expected.join())
     problems.push("previousVersions is not in tag order (newest first)");
   return problems;
+}
+
+/**
+ * The previousVersions rule against the checkout at `repoRoot`. `checked: false` (no git, or no
+ * `v*` tags) skips; a tagged checkout without the version source throws — never a skip.
+ */
+export function previousVersionsCheck(
+  repoRoot: string,
+  config: Context7Config,
+): { checked: boolean; problems: string[] } {
+  const tags = versionTags(repoRoot);
+  if (tags.length === 0) return { checked: false, problems: [] };
+  return { checked: true, problems: versionDrift(config, tags, buildVersion(repoRoot)) };
 }
 
 function underFolder(rel: string, folder: string): boolean {
