@@ -20,6 +20,8 @@ import { publicDocuments } from "./public-documents.js";
 
 /** The subset of `context7.json` the gate reads. */
 export interface Context7Config {
+  url?: string;
+  public_key?: string;
   folders?: string[];
   excludeFolders?: string[];
   excludeFiles?: string[];

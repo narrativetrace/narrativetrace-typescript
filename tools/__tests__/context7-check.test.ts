@@ -35,14 +35,18 @@ describe("context7.json against the committed Context7 schema", () => {
   });
 
   it("rejects a url without its public_key", () => {
-    expect(schemaViolations({ ...config, url: "https://context7.com/a/b" }, schema)).not.toEqual(
-      [],
-    );
+    const { public_key: _dropped, ...withoutKey } = config;
+    expect(
+      schemaViolations({ ...withoutKey, url: "https://context7.com/a/b" }, schema),
+    ).not.toEqual([]);
   });
 
-  it("carries no ownership fields (the owner adds them at submission)", () => {
-    expect(config).not.toHaveProperty("url");
-    expect(config).not.toHaveProperty("public_key");
+  it("carries the owner-supplied claim (url and public key from the Context7 dashboard)", () => {
+    expect(config).toHaveProperty(
+      "url",
+      "https://context7.com/narrativetrace/narrativetrace-typescript",
+    );
+    expect(config.public_key).toMatch(/^pk_[A-Za-z0-9]+$/);
   });
 });
 
