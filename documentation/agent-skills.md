@@ -109,7 +109,7 @@ A `--dry-run --json` preview against an empty project looks like this:
 <!-- snippet: packages/cli/narrativetrace-output/init-preview.json -->
 ```json
 {
-  "carrier": "@narrativetrace/skills@0.4.0",
+  "carrier": "@narrativetrace/skills@0.4.1",
   "actions": [
     {
       "kind": "create",
