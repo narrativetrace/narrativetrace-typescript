@@ -12,10 +12,13 @@ allowed-tools: Bash(pnpm *), Bash(npx *), Bash(node *)
 **when:** if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — add only the dependencies and leave the project's `main` field and start scripts as they are; otherwise install as written
 
 ```bash
+pnpm add @narrativetrace/core-node @narrativetrace/proxy
 pnpm install --frozen-lockfile
 ```
 
 **verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const bad=r.findings.filter(f=>f.id.startsWith('toolchain.')&&f.status!=='pass'); if(bad.length>0){console.error(JSON.stringify(bad)); process.exit(1);}"`
+
+**failure:** the project has a package-lock.json or yarn.lock rather than a pnpm-lock.yaml, or `pnpm add` just wrote a pnpm-lock.yaml beside one — this page spells its commands in pnpm, and the project uses another package manager. Fix: remove the pnpm-lock.yaml pnpm wrote; a project on npm or yarn adds the same two packages with its own add command and checks with its own clean install — the doctor prints the install line of each of its own fixes for the manager it detects
 
 **failure:** vitest peer mismatch breaks the library's own build from a clean install — an installed vitest version outside @narrativetrace/vitest's declared peer range. Fix: run the narrativetrace-doctor skill's toolchain.vitest-peer check, then install a version satisfying the printed range
 
@@ -29,7 +32,19 @@ npx @narrativetrace/cli doctor || true
 
 **failure:** the verify exits 1, printing the config.<framework>-* findings that fail — the project uses a framework whose NarrativeTrace integration is not installed, or is installed but never wired. Fix: run the doctor; apply every config.<framework>-* fix it prints, in order, as printed, then run the doctor again; a framework it reports as having no integration shipped is left alone
 
-## 3. First trace: wrap, call, render, run
+## 3. Make the project an ES module
+
+**when:** if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — leave its `type` field as it is: the module system is the project's, and the snippets below then follow it (`import` in an ES module, `require` in CommonJS, or the snippet saved as an `.mjs` file); otherwise make the project an ES module as follows
+
+```bash
+node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.type='module';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\n')"
+```
+
+**verify:** `node -e "if(require('./package.json').type!=='module'){console.error('package.json has no \"type\": \"module\"');process.exit(1);}"`
+
+**failure:** `node index.js` throws `SyntaxError: Cannot use import statement outside a module` (a Node release that detects module syntax prints a MODULE_TYPELESS_PACKAGE_JSON warning instead and reparses) — package.json has no `"type": "module"`, so Node loads the snippet's `.js` file as CommonJS, where `import` is a syntax error. Fix: run this step's command and the snippet again; in a project that stays CommonJS, save the snippet as `index.mjs` and run that
+
+## 4. First trace: wrap, call, render, run
 
 **when:** if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — do not add a demo file: run the application the way it already runs, exercise one real boundary, and read that request's trace; the verify below is for the console demo, and in an existing application the step is done when that request's trace is in the output; otherwise create the smallest console demo as follows
 
@@ -59,7 +74,15 @@ console.log(renderMarkdownBody(context.captureTrace()));
 
 **failure:** parameters render as arg0, arg1, ... — parameter names of a class you don't own (or a build that strips them) are lost at compile time. Fix: pass them explicitly: traceObject(target, context, { methodName: ["paramA", "paramB"] })
 
-## 4. Send it to your logger
+## 5. Add the logger bridge
+
+```bash
+pnpm add @narrativetrace/pino pino
+```
+
+**verify:** `pnpm install --frozen-lockfile`
+
+## 6. Send it to your logger
 
 <!-- snippet: examples/sixty-seconds/index-with-logger.js -->
 ```js
@@ -113,7 +136,7 @@ console.log(renderMarkdownBody(context.captureTrace()));
 
 **verify:** `node index-with-logger.js`
 
-## 5. Run the doctor and resolve its findings
+## 7. Run the doctor and resolve its findings
 
 ```bash
 npx @narrativetrace/cli doctor || true
@@ -121,7 +144,7 @@ npx @narrativetrace/cli doctor || true
 
 **verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==25) process.exit(1);"`
 
-## 6. Install the skills for next time
+## 8. Install the skills for next time
 
 **Flagged:** judgmental — the reply names the hand-off: the next session verifies with narrativetrace-verify — once a change's tests are green, it reads the trace before it reports
 
@@ -133,7 +156,7 @@ npx @narrativetrace/cli init --dry-run
 
 ## Always
 
-- Reinstall clean (a frozen-lockfile install) rather than trusting whatever is already in node_modules. (a mismatched peer or stale lockfile is the single most common install failure, and it only surfaces on a clean install)
+- Check the install with a clean, frozen-lockfile install after adding the packages, rather than trusting whatever is already in node_modules. (`pnpm add` installs; the clean install is the check that the lockfile it wrote reproduces — a mismatched peer or stale lockfile is the single most common install failure, and it only surfaces on a clean install)
 
 ## Never
 

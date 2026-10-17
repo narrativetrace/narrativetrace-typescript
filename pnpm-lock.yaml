@@ -943,6 +943,9 @@ importers:
       '@narrativetrace/core-node':
         specifier: workspace:*
         version: link:../core-node
+      '@narrativetrace/pino':
+        specifier: workspace:*
+        version: link:../pino
       '@narrativetrace/proxy':
         specifier: workspace:*
         version: link:../proxy

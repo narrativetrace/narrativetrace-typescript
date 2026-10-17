@@ -20,4 +20,7 @@ const exitCode = runCli(process.argv.slice(2), {
   error: (message) => process.stderr.write(`${message}\n`),
 });
 
-process.exit(exitCode);
+// Exit only once both streams have flushed: `process.exit` drops whatever a PIPED stdout has not
+// drained yet, so a plan past the 64 KiB pipe buffer lost its last hunks to `| less` or a capture.
+// An empty write's callback runs after every earlier write on the same stream.
+process.stdout.write("", () => process.stderr.write("", () => process.exit(exitCode)));

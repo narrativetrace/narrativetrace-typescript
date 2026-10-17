@@ -1,5 +1,7 @@
 {
   "$schema": "https://context7.com/schema/context7.json",
+  "url": "https://context7.com/narrativetrace/narrativetrace-typescript",
+  "public_key": "pk_zCHnG7S67Jp8QHoo0SDw8",
   "projectTitle": "NarrativeTrace for TypeScript",
   "description": "NarrativeTrace for TypeScript records each traced call, its parameters and its result, forwards them as log lines through the pino or winston bridge, and writes a value-free structural trace per Vitest test. It installs from npm as @narrativetrace/core-node and @narrativetrace/proxy, with @narrativetrace/vitest for tests.",
   "folders": ["documentation"],

@@ -5,7 +5,6 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, rmSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { ADD_NARRATIVE_TRACING } from "../src/catalogue/add-narrative-tracing.js";
 import { ADD_NARRATIVETRACE_CLARITY } from "../src/catalogue/add-narrativetrace-clarity.js";
 import {
   APPROVAL_FLOW_DIFF,
@@ -82,6 +81,60 @@ describe("replaySkill (generic replayer, unit-level)", () => {
     expect(run).toHaveBeenCalledWith("pnpm test", "/fixture");
   });
 
+  it("a snippet step hands its file to the placer before its verify runs", () => {
+    const calls: string[] = [];
+    const body = { kind: "snippet" as const, path: "examples/x/index.js", language: "js" };
+    const skill = {
+      ...NARRATIVETRACE_DOCTOR,
+      steps: [{ title: "show it", body, verify: "node index.js" }],
+    };
+    const [result] = replaySkill(
+      skill,
+      "/project",
+      (command, cwd) => calls.push(`run ${command} in ${cwd}`),
+      (snippet, cwd) => calls.push(`place ${snippet.path} in ${cwd}`),
+    );
+    expect(result).toEqual({ title: "show it", ran: true, ok: true });
+    expect(calls).toEqual([
+      "place examples/x/index.js in /project",
+      "run node index.js in /project",
+    ]);
+  });
+
+  it("a placer that throws fails the snippet step, and its verify never runs", () => {
+    const run = vi.fn();
+    const skill = {
+      ...NARRATIVETRACE_DOCTOR,
+      steps: [
+        {
+          title: "show it",
+          body: { kind: "snippet" as const, path: "missing.js", language: "js" },
+          verify: "node missing.js",
+        },
+      ],
+    };
+    const [result] = replaySkill(skill, "/project", run, () => {
+      throw new Error("ENOENT: missing.js");
+    });
+    expect(result).toEqual({
+      title: "show it",
+      ran: true,
+      ok: false,
+      error: "ENOENT: missing.js",
+    });
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("the placer is never called for a commands step", () => {
+    const place = vi.fn();
+    const skill = {
+      ...NARRATIVETRACE_DOCTOR,
+      steps: [{ title: "install", body: { kind: "commands" as const, commands: ["node -e 1"] } }],
+    };
+    replaySkill(skill, "/project", vi.fn(), place);
+    expect(place).not.toHaveBeenCalled();
+  });
+
   it("a snippet step with no verify is not-ran (nothing mechanical to replay)", () => {
     const skill = {
       ...NARRATIVETRACE_DOCTOR,
@@ -96,9 +149,11 @@ describe("replaySkill (generic replayer, unit-level)", () => {
 
 // Tier A2: the real oracle replay, against the real fixture, no fakes, no LLM. This is what proves
 // H1 — the shipped catalogue's own step data still executes today against the packages actually
-// in this workspace. Both mechanical skills share one fixture (examples/sixty-seconds).
+// in this workspace. The doctor's premise is a project that already has NarrativeTrace, so it runs
+// here, in examples/sixty-seconds; the install skill's premise is a project that has nothing, so it
+// replays from a cold project instead (`cold-install-replay.test.ts`, B-87).
 //
-// The replay REALLY runs each step's commands — `pnpm install --frozen-lockfile`, `vitest run`, the
+// The replay REALLY runs each step's commands — the doctor, `vitest run`, the
 // example's own `node` invocations — so it is by far the slowest thing in this package. Each skill is
 // therefore replayed exactly ONCE, in the hook below, and every assertion reads those results: the
 // same two skills replayed per test cost three times the subprocesses for no extra evidence, and
@@ -110,10 +165,7 @@ describe("replaySkill (generic replayer, unit-level)", () => {
 // two of them get three times the isolated measurement rather than a figure they only just fit.
 const REPLAY_BUDGET_MS = 180_000;
 
-const MECHANICAL_SKILLS = [
-  ["narrativetrace-doctor", NARRATIVETRACE_DOCTOR],
-  ["add-narrative-tracing", ADD_NARRATIVE_TRACING],
-] as const;
+const MECHANICAL_SKILLS = [["narrativetrace-doctor", NARRATIVETRACE_DOCTOR]] as const;
 
 /**
  * The agent substitutes these placeholders with the user's own report; the replay fills each with

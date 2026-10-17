@@ -43,6 +43,7 @@
     "@narrativetrace/clarity": "workspace:*",
     "@narrativetrace/cli": "workspace:*",
     "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/pino": "workspace:*",
     "@narrativetrace/proxy": "workspace:*",
     "@narrativetrace/tooling": "workspace:*",
     "@narrativetrace/vitest": "workspace:*",

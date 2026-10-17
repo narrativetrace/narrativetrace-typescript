@@ -34,7 +34,7 @@ export {
   renderCursorPluginJson,
 } from "./render/cursor-plugin-json.js";
 export { renderMarketplaceJson } from "./render/marketplace-json.js";
-export type { StepReplayResult } from "./replay.js";
+export type { PlaceSnippet, StepReplayResult } from "./replay.js";
 export { replaySkill, runReplayCommand } from "./replay.js";
 export type {
   CommandStep,

@@ -49,3 +49,4 @@
 {"date":"2026-10-15T10:08:53.970Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
 {"date":"2026-10-15T10:09:10.509Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
 {"date":"2026-10-15T10:09:26.213Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-16T20:29:20.639Z","skill":"add-narrative-tracing","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}

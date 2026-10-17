@@ -11,7 +11,7 @@ import {
   TOOLCHAIN_CHECKS_HOLD,
 } from "./doctor-commands.js";
 
-const FIXTURE = "examples/sixty-seconds";
+const FIXTURE = "packages/skills-catalogue/evals/fixtures/empty-project";
 
 /**
  * Step 1's condition (Phase 6, D2). Names no framework: whether the project already has an entry
@@ -21,6 +21,21 @@ const FIXTURE = "examples/sixty-seconds";
  */
 const ENTRY_POINT_KEEPS_ITS_SCRIPTS =
   "if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — add only the dependencies and leave the project's `main` field and start scripts as they are; otherwise install as written";
+
+/**
+ * The module-type step's condition (B-87): `"type": "module"` is set only where nothing already
+ * decided the project's module system — an existing application keeps its own, and the snippets
+ * are then written in its form.
+ */
+const ENTRY_POINT_KEEPS_ITS_MODULE_SYSTEM =
+  "if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — leave its `type` field as it is: the module system is the project's, and the snippets below then follow it (`import` in an ES module, `require` in CommonJS, or the snippet saved as an `.mjs` file); otherwise make the project an ES module as follows";
+
+/** Sets `"type": "module"` in `package.json`, keeping every other field — `node -e`, in the vocabulary. */
+const SET_MODULE_TYPE =
+  "node -e \"const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.type='module';fs.writeFileSync('package.json',JSON.stringify(p,null,2)+'\\n')\"";
+
+const MODULE_TYPE_IS_SET =
+  "node -e \"if(require('./package.json').type!=='module'){console.error('package.json has no \\\"type\\\": \\\"module\\\"');process.exit(1);}\"";
 
 /**
  * Step 3's condition (Phase 6, D2): in a project that already starts itself, the first trace is one
@@ -39,12 +54,17 @@ const ENTRY_POINT_RUNS_ITSELF =
  * installed doctor's own framework table is the oracle, so a release that adds a row reaches
  * existing projects through the doctor, never through a stale skill page.
  *
- * Amendment (skills P1, carried from the pre-split catalogue): the install step's verify must
- * reinstall clean, but `npm` is outside this port's closed command vocabulary (pnpm/npx/node/git),
- * and the fixture is a pnpm workspace member, where `npm ci` is actively wrong (it does not
- * understand `workspace:*`). The port-vocabulary-safe equivalent replayed here is `pnpm install
- * --frozen-lockfile`; a real consumer's own package manager is unaffected — this only changes what
- * the SKILL's own replay executes against ITS OWN fixture.
+ * The install, from zero (B-87): the page ADDS the packages — `pnpm add` of core-node and proxy,
+ * then a frozen-lockfile install as the CHECK that the lockfile it wrote reproduces — and adds the
+ * pino bridge in a step of its own right before the logger snippet, so a reader who stops at the
+ * first trace installs no logger. pnpm is the manager the page spells because the port's closed
+ * command vocabulary is pnpm/npx/node (`allowedTools`); the install step's failure note says how a
+ * project on npm or yarn does the same. The page used to say only `pnpm install --frozen-lockfile`
+ * and was proven only in examples/sixty-seconds, a workspace member that already declares every
+ * package — the one project where a page that never installs anything still passes. Its Tier A2
+ * replay therefore runs COLD: its fixture (an empty project) copied outside the repository, the
+ * `@narrativetrace` scope served from this checkout's packed packages through the project's own
+ * `.npmrc` (`cold-install-replay.test.ts`).
  */
 export const ADD_NARRATIVE_TRACING: Skill = {
   canonicalName: "add-narrative-tracing",
@@ -58,10 +78,23 @@ export const ADD_NARRATIVE_TRACING: Skill = {
   steps: [
     {
       title: "Install with the real toolchain",
-      body: { kind: "commands", commands: ["pnpm install --frozen-lockfile"] },
+      body: {
+        kind: "commands",
+        commands: [
+          "pnpm add @narrativetrace/core-node @narrativetrace/proxy",
+          "pnpm install --frozen-lockfile",
+        ],
+      },
       verify: TOOLCHAIN_CHECKS_HOLD,
       condition: ENTRY_POINT_KEEPS_ITS_SCRIPTS,
       failure: [
+        {
+          symptom:
+            "the project has a package-lock.json or yarn.lock rather than a pnpm-lock.yaml, or `pnpm add` just wrote a pnpm-lock.yaml beside one",
+          cause:
+            "this page spells its commands in pnpm, and the project uses another package manager",
+          fix: "remove the pnpm-lock.yaml pnpm wrote; a project on npm or yarn adds the same two packages with its own add command and checks with its own clean install — the doctor prints the install line of each of its own fixes for the manager it detects",
+        },
         {
           symptom: "vitest peer mismatch breaks the library's own build from a clean install",
           cause: "an installed vitest version outside @narrativetrace/vitest's declared peer range",
@@ -83,6 +116,21 @@ export const ADD_NARRATIVE_TRACING: Skill = {
       ],
     },
     {
+      title: "Make the project an ES module",
+      body: { kind: "commands", commands: [SET_MODULE_TYPE] },
+      verify: MODULE_TYPE_IS_SET,
+      condition: ENTRY_POINT_KEEPS_ITS_MODULE_SYSTEM,
+      failure: [
+        {
+          symptom:
+            "`node index.js` throws `SyntaxError: Cannot use import statement outside a module` (a Node release that detects module syntax prints a MODULE_TYPELESS_PACKAGE_JSON warning instead and reparses)",
+          cause:
+            'package.json has no `"type": "module"`, so Node loads the snippet\'s `.js` file as CommonJS, where `import` is a syntax error',
+          fix: "run this step's command and the snippet again; in a project that stays CommonJS, save the snippet as `index.mjs` and run that",
+        },
+      ],
+    },
+    {
       title: "First trace: wrap, call, render, run",
       body: { kind: "snippet", path: "examples/sixty-seconds/index.js", language: "js" },
       verify: "node index.js",
@@ -95,6 +143,11 @@ export const ADD_NARRATIVE_TRACING: Skill = {
           fix: 'pass them explicitly: traceObject(target, context, { methodName: ["paramA", "paramB"] })',
         },
       ],
+    },
+    {
+      title: "Add the logger bridge",
+      body: { kind: "commands", commands: ["pnpm add @narrativetrace/pino pino"] },
+      verify: "pnpm install --frozen-lockfile",
     },
     {
       title: "Send it to your logger",
@@ -125,9 +178,9 @@ export const ADD_NARRATIVE_TRACING: Skill = {
   ],
   always: [
     {
-      rule: "Reinstall clean (a frozen-lockfile install) rather than trusting whatever is already in node_modules.",
+      rule: "Check the install with a clean, frozen-lockfile install after adding the packages, rather than trusting whatever is already in node_modules.",
       reason:
-        "a mismatched peer or stale lockfile is the single most common install failure, and it only surfaces on a clean install",
+        "`pnpm add` installs; the clean install is the check that the lockfile it wrote reproduces — a mismatched peer or stale lockfile is the single most common install failure, and it only surfaces on a clean install",
     },
   ],
   never: [

@@ -20,6 +20,12 @@ vi.mock("../src/carrier-locator.js", async () => {
 });
 vi.mock("@narrativetrace/tooling", () => ({ buildSnapshot: buildSnapshotMock }));
 
+/** A `write` that has flushed the moment it returns: calls its completion callback, if given. */
+function flushAtOnce(_chunk: unknown, done?: unknown): boolean {
+  if (typeof done === "function") done();
+  return true;
+}
+
 describe("cli-bin", () => {
   const originalArgv = process.argv;
   let exitSpy: ReturnType<typeof vi.spyOn>;
@@ -31,8 +37,8 @@ describe("cli-bin", () => {
     runCliMock.mockReset();
     buildSnapshotMock.mockReset();
     exitSpy = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
-    stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(() => true);
-    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(() => true);
+    stdoutSpy = vi.spyOn(process.stdout, "write").mockImplementation(flushAtOnce);
+    stderrSpy = vi.spyOn(process.stderr, "write").mockImplementation(flushAtOnce);
   });
 
   afterEach(() => {
@@ -48,6 +54,29 @@ describe("cli-bin", () => {
     await import("../src/cli-bin.js");
     expect(runCliMock).toHaveBeenCalledWith(["doctor", "--json"], expect.any(Object));
     expect(exitSpy).toHaveBeenCalledWith(3);
+  });
+
+  /**
+   * `process.exit` drops whatever a piped stdout has not drained: past the 64 KiB pipe buffer, an
+   * `init --dry-run` plan lost its last hunks (the AGENTS.md one) to `| less` or a test's capture.
+   */
+  test("exits only once stdout and then stderr have flushed every write", async () => {
+    process.argv = ["/usr/bin/node", "/path/to/narrativetrace", "init", "--dry-run"];
+    const flushed: Array<() => void> = [];
+    const holdCallback = (_chunk: unknown, done?: unknown) => {
+      if (typeof done === "function") flushed.push(done as () => void);
+      return true;
+    };
+    stdoutSpy.mockImplementation(holdCallback);
+    stderrSpy.mockImplementation(holdCallback);
+    runCliMock.mockReturnValue(4);
+
+    await import("../src/cli-bin.js");
+    expect(exitSpy).not.toHaveBeenCalled();
+    flushed.shift()?.();
+    expect(exitSpy).not.toHaveBeenCalled();
+    flushed.shift()?.();
+    expect(exitSpy).toHaveBeenCalledWith(4);
   });
 
   test("deps.log writes a newline-terminated line to stdout", async () => {

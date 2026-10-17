@@ -15,7 +15,7 @@ drift fails `pnpm run check` (`pnpm run promotion-check`; `pnpm run promotion-re
 | Skill | Claude | Codex | Antigravity | Cursor |
 |---|---|---|---|---|
 | `narrativetrace-doctor` | green (haiku, 2026-09-13) | green (gpt-5.5, 2026-09-14) | not yet run | not yet run |
-| `add-narrative-tracing` | green (claude-haiku-5-5, 2026-10-10) | not yet run | not yet run | not yet run |
+| `add-narrative-tracing` | green (claude-haiku-5-5, 2026-10-16) | not yet run | not yet run | not yet run |
 | `narrativetrace-feedback` | green (claude-haiku-5-5, 2026-10-08) | not yet run | not yet run | not yet run |
 | `add-narrativetrace-clarity` | green (claude-haiku-5-5, 2026-10-09) | not yet run | not yet run | not yet run |
 | `narrativetrace-verify` | green (claude-haiku-5-5, 2026-10-09) | not yet run | not yet run | not yet run |

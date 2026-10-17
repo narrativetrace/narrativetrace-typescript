@@ -69,6 +69,12 @@ describe("add-narrative-tracing: install-the-skills-for-next-time step", () => {
   });
 });
 
+/** Every package a `pnpm add` on the page installs — the page's own worked example, from zero. */
+function packagesThePageAdds(): ReadonlySet<string> {
+  const adds = commandStrings(ADD_NARRATIVE_TRACING).filter((c) => c.startsWith("pnpm add "));
+  return new Set(adds.flatMap((command) => command.split(" ").slice(2)));
+}
+
 describe("add-narrative-tracing: the framework step (Phase 6, D2 as amended)", () => {
   const step = ADD_NARRATIVE_TRACING.steps[1];
 
@@ -98,12 +104,7 @@ describe("add-narrative-tracing: the framework step (Phase 6, D2 as amended)", (
     [".agents/skills/add-narrative-tracing/SKILL.md"],
   ])("the rendered page %s names no framework the doctor checks beyond its own worked example", (page) => {
     const text = readFileSync(join(REPO_ROOT, page), "utf-8");
-    const example = JSON.parse(
-      readFileSync(join(REPO_ROOT, ADD_NARRATIVE_TRACING.fixture, "package.json"), "utf-8"),
-    ) as { devDependencies?: Record<string, string>; dependencies?: Record<string, string> };
-    const ownExample = new Set(
-      Object.keys({ ...example.dependencies, ...example.devDependencies }),
-    );
+    const ownExample = packagesThePageAdds();
     const named = FRAMEWORK_ROWS.filter((row) => row.check.kind !== "existing-check")
       .filter((row) => !row.marker.packages.some((name) => ownExample.has(name)))
       .filter((row) => text.includes(row.name))
@@ -123,11 +124,18 @@ describe("add-narrative-tracing: an existing application keeps its entry point",
   const conditional = ADD_NARRATIVE_TRACING.steps.filter((step) => step.condition !== undefined);
   const byTitle = (title: string) => ADD_NARRATIVE_TRACING.steps.find((s) => s.title === title);
 
-  it("exactly the install and first-trace steps carry a condition", () => {
+  it("exactly the install, module-type and first-trace steps carry a condition", () => {
     expect(conditional.map((step) => step.title)).toEqual([
       "Install with the real toolchain",
+      "Make the project an ES module",
       "First trace: wrap, call, render, run",
     ]);
+  });
+
+  it("the module-type step keeps an existing project's own module system", () => {
+    expect(byTitle("Make the project an ES module")?.condition).toMatch(
+      /already has an application entry point.*leave its `type` field as it is.*snippets.*follow/s,
+    );
   });
 
   it("the install step leaves the project's own entry point alone", () => {
@@ -142,11 +150,11 @@ describe("add-narrative-tracing: an existing application keeps its entry point",
     );
   });
 
-  it("both conditions end in an otherwise branch for a project with no entry point", () => {
+  it("every condition ends in an otherwise branch for a project with no entry point", () => {
     for (const step of conditional) expect(step.condition).toMatch(/; otherwise /);
   });
 
-  it("neither condition names a framework", () => {
+  it("no condition names a framework", () => {
     for (const step of conditional) {
       for (const row of FRAMEWORK_ROWS) {
         expect(step.condition?.toLowerCase()).not.toContain(row.id);
@@ -158,7 +166,8 @@ describe("add-narrative-tracing: an existing application keeps its entry point",
     for (const render of [renderClaudeSkill, renderAgentsSkill]) {
       const page = render(ADD_NARRATIVE_TRACING, () => "");
       expect(page).toContain("## 1. Install with the real toolchain\n\n**when:** ");
-      expect(page).toContain("## 3. First trace: wrap, call, render, run\n\n**when:** ");
+      expect(page).toContain("## 3. Make the project an ES module\n\n**when:** ");
+      expect(page).toContain("## 4. First trace: wrap, call, render, run\n\n**when:** ");
     }
   });
 });
@@ -169,5 +178,59 @@ describe("add-narrative-tracing hands the next session to narrativetrace-verify 
     expect(last?.title).toBe("Install the skills for next time");
     expect(last?.flag).toContain("the next session verifies with narrativetrace-verify");
     expect(last?.flag).toContain("once a change's tests are green");
+  });
+});
+
+describe("add-narrative-tracing adds the packages it promises (B-87)", () => {
+  const steps = ADD_NARRATIVE_TRACING.steps;
+  const indexOf = (title: string) => steps.findIndex((step) => step.title === title);
+  const commandsOf = (title: string) => {
+    const body = steps[indexOf(title)]?.body;
+    return body?.kind === "commands" ? body.commands : [];
+  };
+
+  it("the install step adds core-node and proxy, then checks with a clean frozen install", () => {
+    expect(commandsOf("Install with the real toolchain")).toEqual([
+      "pnpm add @narrativetrace/core-node @narrativetrace/proxy",
+      "pnpm install --frozen-lockfile",
+    ]);
+  });
+
+  it("the install step says how a project on another package manager adds the same packages", () => {
+    const notes = steps[indexOf("Install with the real toolchain")]?.failure ?? [];
+    const fixes = notes.map((note) => note.fix).join("\n");
+    expect(fixes).toContain(
+      "a project on npm or yarn adds the same two packages with its own add command",
+    );
+    expect(fixes).toMatch(/the doctor prints .*install line.* for the manager it detects/);
+  });
+
+  it("a step sets the module type before the first-trace snippet, replayably", () => {
+    const at = indexOf("Make the project an ES module");
+    expect(at).toBeGreaterThan(indexOf("Install with the real toolchain"));
+    expect(at).toBeLessThan(indexOf("First trace: wrap, call, render, run"));
+    const [command] = commandsOf("Make the project an ES module");
+    expect(command).toMatch(/^node -e .*p\.type='module'.*writeFileSync\('package\.json'/);
+    expect(steps[at]?.verify).toMatch(/^node -e .*require\('\.\/package\.json'\)\.type/);
+  });
+
+  it("the module-type step names the symptom of skipping it", () => {
+    const notes = steps[indexOf("Make the project an ES module")]?.failure ?? [];
+    expect(notes.map((note) => note.symptom).join("\n")).toContain(
+      "SyntaxError: Cannot use import statement outside a module",
+    );
+  });
+
+  it("the pino bridge is added by its own step right before the logger snippet, not by the install", () => {
+    const at = indexOf("Add the logger bridge");
+    expect(commandsOf("Add the logger bridge")).toEqual(["pnpm add @narrativetrace/pino pino"]);
+    expect(steps[at + 1]?.title).toBe("Send it to your logger");
+    expect(commandsOf("Install with the real toolchain").join(" ")).not.toContain("pino");
+  });
+
+  it("the clean reinstall is the install's check, not the install", () => {
+    const [rule] = ADD_NARRATIVE_TRACING.always;
+    expect(rule?.rule).toMatch(/^Check the install with a clean, frozen-lockfile install/);
+    expect(rule?.reason).toContain("`pnpm add` installs");
   });
 });
