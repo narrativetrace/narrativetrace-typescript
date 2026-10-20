@@ -1,4 +1,4 @@
-<!-- source: README.md blob 6f98ab862284 | translated: 2026-10-15 | reviewed: - -->
+<!-- source: README.md blob 93563ee498ca | translated: 2026-10-19 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -287,6 +287,20 @@ test("customer places order", ({ narrativeContext }) => {
 Ejecuta `npx vitest run` y abre `narrativetrace-output/order-service/customer_places_order.md` — el
 nombre del test se convirtió en el nombre del escenario, sin necesidad de interfaz ni plugin de build
 (`traceObject` envuelve directamente el objeto concreto).
+
+Tres nombres salen de tu código de configuración, porque el runtime de TypeScript no lee ninguno
+del código fuente — y la plataforma y el puente de OTel se los muestran a otra persona:
+
+- **El servicio**: `new SyncNarrativeContext(config, { serviceName: "checkout-api" })`, o
+  `NARRATIVETRACE_SERVICE_NAME` (con `NARRATIVETRACE_SERVICE_VERSION` y
+  `NARRATIVETRACE_ENVIRONMENT`). Sin definirlo, las trazas exportadas muestran `unknown_service:node`.
+- **La clase**: traza una instancia de una clase. El constructor de un objeto plano es `Object`, así
+  que sus spans se leen como `Object.<method>` — pasa `{ className: "CheckoutService" }` si debes
+  trazar un literal.
+- **Los parámetros**: pasa sus nombres, como arriba. Sin ellos, se leen como `arg0`, `arg1`.
+
+`traceObject()` imprime un `console.warn` único para los dos últimos; `narrativetrace doctor`
+comprueba los dos primeros.
 
 ¿Quieres ver caer la puntuación de claridad al renombrar un método, o un valor censurado con
 `@notTraced`? La [Guía de claridad](documentation/es/guia-de-claridad.md) y

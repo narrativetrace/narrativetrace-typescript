@@ -8,7 +8,9 @@ import {
   type ExitEvent,
   errorMessage,
   errorTypeName,
+  type ForkCreatedEvent,
   humanName,
+  type JoinCompleteEvent,
   type SpanId,
   type TraceEvent,
   type TraceId,
@@ -159,6 +161,54 @@ function logExit(
   }
 }
 
+const LIFECYCLE_SCHEMA = { "nt.entryType": "entry", "nt.schemaVersion": "1.0" };
+
+/**
+ * A fork group's own lifecycle, not a call: the launch of one member (a `fork-created` event is
+ * published per member root, so a group of N logs N launch lines) and the join that closes the
+ * group. Messages and levels follow the Java SLF4J listener — the launch and the join are written
+ * at the enter level. The join's wall time is left out: it differs on every run, and a log line
+ * that does must not be the thing a documentation page embeds.
+ */
+function forkMeta(event: ForkCreatedEvent) {
+  return {
+    "nt.eventType": "fork",
+    "nt.groupId": event.groupId,
+    "nt.strategy": event.strategy,
+    span_id: event.rootSpanId,
+    ...(event.parentSpanId !== "" && { parent_span_id: event.parentSpanId }),
+    ...LIFECYCLE_SCHEMA,
+  };
+}
+
+function forkMessage(event: ForkCreatedEvent): string {
+  return event.strategy === "fire-and-forget"
+    ? `⤳ fire-and-forget launched [groupId: ${event.groupId}]`
+    : `⑂ fork group created [groupId: ${event.groupId}]`;
+}
+
+function joinMeta(event: JoinCompleteEvent) {
+  return {
+    "nt.eventType": "join",
+    "nt.groupId": event.groupId,
+    "nt.memberCount": event.memberCount,
+    ...LIFECYCLE_SCHEMA,
+  };
+}
+
+function joinMessage(event: JoinCompleteEvent): string {
+  return `⑃ fork joined [groupId: ${event.groupId}, members: ${event.memberCount}]`;
+}
+
+function logLifecycle(
+  logger: Logger,
+  level: string,
+  event: ForkCreatedEvent | JoinCompleteEvent,
+): void {
+  if (event.type === "fork-created") logger.log(level, forkMessage(event), forkMeta(event));
+  else logger.log(level, joinMessage(event), joinMeta(event));
+}
+
 export function createWinstonEventConsumer(
   logger: Logger,
   options: WinstonConsumerOptions = {},
@@ -172,6 +222,9 @@ export function createWinstonEventConsumer(
         return logEnter(logger, frames, levels.enter, event, runName);
       case "exit":
         return logExit(logger, frames, levels, event, runName);
+      case "fork-created":
+      case "join-complete":
+        return logLifecycle(logger, levels.enter, event);
     }
   };
 }

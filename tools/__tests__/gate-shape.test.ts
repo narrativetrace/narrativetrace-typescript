@@ -14,7 +14,7 @@ describe("scripts/gate.sh derives from `check`, never re-enumerates its steps", 
     const packageJson = JSON.parse(readFileSync("package.json", "utf-8")) as {
       scripts: Record<string, string>;
     };
-    const checkScript = packageJson.scripts.check;
+    const checkScript = packageJson.scripts.check ?? "";
     // Every `pnpm run <name>` step `check` chains together, in the order it runs them.
     const stepNames = [...checkScript.matchAll(/pnpm run ([a-zA-Z0-9:_-]+)/g)].map((m) => m[1]);
     // Sanity: `check` really is the long multi-step chain this test means to guard — if it ever

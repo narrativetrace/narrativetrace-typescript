@@ -14,7 +14,7 @@ That makes the prompt's premise TRUE for an agent that reads the project; a seed
 graded whether the agent believes the user.
 
 Everything else holds: with this checkout's packages installed and the skills installed by
-`narrativetrace init` (the case's `"setup": "checkout-install"`), the doctor reports twenty-five checks
+`narrativetrace init` (the case's `"setup": "checkout-install"`), the doctor reports twenty-eight checks
 and exactly one finding.
 
 Not a pnpm workspace member. The runner scaffolds it into a scratch copy and installs THIS

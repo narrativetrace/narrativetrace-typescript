@@ -18,3 +18,20 @@ export function useStableSpanIds(): void {
     spanId: () => `${(++next).toString(16).padStart(16, "0")}` as SpanId,
   });
 }
+
+/**
+ * Like {@link useStableSpanIds}, but a trace the run starts for itself gets a NEW, numbered id
+ * instead of the fixed one — so a test can tell a trace that was adopted (the fixed id) from one
+ * that was started fresh (`…0001`, `…0002`).
+ *
+ * INTENT: a page about work that lost its trace needs the fresh id to differ from the adopted one;
+ * with a fixed generator every fresh trace would look adopted. Never do this in your own project.
+ */
+export function useNumberedTraceIds(): void {
+  let spans = 0;
+  let traces = 0;
+  registerIdGenerator({
+    traceId: () => `${(++traces).toString(16).padStart(32, "0")}` as TraceId,
+    spanId: () => `${(++spans).toString(16).padStart(16, "0")}` as SpanId,
+  });
+}

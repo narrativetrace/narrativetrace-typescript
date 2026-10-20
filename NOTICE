@@ -29,6 +29,13 @@ Which licence applies to what
       installer, or from a plugin marketplace — receives Apache-licensed pages, and the
       marketplace listing says so.
 
+  the OpenAI plugin directory's package root:
+  packages/skills-catalogue/openai-plugin/
+      Apache License, Version 2.0.
+      The versionless plugin.json committed there, and the packaged plugin.json a release ZIP
+      carries, are build output of the same catalogue — same licence as every other rendered
+      listing above.
+
   every other @narrativetrace/* package published from this repository
       Business Source License 1.1 — see LICENSE.
       The runtime and its integrations. Free to use in production, including in products and

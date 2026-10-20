@@ -11,7 +11,7 @@ import {
   parseTraceparent,
   type ServiceIdentity,
   SyncNarrativeContext,
-  type TraceId,
+  type Traceparent,
 } from "@narrativetrace/core";
 import {
   buildRequestLogValues,
@@ -48,15 +48,15 @@ function buildPipeline(options: AutoProxyOptions): EventPipeline {
 
 function createRequestContext(
   options: AutoProxyOptions,
-  inheritedTraceId?: TraceId,
+  inherited?: Traceparent,
 ): SyncNarrativeContext {
   return new SyncNarrativeContext(
     new NarrativeTraceConfig(options.level ?? "detail"),
     undefined,
     buildPipeline(options),
-    null,
+    inherited?.parentSpanId ?? null,
     buildIdentity(options),
-    inheritedTraceId,
+    inherited?.traceId,
   );
 }
 
@@ -76,9 +76,9 @@ interface HttpReq {
   headers?: Record<string, string | string[] | undefined>;
 }
 
-function traceparentOf(req: HttpReq | undefined): TraceId | undefined {
+function traceparentOf(req: HttpReq | undefined): Traceparent | undefined {
   const header = req?.headers?.traceparent;
-  return parseTraceparent(typeof header === "string" ? header : undefined) ?? undefined;
+  return parseTraceparent(typeof header === "string" ? header : undefined);
 }
 
 function safeUser(o: AutoProxyOptions, req: HttpReq | undefined) {

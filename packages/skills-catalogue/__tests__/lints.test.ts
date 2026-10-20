@@ -5,7 +5,13 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { describe, expect, it, test } from "vitest";
 import { BODY_PATH, DRAFT_PATH } from "../src/catalogue/feedback-commands.js";
-import { findSkill, MARKETPLACE, PRO_LISTINGS, SKILLS } from "../src/catalogue-index.js";
+import {
+  findSkill,
+  MARKETPLACE,
+  OPENAI_DIRECTORY,
+  PRO_LISTINGS,
+  SKILLS,
+} from "../src/catalogue-index.js";
 import {
   CATALOGUE_CHAR_BUDGET,
   catalogueAllowedToolsViolations,
@@ -27,6 +33,7 @@ import {
   renderCursorPluginJson,
 } from "../src/render/cursor-plugin-json.js";
 import { renderMarketplaceJson } from "../src/render/marketplace-json.js";
+import { OPENAI_PLUGIN_ROOT, renderOpenAiPluginJson } from "../src/render/openai-plugin-json.js";
 import type { Skill } from "../src/skill.js";
 import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
 
@@ -487,6 +494,11 @@ describe.skipIf(!REPO_ROOT_REACHABLE)(
     it("marketplace.json", () => {
       const path = join(REPO_ROOT, ".claude-plugin", "marketplace.json");
       expect(readFileSync(path, "utf-8")).toBe(renderMarketplaceJson(MARKETPLACE));
+    });
+
+    it("the OpenAI plugin directory's plugin.json", () => {
+      const path = join(REPO_ROOT, OPENAI_PLUGIN_ROOT, "plugin.json");
+      expect(readFileSync(path, "utf-8")).toBe(renderOpenAiPluginJson(OPENAI_DIRECTORY));
     });
 
     it("the Cursor plugin manifests (.cursor-plugin/)", () => {

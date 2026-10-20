@@ -19,6 +19,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, relative } from "node:path";
 import { buildAgentArgv } from "./agent-command.js";
 import { type AgentTurns, agentTurns, commandForTurn } from "./agent-turns.js";
+import { promptKind, taskPrompt } from "./case-prompt.js";
 import {
   CASE_SETUPS,
   type CaseSetup,
@@ -60,6 +61,7 @@ import {
   graderEnvironment,
   installStandIns,
   keepEvidence,
+  recordDelivery,
   recordUserTurn,
   transcriptPath,
 } from "./trial-environment.js";
@@ -138,6 +140,8 @@ export interface RunnerDeps {
   readonly installStandIns: (workDir: string) => void;
   /** Marks the start of a turn in the transcript, with the user's own words for it. */
   readonly recordUserTurn: (workDir: string, turn: number, text: string) => void;
+  /** Records in the transcript which delivery put the skill pages in place before turn 1. */
+  readonly recordDelivery: (workDir: string, delivery: string) => void;
   /** Copies a FAILED trial's transcript and blocked-command log out of the work directory. */
   readonly keepEvidence: (workDir: string, destination: string) => void;
   /** Where every trial's evidence is kept, one directory per skill, case and trial below it. */
@@ -162,6 +166,10 @@ export interface RunnerDeps {
   readonly startRegistry: (tarballDir: string, npmrcPath: string) => () => void;
 }
 
+function optionalAgentCommand(agentCommand: string | undefined): { agentCommand?: string } {
+  return agentCommand === undefined ? {} : { agentCommand };
+}
+
 export function parseArgs(argv: readonly string[]): RunArgs {
   const get = (flag: string) => {
     const i = argv.indexOf(flag);
@@ -182,7 +190,7 @@ export function parseArgs(argv: readonly string[]): RunArgs {
     caseName,
     platform,
     model,
-    agentCommand: get("--agent-command"),
+    ...optionalAgentCommand(get("--agent-command")),
     trials: Number(get("--trials") ?? "1"),
   };
 }
@@ -546,6 +554,7 @@ function runTrialBody(
 
 function ledgerRow(
   args: RunArgs,
+  plan: CasePlan,
   trial: number,
   now: Date,
   outcome: TrialOutcome,
@@ -559,6 +568,7 @@ function ledgerRow(
     trial,
     result: outcome.result,
     ...(outcome.note ? { note: outcome.note } : {}),
+    ...(plan.catalogueDelivery ? { delivery: plan.catalogueDelivery } : {}),
   };
 }
 
@@ -571,6 +581,28 @@ interface CasePlan {
   readonly freshTurns: readonly number[];
   readonly preStep: RegistryPreStep | undefined;
   readonly setup: CaseSetup | undefined;
+  /** The catalogue a case that declares no delivery of its own receives; see {@link catalogueDeliveryFor}. */
+  readonly catalogueDelivery: CatalogueDelivery | undefined;
+}
+
+/** The one delivery a case that declares none receives: this checkout's own `narrativetrace init`. */
+type CatalogueDelivery = Extract<RegistryPreStep, "narrativetrace-init">;
+
+/**
+ * B-88: a CASE DOCUMENT (`case-prompt.ts`) declaring neither a setup nor a registry receives the
+ * catalogue exactly as an `init` install writes it — the same pages at the same paths, from the
+ * same installer, because it runs that installer: the `narrativetrace-init` pre-step. Before
+ * 2026-10-17 such a case ran in a bare scratch copy although its document says "catalogue loaded".
+ * A BARE PROMPT with neither receives nothing: every such case is the init prompt, whose premise is
+ * a project the agent itself installs the catalogue into.
+ */
+function catalogueDeliveryFor(
+  promptText: string,
+  preStep: RegistryPreStep | undefined,
+  setup: CaseSetup | undefined,
+): CatalogueDelivery | undefined {
+  if (preStep !== undefined || setup !== undefined) return undefined;
+  return promptKind(promptText) === "case-document" ? "narrativetrace-init" : undefined;
 }
 
 /**
@@ -700,8 +732,12 @@ function prepareTrial(
 ): () => void {
   deps.installStandIns(workDir);
   announceIsolation(workDir, deps.seedVendorLogin(workDir));
-  const delivery = plan.preStep === undefined ? undefined : { preStep: plan.preStep, workDir };
-  runPreStep(delivery, scratch, deps);
+  const preStep = plan.preStep ?? plan.catalogueDelivery;
+  runPreStep(preStep === undefined ? undefined : { preStep, workDir }, scratch, deps);
+  if (plan.catalogueDelivery !== undefined) {
+    console.log(`catalogue delivered: ${plan.catalogueDelivery} (the case declares no setup)`);
+    deps.recordDelivery(workDir, plan.catalogueDelivery);
+  }
   return runSetup(args, plan, scratch, workDir, deps);
 }
 
@@ -765,7 +801,7 @@ function runOneTrial(args: RunArgs, plan: CasePlan, trial: number, deps: RunnerD
     teardown = prepareTrial(args, plan, scratch, workDir, deps);
     const outcome = runTrialBody(turns, plan, scratch, workDir, deps);
     keepTrialEvidence(args, trial, outcome.result, workDir, deps);
-    deps.appendLedgerRow(deps.ledgerPath, ledgerRow(args, trial, deps.now(), outcome));
+    deps.appendLedgerRow(deps.ledgerPath, ledgerRow(args, plan, trial, deps.now(), outcome));
     deps.regeneratePromotion();
     console.log(`trial ${trial}/${args.trials}: ${outcome.result}`);
     return outcome;
@@ -837,24 +873,37 @@ export function runTrials(args: RunArgs, deps: RunnerDeps): void {
 }
 
 /**
- * Reads the case directory once, before any trial: its prompt, its fixture, and the registry that
- * delivers its pages. A `case.json` naming a registry outside the vocabulary therefore crashes
- * before anything is scaffolded.
+ * Reads the case directory once, before any trial: its prompt, its fixture, and what delivers its
+ * pages. A `case.json` naming a registry outside the vocabulary, or a case document without a
+ * quoted task, therefore crashes before anything is scaffolded.
  */
 function casePlan(args: RunArgs, deps: RunnerDeps): CasePlan {
   const caseDir = resolveCaseDir(deps.evalsDir, args.skill, args.caseName);
   const promptPath = join(caseDir, "prompt.md");
   if (!deps.exists(promptPath)) throw new Error(`No case found at ${caseDir}`);
+  const promptText = deps.readFile(promptPath);
   const spec = caseFixtureSpec(deps.evalsDir, args.skill, args.caseName, deps);
+  const preStep = caseRegistry(deps.evalsDir, args.skill, args.caseName, deps);
+  const setup = caseSetup(deps.evalsDir, args.skill, args.caseName, deps);
   return {
     caseDir,
     fixtureDir: resolveFixturePath(deps.repoRoot, deps.packageRoot, spec),
-    prompt: deps.readFile(promptPath),
+    prompt: promptFor(promptPath, promptText),
     replies: caseReplies(deps.evalsDir, args.skill, args.caseName, deps),
     freshTurns: caseFreshTurns(deps.evalsDir, args.skill, args.caseName, deps),
-    preStep: caseRegistry(deps.evalsDir, args.skill, args.caseName, deps),
-    setup: caseSetup(deps.evalsDir, args.skill, args.caseName, deps),
+    preStep,
+    setup,
+    catalogueDelivery: catalogueDeliveryFor(promptText, preStep, setup),
   };
+}
+
+/** What turn 1 sends (`case-prompt.ts`); a case document with no quoted task is a harness defect. */
+function promptFor(promptPath: string, promptText: string): string {
+  try {
+    return taskPrompt(promptPath, promptText);
+  } catch (error) {
+    throw new HarnessError((error as Error).message);
+  }
 }
 
 /**
@@ -890,6 +939,7 @@ export function productionDeps(evalsDir: string): RunnerDeps {
     makeWorkDir,
     installStandIns,
     recordUserTurn,
+    recordDelivery,
     keepEvidence,
     evidenceRoot: join(packageRoot, ".evals-evidence"),
     ambientPath: process.env.PATH ?? "",

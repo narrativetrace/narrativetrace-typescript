@@ -209,6 +209,7 @@ describe("@onError exception types", () => {
       @notTraced(0)
       @traced("secret")
       go(secret: string): string {
+        void secret;
         throw new NotFoundError("x");
       }
     }

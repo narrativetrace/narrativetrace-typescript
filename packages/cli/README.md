@@ -54,6 +54,9 @@ Mutates nothing.
 | `config.approval-mode` | committed `.approved.nt` baselines are compared: approval mode is on (`NARRATIVETRACE_APPROVAL=true`, `"approval": "true"` in `narrativetrace.config.json`, or `createNarrativeTest({ approval: true })`) |
 | `trap.llms-before-you-start` | a plain `.js` file using ESM `import` has `"type": "module"` in `package.json` |
 | `config.skills-installed` | the agent skills this project's carrier ships are installed under `.agents/skills/` and stamped with the release this project resolves |
+| `config.service-identity` | application code that calls `traceObject()` names its service (`serviceName`, `NARRATIVETRACE_SERVICE_NAME`), so exported traces do not read `unknown_service:node` |
+| `trap.object-class-name` | no plain object is traced without a `className` (and no rendered output shows an `Object.<method>` span) |
+| `config.instrumentation-exclusions` | the exclude list in force is reported (`NARRATIVETRACE_EXCLUDE` when set, else the shipped default), and a value the runtime would reject — a blank or duplicate entry — fails |
 | `config.vitest-fixture` | a project using Vitest has `@narrativetrace/vitest` installed and a test built with `createNarrativeTest()` (or a NarrativeTrace reporter in `vitest.config`) |
 | `config.express-middleware` | a project using Express has `@narrativetrace/express` installed and `app.use(narrativeTrace(…))` applied |
 | `config.hono-middleware` | a project using Hono has `@narrativetrace/hono` installed and `app.use("*", narrativeTrace(…))` applied |

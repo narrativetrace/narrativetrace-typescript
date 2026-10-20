@@ -4,6 +4,8 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
   MARKETPLACE,
+  OPENAI_DIRECTORY,
+  OPENAI_PLUGIN_ROOT,
   PRO_LISTINGS,
   renderAgentsMdSnippet,
   renderAgentsSkill,
@@ -12,6 +14,7 @@ import {
   renderCursorMarketplaceJson,
   renderCursorPluginJson,
   renderMarketplaceJson,
+  renderOpenAiPluginJson,
   SKILLS,
   spliceAgentsMdSection,
 } from "@narrativetrace/skills-catalogue";
@@ -71,6 +74,13 @@ const CURSOR_PLUGIN_JSON_PATH = ".cursor-plugin/plugin.json";
 const CURSOR_MARKETPLACE_JSON_PATH = ".cursor-plugin/marketplace.json";
 const CURSOR_RULE_FILE_PATH = ".cursor/rules/narrativetrace.mdc";
 
+/**
+ * The OpenAI plugin directory's versionless `plugin.json`, inside the catalogue package (see
+ * `OPENAI_PLUGIN_ROOT`). The packaged copy with a version is `tools/openai-plugin-pack.ts`'s, built
+ * from a release tag only.
+ */
+const OPENAI_PLUGIN_JSON_PATH = `${OPENAI_PLUGIN_ROOT}/plugin.json`;
+
 function renderedSkillFiles(): ReadonlyMap<string, string> {
   const files = new Map<string, string>();
   for (const skill of SKILLS) {
@@ -93,6 +103,7 @@ function allRenderedFiles(): ReadonlyMap<string, string> {
     [MARKETPLACE_JSON_PATH, renderMarketplaceJson(MARKETPLACE)],
     [CURSOR_PLUGIN_JSON_PATH, renderCursorPluginJson(MARKETPLACE)],
     [CURSOR_MARKETPLACE_JSON_PATH, renderCursorMarketplaceJson(MARKETPLACE)],
+    [OPENAI_PLUGIN_JSON_PATH, renderOpenAiPluginJson(OPENAI_DIRECTORY)],
     [CURSOR_RULE_FILE_PATH, renderCursorRule(CURSOR_RULE_TEXT, "")],
   ]);
 }

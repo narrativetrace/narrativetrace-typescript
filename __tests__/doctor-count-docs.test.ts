@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { DOCTOR_CHECKS } from "../packages/tooling/src/doctor/doctor.js";
 
-const WORDS: Readonly<Record<number, string>> = { 25: "Twenty-five" };
+const WORDS: Readonly<Record<number, string>> = { 28: "Twenty-eight" };
 
 /** Cross-port item 7: the count llms.txt publishes is the registry's, moved in the same change. */
 describe("llms.txt's doctor paragraph", () => {

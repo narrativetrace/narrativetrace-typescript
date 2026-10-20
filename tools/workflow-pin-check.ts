@@ -83,7 +83,7 @@ export function findPinViolations(repoRoot: string): PinViolation[] {
     lines.forEach((text, index) => {
       const match = USES_PATTERN.exec(text);
       if (!match) return;
-      const [, action, majorText] = match;
+      const [, action = "", majorText = ""] = match;
       const minMajor = MIN_NODE24_MAJOR[ownerRepo(action)];
       if (minMajor === undefined) return;
       const major = Number(majorText);

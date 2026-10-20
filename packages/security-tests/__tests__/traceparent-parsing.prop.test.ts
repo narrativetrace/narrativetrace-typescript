@@ -10,9 +10,8 @@ import { hostileTraceparents, hostileTracestates } from "../src/corpus/hostile-c
  * Target 1: the wire-format reader. Mirrors Java's `TraceparentParsingPropertyTest`, adapted to
  * the seam this runtime actually has.
  *
- * @llmNote This runtime's `parseTraceparent` is narrower than Java's `Traceparent.parse`: it returns
- * only the 32-hex trace id (`TraceId | undefined`), not a full record with parent-span-id/flags,
- * and it does not implement the W3C rule that a header with a version above `00` may carry
+ * @llmNote This runtime's `parseTraceparent` matches Java's `Traceparent.parse` in what it returns
+ * (trace id, parent span id, flags), but it does not implement the W3C rule that a header with a version above `00` may carry
  * additional trailing fields — it requires an exact four-field match for every version. That makes
  * it *stricter* than the corpus's `accepted` flag in two cases (`valid-future-version-with-extra`,
  * `very-long-fields`), which is a functionality gap, not a security one: the direction that matters
@@ -52,8 +51,10 @@ describe("traceparent parsing", () => {
       if (!header.accepted || KNOWN_STRICTER_MISSES.has(header.id)) continue;
       const parsed = parseTraceparent(header.value);
       expect(parsed, `${header.id}: ${header.description}`).toBeDefined();
-      expect(parsed).toMatch(/^[0-9a-f]{32}$/);
-      expect(parsed).not.toBe("0".repeat(32));
+      expect(parsed?.traceId).toMatch(/^[0-9a-f]{32}$/);
+      expect(parsed?.traceId).not.toBe("0".repeat(32));
+      expect(parsed?.parentSpanId).toMatch(/^[0-9a-f]{16}$/);
+      expect(parsed?.parentSpanId).not.toBe("0".repeat(16));
     }
   });
 
@@ -119,7 +120,11 @@ describe("traceparent parsing", () => {
         (traceId, spanId, flags) => {
           const header = formatTraceparent(traceId as never, spanId as never, flags);
 
-          expect(parseTraceparent(header)).toBe(traceId);
+          expect(parseTraceparent(header)).toEqual({
+            traceId,
+            parentSpanId: spanId,
+            traceFlags: flags,
+          });
         },
       ),
       { numRuns: 200 },

@@ -166,13 +166,13 @@ describe("frameworkCheck — guards", () => {
 });
 
 describe("the doctor with the framework table", () => {
-  test("runs one check per row the table gives a check of its own, after the existing thirteen", () => {
+  test("runs one check per row the table gives a check of its own, after the existing sixteen", () => {
     const ids = runDoctor(snapshot()).findings.map((finding) => finding.id);
     const own = FRAMEWORK_ROWS.filter((r) => r.check.kind !== "existing-check").map(
       (r) => r.check.id,
     );
-    expect(ids.slice(13)).toEqual(own);
-    expect(DOCTOR_CHECKS).toHaveLength(13 + own.length);
+    expect(ids.slice(16)).toEqual(own);
+    expect(DOCTOR_CHECKS).toHaveLength(16 + own.length);
   });
 
   test.each([

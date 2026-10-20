@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { spawnSync } from "node:child_process";
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DOCTOR_CHECKS } from "@narrativetrace/tooling";
@@ -140,21 +140,25 @@ describe("add-narrative-tracing/happy-path grader reaches its toolchain.* assert
   });
   afterEach(() => rmSync(cwd, { recursive: true, force: true }));
 
-  function scaffoldColdInstallOutputs(): void {
-    writeFileSync(join(cwd, "package.json"), JSON.stringify({ type: "module" }));
-    mkdirSync(join(cwd, "narrativetrace-output"), { recursive: true });
-    writeFileSync(join(cwd, "narrativetrace-output", "trace.md"), "# trace\n");
+  const TRACE_LINE = 'console.log("`OrderService.placeOrder(customerId: \\"C1\\")`");\n';
+
+  /** The world a cold install leaves: the packages declared and a demo that prints a trace. */
+  function scaffoldColdInstallOutputs(demo: string = TRACE_LINE): void {
+    const dependencies = { "@narrativetrace/core-node": "0.4.1", "@narrativetrace/proxy": "0.4.1" };
+    writeFileSync(join(cwd, "package.json"), JSON.stringify({ type: "module", dependencies }));
+    writeFileSync(join(cwd, "index.js"), demo);
   }
+
+  const verifyShPath = join(
+    EVALS_DIR,
+    "add-narrative-tracing",
+    "happy-path",
+    "graders",
+    "verify.sh",
+  );
 
   it("passes when doctor exits 1 (trap.redaction-proof unproven here too) but every toolchain.* finding holds", () => {
     scaffoldColdInstallOutputs();
-    const verifyShPath = join(
-      EVALS_DIR,
-      "add-narrative-tracing",
-      "happy-path",
-      "graders",
-      "verify.sh",
-    );
     const result = runGraderWithStubNpx(verifyShPath, cwd, {
       json: everyFindingWithRedactionFailing(),
       exitCode: 1,
@@ -164,18 +168,51 @@ describe("add-narrative-tracing/happy-path grader reaches its toolchain.* assert
 
   it("fails with a clear message when doctor exits 2 (a crash)", () => {
     scaffoldColdInstallOutputs();
-    const verifyShPath = join(
-      EVALS_DIR,
-      "add-narrative-tracing",
-      "happy-path",
-      "graders",
-      "verify.sh",
-    );
     const result = runGraderWithStubNpx(verifyShPath, cwd, {
       json: everyFindingWithRedactionFailing(),
       exitCode: 2,
     });
     expect(result.status).not.toBe(0);
     expect(result.stderr).toMatch(/expected doctor to exit 0 or 1/);
+  });
+
+  it("needs no .md file: a project with no tests writes nothing to disk (B-92)", () => {
+    scaffoldColdInstallOutputs();
+    const result = runGraderWithStubNpx(verifyShPath, cwd, {
+      json: everyFindingWithRedactionFailing(),
+      exitCode: 1,
+    });
+    expect(result.status).toBe(0);
+  });
+
+  it("fails a demo that exits non-zero", () => {
+    scaffoldColdInstallOutputs(`${TRACE_LINE}process.exit(3);\n`);
+    const result = runGraderWithStubNpx(verifyShPath, cwd, {
+      json: everyFindingWithRedactionFailing(),
+      exitCode: 1,
+    });
+    expect({ status: result.status, stderr: result.stderr }).toMatchObject({
+      status: 1,
+      stderr: expect.stringContaining("failed"),
+    });
+  });
+
+  it("fails a demo whose output carries no rendered trace line", () => {
+    scaffoldColdInstallOutputs('console.log("hello");\n');
+    const result = runGraderWithStubNpx(verifyShPath, cwd, {
+      json: everyFindingWithRedactionFailing(),
+      exitCode: 1,
+    });
+    expect(result.stderr).toMatch(/rendered trace line/);
+  });
+
+  it("fails a project with nothing to run", () => {
+    scaffoldColdInstallOutputs();
+    rmSync(join(cwd, "index.js"));
+    const result = runGraderWithStubNpx(verifyShPath, cwd, {
+      json: everyFindingWithRedactionFailing(),
+      exitCode: 1,
+    });
+    expect(result.stderr).toMatch(/nothing to run/);
   });
 });

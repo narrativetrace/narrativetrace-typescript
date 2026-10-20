@@ -7,6 +7,7 @@ import type { RenderedValue } from "./rendered-value.js";
 import type { SpanId, TraceId } from "./span-id-generator.js";
 import type { TraceLoss } from "./trace-loss.js";
 import type { TraceTree } from "./trace-tree.js";
+import type { Traceparent } from "./traceparent.js";
 
 /**
  * The per-trace capture surface: records method entry/exit events and assembles them into a
@@ -47,7 +48,14 @@ export interface NarrativeContext {
   traceId(): TraceId;
   setRequestContext(httpMethod: string, httpRoute: HttpRoute, clientIp: ClientIp): void;
   setUserContext(enduserId?: EnduserId, sessionId?: SessionId, tenantId?: TenantId): void;
-  run<T>(fn: () => T, inheritedTraceId?: TraceId): T;
+  /**
+   * Runs `fn` in a fresh scope, optionally continuing an upstream trace.
+   *
+   * @param inherited a bare trace id (the scope joins that trace, parentless) or the
+   * {@link Traceparent} {@link parseTraceparent} returned (the scope joins the trace and its root
+   * span records the header's parent span id as its parent); `undefined` starts a new trace.
+   */
+  run<T>(fn: () => T, inherited?: TraceId | Traceparent): T;
   readonly isActive: boolean;
   /**
    * Performance hint: whether the context will retain rendered parameter values. When false

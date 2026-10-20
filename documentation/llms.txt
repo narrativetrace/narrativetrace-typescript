@@ -51,7 +51,11 @@ class OrderService {
   }
 }
 
-const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+// serviceName is what the platform and the OTel bridge show for this service; without it, traces
+// read "unknown_service:node". Trace a class instance — a plain object would narrate as "Object".
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "order-service",
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
@@ -60,10 +64,12 @@ service.placeOrder("C1", "P1", 2);
 console.log(renderMarkdownBody(context.captureTrace()));
 ```
 <!-- /snippet -->
+The TypeScript runtime needs this configuration code and reads none of it from anywhere else: `serviceName` sets the service identity, a class instance (never an object literal, which narrates as `Object.<method>`) gives spans their class name, and the parameter names are passed explicitly. The platform and the OTel bridge show these strings to someone else; without them they read `unknown_service:node`, `Object.checkout` and `arg0`. The same identity can come from `NARRATIVETRACE_SERVICE_NAME`, `NARRATIVETRACE_SERVICE_VERSION` and `NARRATIVETRACE_ENVIRONMENT`: an `AsyncNarrativeContext` reads them itself, and a `SyncNarrativeContext` takes `{ ...serviceIdentityFromEnv() }` (from `@narrativetrace/core-node`).
+Tracing attaches only to what you wrap (`traceObject`, or the providers the NestJS module discovers). `exclude` — an option, or `NARRATIVETRACE_EXCLUDE` — names class-name prefixes that are never traced; stating it replaces a shipped default of NestJS internals, and a built-in list (runtime hooks, a `class` member, a foreign `bind()` copy) is never wrapped whatever you state. Both lists are in the configuration guide.
 Run `node index.js`. Expected output (your duration will differ):
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.42ms #1
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.29ms #1
 ```
 <!-- /snippet -->
 Add `index.test.js` next to it — this is the prompt's own step 4, proving redaction:
@@ -178,7 +184,7 @@ They are also reachable from two registries, each landing the same pages `init` 
 ```bash
 npx --yes @narrativetrace/cli doctor
 ```
-The install block above does not put the CLI in your project — `npx` fetches it on demand, and `--yes` keeps that fetch from stopping at a confirmation prompt; add `@narrativetrace/cli` as a dev dependency if you want it resolved locally. Read-only, zero network: it reads `package.json`, resolvable packages, and your source/test files, and prints a one-liner, a fix and a doc link per finding. Twenty-five checks: toolchain versions, config shape, the common traps (silent sink, `arg0` parameters, unproven redaction, stale approval traces, committed approval baselines with approval mode off, a project that never read llms.txt), whether the agent skills above are installed under `.agents/skills/` and stamped with the release this project resolves — and one per framework the project uses, from the framework table the installed doctor carries: the framework is detected but its integration is not installed, or installed but never wired, and the fix prints the install line and the wiring. Exit `0` clean, `1` findings, `2` could not run.
+The install block above does not put the CLI in your project — `npx` fetches it on demand, and `--yes` keeps that fetch from stopping at a confirmation prompt; add `@narrativetrace/cli` as a dev dependency if you want it resolved locally. Read-only, zero network: it reads `package.json`, resolvable packages, and your source/test files, and prints a one-liner, a fix and a doc link per finding. Twenty-eight checks: toolchain versions, config shape, the common traps (silent sink, `arg0` parameters, a traced plain object that narrates as `Object`, a service with no name set, an exclude list the runtime would reject, unproven redaction, stale approval traces, committed approval baselines with approval mode off, a project that never read llms.txt), whether the agent skills above are installed under `.agents/skills/` and stamped with the release this project resolves — and one per framework the project uses, from the framework table the installed doctor carries: the framework is detected but its integration is not installed, or installed but never wired, and the fix prints the install line and the wiring. Exit `0` clean, `1` findings, `2` could not run.
 
 <!-- covered-frameworks:begin -->
 Covered frameworks (each row of the doctor's framework table): Vitest (`config.vitest-fixture`); Express (`config.express-middleware`); Hono (`config.hono-middleware`); NestJS (`config.nestjs-module`); Angular (`config.angular-provider`); React (`config.react-provider`); React Router (`config.react-router-capture`); Pino (`config.pino-consumer`); Winston (`config.winston-consumer`); OpenTelemetry (`config.opentelemetry-consumer`); Default logger (Pino) (`trap.silent-sink`); Fastify (no integration shipped, `config.fastify-integration` reports it); Koa (no integration shipped, `config.koa-integration` reports it).
@@ -213,6 +219,11 @@ One page per problem, in the words a user would type. Each page carries its scen
 - [Why did this test fail](recipes/why-did-this-test-fail.md) — a red checkout test read span by span against the assertion, where every span agrees with every other and the expectation is what is stale.
 - [Review a complex flow before changing it](recipes/review-a-complex-flow-before-changing-it.md) — one run at `detail` and at `summary`, with the log line that carries values beside the value-free `.nt` an agent reads.
 - [Review a refactoring: did behaviour change](recipes/review-a-refactoring-did-behaviour-change.md) — the tests stay green, the approval diff names the dropped call, and `narrativetrace-approve` is how you say yes.
+- [Follow one request across services (distributed tracing)](recipes/follow-one-request-across-services.md) — the checkout charges through a second traced service over a real socket: `tracedFetch` puts the W3C `traceparent` on the request, so one trace id is in both services' log lines and the header names the caller's `charge` span as the parent.
+- [Keep secrets out of the logs](recipes/keep-secrets-out-of-the-logs.md) — a password caught by its parameter name and a card number caught by its value, in the log and in the narrative, with the test that reads the log back as the proof.
+- [Follow a flow across threads](recipes/follow-a-flow-across-threads.md) — two tasks handed to a `ForkJoinGroup` keep the customer's trace id and come home under the span that launched them; the same job handed to a worker without the handover starts a trace nobody is searching for.
+- [Send traces to the observability stack you already run](recipes/send-traces-to-the-observability-stack-you-already-run.md) — one run, two consumers: the narrative lines your logger already writes beside the OpenTelemetry spans the same events became, attribute by attribute, redactions included.
+- [Trace in production without the cost](recipes/trace-in-production-without-the-cost.md) — one declined checkout at `detail` and at `errors`, where a run that succeeded writes no artifact at all, and only `off` skips interception.
 
 ## Field notes from AI agents (self-reported, not a benchmark)
 We asked AI agents to build a claims service with NarrativeTrace and write up the experience for another engineer, naming what was awkward. Prompted, one run each, unedited, model named; we wrote the library. The reports so far are from the Java runtime; the same exercise runs for TypeScript next, and the principle they describe — the trace as evidence, redaction by parameter name, output on by default — is the same here. All six reports, the exact prompt and the task: https://narrativetrace.ai/#agents-saying

@@ -68,6 +68,11 @@ export function parsePageRef(page: string): ContractPageRef {
   return { relativePath: page.slice(0, hashIndex), anchor: page.slice(hashIndex + 1) };
 }
 
+/** `{ [name]: value }` when the YAML carried the key, else `{}` — `exactOptionalPropertyTypes` forbids an explicit `undefined`. */
+function optionalString<K extends string>(name: K, value: unknown): { [P in K]?: string } {
+  return typeof value === "string" ? ({ [name]: value } as { [P in K]?: string }) : {};
+}
+
 function requiredField(raw: Record<string, unknown>, name: string, id: string): string {
   const value = raw[name];
   if (typeof value === "string" && value.trim().length > 0) return value;
@@ -96,8 +101,8 @@ function parseEntry(raw: Record<string, unknown>): ContractEntry {
     claim: requiredField(raw, "claim", id),
     expect,
     probe: requiredField(raw, "probe", id),
-    coordinate: raw.coordinate as string | undefined,
-    registry: raw.registry as string | undefined,
+    ...optionalString("coordinate", raw.coordinate),
+    ...optionalString("registry", raw.registry),
   };
 }
 

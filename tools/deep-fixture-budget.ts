@@ -101,7 +101,7 @@ function skipTemplate(source: string, i: number): number {
  * unmatched (malformed input — callers treat that call site as unparseable and skip it). */
 function matchingBracket(source: string, openIndex: number): number {
   const pairs: Record<string, string> = { "(": ")", "{": "}", "[": "]" };
-  const openChar = source[openIndex];
+  const openChar = source.charAt(openIndex);
   const closeChar = pairs[openChar];
   let depth = 0;
   let i = openIndex;
@@ -134,7 +134,7 @@ function splitTopLevelArgs(inner: string): string[] {
       i = skipped;
       continue;
     }
-    const ch = inner[i];
+    const ch = inner.charAt(i);
     if ("({[".includes(ch)) depth++;
     else if (")}]".includes(ch)) depth--;
     else if (ch === "," && depth === 0) {
@@ -159,7 +159,7 @@ function lineOf(source: string, index: number): number {
  * or the argument text itself for anything else (a template literal, a computed name). */
 function extractName(firstArg: string): string {
   const m = firstArg.trim().match(/^(["'`])((?:(?!\1).)*)\1$/s);
-  return m ? m[2] : firstArg.trim();
+  return m?.[2] ?? firstArg.trim();
 }
 
 /** Every `test(`/`it(` call in `source`, each paired with its own callback text — the unit every
@@ -172,14 +172,16 @@ function callSites(source: string, file: string): CallSite[] {
     const openParen = m.index + m[0].length - 1;
     const closeParen = matchingBracket(source, openParen);
     if (closeParen === -1) continue;
-    const args = splitTopLevelArgs(source.slice(openParen + 1, closeParen));
-    if (args.length < 2) continue;
+    const [firstArg, bodyText, ...rest] = splitTopLevelArgs(
+      source.slice(openParen + 1, closeParen),
+    );
+    if (firstArg === undefined || bodyText === undefined) continue;
     sites.push({
       file,
       line: lineOf(source, m.index),
-      name: extractName(args[0]),
-      hasTimeout: args.length >= 3,
-      bodyText: args[1],
+      name: extractName(firstArg),
+      hasTimeout: rest.length >= 1,
+      bodyText,
       deepConstants,
     });
   }
@@ -220,7 +222,7 @@ function fileDeepConstants(source: string): ReadonlySet<string> {
     `\\bconst\\s+([A-Za-z_$][\\w$]*)\\s*=\\s*(?:${DEEP_LITERAL})\\b`,
     "g",
   );
-  for (const m of codeOnly(source).matchAll(CONST_DECL)) names.add(m[1]);
+  for (const m of codeOnly(source).matchAll(CONST_DECL)) names.add(m[1] ?? "");
   return names;
 }
 
@@ -231,7 +233,7 @@ const ACCUMULATING_LOOP = new RegExp(
 
 function loopStatementText(source: string, from: number): string {
   let i = from;
-  while (i < source.length && /\s/.test(source[i])) i++;
+  while (i < source.length && /\s/.test(source.charAt(i))) i++;
   if (source[i] !== "{") {
     const end = source.indexOf(";", i);
     return end === -1 ? source.slice(i) : source.slice(i, end + 1);
@@ -292,7 +294,7 @@ function isDeepFixtureBody(bodyText: string, deepConstants: ReadonlySet<string>)
   const code = codeOnly(bodyText);
   if (BUILDER_CALL.test(code) || hasAccumulatingLoop(code)) return true;
   const identMatch = code.match(BUILDER_CALL_IDENT);
-  return identMatch !== null && deepConstants.has(identMatch[1]);
+  return identMatch !== null && deepConstants.has(identMatch[1] ?? "");
 }
 
 const EXCLUDED_DIR = /^(?:node_modules|dist|\.stryker-tmp|coverage|\.git|\.turbo)$/;

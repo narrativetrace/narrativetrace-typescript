@@ -10,7 +10,7 @@ import { DualPathPipeline } from "../src/dual-path-pipeline.js";
 import { NOOP_CONTEXT } from "../src/noop-context.js";
 import { parameterCapture } from "../src/parameter-capture.js";
 import type { ServiceIdentity } from "../src/service-identity.js";
-import { isValidTraceId, type SpanId } from "../src/span-id-generator.js";
+import { isValidTraceId, type SpanId, type TraceId } from "../src/span-id-generator.js";
 import type { TraceEvent } from "../src/trace-event.js";
 
 function makeContext(level: "off" | "errors" | "summary" | "narrative" | "detail" = "detail") {
@@ -891,5 +891,53 @@ describe("ServiceIdentity stamping", () => {
     const b = tree.roots[0]?.children.find((c) => c.signature.methodName === "b");
     expect(b?.children).toHaveLength(1);
     expect(b?.children[0]?.signature.methodName).toBe("c");
+  });
+});
+
+describe("SyncNarrativeContext options-object constructor", () => {
+  function enterOf(ctx: SyncNarrativeContext, received: TraceEvent[]) {
+    ctx.enterMethod("Svc", "op", []);
+    ctx.exitMethodWithReturn('"ok"');
+    return received.find((e) => e.type === "enter");
+  }
+
+  test("takes the service identity by name instead of by fifth position", () => {
+    const received: TraceEvent[] = [];
+    const pipeline = new DualPathPipeline((e) => received.push(e), new BufferedEventConsumer(16));
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"), {
+      pipeline,
+      serviceName: "checkout-api",
+      serviceVersion: "1.4.2",
+      environment: "staging",
+    });
+    const enter = enterOf(ctx, received);
+    expect(enter?.type === "enter" && enter.spanContext.serviceName).toBe("checkout-api");
+    expect(enter?.type === "enter" && enter.spanContext.serviceVersion).toBe("1.4.2");
+    expect(enter?.type === "enter" && enter.spanContext.environment).toBe("staging");
+  });
+
+  test("an empty options object behaves like the bare constructor", () => {
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"), {});
+    ctx.enterMethod("Svc", "op", []);
+    ctx.exitMethodWithReturn('"ok"');
+    expect(ctx.captureTrace().roots).toHaveLength(1);
+  });
+
+  test("takes the parent resolver and inherited trace id by name", () => {
+    const traceId = "0af7651916cd43dd8448eb211c80319c" as TraceId;
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"), {
+      parentResolver: () => undefined,
+      inheritedTraceId: traceId,
+    });
+    expect(ctx.currentTraceId).toBe(traceId);
+  });
+
+  test("accepts explicitly undefined settings, as an unset environment variable yields", () => {
+    const unset: string | undefined = process.env.NARRATIVETRACE_TEST_UNSET;
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"), {
+      serviceName: unset,
+      inheritedTraceId: undefined,
+    });
+    expect(ctx.currentTraceId).toBeNull();
   });
 });

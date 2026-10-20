@@ -40,6 +40,11 @@ Receitas, uma página por problema, com a saída real de uma execução:
 | [Por que este teste falhou](pt-BR/receitas/por-que-este-teste-falhou.md) | Um teste vermelho lido span a span contra a sua asserção |
 | [Revise um fluxo complexo antes de alterá-lo](pt-BR/receitas/revise-um-fluxo-complexo-antes-de-altera-lo.md) | Uma execução em `detail` e em `summary`, o log ao lado do `.nt` sem valores |
 | [Revise uma refatoração: o comportamento mudou?](pt-BR/receitas/revise-uma-refatoracao-o-comportamento-mudou.md) | Os testes continuam verdes e o diff de aprovação nomeia a chamada removida |
+| [Acompanhe uma requisição entre serviços](pt-BR/receitas/acompanhe-uma-requisicao-entre-servicos.md) | O checkout chama um segundo serviço com trace por HTTP: um único id de trace nas linhas dos dois serviços |
+| [Mantenha os segredos fora dos logs](pt-BR/receitas/mantenha-os-segredos-fora-dos-logs.md) | Uma senha pega pelo nome, um número de cartão pego pelo valor, e o teste que prova isso |
+| [Acompanhe um fluxo entre threads](pt-BR/receitas/acompanhe-um-fluxo-entre-threads.md) | Um fork-join mantém o id do trace; o mesmo trabalho entregue a um worker sem isso inicia um trace novo |
+| [Envie os traces para o stack de observabilidade que você já tem](pt-BR/receitas/envie-os-traces-para-o-stack-de-observabilidade-que-voce-ja-tem.md) | As linhas de log ao lado dos spans do OpenTelemetry de uma mesma execução |
+| [Trace em produção sem o custo](pt-BR/receitas/trace-em-producao-sem-o-custo.md) | O nível de tracing na prática: `errors` mantém a execução que falhou e não escreve nada para uma que deu certo |
 
 Estas traduções estão PENDENTES DE REVISÃO por um falante nativo — cada arquivo registra seu
 status de revisão no cabeçalho da linha 1 (`pnpm run translation-status` imprime a matriz completa).

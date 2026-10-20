@@ -11,7 +11,7 @@ description: "Reports a defect in NarrativeTrace itself — the library, the doc
 npx @narrativetrace/cli doctor || true
 ```
 
-**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==25) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==28) process.exit(1);"`
 
 **failure:** the doctor's JSON output does not parse, or is missing findings — the CLI crashed instead of reporting a finding. Fix: report that crash under the `doctor` category — a crash here is a doctor bug, never a project finding
 

@@ -6,9 +6,10 @@ carries it in more detail rather than repeating it here — one home per fact.
 
 ## Parameters show as `arg0`, `arg1`
 
-**Cause:** JavaScript does not retain parameter names at runtime — there is
-no compiler flag that recovers them. Without help, `traceObject()` falls
-back to positional names.
+**Cause:** the runtime reads no parameter names from source — not for a
+class you do not own, and not for one you wrote a minute ago; there is no
+compiler flag that recovers them either. Without help, `traceObject()` falls
+back to positional names and says so once with a `console.warn`.
 
 **Fix:** supply names either way —
 
@@ -27,6 +28,40 @@ traceObject(orderService, context, { placeOrder: ["customerId", "productId", "qu
 
 A minified production bundle strips names the same way, so this is not a
 dev-only concern — see [Decorators Guide § `@traced`](decorators-guide.md#traced).
+
+## Traces read `unknown_service:node`
+
+**Cause:** no service name was set. The runtime has no other source for it, so
+an exported chapter, an OTel span or a platform column says the honest default:
+`unknown_service:node`.
+
+**Fix:** set the identity once, in code or in the environment —
+
+```ts
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "checkout-api",
+  serviceVersion: "1.4.2",
+  environment: "production",
+});
+```
+
+or `NARRATIVETRACE_SERVICE_NAME`, `NARRATIVETRACE_SERVICE_VERSION` and
+`NARRATIVETRACE_ENVIRONMENT` (an `AsyncNarrativeContext` reads them itself; a
+`SyncNarrativeContext` takes `{ ...serviceIdentityFromEnv() }`). `narrativetrace
+doctor` reports `config.service-identity` when application code traces and
+nothing names the service. See [Configuration Guide § Service
+identity](configuration-guide.md#service-identity).
+
+## Spans read `Object.<method>`
+
+**Cause:** spans are named after the traced object's constructor, and a plain
+object literal's constructor is `Object`. `traceObject()` warns once when it
+sees one.
+
+**Fix:** trace an instance of a class — `traceObject(new CheckoutService(), context)`
+— or name the literal: `traceObject(service, context, { className: "CheckoutService" })`.
+`narrativetrace doctor` reports `trap.object-class-name` for either shape in
+your source or in rendered output.
 
 ## No trace files are written
 

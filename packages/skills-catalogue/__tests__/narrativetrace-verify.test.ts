@@ -5,8 +5,9 @@ import { describe, expect, it } from "vitest";
 import { ApprovalGate } from "../src/catalogue/approval-gate.js";
 import { NARRATIVETRACE_FEEDBACK } from "../src/catalogue/narrativetrace-feedback.js";
 import {
+  FIX_AND_RERUN_WHEN,
   NARRATIVETRACE_VERIFY,
-  ONLY_ON_A_MISMATCH,
+  OPEN_VALUES_WHEN,
 } from "../src/catalogue/narrativetrace-verify.js";
 import { TraceReading } from "../src/catalogue/trace-reading.js";
 import {
@@ -45,9 +46,25 @@ describe("narrativetrace-verify — the loop (design D1)", () => {
       "Fix, re-run, read again",
     ]);
     expect(step("Open values on the span that looks wrong, and only there").condition).toBe(
-      ONLY_ON_A_MISMATCH,
+      OPEN_VALUES_WHEN,
     );
-    expect(step("Fix, re-run, read again").condition).toBe(ONLY_ON_A_MISMATCH);
+    expect(step("Fix, re-run, read again").condition).toBe(FIX_AND_RERUN_WHEN);
+  });
+
+  it("opens values on a symptom too: a matching shape with a wrong value still gets one span read", () => {
+    const when = step("Open values on the span that looks wrong, and only there").condition ?? "";
+    expect(when).toContain("or the shape matches but a symptom points at data");
+    expect(when).toContain("an assertion failed on a value, the output is wrong");
+    expect(when).toContain("then open the one span the symptom points at");
+    expect(when).toContain("otherwise go on to the pin");
+  });
+
+  it("fixes and re-reads on a structural mismatch or a wrong value read in the step before", () => {
+    const when = step("Fix, re-run, read again").condition ?? "";
+    expect(when).toContain("named a span that does not match the intent");
+    expect(when).toContain("or the value read in step 5 was wrong");
+    expect(when).toContain("otherwise go on to the pin");
+    expect(when).not.toContain("symptom");
   });
 
   it("ends with the four pin steps and then the report", () => {
@@ -91,6 +108,13 @@ describe("narrativetrace-verify — the loop (design D1)", () => {
     const flag = step("Report what the trace showed").flag ?? "";
     expect(flag).toContain("citing the span id");
     expect(flag).toContain("'tests pass' alone is not the report");
+  });
+
+  it("binds the report to the path this run took and names what it did not exercise", () => {
+    const flag = step("Report what the trace showed").flag ?? "";
+    expect(flag).toContain("on the path this run took");
+    expect(flag).toContain("names the branches and inputs this run did not exercise");
+    expect(flag).toContain("one trace shows one path, not every execution");
     expect(skill.always).toContainEqual(TraceReading.CITE_SPAN_IDS);
   });
 });

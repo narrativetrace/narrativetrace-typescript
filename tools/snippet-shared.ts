@@ -50,7 +50,12 @@ function parseAttributes(attrText: string): { path: string; region?: string; mas
     if (eq === -1) continue;
     attrs[token.slice(0, eq)] = token.slice(eq + 1);
   }
-  return { path, region: attrs.region, mask: attrs.mask };
+  const { region, mask } = attrs;
+  return {
+    path,
+    ...(region === undefined ? {} : { region }),
+    ...(mask === undefined ? {} : { mask }),
+  };
 }
 
 /**

@@ -69,6 +69,24 @@ describe("exportJson", () => {
     expect(result.events[1].durationMs).toBe(15);
   });
 
+  test("a root under an adopted trace exports the caller's span as its parentSpanId", () => {
+    const root = traceNode(
+      methodSignature("InventoryService", "reserve", []),
+      returned("true"),
+      [],
+      undefined,
+      undefined,
+      undefined,
+      sc(sid(2), sid(1)),
+    );
+
+    const result = JSON.parse(exportJson(traceTree([root]), { scenario: "Adopted" }));
+
+    expect(result.events[0].spanId).toBe(sid(2));
+    expect(result.events[0].parentSpanId).toBe(sid(1));
+    expect(result.events[0].parentId).toBeUndefined();
+  });
+
   test("nested calls have correct parent-child spanIds", () => {
     const child = traceNode(
       methodSignature("InventoryService", "reserve", []),

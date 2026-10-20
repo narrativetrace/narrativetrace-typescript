@@ -36,6 +36,23 @@ function eventTypes(entries: readonly CanonicalEntry[]): string[] {
 }
 
 describe("canonicalEntries", () => {
+  test("a root under an adopted trace carries the caller's span as parent_span_id", () => {
+    const root = traceNode(
+      methodSignature("Svc", "adopted", []),
+      returned('"ok"'),
+      [],
+      5,
+      0,
+      undefined,
+      spanContext(trId, sid(2), sid(1)),
+    );
+
+    const [enter, exit] = canonicalEntries(traceTree([root]));
+
+    expect(enter?.parent_span_id).toBe(sid(1));
+    expect(exit?.parent_span_id).toBe(sid(1));
+  });
+
   test("emits one enter and one exit per node, depth-first", () => {
     const child = leaf("inner");
     const root = traceNode(methodSignature("Svc", "outer", []), returned('"ok"'), [child], 9, 0);

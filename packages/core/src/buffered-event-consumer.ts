@@ -78,7 +78,7 @@ export class BufferedEventConsumer {
   private readonly buffer: BoundedEventBuffer;
   private readonly store: EventStoreConsumer;
   private readonly drainIntervalMs: number;
-  private timer: unknown = undefined;
+  private timer: ReturnType<typeof setInterval> | undefined = undefined;
   private readonly _chunkSize: number;
   private _lastDrainMode: DrainMode = "normal";
   private readonly slots: SubscriberSlot[] = [];

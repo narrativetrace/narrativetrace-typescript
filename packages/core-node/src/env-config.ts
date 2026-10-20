@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { parseTracingLevel, type TracingLevel } from "@narrativetrace/core";
+import { parseTracingLevel, type ServiceIdentity, type TracingLevel } from "@narrativetrace/core";
 
 /** Environment variable names read by the Node resolver. */
 export const ENV_KEYS = {
@@ -15,6 +15,19 @@ export const ENV_KEYS = {
   approvedDir: "NARRATIVETRACE_APPROVED_DIR",
   /** Opts into the flat, value-free `.structural.json` sibling artifact. */
   structuralJson: "NARRATIVETRACE_STRUCTURAL_JSON",
+  /** Comma-separated field-name patterns appended to the redaction deny-list (never replacing it). */
+  redactionAdditionalPatterns: "NARRATIVETRACE_REDACTION_ADDITIONALPATTERNS",
+  /**
+   * Class-name prefixes (`;` or `,` separated) that are never traced. Key presence decides: any
+   * value, even empty, states the whole list and replaces the shipped default.
+   */
+  exclude: "NARRATIVETRACE_EXCLUDE",
+  /** Service name stamped on every span and chapter; unset reads as `unknown_service:node` downstream. */
+  serviceName: "NARRATIVETRACE_SERVICE_NAME",
+  /** Service version stamped beside the service name. */
+  serviceVersion: "NARRATIVETRACE_SERVICE_VERSION",
+  /** Deployment environment (`staging`, `production`, …) stamped beside the service name. */
+  environment: "NARRATIVETRACE_ENVIRONMENT",
 } as const;
 
 export interface EnvConfig {
@@ -25,6 +38,14 @@ export interface EnvConfig {
   readonly approval?: string;
   readonly approvedDir?: string;
   readonly structuralJson?: string;
+  /** Raw comma-separated value; parsed by `registerAdditionalRedactionPatterns`. */
+  readonly redactionAdditionalPatterns?: string;
+  /** Raw `NARRATIVETRACE_EXCLUDE`; present-but-empty is kept (an empty list); see `registerExcludeFromEnv`. */
+  readonly exclude?: string;
+  /** Service identity; see {@link serviceIdentityFromEnv} for the form contexts consume. */
+  readonly serviceName?: string;
+  readonly serviceVersion?: string;
+  readonly environment?: string;
 }
 
 type EnvSource = Record<string, string | undefined>;
@@ -37,6 +58,10 @@ const STRING_KEYS = [
   "approval",
   "approvedDir",
   "structuralJson",
+  "redactionAdditionalPatterns",
+  "serviceName",
+  "serviceVersion",
+  "environment",
 ] as const;
 
 /**
@@ -53,5 +78,26 @@ export function resolveEnvConfig(
     const value = env[ENV_KEYS[key]];
     if (value) strings[key] = value;
   }
-  return { level: parseTracingLevel(env[ENV_KEYS.level], fallbackLevel), ...strings };
+  const exclude = env[ENV_KEYS.exclude];
+  return {
+    level: parseTracingLevel(env[ENV_KEYS.level], fallbackLevel),
+    ...strings,
+    ...(exclude !== undefined && { exclude }),
+  };
+}
+
+/**
+ * The service identity the environment names, or `undefined` when none of the three settings is set.
+ *
+ * @param env the environment to read. @defaultValue `process.env`
+ * @returns only the fields that were set, ready for a context's `serviceIdentity`.
+ */
+export function serviceIdentityFromEnv(env: EnvSource = process.env): ServiceIdentity | undefined {
+  const { serviceName, serviceVersion, environment } = resolveEnvConfig(env);
+  if (!serviceName && !serviceVersion && !environment) return undefined;
+  return {
+    ...(serviceName && { serviceName }),
+    ...(serviceVersion && { serviceVersion }),
+    ...(environment && { environment }),
+  };
 }

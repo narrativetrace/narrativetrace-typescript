@@ -42,8 +42,19 @@ export interface AutoProxyOptions {
   readonly serviceVersion?: string;
   readonly environment?: string;
   readonly level?: TracingLevel;
+  /**
+   * Providers and controllers the auto-proxy never wraps. A class is excluded by identity; a
+   * string is a class-name prefix, matching that name and what is under it at a `.`, `/` or `:`
+   * (`acme.billing` never matches `acme.billingExtra`).
+   * @defaultValue `NARRATIVETRACE_EXCLUDE` when set, else the shipped list (`DEFAULT_EXCLUDE`:
+   * NestJS's own `ModuleRef`, `Reflector`, `MetadataScanner`, `DiscoveryService`)
+   * @llmNote Stating this at all REPLACES the default name list, classes-only included — copy the
+   * shipped prefixes in to extend them, or pass `[]` to exclude nothing. An invalid prefix (blank,
+   * duplicate) throws when the module is built, not mid-request. Each matched prefix is reported
+   * once on `console.warn`, never per provider.
+   */
   // biome-ignore lint/complexity/noBannedTypes: NestJS metatypes are Function references
-  readonly exclude?: Function[];
+  readonly exclude?: readonly (Function | string)[];
   /**
    * Event pipeline the per-request context publishes into. Without this, spans are captured into a
    * throwaway consumer that nothing drains (the TS-DI-1 dead-end); pass a DualPathBuilt pipeline

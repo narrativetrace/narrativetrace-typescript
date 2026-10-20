@@ -11,7 +11,6 @@ import {
 import { traceObject } from "@narrativetrace/proxy";
 import { rulesRefusing } from "@narrativetrace/tooling";
 import { describe, expect, it } from "vitest";
-// @ts-expect-error — the fixture is a plain-JS consumer project with no type declarations
 import { PaymentService } from "../fixtures/feedback-value-free/src/payment-service.js";
 
 /**

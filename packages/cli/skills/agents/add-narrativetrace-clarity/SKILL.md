@@ -134,7 +134,7 @@ npx narrativetrace-clarity --input narrativetrace-output/clarity-results.json --
 npx @narrativetrace/cli doctor || true
 ```
 
-**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==25) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==28) process.exit(1);"`
 
 **failure:** the results file stays missing after a test captures a call — tracing or output is not wired the way the reporter expects. Fix: run narrativetrace-doctor for the diagnosis, apply the identified configuration fix when the user asked for setup or repair, and repeat the run; do not stop at merely naming the doctor
 

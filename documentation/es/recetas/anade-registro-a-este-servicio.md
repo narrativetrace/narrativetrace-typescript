@@ -1,4 +1,4 @@
-<!-- source: documentation/recipes/add-logging-to-this-service.md blob d1f021856897 | translated: 2026-10-11 | reviewed: - -->
+<!-- source: documentation/recipes/add-logging-to-this-service.md blob 81bc6ef760d9 | translated: 2026-10-11 | reviewed: - -->
 # Añade registro a este servicio
 
 [English](../../recipes/add-logging-to-this-service.md) | **Español** | [Português](../../pt-BR/receitas/adicione-logs-a-este-servico.md) | [简体中文](../../zh-CN/实用方案/给这个服务加日志.md)
@@ -108,7 +108,7 @@ export function contextLoggingTo(logFile: string): SyncNarrativeContext {
     pipeline,
     null,
     undefined,
-    parseTraceparent(DEMO_TRACEPARENT),
+    parseTraceparent(DEMO_TRACEPARENT)?.traceId,
   );
 }
 ```

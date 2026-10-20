@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 40cf04c0beea | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 3e35a1b0f94f | translated: 2026-10-20 | reviewed: - -->
 # Guia de Integração de Frameworks do NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | [Español](../es/guia-de-integracion-de-frameworks.md) | **Português** | [简体中文](../zh-CN/框架集成指南.md)
@@ -406,7 +406,9 @@ import { Module } from "@nestjs/common";
       // são capturados mas não exportados.
       pipeline,
       // Providers a deixar sem trace.
-      exclude: [HealthController],
+      // Providers que ficam sem rastreamento: classes por identidade, strings como prefixos de nome de classe.
+      // Informar isto substitui o padrão (ModuleRef, Reflector, … do NestJS).
+      exclude: [HealthController, "acme.vendor"],
       // Dispara após cada requisição com a árvore capturada, o status HTTP e a duração.
       onRequestComplete: (ctx, { statusCode, durationMs, tree }) => {
         console.log(statusCode, durationMs, tree);
@@ -421,6 +423,10 @@ export class AppModule {}
 @NoAutoProxy()
 export class LegacyService {}
 ```
+
+### Incluir e excluir
+
+O auto-proxy *inclui* todos os providers e controllers que o Nest descobre, e `exclude` tira alguns; uma exclusão sempre vence. Duas listas decidem: uma embutida e não configurável (hooks do runtime como `toJSON` e `then`, e uma `class` guardada como membro, que não pode ser envolvida sem quebrar `new`), e um padrão embutido e substituível com os providers do próprio NestJS (`ModuleRef`, `Reflector`, `MetadataScanner`, `DiscoveryService`). A mesma lista pode vir de `NARRATIVETRACE_EXCLUDE` (separada por `;` ou `,`; a opção no código vence) e `traceObject()` aceita a mesma opção `exclude`. Ambas as listas são publicadas linha a linha no [Guia de configuração § Exclusões de instrumentação](guia-de-configuracao.md#10-exclusões-de-instrumentação).
 
 ### Como funciona
 

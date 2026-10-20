@@ -32,6 +32,12 @@ describe("NOTICE", () => {
     expect(NOTICE_TEXT).toContain(".claude-plugin/marketplace.json");
   });
 
+  it("names the OpenAI plugin directory's package root as Apache", () => {
+    const rootIndex = NOTICE_TEXT.indexOf("packages/skills-catalogue/openai-plugin/");
+    expect(rootIndex).toBeGreaterThan(-1);
+    expect(NOTICE_TEXT.slice(rootIndex, rootIndex + 200)).toContain("Apache License, Version 2.0");
+  });
+
   it("states the Apache licence for the section naming the rendered pages", () => {
     const pagesIndex = NOTICE_TEXT.indexOf(".claude/skills/**");
     const sectionAfter = NOTICE_TEXT.slice(pagesIndex, pagesIndex + 300);

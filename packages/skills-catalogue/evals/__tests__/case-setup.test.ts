@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, it } from "vitest";
 import {
+  assertPackDestination,
   CASE_SETUPS,
   checkoutPackages,
   isCaseSetup,
@@ -109,6 +110,15 @@ describe("checkoutPackages", () => {
     const fixture = { dependencies: { "@narrativetrace/proxy": "latest" } };
     expect(() => checkoutPackages(fixture, "/repo", lying)).toThrow(/names @narrativetrace\/core/);
   });
+
+  it("refuses a package whose version is empty, since no tarball name can be known for it", () => {
+    const blank = (path: string) =>
+      path.endsWith("/proxy/package.json")
+        ? { name: "@narrativetrace/proxy", version: "" }
+        : readJson(path);
+    const fixture = { dependencies: { "@narrativetrace/proxy": "latest" } };
+    expect(() => checkoutPackages(fixture, "/repo", blank)).toThrow("has no version");
+  });
 });
 
 describe("tarballName", () => {
@@ -213,5 +223,43 @@ describe("packCommands", () => {
       },
     ]);
     expect(registryTarballDir("/work")).toBe("/work/packages");
+  });
+
+  // B-121: a pack runs FROM the real package directory, so a destination that is not an absolute
+  // path inside the work directory lands the tarball in the repository itself
+  // (`packages/<pkg>/undefined/*.tgz` under a mutant of registryTarballDir, 2026-10-19).
+  const CORE = [{ name: "@narrativetrace/core", version: "0.2.0", dir: "/repo/packages/core" }];
+
+  it("refuses a relative or empty work directory, which would pack into the package itself", () => {
+    expect(() => packCommands(CORE, "work")).toThrow("work directory must be an absolute path");
+    expect(() => packCommands(CORE, "")).toThrow("work directory must be an absolute path");
+    expect(() => packCommands(CORE, undefined as unknown as string)).toThrow(
+      "work directory must be an absolute path, not undefined",
+    );
+  });
+
+  it("refuses a missing or non-string destination before any command exists", () => {
+    expect(() => assertPackDestination(undefined, "/work")).toThrow(
+      "pack destination must be a path inside /work, not undefined",
+    );
+    expect(() => assertPackDestination(42, "/work")).toThrow("not 42");
+  });
+
+  it("refuses a destination outside the work directory, a sibling sharing its prefix included", () => {
+    expect(() => assertPackDestination("/repo/packages/core", "/work")).toThrow("inside /work");
+    expect(() => assertPackDestination("/workx/packages", "/work")).toThrow("inside /work");
+    expect(() => assertPackDestination("/work", "/work")).toThrow("inside /work");
+    expect(() => assertPackDestination("/work/../repo", "/work")).toThrow("inside /work");
+    expect(() => assertPackDestination("/", "/work")).toThrow("inside /work");
+  });
+
+  it("refuses a relative destination even when the process runs inside the work directory", () => {
+    // `pnpm pack` resolves it against the PACKAGE directory, not this process's.
+    expect(() => assertPackDestination("packages", process.cwd())).toThrow("not packages");
+  });
+
+  it("accepts the registry's tarball directory of the same work directory", () => {
+    expect(() => assertPackDestination(registryTarballDir("/work"), "/work")).not.toThrow();
+    expect(() => assertPackDestination("/work/..cache", "/work")).not.toThrow();
   });
 });

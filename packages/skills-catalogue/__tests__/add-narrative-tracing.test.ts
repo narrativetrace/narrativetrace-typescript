@@ -150,6 +150,24 @@ describe("add-narrative-tracing: an existing application keeps its entry point",
     );
   });
 
+  it("a project with tests takes its first trace from one existing test, which leaves the files the other skills read", () => {
+    expect(byTitle("First trace: wrap, call, render, run")?.condition).toMatch(
+      /^if the project already has tests.*`test` script.*test runner.*one existing test.*through.*integration.*`\.md` and `\.nt`.*`narrativetrace-output\/`.*narrativetrace-doctor, narrativetrace-verify, narrativetrace-debug and narrativetrace-explain.*print the rendered.*console.*files exist/s,
+    );
+  });
+
+  it("a project whose tests run on a runner with no integration keeps that runner and takes the console path", () => {
+    expect(byTitle("First trace: wrap, call, render, run")?.condition).toMatch(
+      /no integration.*keeps that runner.*never swaps it.*no-tests path/s,
+    );
+  });
+
+  it("a project with no tests gets a console trace, is told nothing is written, and never gains a test runner", () => {
+    expect(byTitle("First trace: wrap, call, render, run")?.condition).toMatch(
+      /nothing is written to disk by this script.*application's log is the record.*never adds a test runner or a test to a project that has none\.$/s,
+    );
+  });
+
   it("every condition ends in an otherwise branch for a project with no entry point", () => {
     for (const step of conditional) expect(step.condition).toMatch(/; otherwise /);
   });

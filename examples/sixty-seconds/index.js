@@ -11,7 +11,11 @@ class OrderService {
   }
 }
 
-const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+// serviceName is what the platform and the OTel bridge show for this service; without it, traces
+// read "unknown_service:node". Trace a class instance — a plain object would narrate as "Object".
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "order-service",
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });

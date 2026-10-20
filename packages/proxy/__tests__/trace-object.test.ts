@@ -1,11 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { NarrativeTraceConfig, NOOP_CONTEXT, SyncNarrativeContext } from "@narrativetrace/core";
+import {
+  NarrativeTraceConfig,
+  NOOP_CONTEXT,
+  SyncNarrativeContext,
+  type TraceNode,
+  type TraceTree,
+} from "@narrativetrace/core";
 import { describe, expect, test } from "vitest";
 import { narrated, onError } from "../src/narrated.js";
 import { notTraced } from "../src/not-traced.js";
 import { traceObject } from "../src/trace-object.js";
+
+function firstRoot(tree: TraceTree): TraceNode {
+  const root = tree.roots[0];
+  if (root === undefined) throw new Error("the captured trace has no root span");
+  return root;
+}
 
 describe("traceObject fast paths", () => {
   // A real Date instance, not a user class: the 2026-09-12 "trusted-leaf" carve-out
@@ -147,8 +159,8 @@ describe("traceObject", () => {
 
     const tree = context.captureTrace();
     expect(tree.roots).toHaveLength(1);
-    expect(tree.roots[0].signature.className).toBe("Calculator");
-    expect(tree.roots[0].signature.methodName).toBe("add");
+    expect(firstRoot(tree).signature.className).toBe("Calculator");
+    expect(firstRoot(tree).signature.methodName).toBe("add");
   });
 
   test("captures parameter names from map", () => {
@@ -169,12 +181,12 @@ describe("traceObject", () => {
     traced.greet("Alice", 30);
 
     const tree = context.captureTrace();
-    const params = tree.roots[0].signature.parameters;
+    const params = firstRoot(tree).signature.parameters;
     expect(params).toHaveLength(2);
-    expect(params[0].name).toBe("name");
-    expect(params[0].renderedValue).toBe('"Alice"');
-    expect(params[1].name).toBe("age");
-    expect(params[1].renderedValue).toBe("30");
+    expect(params[0]?.name).toBe("name");
+    expect(params[0]?.renderedValue).toBe('"Alice"');
+    expect(params[1]?.name).toBe("age");
+    expect(params[1]?.renderedValue).toBe("30");
   });
 
   test("falls back to arg0/arg1 when no name map", () => {
@@ -193,10 +205,10 @@ describe("traceObject", () => {
     traced.add(10, 20);
 
     const tree = context.captureTrace();
-    const params = tree.roots[0].signature.parameters;
+    const params = firstRoot(tree).signature.parameters;
     expect(params).toHaveLength(2);
-    expect(params[0].name).toBe("arg0");
-    expect(params[1].name).toBe("arg1");
+    expect(params[0]?.name).toBe("arg0");
+    expect(params[1]?.name).toBe("arg1");
   });
 
   test("renders return value", () => {
@@ -213,7 +225,7 @@ describe("traceObject", () => {
     traced.add(2, 3);
 
     const tree = context.captureTrace();
-    const outcome = tree.roots[0].outcome;
+    const outcome = firstRoot(tree).outcome;
     expect(outcome.kind).toBe("returned");
     expect(outcome.kind === "returned" && outcome.renderedValue).toBe("5");
   });
@@ -251,7 +263,7 @@ describe("traceObject", () => {
 
     const tree = context.captureTrace();
     expect(tree.roots).toHaveLength(1);
-    const outcome = tree.roots[0].outcome;
+    const outcome = firstRoot(tree).outcome;
     expect(outcome.kind).toBe("threw");
     expect(outcome.kind === "threw" && outcome.error).toBeInstanceOf(Error);
   });
@@ -331,7 +343,7 @@ describe("traceObject", () => {
 
     const tree = context.captureTrace();
     expect(tree.roots).toHaveLength(1);
-    const outcome = tree.roots[0].outcome;
+    const outcome = firstRoot(tree).outcome;
     expect(outcome.kind).toBe("returned");
     expect(outcome.kind === "returned" && outcome.renderedValue).toBe('"response from /api"');
   });
@@ -352,7 +364,7 @@ describe("traceObject", () => {
 
     const tree = context.captureTrace();
     expect(tree.roots).toHaveLength(1);
-    const outcome = tree.roots[0].outcome;
+    const outcome = firstRoot(tree).outcome;
     expect(outcome.kind).toBe("threw");
     expect(outcome.kind === "threw" && outcome.error).toBeInstanceOf(Error);
   });
@@ -383,10 +395,10 @@ describe("traceObject", () => {
 
     const tree = context.captureTrace();
     expect(tree.roots).toHaveLength(1);
-    expect(tree.roots[0].signature.methodName).toBe("run");
-    expect(tree.roots[0].children).toHaveLength(1);
-    expect(tree.roots[0].children[0].signature.className).toBe("Inner");
-    expect(tree.roots[0].children[0].signature.methodName).toBe("compute");
+    expect(firstRoot(tree).signature.methodName).toBe("run");
+    expect(firstRoot(tree).children).toHaveLength(1);
+    expect(firstRoot(tree).children[0]?.signature.className).toBe("Inner");
+    expect(firstRoot(tree).children[0]?.signature.methodName).toBe("compute");
   });
 
   test("non-function property access passes through", () => {
@@ -424,7 +436,7 @@ describe("traceObject", () => {
     traced.run();
 
     const tree = context.captureTrace();
-    expect(tree.roots[0].signature.className).toBe("CustomService");
+    expect(firstRoot(tree).signature.className).toBe("CustomService");
   });
 
   test("handles method that returns undefined", () => {
@@ -443,7 +455,7 @@ describe("traceObject", () => {
     expect(result).toBeUndefined();
 
     const tree = context.captureTrace();
-    const outcome = tree.roots[0].outcome;
+    const outcome = firstRoot(tree).outcome;
     expect(outcome.kind).toBe("returned");
     // The void-completion contract: a method that returns nothing captures `null`, not the
     // string "undefined". Rendering the absence as a word is what made every renderer hide a
@@ -462,7 +474,7 @@ describe("traceObject", () => {
 
     traceObject(new Parser(), context).describe();
 
-    const outcome = context.captureTrace().roots[0].outcome;
+    const outcome = firstRoot(context.captureTrace()).outcome;
     expect(outcome.kind === "returned" && outcome.renderedValue).toBe('"undefined"');
   });
 
@@ -482,7 +494,7 @@ describe("traceObject", () => {
     expect(result).toBe(12345);
 
     const tree = context.captureTrace();
-    expect(tree.roots[0].signature.parameters).toHaveLength(0);
+    expect(firstRoot(tree).signature.parameters).toHaveLength(0);
   });
 
   test("proxy is transparent to instanceof checks", () => {
@@ -520,7 +532,7 @@ describe("traceObject", () => {
     expect(result).toBe(5);
 
     const tree = context.captureTrace();
-    const outcome = tree.roots[0].outcome;
+    const outcome = firstRoot(tree).outcome;
     expect(outcome.kind).toBe("returned");
     expect(outcome.kind === "returned" && outcome.renderedValue).toBeNull();
   });
@@ -543,7 +555,7 @@ describe("traceObject", () => {
     expect(result).toBe("response from /api");
 
     const tree = context.captureTrace();
-    const outcome = tree.roots[0].outcome;
+    const outcome = firstRoot(tree).outcome;
     expect(outcome.kind).toBe("returned");
     expect(outcome.kind === "returned" && outcome.renderedValue).toBeNull();
   });
@@ -566,14 +578,14 @@ describe("traceObject", () => {
     traced.login("admin", "secret123");
 
     const tree = context.captureTrace();
-    const params = tree.roots[0].signature.parameters;
+    const params = firstRoot(tree).signature.parameters;
     expect(params).toHaveLength(2);
-    expect(params[0].name).toBe("username");
-    expect(params[0].renderedValue).toBe('"admin"');
-    expect(params[0].redacted).toBe(false);
-    expect(params[1].name).toBe("password");
-    expect(params[1].renderedValue).toBe("[REDACTED]");
-    expect(params[1].redacted).toBe(true);
+    expect(params[0]?.name).toBe("username");
+    expect(params[0]?.renderedValue).toBe('"admin"');
+    expect(params[0]?.redacted).toBe(false);
+    expect(params[1]?.name).toBe("password");
+    expect(params[1]?.renderedValue).toBe("[REDACTED]");
+    expect(params[1]?.redacted).toBe(true);
   });
 
   test("getter properties are forwarded without wrapping", () => {
@@ -636,7 +648,7 @@ describe("traceObject", () => {
     traced.run();
     const tree2 = context.captureTrace();
     expect(tree2.roots).toHaveLength(1);
-    expect(tree2.roots[0].signature.methodName).toBe("run");
+    expect(firstRoot(tree2).signature.methodName).toBe("run");
   });
 });
 
@@ -772,7 +784,7 @@ describe("no-poison contract: ordinary object operations are never traced", () =
     const context = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
     const traced = tracedMoney(context);
 
-    expect(traced + 1).toBe(1235);
+    expect((traced as unknown as number) + 1).toBe(1235);
     expect(context.captureTrace().roots).toHaveLength(0);
   });
 

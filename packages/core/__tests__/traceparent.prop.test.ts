@@ -21,7 +21,7 @@ test("formatTraceparent round-trips with parseTraceparent for any valid IDs", ()
     fc.property(traceIdArb, spanIdArb, (traceId, spanId) => {
       const header = formatTraceparent(traceId, spanId);
       const parsed = parseTraceparent(header);
-      expect(parsed).toBe(traceId);
+      expect(parsed).toEqual({ traceId, parentSpanId: spanId, traceFlags: 1 });
     }),
   );
 });

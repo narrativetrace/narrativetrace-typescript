@@ -19,6 +19,7 @@ import type { EnterEvent, TraceEvent } from "./trace-event.js";
 import { type TraceLoss, traceLoss } from "./trace-loss.js";
 import { returned, threw } from "./trace-outcome.js";
 import type { TraceTree } from "./trace-tree.js";
+import type { Traceparent } from "./traceparent.js";
 import { buildTraceTree } from "./tree-builder.js";
 
 const NOOP_SPAN_ID = "" as SpanId;
@@ -64,6 +65,69 @@ export class LiveChildRegistration {
 }
 
 /**
+ * Named settings for {@link SyncNarrativeContext}'s options-object constructor.
+ *
+ * @remarks `serviceName`, `serviceVersion` and `environment` build the {@link ServiceIdentity}; leave
+ * `serviceName` unset and exported chapters read `unknown_service:node`.
+ */
+export interface SyncContextOptions {
+  readonly serviceName?: string | undefined;
+  readonly serviceVersion?: string | undefined;
+  readonly environment?: string | undefined;
+  readonly parentResolver?: (() => SpanId | undefined) | undefined;
+  readonly pipeline?: EventPipeline | undefined;
+  readonly rootParentOverride?: SpanId | null | undefined;
+  readonly inheritedTraceId?: TraceId | undefined;
+  readonly maxAdoptedSpans?: number | undefined;
+}
+
+/** The settings both constructor forms reduce to. */
+interface ContextSettings {
+  readonly parentResolver?: (() => SpanId | undefined) | undefined;
+  readonly pipeline?: EventPipeline | undefined;
+  readonly rootParentOverride?: SpanId | null | undefined;
+  readonly serviceIdentity?: ServiceIdentity | undefined;
+  readonly inheritedTraceId?: TraceId | undefined;
+  readonly maxAdoptedSpans?: number | undefined;
+}
+
+/** The positional constructor's arguments after `parentResolver`, in order. */
+type PositionalTail = [
+  pipeline?: EventPipeline,
+  rootParentOverride?: SpanId | null,
+  serviceIdentity?: ServiceIdentity,
+  inheritedTraceId?: TraceId,
+  maxAdoptedSpans?: number,
+];
+
+function settingsFrom(
+  second: SyncContextOptions | (() => SpanId | undefined) | undefined,
+  tail: PositionalTail,
+): ContextSettings {
+  if (typeof second === "object") return settingsFromOptions(second);
+  const [pipeline, rootParentOverride, serviceIdentity, inheritedTraceId, maxAdoptedSpans] = tail;
+  return {
+    parentResolver: second,
+    pipeline,
+    rootParentOverride,
+    serviceIdentity,
+    inheritedTraceId,
+    maxAdoptedSpans,
+  };
+}
+
+function settingsFromOptions(options: SyncContextOptions): ContextSettings {
+  const { serviceName, serviceVersion, environment, ...settings } = options;
+  const named: ServiceIdentity = {
+    ...(serviceName !== undefined && { serviceName }),
+    ...(serviceVersion !== undefined && { serviceVersion }),
+    ...(environment !== undefined && { environment }),
+  };
+  const hasIdentity = Object.keys(named).length > 0;
+  return { ...settings, serviceIdentity: hasIdentity ? named : undefined };
+}
+
+/**
  * The synchronous, single-trace {@link NarrativeContext} implementation.
  *
  * INTENT: the default runtime context. Maintains an explicit active-span stack, resolves
@@ -102,20 +166,38 @@ export class SyncNarrativeContext implements NarrativeContext {
   private _fromSnapshot = false;
   private _generation = 0;
 
+  private readonly rootParentOverride: SpanId | null;
+  private readonly maxAdoptedSpans: number;
+
+  /**
+   * @param config the tracing level and policy.
+   * @param options the same settings by name; prefer this form — `serviceName`, `serviceVersion` and
+   * `environment` are what the platform and the OTel bridge show to someone else.
+   */
+  constructor(config: NarrativeTraceConfig, options?: SyncContextOptions);
+  /** Positional form, kept for compatibility; the options-object overload takes the same settings. */
   constructor(
     config: NarrativeTraceConfig,
     parentResolver?: () => SpanId | undefined,
     pipeline?: EventPipeline,
-    private readonly rootParentOverride: SpanId | null = null,
+    rootParentOverride?: SpanId | null,
     serviceIdentity?: ServiceIdentity,
     inheritedTraceId?: TraceId,
-    private readonly maxAdoptedSpans: number = MAX_ADOPTED_SPANS,
+    maxAdoptedSpans?: number,
+  );
+  constructor(
+    config: NarrativeTraceConfig,
+    second?: SyncContextOptions | (() => SpanId | undefined),
+    ...positionalTail: PositionalTail
   ) {
+    const o = settingsFrom(second, positionalTail);
     this.config = config;
-    this.parentResolver = parentResolver ?? null;
-    this.eventPipeline = pipeline ?? new DualPathPipeline(null, new BufferedEventConsumer());
-    this.serviceIdentity = serviceIdentity;
-    if (inheritedTraceId) this._traceId = inheritedTraceId;
+    this.parentResolver = o.parentResolver ?? null;
+    this.eventPipeline = o.pipeline ?? new DualPathPipeline(null, new BufferedEventConsumer());
+    this.serviceIdentity = o.serviceIdentity;
+    this.rootParentOverride = o.rootParentOverride ?? null;
+    this.maxAdoptedSpans = o.maxAdoptedSpans ?? MAX_ADOPTED_SPANS;
+    if (o.inheritedTraceId) this._traceId = o.inheritedTraceId;
   }
 
   get isActive(): boolean {
@@ -429,7 +511,7 @@ export class SyncNarrativeContext implements NarrativeContext {
     return this.parentMap.get(handle) ?? null;
   }
 
-  run<T>(fn: () => T, _inheritedTraceId?: TraceId): T {
+  run<T>(fn: () => T, _inherited?: TraceId | Traceparent): T {
     return fn();
   }
 

@@ -10,6 +10,7 @@ import { NARRATIVETRACE_FEEDBACK } from "./catalogue/narrativetrace-feedback.js"
 import { NARRATIVETRACE_VERIFY } from "./catalogue/narrativetrace-verify.js";
 import { PRO_LISTINGS } from "./catalogue/pro-listings.js";
 import type { MarketplaceListing } from "./marketplace-listing.js";
+import { type OpenAiListingFields, openAiListing } from "./openai-listing.js";
 import type { ProListing } from "./pro-listing.js";
 import type { Skill } from "./skill.js";
 
@@ -44,6 +45,29 @@ export const MARKETPLACE: MarketplaceListing = {
   homepage: "https://narrativetrace.ai",
   keywords: ["narrativetrace", "typescript", "tracing", "observability", "agent-skills"],
 };
+
+/**
+ * How this repository presents {@link MARKETPLACE} to the OpenAI plugin directory (shared by
+ * ChatGPT and Codex): the same listing, plus the directory's own display fields. `capabilities`
+ * names what the skills do — run a local build, read and write files — not a network or
+ * data-access claim; `defaultPrompts` are drawn verbatim from the skills' own trigger phrases in
+ * {@link SKILLS}, never invented ones. `brandColor` is the brand tile colour
+ * (the website brand bundle's `BRAND.md`, "Tile"), lowercase hex as the bundle writes it.
+ */
+export const OPENAI_DIRECTORY: OpenAiListingFields = openAiListing({
+  base: MARKETPLACE,
+  displayName: "NarrativeTrace for TypeScript",
+  shortDescription: "Agent skills for TypeScript",
+  category: "Developer Tools",
+  capabilities: ["Read", "Write"],
+  defaultPrompts: [
+    "add narrative tracing to my service",
+    "check my narrativetrace setup",
+    "debug this with the trace",
+  ],
+  brandColor: "#00845a",
+  websiteUrl: MARKETPLACE.homepage,
+});
 
 export function findSkill(canonicalName: string): Skill | undefined {
   return SKILLS.find((skill) => skill.canonicalName === canonicalName);

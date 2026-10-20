@@ -1,0 +1,32 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
+  "name": "narrativetrace-typescript",
+  "description": "Install NarrativeTrace in a TypeScript project and reach a first trace, diagnose an install that traces nothing, add or verify a Clarity naming report, report a defect in NarrativeTrace itself with your approval, verify a change by reading its trace and pinning it as a baseline, debug a wrong result by naming the span where it diverged, and explain what an application actually does by reading the trace of one scenario.",
+  "author": {
+    "name": "NarrativeTrace"
+  },
+  "homepage": "https://narrativetrace.ai",
+  "license": "Apache-2.0",
+  "keywords": ["narrativetrace", "typescript", "tracing", "observability", "agent-skills"],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "NarrativeTrace for TypeScript",
+        "shortDescription": "Agent skills for TypeScript",
+        "longDescription": "Install NarrativeTrace in a TypeScript project and reach a first trace, diagnose an install that traces nothing, add or verify a Clarity naming report, report a defect in NarrativeTrace itself with your approval, verify a change by reading its trace and pinning it as a baseline, debug a wrong result by naming the span where it diverged, and explain what an application actually does by reading the trace of one scenario. It reads what one run actually did, and needs Node.js, this project's package manager, and network access for the first dependency fetch.",
+        "developerName": "NarrativeTrace",
+        "category": "Developer Tools",
+        "capabilities": ["Read", "Write"],
+        "defaultPrompt": [
+          "add narrative tracing to my service",
+          "check my narrativetrace setup",
+          "debug this with the trace"
+        ],
+        "brandColor": "#00845a",
+        "websiteURL": "https://narrativetrace.ai",
+        "logo": "./assets/logo.png",
+        "composerIcon": "./assets/composer-icon.png"
+      }
+    }
+  }
+}

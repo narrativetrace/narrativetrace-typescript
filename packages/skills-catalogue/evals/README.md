@@ -18,6 +18,8 @@ evals/
 │   │                          # "type": "module" yet — add-narrative-tracing's own fixture
 │   ├── existing-service/      # a working project with one real service boundary, two passing
 │   │                          # tests, and no NarrativeTrace — the init prompt's other branch
+│   ├── existing-service-vitest/ # existing-service on a `vitest run` suite, no NarrativeTrace —
+│   │                          # add-narrative-tracing/existing-service's fixture (B-92)
 │   ├── express-service/       # an Express API (OrderService behind POST /orders), a main.js
 │   │                          # that calls it twice, no NarrativeTrace — the framework case
 │   ├── feedback-false-positive/ # a correctly configured project the doctor reports a GENUINE
@@ -38,6 +40,7 @@ evals/
 │   │   ├── prompt.md
 │   │   └── graders/verify.sh  # gates on reproduces-from-clean
 │   └── deviation-redaction-gap/
+│       ├── case.json          # points the scaffolder at fixtures/redaction-gap
 │       ├── prompt.md
 │       └── graders/verify.sh
 ├── add-narrative-tracing/
@@ -45,7 +48,12 @@ evals/
 │   ├── happy-path/
 │   │   ├── case.json          # points the scaffolder at fixtures/empty-project
 │   │   ├── prompt.md
-│   │   └── graders/verify.sh
+│   │   └── graders/verify.sh  # RUNS the demo the agent left: exit 0 and a trace line (no tests, so
+│   │                          # no file is asserted — B-92)
+│   ├── existing-service/              # the project WITH tests: fixtures/existing-service-vitest
+│   │   ├── case.json          # the fixture alone: catalogue by init, packages from the registry
+│   │   ├── prompt.md
+│   │   └── graders/verify.sh  # runs `npm test`; asserts .md AND .nt under narrativetrace-output/
 │   ├── grade-the-prompt.sh            # shared by all five prompt cases below (see "The two
 │   │                                   # init-prompt cases")
 │   ├── grade-the-registry.sh          # + what only a registry case can be asked (see "The two
@@ -171,9 +179,10 @@ label; verified against cursor.com/docs/cli/headless 2026-10-10).
 ## Running a trial
 
 `run.ts` scaffolds a case's fixture into a fresh temp copy outside every repo tree, drives the
-requested agent CLI against the prompt with the catalogue loaded, runs the case's grader, and
-appends one row to `ledger/runs.jsonl` (date, platform, model, case, trial, result, and — only on
-a harness bug or an agent crash, never an ordinary grader fail — a `note` telling which). It is
+requested agent CLI against the case's task prompt (`case-prompt.ts`), runs the case's grader, and
+appends one row to `ledger/runs.jsonl` (date, platform, model, case, trial, result, `delivery` when
+the runner itself installed the catalogue, and — only on a harness bug or an agent crash, never an
+ordinary grader fail — a `note` telling which). It is
 never invoked by `check`; the owner runs it by hand or from the nightly job. `--platform` fills
 `--agent-command` with that platform's preset (`platform-presets.ts`) unless `--agent-command` is
 passed explicitly. Works identically from the repo root or from `packages/skills-catalogue/` —
@@ -232,8 +241,14 @@ No study is named in this content; the case content below is original to this ev
 **publishes** — the one in the README's "Start here", in its three language mirrors, and at the
 top of `documentation/llms.txt`. A prompt we publish is a prompt we replay, so their `prompt.md`
 is the prompt and nothing else: no `# Case:` heading, no "Expected trajectory", no grading notes.
-The runner hands the whole file to the agent, so every line of the usual scaffolding would become
-part of the prompt under test and the replay would no longer be of the published text.
+One rule (`case-prompt.ts`) classifies every `prompt.md`: a file starting with `# Case:` is a case
+document, and the agent is sent ONLY the `>` blockquote under its `**Task prompt**` line (a document
+without one fails before the agent starts); any other file is a bare prompt and is sent whole. The
+published prompt therefore has to be a bare prompt: any scaffolding around it would be sent with it.
+A bare prompt with no `setup` and no `registry` also receives no catalogue — the init prompt's
+premise is a project the agent installs it into — while a case document with neither receives the
+catalogue through this checkout's own `narrativetrace init` (B-88), logged as an `nt_delivery` line
+in the transcript and a `delivery` field on the ledger row.
 
 That is why their documentation lives here and in each grader's own header comment. Everything the
 prompt promises is graded once, in the shared `grade-the-prompt.sh <Service>`; each case's own
@@ -293,7 +308,9 @@ registry at all but this checkout's own installer (see the fresh-session cases b
 
 Three consequences of that one field, all in `runner.ts` with unit tests:
 
-1. **The harness copies none of its own rendered pages in.** It never did for any case here, and for
+1. **The harness copies none of its own rendered pages in.** Pages reach a case only through a
+   registry or our own installer (`checkout-install`, or `narrativetrace init` for a case document
+   that declares neither — B-88). It never copied them for any case here, and for
    a registry case that is load-bearing rather than incidental: `npx skills add` makes
    `.claude/skills/<name>` a LINK to the open-standard page, and a page copied over it would answer
    the case's own question. `registry-delivery.ts` says so where a future change would break it.

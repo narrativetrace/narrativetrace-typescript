@@ -2,10 +2,11 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { everyFileUnder } from "../case-walk.js";
 
 /**
  * A grader that calls `timeout N …` dies on macOS, which ships no GNU coreutils: on 2026-10-10 that
@@ -14,6 +15,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
  */
 
 const CASES = join(import.meta.dirname, "..", "add-narrative-tracing");
+const EVALS = join(CASES, "..");
 const BOUNDED = join(CASES, "bounded.sh");
 
 let bin: string;
@@ -56,16 +58,12 @@ describe("bounded.sh without GNU timeout", () => {
 });
 
 describe("the graders' shell scripts", () => {
-  function scripts(dir: string): string[] {
-    return readdirSync(dir, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.endsWith(".sh"))
-      .map((entry) => join(entry.parentPath, entry.name));
-  }
-
   it("never call GNU timeout directly", () => {
-    const direct = scripts(join(CASES, "..")).filter((path) =>
-      /^\s*(?:[^#\n]*[\s=(`|&;])?timeout\s+\d/mu.test(readFileSync(path, "utf8")),
-    );
+    const direct = everyFileUnder(EVALS, (name) => name.endsWith(".sh"))
+      .map((path) => join(EVALS, path))
+      .filter((path) =>
+        /^\s*(?:[^#\n]*[\s=(`|&;])?timeout\s+\d/mu.test(readFileSync(path, "utf8")),
+      );
     expect(direct).toEqual([]);
   });
 });

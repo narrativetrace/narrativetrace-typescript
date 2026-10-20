@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { effectiveExclude, excludedPrefixOf, parseExclude } from "@narrativetrace/core";
 import { Inject, Injectable, type OnApplicationBootstrap } from "@nestjs/common";
 import { DiscoveryService } from "@nestjs/core";
 import { type AutoProxyOptions, NARRATIVE_OPTIONS } from "./auto-proxy-options.js";
@@ -12,11 +13,21 @@ const INTERNAL_NAMES = new Set(["NarrativeStorage", "NarrativeInterceptor", "Aut
 
 @Injectable()
 export class AutoProxyExplorer implements OnApplicationBootstrap {
+  // biome-ignore lint/complexity/noBannedTypes: NestJS metatypes are Function references
+  private readonly excludedClasses: ReadonlySet<Function>;
+  private readonly excludedNames: readonly string[];
+
   constructor(
     private readonly discovery: DiscoveryService,
     private readonly storage: NarrativeStorage,
-    @Inject(NARRATIVE_OPTIONS) private readonly options: AutoProxyOptions,
-  ) {}
+    @Inject(NARRATIVE_OPTIONS) options: AutoProxyOptions,
+  ) {
+    // Validated here, before any provider is touched: a bad prefix fails the module build.
+    const stated = options.exclude;
+    this.excludedClasses = new Set(stated?.filter((entry) => typeof entry === "function"));
+    const names = stated?.filter((entry) => typeof entry === "string");
+    this.excludedNames = effectiveExclude(names && parseExclude(names));
+  }
 
   onApplicationBootstrap() {
     const wrappers = [...this.discovery.getProviders(), ...this.discovery.getControllers()];
@@ -33,8 +44,9 @@ export class AutoProxyExplorer implements OnApplicationBootstrap {
     if (!metatype?.prototype) return;
     if (metatype.prototype === Object.prototype) return;
     if (isNoAutoProxy(metatype)) return;
-    if (this.options.exclude?.includes(metatype)) return;
+    if (this.excludedClasses.has(metatype)) return;
     if (INTERNAL_NAMES.has(metatype.name)) return;
+    if (excludedPrefixOf(metatype.name, this.excludedNames) !== undefined) return;
     try {
       wrapPrototypeMethods(metatype.prototype, metatype.name, this.storage);
     } catch {

@@ -68,7 +68,13 @@ function parseArgs(argv: readonly string[]): Args {
       maxIntervalMs = Number(arg.slice("--interval=".length)) * 1000;
     else if (!arg.startsWith("-")) version = arg;
   }
-  return { version, dryRun, timeoutMs, maxIntervalMs, help };
+  return {
+    ...(version === undefined ? {} : { version }),
+    dryRun,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+    ...(maxIntervalMs === undefined ? {} : { maxIntervalMs }),
+    help,
+  };
 }
 
 /** The newest `v*` tag reachable from HEAD, without the `v` prefix, or `undefined` when none is
@@ -141,7 +147,9 @@ function readVitestRuntimeRange(repoRoot: string): string {
   const root = readJson<{ devDependencies: Record<string, string> }>(
     join(repoRoot, "package.json"),
   );
-  return root.devDependencies.vitest;
+  const range = root.devDependencies.vitest;
+  if (range === undefined) throw new Error("package.json devDependencies has no vitest range");
+  return range;
 }
 
 function printDryRun(targets: readonly RegistryTarget[], version: string): void {
@@ -211,8 +219,8 @@ async function main(): Promise<void> {
   );
 
   const verdicts = await pollPresence(targets, {
-    timeoutMs: args.timeoutMs,
-    maxIntervalMs: args.maxIntervalMs,
+    ...(args.timeoutMs === undefined ? {} : { timeoutMs: args.timeoutMs }),
+    ...(args.maxIntervalMs === undefined ? {} : { maxIntervalMs: args.maxIntervalMs }),
     onPending: (pending) =>
       console.error(`>> not yet present, retrying: ${pending.map((t) => t.name).join(", ")}`),
   });

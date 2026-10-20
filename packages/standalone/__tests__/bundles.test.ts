@@ -117,7 +117,11 @@ describe("type declarations", () => {
 });
 
 describe("size budget", () => {
-  // ~89 KiB today (raised from 88 KiB, 2026-10-10, for Phase 7's citable span ids:
+  // ~94 KiB today (raised from 92 KiB, 2026-10-20, for §175's instrumentation exclusions: the
+  // exclude grammar, the shipped default with its reasons and sources, the structural skip list and
+  // its published rules — genuinely new @narrativetrace/core public API, ~+2.1 KiB over the old
+  // budget for the classic bundle, none of it a dependency slipping into `noExternal`).
+  // ~89 KiB before that (raised from 88 KiB, 2026-10-10, for Phase 7's citable span ids:
   // CitableSpanId and the id each renderer now prints — genuinely new @narrativetrace/core
   // public API, measured +0.3/+0.9 KiB over the old budget for the ESM/classic bundles).
   // ~85 KiB before that (raised from 76 KiB, 2026-09-12, for the structural `.nt` artifact block:
@@ -141,7 +145,7 @@ describe("size budget", () => {
   // budget catches accidental growth (a Node package or a large dependency slipping into
   // `noExternal`) before it reaches a page that loads this on every visit — a few KiB of
   // headroom stays tight enough for that, since a real accidental dependency adds far more.
-  const BUDGET_BYTES = 92 * 1024;
+  const BUDGET_BYTES = 96 * 1024;
 
   test.each([
     ["ES module", ESM_BUNDLE],

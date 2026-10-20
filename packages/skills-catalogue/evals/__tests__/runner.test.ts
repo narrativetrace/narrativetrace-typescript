@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import type { QuotaSpendRow } from "../quota.js";
+import { repoRootOf } from "../repo-root.js";
 import {
   CaseSetupError,
   caseFixtureSpec,
@@ -134,6 +135,9 @@ function makeDeps(
     recordUserTurn: (_workDir, turn, text) => {
       state.events.push(`turn ${turn}: ${text}`);
     },
+    recordDelivery: (_workDir, delivery) => {
+      state.events.push(`delivery: ${delivery}`);
+    },
     keepEvidence: (_workDir, destination) => {
       state.events.push(`kept ${destination}`);
     },
@@ -192,7 +196,7 @@ describe("caseFixtureSpec / resolveFixturePath — defect #1 (fixture resolved o
   it("REGRESSION: the real add-narrative-tracing/happy-path fixture resolves to a path that exists on disk", () => {
     const evalsDir = join(import.meta.dirname, "..");
     const packageRoot = join(evalsDir, "..");
-    const repoRoot = join(evalsDir, "..", "..", "..");
+    const repoRoot = repoRootOf(evalsDir);
     const spec = caseFixtureSpec(evalsDir, "add-narrative-tracing", "happy-path", {
       exists: existsSync,
       readFile: (path) => readFileSync(path, "utf-8"),
@@ -1263,5 +1267,124 @@ describe("runTrials — a case that declares the checkout-registry setup", () =>
     const state = makeState();
     runTrials(makeArgs(FEEDBACK), caseDeps(state, { fixture: "evals/fixtures/feedback" }));
     expect(state.events.some((event) => event.startsWith("registry"))).toBe(false);
+  });
+});
+
+/** A case document as this package writes one: a header, the quoted task, then the grader's notes. */
+const CASE_DOCUMENT = `# Case: happy-path
+
+**Fixture:** \`evals/fixtures/empty-project\`
+
+**Task prompt** (given to the agent, catalogue loaded):
+
+> This is a brand new Node project. I want to add NarrativeTrace and
+> see a trace.
+
+**Expected trajectory:** the agent loads the skill.
+
+**Grading:**
+- **Gates**: \`graders/verify.sh\` checks the trace.
+`;
+
+/** Deps for a case whose `case.json` is `manifest` and whose `prompt.md` is `prompt`. */
+function documentDeps(
+  state: FakeState,
+  manifest: Record<string, unknown>,
+  prompt: string,
+): RunnerDeps {
+  return makeDeps(state, {
+    exists: () => true,
+    readFile: (path) => (path.endsWith("case.json") ? JSON.stringify(manifest) : prompt),
+    spawnPreStep: (command, args, cwd, env) => {
+      state.preStepCalls.push({ command, args, cwd, env });
+      state.events.push(`pre-step: ${[command, ...args].join(" ")}`);
+    },
+  });
+}
+
+const HAPPY = { skill: "add-narrative-tracing", caseName: "happy-path" };
+const EMPTY = { fixture: "evals/fixtures/empty-project" };
+
+describe("runTrials — a case with no setup and no registry (B-88)", () => {
+  it("receives the catalogue from this checkout's own init, logged, before the agent starts", () => {
+    const state = makeState();
+    runTrials(makeArgs(HAPPY), documentDeps(state, EMPTY, CASE_DOCUMENT));
+    const init = "node /fake/repo/packages/cli/bin/narrativetrace.js init";
+    expect(state.events.slice(0, 3)).toEqual([
+      `pre-step: ${init}`,
+      "delivery: narrativetrace-init",
+      expect.stringMatching(/^turn 1: /),
+    ]);
+    expect(state.preStepCalls[0]?.cwd).toBe("/scratch/empty-project");
+    expect(state.ledgerRows[0]?.delivery).toBe("narrativetrace-init");
+  });
+
+  it("sends the agent the quoted Task prompt alone, never the trajectory or the grading", () => {
+    const state = makeState();
+    runTrials(makeArgs(HAPPY), documentDeps(state, EMPTY, CASE_DOCUMENT));
+    const task = "This is a brand new Node project. I want to add NarrativeTrace and see a trace.";
+    expect(state.events).toContain(`turn 1: ${task}`);
+    expect(state.agentCalls[0]?.args).toContain(task);
+  });
+
+  it("refuses a case document with no quoted Task prompt before anything is scaffolded", () => {
+    const state = makeState();
+    const noTask = CASE_DOCUMENT.replace(/> .*\n/g, "");
+    const deps = documentDeps(state, EMPTY, noTask);
+    expect(() => runTrials(makeArgs(HAPPY), deps)).toThrow(/prompt\.md.*Task prompt/);
+    expect(state.agentCalls).toEqual([]);
+    expect(state.workDirs).toEqual([]);
+  });
+
+  it("sends a bare prompt whole and delivers nothing: its premise is a project without the catalogue", () => {
+    const state = makeState();
+    const bare = "Set up NarrativeTrace in this project.\n1. Read llms.txt first.\n";
+    runTrials(makeArgs(HAPPY), documentDeps(state, EMPTY, bare));
+    expect(state.preStepCalls).toEqual([]);
+    expect(state.events[0]).toBe(`turn 1: ${bare}`);
+    expect(state.ledgerRows[0]?.delivery).toBeUndefined();
+  });
+});
+
+/** Every `<skill>/<case>` under `evalsDir` that carries a `prompt.md`. */
+function everyCase(evalsDir: string): { skill: string; caseName: string }[] {
+  return readdirSync(evalsDir, { withFileTypes: true })
+    .filter((skill) => skill.isDirectory())
+    .flatMap((skill) =>
+      readdirSync(join(evalsDir, skill.name))
+        .filter((name) => existsSync(join(evalsDir, skill.name, name, "prompt.md")))
+        .map((caseName) => ({ skill: skill.name, caseName })),
+    );
+}
+
+/** What each turn of `skill/caseName` was told, driven through the real case files. */
+function sentWords(evalsDir: string, skill: string, caseName: string): string[] {
+  const state = makeState();
+  const deps = makeDeps(state, {
+    evalsDir,
+    packageRoot: join(evalsDir, ".."),
+    repoRoot: repoRootOf(evalsDir),
+    exists: existsSync,
+    readFile: (path) => readFileSync(path, "utf-8"),
+  });
+  runTrials(makeArgs({ skill, caseName }), deps);
+  return state.agentCalls.flatMap((call) => [...call.args]);
+}
+
+describe("every prompt.md under evals/ — what the agent is sent (B-88)", () => {
+  const evalsDir = join(import.meta.dirname, "..");
+  const cases = everyCase(evalsDir);
+
+  it("finds every case this package has", () => {
+    expect(cases.length).toBeGreaterThanOrEqual(20);
+  });
+
+  it.each(cases)("$skill/$caseName sends no grader words", ({ skill, caseName }) => {
+    const file = readFileSync(join(evalsDir, skill, caseName, "prompt.md"), "utf-8");
+    const sent = sentWords(evalsDir, skill, caseName).join("\n");
+    for (const graderWord of ["Expected trajectory", "Grading", "graders/"]) {
+      expect(sent).not.toContain(graderWord);
+    }
+    if (!file.startsWith("# Case:")) expect(sent).toContain(file);
   });
 });

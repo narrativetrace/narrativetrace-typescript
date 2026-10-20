@@ -139,7 +139,8 @@ function jsonDocument(tree: TraceTree, metadata: TraceMetadata, identity: TraceI
  * @param metadata scenario naming and provenance; `scenario.result` is derived from node outcomes.
  * @returns pretty-printed (2-space) JSON. The `trace` block is always present — see
  * {@link resolveTraceIdentity} — and span IDs fall back to synthetic sequential ids when a node
- * lacks one.
+ * lacks one. A root whose span context carries a `parentSpanId` (a trace adopted from an inbound
+ * `traceparent`) writes it on its `enter` event; a root with no parent writes no key.
  */
 export function exportJson(tree: TraceTree, metadata: TraceMetadata): string {
   return jsonDocument(tree, metadata, resolveTraceIdentity(tree));
@@ -381,7 +382,9 @@ function pushFlattenFrame(
 // on the exit event marking why its children were never flattened.
 function flattenNode(root: TraceNode, events: JsonEvent[], nextId: () => number): void {
   const walk = new TreeWalk<TraceNode>();
-  const stack: FlattenFrame[] = [pushFlattenFrame(root, null, nextId, events)];
+  const stack: FlattenFrame[] = [
+    pushFlattenFrame(root, root.spanContext?.parentSpanId ?? null, nextId, events),
+  ];
   while (stack.length > 0) {
     stepFlattenFrame(stack, walk, nextId, events);
   }

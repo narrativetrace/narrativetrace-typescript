@@ -121,6 +121,34 @@ const TOKEN_BOUNDARY_PATTERNS: ReadonlySet<string> = new Set([
   "mima",
 ]);
 
+/** Canonical operator-supplied additions; see {@link registerAdditionalRedactionPatterns}. */
+let additionalPatterns: readonly string[] = [];
+
+/**
+ * Registers the operator-supplied deny-list additions: comma-separated field-name patterns,
+ * trimmed, empty entries dropped (an empty pattern would substring-match every field name),
+ * folded through `canonical` like every built-in. Replaces any earlier registration;
+ * `undefined`, empty or blank clears it.
+ *
+ * INTENT: the additive half of redaction configuration — {@link RedactionPolicy.ofPatterns}
+ * *replaces* the vocabulary, which is the wrong tool for "our DTOs also carry `betalingskort`".
+ * Every policy except {@link RedactionPolicy.DISABLED} — the default one and any `ofPatterns`
+ * one, whenever constructed — also matches these. Port of Java `AdditionalRedactionPatterns`.
+ *
+ * @llmNote The browser core has no environment, so it never reads one: `@narrativetrace/core-node`
+ * calls this at import with `NARRATIVETRACE_REDACTION_ADDITIONALPATTERNS`, and a browser app
+ * calls it itself if it wants additions. Additions match exactly like the built-in vocabulary —
+ * substring, except a word in the token-boundary set.
+ * @edgeCase A short addition carries the `pan` trap: `id` blanks every identifier in the trace.
+ */
+export function registerAdditionalRedactionPatterns(raw: string | undefined): void {
+  additionalPatterns = (raw ?? "")
+    .split(",")
+    .map((pattern) => pattern.trim())
+    .filter((pattern) => pattern.length > 0)
+    .map((pattern) => canonical(pattern));
+}
+
 /** Splits an identifier into canonical (lower-cased, accent-folded) tokens on delimiters and
  * camelCase/acronym boundaries — `"cardPAN"` and `"PANNumber"` both yield a `"pan"` token;
  * `"panelId"` does not. ASCII-boundary splitting by design: every token-boundary pattern is
@@ -133,6 +161,12 @@ function identifierTokens(name: string): string[] {
     .split(/[^a-zA-Z0-9]+/)
     .filter((token) => token.length > 0)
     .map((token) => canonical(token));
+}
+
+/** One deny-list test: substring, or whole identifier token for a token-boundary pattern. */
+function matchesPattern(pattern: string, canon: string, tokens: () => string[]): boolean {
+  if (!TOKEN_BOUNDARY_PATTERNS.has(pattern)) return canon.includes(pattern);
+  return canon === pattern || tokens().includes(pattern);
 }
 
 /**
@@ -162,15 +196,22 @@ export class RedactionPolicy {
 
   private readonly canonicalPatterns: readonly string[];
   private readonly valueShapesEnabled: boolean;
+  private readonly honoursAdditions: boolean;
 
-  private constructor(patterns: Iterable<string>, valueShapesEnabled: boolean) {
+  private constructor(
+    patterns: Iterable<string>,
+    valueShapesEnabled: boolean,
+    honoursAdditions = valueShapesEnabled,
+  ) {
     this.canonicalPatterns = Array.from(patterns, (p) => canonical(p));
     this.valueShapesEnabled = valueShapesEnabled;
+    this.honoursAdditions = honoursAdditions;
   }
 
   /**
    * Creates a policy with a custom set of case-insensitive substring patterns, replacing the
-   * defaults entirely. Value-shape masking ({@link shouldRedactValue}) stays on — a custom name
+   * defaults entirely (any {@link registerAdditionalRedactionPatterns} additions are still
+   * matched on top — the application's opinion plus the operator's). Value-shape masking ({@link shouldRedactValue}) stays on — a custom name
    * list is not an opinion about whether these bytes are a credential.
    */
   static ofPatterns(patterns: Iterable<string>): RedactionPolicy {
@@ -188,16 +229,10 @@ export class RedactionPolicy {
     if (fieldName == null) return false;
     const canon = canonical(fieldName);
     let tokens: string[] | null = null;
-    for (const pattern of this.canonicalPatterns) {
-      if (!TOKEN_BOUNDARY_PATTERNS.has(pattern)) {
-        if (canon.includes(pattern)) return true;
-        continue;
-      }
-      if (canon === pattern) return true;
-      tokens ??= identifierTokens(fieldName);
-      if (tokens.includes(pattern)) return true;
-    }
-    return false;
+    const nameTokens = () => (tokens ??= identifierTokens(fieldName));
+    const matches = (pattern: string) => matchesPattern(pattern, canon, nameTokens);
+    if (this.canonicalPatterns.some(matches)) return true;
+    return this.honoursAdditions && additionalPatterns.some(matches);
   }
 
   /**

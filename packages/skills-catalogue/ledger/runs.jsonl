@@ -50,3 +50,11 @@
 {"date":"2026-10-15T10:09:10.509Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
 {"date":"2026-10-15T10:09:26.213Z","skill":"narrativetrace-explain","case":"pure-function-control","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
 {"date":"2026-10-16T20:29:20.639Z","skill":"add-narrative-tracing","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-17T16:14:01.694Z","skill":"add-narrative-tracing","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"fail","delivery":"narrativetrace-init"}
+{"date":"2026-10-17T18:48:45.462Z","skill":"narrativetrace-doctor","case":"deviation-redaction-gap","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass"}
+{"date":"2026-10-17T19:55:37.407Z","skill":"add-narrative-tracing","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass","delivery":"narrativetrace-init"}
+{"date":"2026-10-17T19:57:02.858Z","skill":"add-narrative-tracing","case":"existing-service","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"fail"}
+{"date":"2026-10-17T19:58:15.101Z","skill":"add-narrative-tracing","case":"existing-service","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass","delivery":"narrativetrace-init"}
+{"date":"2026-10-19T17:58:48.409Z","skill":"add-narrative-tracing","case":"happy-path","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass","delivery":"narrativetrace-init"}
+{"date":"2026-10-19T18:00:20.200Z","skill":"add-narrative-tracing","case":"existing-service","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"pass","delivery":"narrativetrace-init"}
+{"date":"2026-10-19T18:01:28.620Z","skill":"add-narrative-tracing","case":"init-prompt-empty-project","platform":"claude","model":"claude-haiku-5-5","trial":1,"result":"fail"}

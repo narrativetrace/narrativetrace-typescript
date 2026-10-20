@@ -38,6 +38,6 @@ export function contextLoggingTo(logFile: string): SyncNarrativeContext {
     pipeline,
     null,
     undefined,
-    parseTraceparent(DEMO_TRACEPARENT),
+    parseTraceparent(DEMO_TRACEPARENT)?.traceId,
   );
 }

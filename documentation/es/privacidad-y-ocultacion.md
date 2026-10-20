@@ -1,4 +1,4 @@
-<!-- source: documentation/privacy-and-redaction.md blob 60024a934445 | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/privacy-and-redaction.md blob cb1d077c40c7 | translated: 2026-10-19 | reviewed: - -->
 # Privacidad y ocultación
 
 [English](../privacy-and-redaction.md) | **Español** | [Português](../pt-BR/privacidade-e-ocultacao.md) | [简体中文](../zh-CN/隐私与脱敏.md)
@@ -62,7 +62,7 @@ configuración ni una variable de entorno que un despliegue pueda cambiar.
 
 `RedactionPolicy.ofPatterns(patterns)` construye una política a partir de tu propia lista de subcadenas, sin distinguir mayúsculas ni acentos, y `RenderOptions.redactionPolicy` es donde `renderValue()`/`renderStructured()` la aceptan. Ambos son exports públicos de `@narrativetrace/core`, y ambos son más estrechos de lo que parecen:
 
-- **Reemplaza la lista incorporada; no la amplía.** `ofPatterns(["email", "phone"])` oculta un campo llamado `email` o `phone` y nada más: un campo llamado `password` se muestra en claro con esa política. Para conservar los valores por defecto, repite en tu lista las palabras que quieras mantener.
+- **Reemplaza la lista incorporada; no la amplía.** `ofPatterns(["email", "phone"])` oculta un campo llamado `email` o `phone` y nada más: un campo llamado `password` se muestra en claro con esa política. Para conservar los valores por defecto, repite en tu lista las palabras que quieras mantener. Para *añadir* palabras sin renunciar a ningún valor por defecto, define `NARRATIVETRACE_REDACTION_ADDITIONALPATTERNS=betalingskort,kontonummer` (separadas por comas, sin recompilar): `@narrativetrace/core-node` la lee una vez al importarse y las adiciones se aplican a la política por defecto y a toda política de `ofPatterns`, nunca a `DISABLED`. El núcleo para navegador no tiene entorno, así que una aplicación de navegador llama ella misma a `registerAdditionalRedactionPatterns("betalingskort")`. Las adiciones son patrones de subcadena: uno corto como `id` oculta todo campo que lo contenga, es decir, todos los identificadores de la traza (`pan`, palabra incorporada, lo evita coincidiendo solo por token completo). Consulta [Ampliar los valores por defecto](guia-de-configuracion.md#ampliar-los-valores-por-defecto).
 - **Compara nombres de campo, no valores.** Una dirección de correo o un teléfono guardado en un campo llamado `contact` no se detecta. El enmascarado por forma del valor (JWT, número de tarjeta, `Set-Cookie`, …) sigue activo y es la única comprobación sobre el valor.
 - **Solo alcanza a los renderizadores que llamas tú.** `traceObject()` y toda integración construida sobre él usan siempre la política por defecto y no aceptan una opción `redactionPolicy`, así que una política propia nunca cambia lo que captura una traza. Es el suelo descrito más arriba, no un hueco que se pueda configurar.
 

@@ -21,6 +21,7 @@ import {
   graderEnvironment,
   installStandIns,
   keepEvidence,
+  recordDelivery,
   recordUserTurn,
   SERVED_HOST,
   standInDir,
@@ -236,6 +237,24 @@ describe("recordUserTurn", () => {
   it("creates the transcript's directory when nothing has written to it yet", () => {
     const fresh = join(root, "fresh");
     recordUserTurn(fresh, 1, "hello");
+    expect(existsSync(transcriptPath(fresh))).toBe(true);
+  });
+});
+
+describe("recordDelivery", () => {
+  it("writes the delivery as one JSON line ahead of the first turn marker", () => {
+    recordDelivery(work, "narrativetrace-init");
+    recordUserTurn(work, 1, "hello");
+    const lines = readFileSync(transcriptPath(work), "utf8").trim().split("\n");
+    expect(lines.map((line) => JSON.parse(line))).toEqual([
+      { nt_delivery: "narrativetrace-init" },
+      { nt_turn: 1, role: "user", text: "hello" },
+    ]);
+  });
+
+  it("creates the transcript's directory when nothing has written to it yet", () => {
+    const fresh = join(root, "fresh-delivery");
+    recordDelivery(fresh, "narrativetrace-init");
     expect(existsSync(transcriptPath(fresh))).toBe(true);
   });
 });

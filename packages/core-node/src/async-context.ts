@@ -14,6 +14,7 @@ import type {
   SessionId,
   TenantId,
   TraceLoss,
+  Traceparent,
   TraceTree,
 } from "@narrativetrace/core";
 import {
@@ -25,6 +26,7 @@ import {
   SyncNarrativeContext,
   type TraceId,
 } from "@narrativetrace/core";
+import { serviceIdentityFromEnv } from "./env-config.js";
 
 export class AsyncNarrativeContext implements NarrativeContext {
   private readonly storage = new AsyncLocalStorage<SyncNarrativeContext>();
@@ -37,7 +39,7 @@ export class AsyncNarrativeContext implements NarrativeContext {
   constructor(
     config: NarrativeTraceConfig,
     pipeline?: EventPipeline,
-    serviceIdentity?: ServiceIdentity,
+    serviceIdentity: ServiceIdentity | undefined = serviceIdentityFromEnv(),
   ) {
     this.config = config;
     this.eventPipeline = pipeline ?? new DualPathPipeline(null, new BufferedEventConsumer());
@@ -152,9 +154,9 @@ export class AsyncNarrativeContext implements NarrativeContext {
    * context per process and one `run()` per request; concurrent top-level scopes never see each
    * other's spans.
    */
-  run<T>(fn: () => T, inheritedTraceId?: TraceId): T {
+  run<T>(fn: () => T, inherited?: TraceId | Traceparent): T {
     const parent = this.storage.getStore();
-    const inner = this.childContext(parent, inheritedTraceId);
+    const inner = this.childContext(parent, inherited);
     const handOver = registerLiveChild(parent, inner);
     try {
       return settleWith(this.storage.run(inner, fn), handOver);
@@ -166,14 +168,14 @@ export class AsyncNarrativeContext implements NarrativeContext {
 
   private childContext(
     parent: SyncNarrativeContext | undefined,
-    inheritedTraceId?: TraceId,
+    inherited?: TraceId | Traceparent,
   ): SyncNarrativeContext {
-    const traceId = inheritedTraceId ?? parent?.currentTraceId ?? undefined;
+    const traceId = traceIdOf(inherited) ?? parent?.currentTraceId ?? undefined;
     const inner = new SyncNarrativeContext(
       this.config,
       () => this.scopeStorage.getStore(),
       this.eventPipeline,
-      null,
+      typeof inherited === "object" ? inherited.parentSpanId : null,
       this.serviceIdentity,
       traceId,
     );
@@ -206,6 +208,10 @@ export class AsyncNarrativeContext implements NarrativeContext {
   private current(): SyncNarrativeContext {
     return this.storage.getStore() ?? this.defaultContext;
   }
+}
+
+function traceIdOf(inherited: TraceId | Traceparent | undefined): TraceId | undefined {
+  return typeof inherited === "object" ? inherited.traceId : inherited;
 }
 
 /**

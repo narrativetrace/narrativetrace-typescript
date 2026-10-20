@@ -7,7 +7,7 @@ import { DOCTOR_CHECKS } from "@narrativetrace/tooling";
 import { describe, expect, it } from "vitest";
 
 const EVALS = join(import.meta.dirname, "..");
-const WORDS: Readonly<Record<number, string>> = { 25: "twenty-five" };
+const WORDS: Readonly<Record<number, string>> = { 28: "twenty-eight" };
 
 function read(path: string): string {
   return readFileSync(join(EVALS, path), "utf-8");

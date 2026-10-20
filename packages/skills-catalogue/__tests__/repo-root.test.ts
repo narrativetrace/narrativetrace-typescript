@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { findRepoRoot, REPO_ROOT } from "./repo-root.js";
+import { findRepoRoot, inMutationSandbox, REPO_ROOT } from "./repo-root.js";
 
 describe("findRepoRoot", () => {
   let root: string;
@@ -38,5 +38,20 @@ describe("findRepoRoot", () => {
 
   it("resolves REPO_ROOT to a directory that holds the fixture", () => {
     expect(REPO_ROOT).toBe(findRepoRoot(import.meta.dirname));
+  });
+});
+
+// B-121: the sandbox copies only this package, so every path built from REPO_ROOT inside it is the
+// LIVE tree. A test that executes a real command against those paths (cold-install-replay's
+// `pnpm pack`, run from each real package directory) runs the mutant's command line there.
+describe("inMutationSandbox", () => {
+  it("recognises a directory inside Stryker's package-local sandbox", () => {
+    expect(inMutationSandbox("/r/packages/p/.stryker-tmp/sandbox-abc123/__tests__")).toBe(true);
+  });
+
+  it("does not mistake the real tree, or a sibling sharing the prefix, for the sandbox", () => {
+    expect(inMutationSandbox("/r/packages/p/__tests__")).toBe(false);
+    expect(inMutationSandbox("/r/packages/p/.stryker-tmpx/sandbox-abc123/__tests__")).toBe(false);
+    expect(inMutationSandbox("/r/packages/p/x.stryker-tmp/__tests__")).toBe(false);
   });
 });

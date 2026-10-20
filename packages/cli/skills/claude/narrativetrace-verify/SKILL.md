@@ -74,7 +74,7 @@ node -e "const fs=require('fs'),path=require('path');const skip=[];function walk
 
 **Flagged:** judgmental — only the flagged span was read in the .md narrative, found by the id the .nt gave it — not the whole file; a [REDACTED] value stays redacted
 
-**when:** only when the structural read named a span that does not match the intent; otherwise go on to the pin
+**when:** when the structural read named a span that does not match the intent, or the shape matches but a symptom points at data — an assertion failed on a value, the output is wrong — then open the one span the symptom points at; otherwise go on to the pin
 
 ```bash
 node -e "const fs=require('fs'),path=require('path');const skip=['structural','feedback'];function walk(d){if(!fs.existsSync(d))return[];return fs.readdirSync(d,{withFileTypes:true}).flatMap(e=>{const p=path.join(d,e.name);return e.isDirectory()?(skip.includes(e.name)?[]:walk(p)):[p];});}for(const f of walk('narrativetrace-output').filter(f=>f.endsWith('.md')).sort()){console.log(f);}"
@@ -84,7 +84,7 @@ node -e "const fs=require('fs'),path=require('path');const skip=['structural','f
 
 **Flagged:** judgmental — the same test ran again after the fix and its new .nt was read whole: the span that was wrong now matches the intent, and a fix that changed the shape was read again from the structural read
 
-**when:** only when the structural read named a span that does not match the intent; otherwise go on to the pin
+**when:** only when the structural read named a span that does not match the intent, or the value read in step 5 was wrong; otherwise go on to the pin
 
 ```bash
 npx vitest run <the smallest test that drives the real path>
@@ -126,7 +126,7 @@ npx narrativetrace-approve
 
 ## 11. Report what the trace showed
 
-**Flagged:** judgmental — two sentences on what the trace showed, every claim citing the span id it rests on — a claim without an id is not a claim, and only ids in the .nt that was read count — with the .nt attached or quoted; 'tests pass' alone is not the report
+**Flagged:** judgmental — two sentences on what the trace showed on the path this run took, every claim citing the span id it rests on — a claim without an id is not a claim, and only ids in the .nt that was read count — with the .nt attached or quoted; the report names the branches and inputs this run did not exercise, because one trace shows one path, not every execution; 'tests pass' alone is not the report
 
 ## Which flavour answers which question
 

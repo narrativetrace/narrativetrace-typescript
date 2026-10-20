@@ -5,12 +5,15 @@ import { FRAMEWORK_ROWS } from "../frameworks/framework-table.js";
 import { checkApprovalMode } from "./checks/approval-mode.js";
 import { checkApprovalTraces } from "./checks/approval-traces.js";
 import { frameworkCheck } from "./checks/framework-wiring.js";
+import { checkInstrumentationExclusions } from "./checks/instrumentation-exclusions.js";
 import { checkLlmsBeforeYouStart } from "./checks/llms-before-you-start.js";
 import { checkNodeEngine } from "./checks/node-engine.js";
+import { checkObjectClassName } from "./checks/object-class-name.js";
 import { checkOutputEnv } from "./checks/output-env.js";
 import { checkParameterArg0 } from "./checks/parameter-arg0.js";
 import { checkRedactionProof } from "./checks/redaction-proof.js";
 import { checkReporterSubpath } from "./checks/reporter-subpath.js";
+import { checkServiceIdentity } from "./checks/service-identity.js";
 import { checkSiblingPackages } from "./checks/sibling-packages.js";
 import { checkSilentSink } from "./checks/silent-sink.js";
 import { checkSkillsInstalled } from "./checks/skills-installed.js";
@@ -19,7 +22,7 @@ import { checkVitestPeer } from "./checks/vitest-peer.js";
 import type { DoctorCheck, DoctorReport, DoctorSnapshot } from "./types.js";
 
 /**
- * Every check `narrativetrace doctor` runs, in stable, documented order: the twelve hand-written
+ * Every check `narrativetrace doctor` runs, in stable, documented order: the sixteen hand-written
  * checks, then one per framework-table row that has a check of its own, in table order. Adding a
  * hand-written check means appending to the first part; adding a framework means adding a row —
  * the id is what stays stable across releases, not the position.
@@ -38,6 +41,9 @@ export const DOCTOR_CHECKS: readonly DoctorCheck[] = [
   checkApprovalMode,
   checkLlmsBeforeYouStart,
   checkSkillsInstalled,
+  checkServiceIdentity,
+  checkObjectClassName,
+  checkInstrumentationExclusions,
   ...FRAMEWORK_ROWS.filter((row) => row.check.kind !== "existing-check").map(frameworkCheck),
 ];
 

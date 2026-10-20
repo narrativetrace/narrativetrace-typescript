@@ -44,7 +44,7 @@ node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json
 
 ## 4. First trace: wrap, call, render, run
 
-**when:** if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — do not add a demo file: run the application the way it already runs, exercise one real boundary, and read that request's trace; the verify below is for the console demo, and in an existing application the step is done when that request's trace is in the output; otherwise create the smallest console demo as follows
+**when:** if the project already has tests — a `test` script in its `package.json` and a test runner among its dependencies — and the doctor reports a test integration for that runner, do not add a demo file: run one existing test through that integration with file output on (its default; leave `NARRATIVETRACE_OUTPUT` unset or not `false`), which writes that test's narrative files, `.md` and `.nt`, under `narrativetrace-output/` — the files narrativetrace-doctor, narrativetrace-verify, narrativetrace-debug and narrativetrace-explain read; print the rendered `.md` file so the trace is also on the console; the verify below is for the console demo, and in a project with tests the step is done when that test's `.md` and `.nt` files exist; a project whose tests run on a runner the doctor reports no integration for keeps that runner (this page never swaps it) and takes the no-tests path below, with the same sentence that nothing is written to disk; otherwise if the project already has an application entry point — a `main` field, a start script, a web or application framework the doctor reports — do not add a demo file: run the application the way it already runs, exercise one real boundary, and read that request's trace; the verify below is for the console demo, and in an existing application the step is done when that request's trace is in the output; otherwise create the smallest console demo as follows; nothing is written to disk by this script — the application's log is the record once the logger consumer in the later step is wired; this page never adds a test runner or a test to a project that has none.
 
 <!-- snippet: examples/sixty-seconds/index.js -->
 ```js
@@ -58,7 +58,11 @@ class OrderService {
   }
 }
 
-const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+// serviceName is what the platform and the OTel bridge show for this service; without it, traces
+// read "unknown_service:node". Trace a class instance — a plain object would narrate as "Object".
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "order-service",
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
@@ -70,9 +74,31 @@ console.log(renderMarkdownBody(context.captureTrace()));
 
 **verify:** `node index.js`
 
-**failure:** parameters render as arg0, arg1, ... — parameter names of a class you don't own (or a build that strips them) are lost at compile time. Fix: pass them explicitly: traceObject(target, context, { methodName: ["paramA", "paramB"] })
+**failure:** parameters render as arg0, arg1, ... — the runtime reads no parameter names from source, so a class you wrote a minute ago renders arg0 exactly as one you do not own (or a build that strips names) does. Fix: always pass them: traceObject(target, context, { methodName: ["paramA", "paramB"] })
 
-## 5. Add the logger bridge
+**failure:** every span reads `Object.<method>` — traceObject names spans after the target's constructor, and an object literal's is Object. Fix: trace an instance of a class, or pass the name: traceObject(target, context, { className: 'CheckoutService' })
+
+**failure:** a wrapped object records no spans and `console.warn` said it was not traced — its class name matches an exclude prefix: a shipped default list of framework internals applies unless NARRATIVETRACE_EXCLUDE or an `exclude` option replaces it, and an exclude wins over the wrap. Fix: trace a class of your own, or give the object the name you mean: traceObject(target, context, { className: 'CheckoutService' }); run `narrativetrace doctor` to see the exclude list in force
+
+## 5. Name the service
+
+```js
+// In code: the identity of the context that records the trace.
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "checkout-api",
+  serviceVersion: "1.4.2",
+  environment: "production",
+});
+// Or from the environment (NARRATIVETRACE_SERVICE_NAME, NARRATIVETRACE_SERVICE_VERSION,
+// NARRATIVETRACE_ENVIRONMENT): an AsyncNarrativeContext reads them itself; a SyncNarrativeContext
+// takes them as { ...serviceIdentityFromEnv() }, imported from @narrativetrace/core-node.
+```
+
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const f=r.findings.find(x=>x.id==='config.service-identity'); if(!f||f.status!=='pass'){console.error(JSON.stringify(f)); process.exit(1);}"`
+
+**failure:** the platform, an exported chapter or a log line shows `unknown_service:node` — no service name was set: the TypeScript runtime has no other source for it, and the default says honestly that it does not know. Fix: set serviceName on the context constructor, or NARRATIVETRACE_SERVICE_NAME where the app starts (read by AsyncNarrativeContext and serviceIdentityFromEnv()), then run the doctor's config.service-identity check
+
+## 6. Add the logger bridge
 
 ```bash
 pnpm add @narrativetrace/pino pino
@@ -80,7 +106,7 @@ pnpm add @narrativetrace/pino pino
 
 **verify:** `pnpm install --frozen-lockfile`
 
-## 6. Send it to your logger
+## 7. Send it to your logger
 
 <!-- snippet: examples/sixty-seconds/index-with-logger.js -->
 ```js
@@ -107,7 +133,7 @@ class OrderService {
 // generates a random trace id — so nt.traceName/trace_id below stay the same phrase every time
 // this page's output is regenerated.
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
-const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT)?.traceId;
 
 // Any pino instance works. `sync: true` is this script's own need, not the library's: pino's
 // default destination writes on a later tick, so a script that logs and then prints can have the
@@ -115,14 +141,11 @@ const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 const logger = pino(pino.destination({ sync: true }));
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-const context = new SyncNarrativeContext(
-  new NarrativeTraceConfig(),
-  undefined, // parentResolver — a plain script has no ambient parent span to resolve
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
   pipeline, // routes events to both the logger above and the buffer captureTrace() reads
-  null, // rootParentOverride — no inbound parent span for this root call
-  undefined, // serviceIdentity — not needed for this example
-  fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
-);
+  serviceName: "order-service", // what the platform and the OTel bridge show for this service
+  inheritedTraceId: fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
@@ -134,15 +157,15 @@ console.log(renderMarkdownBody(context.captureTrace()));
 
 **verify:** `node index-with-logger.js`
 
-## 7. Run the doctor and resolve its findings
+## 8. Run the doctor and resolve its findings
 
 ```bash
 npx @narrativetrace/cli doctor || true
 ```
 
-**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==25) process.exit(1);"`
+**verify:** `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==28) process.exit(1);"`
 
-## 8. Install the skills for next time
+## 9. Install the skills for next time
 
 **Flagged:** judgmental — the reply names the hand-off: the next session verifies with narrativetrace-verify — once a change's tests are green, it reads the trace before it reports
 

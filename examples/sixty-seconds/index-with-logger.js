@@ -24,7 +24,7 @@ class OrderService {
 // generates a random trace id — so nt.traceName/trace_id below stay the same phrase every time
 // this page's output is regenerated.
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
-const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT)?.traceId;
 
 // Any pino instance works. `sync: true` is this script's own need, not the library's: pino's
 // default destination writes on a later tick, so a script that logs and then prints can have the
@@ -32,14 +32,11 @@ const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 const logger = pino(pino.destination({ sync: true }));
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-const context = new SyncNarrativeContext(
-  new NarrativeTraceConfig(),
-  undefined, // parentResolver — a plain script has no ambient parent span to resolve
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
   pipeline, // routes events to both the logger above and the buffer captureTrace() reads
-  null, // rootParentOverride — no inbound parent span for this root call
-  undefined, // serviceIdentity — not needed for this example
-  fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
-);
+  serviceName: "order-service", // what the platform and the OTel bridge show for this service
+  inheritedTraceId: fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });

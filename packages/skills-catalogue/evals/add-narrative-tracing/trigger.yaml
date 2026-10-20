@@ -18,6 +18,7 @@ positive:
   - "this project has no narrativetrace yet, help me add it"
   - "hook narrativetrace up to pino"
   - "trace this service and show me the output"
+  - "this service already has tests, add narrativetrace and show me the trace of one of them"
   # The PUBLISHED init prompt itself (README "Start here", the three README mirrors,
   # documentation/llms.txt — pinned byte-identical by init-prompt-drift.test.ts). A skill that
   # does not fire on the text we tell people to paste hands the agent to nobody.

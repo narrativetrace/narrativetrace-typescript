@@ -40,7 +40,7 @@ export {
 } from "./concurrency-info.js";
 export { NarrativeTraceConfig } from "./config.js";
 /** @internal — use AsyncNarrativeContext for server code. SyncNarrativeContext is only needed for browser environments without AsyncLocalStorage. */
-export { LiveChildRegistration, SyncNarrativeContext } from "./context.js";
+export { LiveChildRegistration, type SyncContextOptions, SyncNarrativeContext } from "./context.js";
 export { ContextExport } from "./context-export.js";
 export type { ContextScope, ContextSnapshot } from "./context-snapshot.js";
 export { ControlEscape } from "./control-escape.js";
@@ -48,6 +48,7 @@ export { DualPathPipeline, ensureStoreBacked } from "./dual-path-pipeline.js";
 export { errorMessage, errorTypeName } from "./error-display.js";
 export type { EventConsumer, EventPipeline } from "./event-pipeline.js";
 export { EventStoreConsumer } from "./event-store-consumer.js";
+export { SHIPPED_EXCLUDE, type ShippedExclusion, STRUCTURAL_SKIPS } from "./exclusion-catalogue.js";
 export { buildFailureReport } from "./failure-report.js";
 export { FireAndForgetGroup } from "./fire-and-forget-group.js";
 export { ForkJoinGroup, type ForkJoinGroupOptions } from "./fork-join-group.js";
@@ -57,6 +58,17 @@ export {
   webCryptoIdGenerator,
 } from "./id-generator.js";
 export { renderIndentedText } from "./indented-text-renderer.js";
+export {
+  DEFAULT_EXCLUDE,
+  effectiveExclude,
+  excludedPrefixOf,
+  parseExclude,
+  registerExcludeFromEnv,
+  reportStructuralSkip,
+  resetExclusionReports,
+  type StructuralSkipReason,
+  structuralSkipReason,
+} from "./instrumentation-exclusions.js";
 export { isThenable } from "./is-thenable.js";
 export { exportChapter, exportJson, type TraceMetadata } from "./json-export.js";
 export { isSubsequence, unifiedLineDiff } from "./line-diff.js";
@@ -85,7 +97,7 @@ export { type ParameterCapture, parameterCapture } from "./parameter-capture.js"
 export { PerishableMap } from "./perishable-map.js";
 export { renderProse } from "./prose-renderer.js";
 export { getRedactedParams, registerRedactedParams } from "./redacted-params-registry.js";
-export { RedactionPolicy } from "./redaction-policy.js";
+export { RedactionPolicy, registerAdditionalRedactionPatterns } from "./redaction-policy.js";
 export {
   type RenderedFields,
   type RenderedValue,
@@ -153,7 +165,7 @@ export {
   threw,
 } from "./trace-outcome.js";
 export { type TraceTree, traceTree } from "./trace-tree.js";
-export { formatTraceparent, parseTraceparent } from "./traceparent.js";
+export { formatTraceparent, parseTraceparent, type Traceparent } from "./traceparent.js";
 export { isActiveLevel, isEnabled, parseTracingLevel, type TracingLevel } from "./tracing-level.js";
 export { TREE_WALK_MARKER, TreeWalk, type TreeWalkStop, walkPreOrder } from "./tree-walk.js";
 export {

@@ -15,10 +15,11 @@ import { preStepCommands, type RegistryPreStep } from "./registry-pre-step.js";
  * a step would isolate a trial that installs nothing. `undefined` is the ordinary case.
  *
  * @llmNote This port's harness copies NONE of its own rendered pages into a scratch project for ANY
- * case, so there is no "skip the copy" switch here. A non-registry case that needs the pages
- * declares the `checkout-install` setup, which runs our own installer — and the runner refuses a
- * case declaring both, because a registry case whose pages our installer overwrote answers its own
- * question.
+ * case, so there is no "skip the copy" switch here. Pages reach a non-registry case only through
+ * our own installer: the `checkout-install` setup, or — for a case document declaring neither a
+ * setup nor a registry (B-88) — the `narrativetrace-init` pre-step the runner supplies itself. The
+ * runner refuses a case declaring both a setup and a registry, because a registry case whose pages
+ * our installer overwrote answers its own question.
  */
 export interface RegistryDelivery {
   /** Which documented registry puts this case's pages in place. */

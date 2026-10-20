@@ -3,16 +3,22 @@
 // Copyright (c) 2026 Empower Agile
 import type { NarrativeContext, ParameterCapture, SpanId } from "@narrativetrace/core";
 import {
+  effectiveExclude,
+  excludedPrefixOf,
   isRenderingInProgress,
   isThenable,
   NOOP_CONTEXT,
   parameterCapture,
+  parseExclude,
   RedactionPolicy,
   renderCapture,
   renderStructured,
   renderValue,
+  reportStructuralSkip,
   resolveTemplate,
+  structuralSkipReason,
 } from "@narrativetrace/core";
+import { warnObjectClassName, warnUnnamedParameters } from "./naming-warnings.js";
 import { type ErrorClass, getErrorSpecs, getNarration, type OnErrorSpec } from "./narrated.js";
 import { getRedactedParams } from "./not-traced.js";
 import { getTracedParamNames } from "./traced.js";
@@ -73,6 +79,9 @@ export type ProxyOptions = {
   /**
    * Class name recorded on every span, overriding the target's runtime `constructor.name`.
    * @defaultValue `target.constructor.name`
+   * @llmNote A plain object's `constructor.name` is `Object`, so its spans read `Object.<method>`
+   * on the platform and the OTel bridge: trace an instance of a class, or set this. Without it,
+   * `traceObject` prints a one-time `console.warn` for such a target.
    */
   readonly className?: string;
   /**
@@ -86,6 +95,20 @@ export type ProxyOptions = {
    * decorator metadata for that method; anything not configured falls back to the decorators.
    */
   readonly methods?: Record<string, MethodTraceConfig>;
+  /**
+   * Class-name prefixes that are never traced: a target whose recorded class name equals a prefix,
+   * or sits under it at a `.`, `/` or `:`, comes back from {@link traceObject} untouched, and says
+   * so once per prefix on `console.warn`. A prefix matches `acme.billing` and `acme.billing.Invoice`,
+   * never `acme.billingExtra`; a trailing `.*` or `/` is accepted and means the same.
+   * @defaultValue `NARRATIVETRACE_EXCLUDE` when set, else the shipped list (`DEFAULT_EXCLUDE`:
+   * NestJS's own `ModuleRef`, `Reflector`, `MetadataScanner`, `DiscoveryService`)
+   * @llmNote Giving this REPLACES the default — copy the shipped prefixes in to extend them, pass
+   * `[]` to exclude nothing. It wins over `className`: an excluded name is not traced however
+   * explicitly it was asked for. Alone in the third argument it is read as options, unless the
+   * target has a method called `exclude` (then it is that method's parameter-name shorthand): pass
+   * it as the fourth argument, `traceObject(t, ctx, undefined, { exclude })`, to be unambiguous.
+   */
+  readonly exclude?: readonly string[];
 };
 
 type AnyFn = (...args: never[]) => unknown;
@@ -343,6 +366,7 @@ function buildEntryCaptures(
 ): EntryCaptures {
   const cfg = config.methods?.[methodName];
   const names = resolveNames(fn, cfg?.params ?? config.paramNames?.[methodName]);
+  if (names === undefined && fn.length > 0) warnUnnamedParameters(config.className, methodName);
   const annotatedIndices = resolveRedacted(fn, cfg);
   const redactedFlags = resolveRedactedFlags(args, names, annotatedIndices);
   const values = buildValueMap(args, names, redactedFlags);
@@ -406,9 +430,13 @@ function buildTracingConfig(
   paramNames: Record<string, string[]> | undefined,
   options: ProxyOptions | undefined,
 ): TracingConfig {
+  const className = options?.className ?? target.constructor.name;
+  if (options?.className === undefined && className === "Object" && context.isActive) {
+    warnObjectClassName();
+  }
   return {
     context,
-    className: options?.className ?? target.constructor.name,
+    className,
     includeReturnValues: options?.includeReturnValues !== false,
     ...(paramNames !== undefined && { paramNames }),
     ...(options?.methods !== undefined && { methods: options.methods }),
@@ -425,18 +453,6 @@ function isGetterProperty(obj: object, prop: string | symbol): boolean {
   return false;
 }
 
-// Coercion/inspection hooks are ordinary object operations, not business calls — tracing them
-// pollutes every capture with spans the caller never asked for (String(x), x + 1, template
-// literals, console.log all reach one of these). JS has no user-overridable equals/hashCode to
-// exempt the way Java does; identity (`===`) is already reflexive for a Proxy regardless (no-poison
-// contract).
-const ORDINARY_OBJECT_OPS: ReadonlySet<string | symbol> = new Set([
-  "toString",
-  "valueOf",
-  Symbol.toPrimitive,
-  Symbol.for("nodejs.util.inspect.custom"),
-]);
-
 type WrapperCacheEntry = { fn: AnyFn; wrapped: AnyFn };
 
 // Wrapper cache, keyed by property and validated against the current method identity: every call
@@ -444,6 +460,19 @@ type WrapperCacheEntry = { fn: AnyFn; wrapped: AnyFn };
 // per-call cost that would survive even with tracing off. The cache makes the disabled path
 // allocation-free and gives `traced.method` a stable identity; a monkey-patched method fails the
 // identity check and is re-wrapped, so a stale wrapper can never call a replaced function.
+// List 1 (core's structuralSkipReason): coercion/inspection hooks, class constructors and foreign
+// bound wrappers are never business calls — tracing a hook pollutes every capture (String(x), x + 1,
+// template literals, console.log, await, JSON.stringify all reach one), and wrapping a class breaks
+// `new`. The skip is cached beside the wrappers (as the function itself), so the source-reading
+// class check runs once per method. A class is the "cannot reach it without breaking the host" case
+// and says so once (reportStructuralSkip); the other reasons are silent by design.
+function wrapOrSkip(fn: AnyFn, obj: object, prop: string | symbol, config: TracingConfig): AnyFn {
+  const reason = structuralSkipReason(fn, prop, obj);
+  if (reason === undefined) return wrapMethod(fn, obj, String(prop), config) as AnyFn;
+  reportStructuralSkip(reason, config.className, String(prop));
+  return fn;
+}
+
 function createTracingHandler<T extends object>(config: TracingConfig): ProxyHandler<T> {
   const wrappers = new Map<string | symbol, WrapperCacheEntry>();
   return {
@@ -452,9 +481,9 @@ function createTracingHandler<T extends object>(config: TracingConfig): ProxyHan
       if (typeof value !== "function") return value;
       const cached = wrappers.get(prop);
       if (cached && cached.fn === value) return cached.wrapped;
-      if (isGetterProperty(obj, prop) || ORDINARY_OBJECT_OPS.has(prop)) return value;
-      const wrapped = wrapMethod(value as AnyFn, obj, String(prop), config) as AnyFn;
-      wrappers.set(prop, { fn: value as AnyFn, wrapped });
+      const fn = value as AnyFn;
+      const wrapped = isGetterProperty(obj, prop) ? fn : wrapOrSkip(fn, obj, prop, config);
+      wrappers.set(prop, { fn, wrapped });
       return wrapped;
     },
   };
@@ -539,30 +568,47 @@ export function traceObject<T extends object>(
   // NOOP_CONTEXT is permanently inactive by contract, so wrapping would buy nothing but a proxy
   // hop on every call — the disabled-cost story for the null context is exact: the same object.
   if (context === NOOP_CONTEXT) return target;
-  const [paramNames, resolvedOptions] = splitWrapArguments(namesOrOptions, options);
+  const [paramNames, resolvedOptions] = splitWrapArguments(target, namesOrOptions, options);
   if (resolvedOptions !== undefined) validateProxyOptions(resolvedOptions);
+  if (isExcludedTarget(target, resolvedOptions)) return target;
   return new Proxy(
     target,
     createTracingHandler(buildTracingConfig(target, context, paramNames, resolvedOptions)),
   );
 }
 
-const PROXY_OPTION_KEYS = ["className", "includeReturnValues", "methods"] as const;
+// The exclude list in force decides before any proxy exists: an excluded target is the target.
+function isExcludedTarget(target: object, options: ProxyOptions | undefined): boolean {
+  const className = options?.className ?? target.constructor.name;
+  return excludedPrefixOf(className, effectiveExclude(options?.exclude)) !== undefined;
+}
+
+const PROXY_OPTION_KEYS = ["className", "includeReturnValues", "methods", "exclude"] as const;
 const METHOD_CONFIG_KEYS = ["params", "notTraced", "narration", "onError"] as const;
 
 // A paramNames map's values are always arrays of names; ProxyOptions' distinguishing keys never
 // hold arrays — so a method that happens to be *named* like an option key still routes correctly.
-function isProxyOptions(value: Record<string, string[]> | ProxyOptions): value is ProxyOptions {
-  return PROXY_OPTION_KEYS.some(
-    (key) => key in value && !Array.isArray((value as Record<string, unknown>)[key]),
+// `exclude` is the one option that holds an array, so it cannot be told from a method's parameter
+// names by shape: it is read as the option unless the target has a method of that name.
+function isProxyOptions(
+  value: Record<string, string[]> | ProxyOptions,
+  target: object,
+): value is ProxyOptions {
+  const bag = value as Record<string, unknown>;
+  const excludeIsOption =
+    Array.isArray(bag.exclude) && typeof (target as Record<string, unknown>).exclude !== "function";
+  return (
+    excludeIsOption ||
+    PROXY_OPTION_KEYS.some((key) => key !== "exclude" && key in bag && !Array.isArray(bag[key]))
   );
 }
 
 function splitWrapArguments(
+  target: object,
   third: Record<string, string[]> | ProxyOptions | undefined,
   fourth: ProxyOptions | undefined,
 ): [Record<string, string[]> | undefined, ProxyOptions | undefined] {
-  if (third !== undefined && isProxyOptions(third)) return [undefined, third];
+  if (third !== undefined && isProxyOptions(third, target)) return [undefined, third];
   return [third as Record<string, string[]> | undefined, fourth];
 }
 
@@ -573,6 +619,7 @@ function splitWrapArguments(
 // that are actually understood, both at the top level and inside each per-method config.
 function validateProxyOptions(options: ProxyOptions): void {
   rejectUnknownKeys(options, PROXY_OPTION_KEYS, "traceObject options");
+  if (options.exclude !== undefined) validateExclude(options.exclude);
   if (options.methods === undefined) return;
   for (const [methodName, cfg] of Object.entries(options.methods)) {
     if (cfg === null || typeof cfg !== "object" || Array.isArray(cfg)) {
@@ -583,6 +630,16 @@ function validateProxyOptions(options: ProxyOptions): void {
     }
     rejectUnknownKeys(cfg, METHOD_CONFIG_KEYS, `traceObject methods.${methodName}`);
   }
+}
+
+// Validated up front, before the invalid list could be masked by an early return.
+function validateExclude(exclude: readonly string[]): void {
+  if (!Array.isArray(exclude)) {
+    throw new TypeError(
+      `traceObject options.exclude must be an array of class-name prefixes (got ${typeof exclude}) → narrativetrace-doctor skill`,
+    );
+  }
+  parseExclude(exclude);
 }
 
 function rejectUnknownKeys(value: object, accepted: readonly string[], label: string): void {

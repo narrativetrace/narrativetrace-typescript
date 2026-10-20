@@ -9,8 +9,10 @@ import {
   RedactionPolicy,
   renderCapture,
   renderValue,
+  reportStructuralSkip,
   type SpanId,
   type SyncNarrativeContext,
+  structuralSkipReason,
 } from "@narrativetrace/core";
 import type { NarrativeStorage } from "./narrative-storage.js";
 import { isNoAutoProxy } from "./no-auto-proxy.decorator.js";
@@ -144,6 +146,16 @@ function createWrapper(
   return wrapper;
 }
 
+// List 1 (core's structuralSkipReason): runtime hooks such as toJSON/then and class-valued members
+// are never business boundaries; a class cannot be wrapped without breaking `new`, so that one is
+// skipped and said so once.
+function skippedStructurally(fn: unknown, key: string, prototype: object, className: string) {
+  const reason = structuralSkipReason(fn, key, prototype);
+  if (reason === undefined) return false;
+  reportStructuralSkip(reason, className, key);
+  return true;
+}
+
 export function wrapPrototypeMethods(
   prototype: object,
   className: string,
@@ -155,6 +167,7 @@ export function wrapPrototypeMethods(
     if (!descriptor || typeof descriptor.value !== "function") continue;
     if ((descriptor.value as Record<symbol, unknown>)[WRAPPED]) continue;
     if (isNoAutoProxy(prototype, key)) continue;
+    if (skippedStructurally(descriptor.value, key, prototype, className)) continue;
     Object.defineProperty(prototype, key, {
       ...descriptor,
       value: createWrapper(descriptor.value, className, key, storage),

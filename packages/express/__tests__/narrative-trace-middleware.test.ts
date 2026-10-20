@@ -416,6 +416,18 @@ describe("narrativeTrace middleware", () => {
     expect(res.body.trace.roots[0].spanContext.traceId).toBe(parentTraceId);
   });
 
+  test("traceparent header's parent span becomes the request root's parent", async () => {
+    const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"));
+    const app = createApp(ctx);
+
+    const res = await request(app)
+      .get("/hello/world")
+      .set("traceparent", "00-aabbccdd11223344aabbccdd11223344-00f067aa0ba902b7-01")
+      .expect(200);
+
+    expect(res.body.trace.roots[0].spanContext.parentSpanId).toBe("00f067aa0ba902b7");
+  });
+
   test("invalid traceparent header is ignored — new traceId generated", async () => {
     const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"));
     const app = createApp(ctx);

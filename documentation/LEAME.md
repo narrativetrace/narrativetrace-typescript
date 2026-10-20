@@ -40,6 +40,11 @@ Recetas, una página por problema, con la salida real de una ejecución:
 | [Por qué falló esta prueba](es/recetas/por-que-fallo-esta-prueba.md) | Una prueba roja leída span por span contra su aserción |
 | [Revisa un flujo complejo antes de cambiarlo](es/recetas/revisa-un-flujo-complejo-antes-de-cambiarlo.md) | Una ejecución en `detail` y en `summary`, el log junto al `.nt` sin valores |
 | [Revisa una refactorización: ¿cambió el comportamiento?](es/recetas/revisa-una-refactorizacion-cambio-el-comportamiento.md) | Las pruebas siguen en verde y el diff de aprobación nombra la llamada eliminada |
+| [Sigue una petición entre servicios](es/recetas/sigue-una-peticion-entre-servicios.md) | El checkout llama a un segundo servicio trazado por HTTP: un mismo id de traza en las líneas de ambos servicios |
+| [Mantén los secretos fuera de los logs](es/recetas/manten-los-secretos-fuera-de-los-logs.md) | Una contraseña atrapada por nombre, un número de tarjeta atrapado por valor, y la prueba que lo demuestra |
+| [Sigue un flujo entre hilos](es/recetas/sigue-un-flujo-entre-hilos.md) | Un fork-join conserva el id de traza; el mismo trabajo entregado a un worker sin él inicia una traza nueva |
+| [Envía las trazas al stack de observabilidad que ya tienes](es/recetas/envia-las-trazas-al-stack-de-observabilidad-que-ya-tienes.md) | Las líneas de log junto a los spans de OpenTelemetry de una misma ejecución |
+| [Traza en producción sin el coste](es/recetas/traza-en-produccion-sin-el-coste.md) | El nivel de trazado en la práctica: `errors` conserva la ejecución fallida y no escribe nada para una exitosa |
 
 Estas traducciones están PENDIENTES DE REVISIÓN por un hablante nativo — cada fichero registra su
 estado de revisión en la cabecera de la línea 1 (`pnpm run translation-status` imprime la matriz

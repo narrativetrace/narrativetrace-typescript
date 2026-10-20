@@ -302,6 +302,20 @@ describe("narrativeTrace middleware", () => {
   });
 });
 
+describe("narrativeTrace middleware inbound parent span", () => {
+  test("traceparent header's parent span becomes the request root's parent", async () => {
+    const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig("detail"));
+    const app = createApp(ctx);
+
+    const res = await app.request("/hello/world", {
+      headers: { traceparent: "00-aabbccdd11223344aabbccdd11223344-00f067aa0ba902b7-01" },
+    });
+    const body = await res.json();
+
+    expect(body.trace.roots[0].spanContext.parentSpanId).toBe("00f067aa0ba902b7");
+  });
+});
+
 describe("withConnInfoClientIp", () => {
   const fakeGetConnInfo: GetConnInfo = () => ({
     remote: { address: "198.51.100.7", addressType: "IPv4" },

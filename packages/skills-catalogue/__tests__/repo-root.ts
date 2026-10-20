@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { existsSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 
 const ROOT_MARKER = "pnpm-workspace.yaml";
 
@@ -19,6 +19,16 @@ export function findRepoRoot(startDir: string): string {
     if (existsSync(join(dir, ROOT_MARKER))) return dir;
     if (dirname(dir) === dir) throw new Error(`no ${ROOT_MARKER} above ${startDir}`);
   }
+}
+
+/**
+ * `dir` lies inside Stryker's package-local sandbox (`<package>/.stryker-tmp/sandbox-*`). There,
+ * {@link REPO_ROOT} is the LIVE tree — the sandbox copies only this package — so a test that
+ * EXECUTES a command against a path built from it runs the active mutant's command line in the
+ * real repository (B-121, 2026-10-19). Reading from it stays safe; executing against it does not.
+ */
+export function inMutationSandbox(dir: string): boolean {
+  return dir.split(sep).includes(".stryker-tmp");
 }
 
 export const REPO_ROOT = findRepoRoot(import.meta.dirname);

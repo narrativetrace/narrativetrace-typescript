@@ -6,9 +6,16 @@ import { BaselinePin } from "./baseline-pin.js";
 import { TraceReading } from "./trace-reading.js";
 import { FIND_NARRATIVES, FIND_STRUCTURAL, RUN_THE_PATH } from "./verify-commands.js";
 
-/** Values, the fix and the re-read happen only when the structural read found a mismatch. */
-export const ONLY_ON_A_MISMATCH =
-  "only when the structural read named a span that does not match the intent; otherwise go on to the pin";
+/**
+ * Values are opened on a shape mismatch, OR a shape match a symptom still points at — one span,
+ * chosen by the symptom (Phase 7 rule).
+ */
+export const OPEN_VALUES_WHEN =
+  "when the structural read named a span that does not match the intent, or the shape matches but a symptom points at data — an assertion failed on a value, the output is wrong — then open the one span the symptom points at; otherwise go on to the pin";
+
+/** The fix and the re-read happen only on a structural mismatch, or a wrong value step 5 found. */
+export const FIX_AND_RERUN_WHEN =
+  "only when the structural read named a span that does not match the intent, or the value read in step 5 was wrong; otherwise go on to the pin";
 
 /** The run step's failure: a run that wrote no structural trace. */
 const NO_STRUCTURAL_TRACE = {
@@ -128,13 +135,13 @@ function onAMismatch(): readonly SkillStep[] {
     {
       title: "Open values on the span that looks wrong, and only there",
       body: { kind: "commands", commands: [FIND_NARRATIVES] },
-      condition: ONLY_ON_A_MISMATCH,
+      condition: OPEN_VALUES_WHEN,
       flag: "judgmental — only the flagged span was read in the .md narrative, found by the id the .nt gave it — not the whole file; a [REDACTED] value stays redacted",
     },
     {
       title: "Fix, re-run, read again",
       body: { kind: "commands", commands: [RUN_THE_PATH] },
-      condition: ONLY_ON_A_MISMATCH,
+      condition: FIX_AND_RERUN_WHEN,
       flag: "judgmental — the same test ran again after the fix and its new .nt was read whole: the span that was wrong now matches the intent, and a fix that changed the shape was read again from the structural read",
     },
   ];
@@ -144,6 +151,6 @@ function report(): SkillStep {
   return {
     title: "Report what the trace showed",
     body: { kind: "commands", commands: [] },
-    flag: "judgmental — two sentences on what the trace showed, every claim citing the span id it rests on — a claim without an id is not a claim, and only ids in the .nt that was read count — with the .nt attached or quoted; 'tests pass' alone is not the report",
+    flag: "judgmental — two sentences on what the trace showed on the path this run took, every claim citing the span id it rests on — a claim without an id is not a claim, and only ids in the .nt that was read count — with the .nt attached or quoted; the report names the branches and inputs this run did not exercise, because one trace shows one path, not every execution; 'tests pass' alone is not the report",
   };
 }

@@ -35,6 +35,11 @@ Recipes — one page per problem, in the words a user would type; each carries i
 - [Why did this test fail](recipes/why-did-this-test-fail.md) — a red test read span by span against its assertion
 - [Review a complex flow before changing it](recipes/review-a-complex-flow-before-changing-it.md) — one run at `detail` and at `summary`, the log beside the value-free `.nt`
 - [Review a refactoring: did behaviour change](recipes/review-a-refactoring-did-behaviour-change.md) — the tests stay green, the approval diff names the dropped call
+- [Follow one request across services](recipes/follow-one-request-across-services.md) — the checkout calls a second traced service over HTTP: one trace id in both services' lines
+- [Keep secrets out of the logs](recipes/keep-secrets-out-of-the-logs.md) — a password caught by name, a card number caught by value, and the test that proves it
+- [Follow a flow across threads](recipes/follow-a-flow-across-threads.md) — a fork-join keeps the trace id; the same work handed to a worker without it starts a new trace
+- [Send traces to the observability stack you already run](recipes/send-traces-to-the-observability-stack-you-already-run.md) — the log lines beside the OpenTelemetry spans of one run
+- [Trace in production without the cost](recipes/trace-in-production-without-the-cost.md) — the tracing level in practice: `errors` keeps the failed run and writes nothing for a successful one
 
 Gates and tooling (process/contributor content — English only, no translated mirror):
 

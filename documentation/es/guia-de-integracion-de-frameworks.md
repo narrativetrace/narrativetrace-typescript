@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 40cf04c0beea | translated: 2026-09-13 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 3e35a1b0f94f | translated: 2026-10-20 | reviewed: - -->
 # Guía de integración de frameworks de NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | **Español** | [Português](../pt-BR/guia-de-integracao-de-frameworks.md) | [简体中文](../zh-CN/框架集成指南.md)
@@ -409,7 +409,9 @@ import { Module } from "@nestjs/common";
       // se capturan pero no se exportan.
       pipeline,
       // Providers que se dejan sin trazar.
-      exclude: [HealthController],
+      // Providers que se dejan sin trazar: clases por identidad, cadenas como prefijos de nombre de clase.
+      // Indicarlo reemplaza el valor predeterminado (ModuleRef, Reflector, … de NestJS).
+      exclude: [HealthController, "acme.vendor"],
       // Se dispara después de cada petición con el árbol capturado, el estado HTTP y la duración.
       onRequestComplete: (ctx, { statusCode, durationMs, tree }) => {
         console.log(statusCode, durationMs, tree);
@@ -424,6 +426,10 @@ export class AppModule {}
 @NoAutoProxy()
 export class LegacyService {}
 ```
+
+### Incluir y excluir
+
+El auto-proxy *incluye* todos los providers y controllers que Nest descubre, y `exclude` saca algunos; una exclusión siempre gana. Deciden dos listas: una incluida y no configurable (hooks del runtime como `toJSON` y `then`, y una `class` guardada como miembro, que no se puede envolver sin romper `new`), y un valor predeterminado incluido y reemplazable con los providers propios de NestJS (`ModuleRef`, `Reflector`, `MetadataScanner`, `DiscoveryService`). La misma lista puede venir de `NARRATIVETRACE_EXCLUDE` (separada por `;` o `,`; la opción en código gana) y `traceObject()` acepta la misma opción `exclude`. Ambas listas se publican fila por fila en la [Guía de configuración § Exclusiones de instrumentación](guia-de-configuracion.md#10-exclusiones-de-instrumentación).
 
 ### Cómo funciona
 

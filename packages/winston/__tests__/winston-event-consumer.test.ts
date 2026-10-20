@@ -45,6 +45,17 @@ function enterEvent(n: number, className: string, methodName: string): TraceEven
   };
 }
 
+function forkCreated(groupId: string, strategy: "fork-join" | "fire-and-forget"): TraceEvent {
+  return {
+    type: "fork-created",
+    groupId,
+    parentSpanId: sid(1),
+    rootSpanId: sid(2),
+    strategy,
+    timestamp: 0,
+  };
+}
+
 describe("createWinstonEventConsumer", () => {
   test("enter event logs class and method", () => {
     const { logger, entries } = createTestLogger();
@@ -298,5 +309,58 @@ describe("createWinstonEventConsumer", () => {
     expect(entries[0]?.message).toBe("← incomplete");
     expect(entries[0]?.["nt.outcome"]).toBe("incomplete");
     expect(entries[0]?.["nt.eventType"]).toBe("method_exit");
+  });
+
+  test("fork-created logs the group id, the launching span and the member root", () => {
+    const { logger, entries } = createTestLogger();
+    const consumer = createWinstonEventConsumer(logger);
+
+    consumer(forkCreated("fork-1", "fork-join"));
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.message).toBe("⑂ fork group created [groupId: fork-1]");
+    expect(entries[0]?.["nt.groupId"]).toBe("fork-1");
+    expect(entries[0]?.["nt.eventType"]).toBe("fork");
+    expect(entries[0]?.["nt.strategy"]).toBe("fork-join");
+    expect(entries[0]?.parent_span_id).toBe(sid(1));
+    expect(entries[0]?.span_id).toBe(sid(2));
+  });
+
+  test("a fire-and-forget launch is told apart from a joined fork", () => {
+    const { logger, entries } = createTestLogger();
+    const consumer = createWinstonEventConsumer(logger);
+
+    consumer(forkCreated("ff-1", "fire-and-forget"));
+
+    expect(entries[0]?.message).toBe("⤳ fire-and-forget launched [groupId: ff-1]");
+    expect(entries[0]?.["nt.strategy"]).toBe("fire-and-forget");
+  });
+
+  test("join-complete logs the group id and member count", () => {
+    const { logger, entries } = createTestLogger();
+    const consumer = createWinstonEventConsumer(logger);
+
+    consumer({
+      type: "join-complete",
+      groupId: "fork-1",
+      memberCount: 3,
+      wallTimeMs: 12.5,
+      timestamp: 0,
+    });
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.message).toBe("⑃ fork joined [groupId: fork-1, members: 3]");
+    expect(entries[0]?.["nt.groupId"]).toBe("fork-1");
+    expect(entries[0]?.["nt.eventType"]).toBe("join");
+    expect(entries[0]?.["nt.memberCount"]).toBe(3);
+  });
+
+  test("lifecycle lines use the enter level", () => {
+    const { logger, entries } = createTestLogger();
+    const consumer = createWinstonEventConsumer(logger, { levels: { enter: "info" } });
+
+    consumer(forkCreated("fork-1", "fork-join"));
+
+    expect(entries[0]?.level).toBe("info");
   });
 });

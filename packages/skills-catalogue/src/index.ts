@@ -1,7 +1,14 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-export { findProListing, findSkill, MARKETPLACE, PRO_LISTINGS, SKILLS } from "./catalogue-index.js";
+export {
+  findProListing,
+  findSkill,
+  MARKETPLACE,
+  OPENAI_DIRECTORY,
+  PRO_LISTINGS,
+  SKILLS,
+} from "./catalogue-index.js";
 export {
   allowedToolsViolations,
   CATALOGUE_CHAR_BUDGET,
@@ -16,6 +23,8 @@ export {
   vocabularyViolations,
 } from "./lints.js";
 export type { MarketplaceListing, MarketplaceOwner } from "./marketplace-listing.js";
+export type { OpenAiListingFields } from "./openai-listing.js";
+export { MAX_LISTING_FIELD_LENGTH, openAiListing } from "./openai-listing.js";
 export type { ProListing, ProListingStatus } from "./pro-listing.js";
 export {
   extractAgentsMdSection,
@@ -34,6 +43,17 @@ export {
   renderCursorPluginJson,
 } from "./render/cursor-plugin-json.js";
 export { renderMarketplaceJson } from "./render/marketplace-json.js";
+export {
+  OPENAI_PLUGIN_JSON_ENTRY,
+  openAiPackageEntries,
+} from "./render/openai-package-layout.js";
+export {
+  COMPOSER_ICON_PATH,
+  LOGO_PATH,
+  OPENAI_PLUGIN_ROOT,
+  renderOpenAiPluginJson,
+} from "./render/openai-plugin-json.js";
+export { pngDimensions } from "./render/png-dimensions.js";
 export type { PlaceSnippet, StepReplayResult } from "./replay.js";
 export { replaySkill, runReplayCommand } from "./replay.js";
 export type {

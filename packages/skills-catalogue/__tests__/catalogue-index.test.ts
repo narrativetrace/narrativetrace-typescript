@@ -6,9 +6,11 @@ import {
   findProListing,
   findSkill,
   MARKETPLACE,
+  OPENAI_DIRECTORY,
   PRO_LISTINGS,
   SKILLS,
 } from "../src/catalogue-index.js";
+import { MAX_LISTING_FIELD_LENGTH } from "../src/openai-listing.js";
 import { renderMarketplaceJson } from "../src/render/marketplace-json.js";
 
 describe("findSkill", () => {
@@ -68,5 +70,27 @@ describe("MARKETPLACE", () => {
     const rendered = renderMarketplaceJson(MARKETPLACE);
     const nameMentions = rendered.split('"name": "narrativetrace-typescript"');
     expect(nameMentions).toHaveLength(3);
+  });
+});
+
+describe("OPENAI_DIRECTORY", () => {
+  it("is composed from the same marketplace listing", () => {
+    expect(OPENAI_DIRECTORY.base).toBe(MARKETPLACE);
+  });
+
+  it("names the plugin for this runtime and fits the directory's ceiling", () => {
+    expect(OPENAI_DIRECTORY.displayName).toBe("NarrativeTrace for TypeScript");
+    expect(OPENAI_DIRECTORY.shortDescription.length).toBeLessThanOrEqual(MAX_LISTING_FIELD_LENGTH);
+  });
+
+  it("draws every default prompt from a skill's own trigger phrase", () => {
+    for (const prompt of OPENAI_DIRECTORY.defaultPrompts) {
+      const owners = SKILLS.filter((skill) => skill.description.includes(`'${prompt}'`));
+      expect(owners, `'${prompt}' must be one of a skill's trigger phrases`).not.toHaveLength(0);
+    }
+  });
+
+  it("points the website at the marketplace homepage", () => {
+    expect(OPENAI_DIRECTORY.websiteUrl).toBe(MARKETPLACE.homepage);
   });
 });

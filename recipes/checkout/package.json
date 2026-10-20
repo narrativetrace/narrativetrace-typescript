@@ -10,9 +10,12 @@
   },
   "devDependencies": {
     "@narrativetrace/core-node": "workspace:*",
+    "@narrativetrace/opentelemetry": "workspace:*",
     "@narrativetrace/pino": "workspace:*",
     "@narrativetrace/proxy": "workspace:*",
     "@narrativetrace/vitest": "workspace:*",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/sdk-trace-base": "^1.25.0",
     "pino": "9.11.0"
   }
 }

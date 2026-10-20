@@ -402,8 +402,9 @@ import { Module } from "@nestjs/common";
       // A real pipeline (e.g. wired to pino/winston/otel) — without it, traces
       // are captured but not exported.
       pipeline,
-      // Providers to leave untraced.
-      exclude: [HealthController],
+      // Providers to leave untraced: classes by identity, strings as class-name prefixes.
+      // Stating this replaces the shipped default (NestJS's own ModuleRef, Reflector, …).
+      exclude: [HealthController, "acme.vendor"],
       // Fires after each request with the captured tree, HTTP status, and duration.
       onRequestComplete: (ctx, { statusCode, durationMs, tree }) => {
         console.log(statusCode, durationMs, tree);
@@ -418,6 +419,10 @@ export class AppModule {}
 @NoAutoProxy()
 export class LegacyService {}
 ```
+
+### Include and exclude
+
+The auto-proxy *includes* every provider and controller Nest discovers, and `exclude` takes some back out; an exclude always wins. Two lists decide: a built-in one that is not configurable (runtime hooks such as `toJSON` and `then`, and a `class` held as a member, which cannot be wrapped without breaking `new`), and a shipped, replaceable default of NestJS's own providers (`ModuleRef`, `Reflector`, `MetadataScanner`, `DiscoveryService`). The same list can come from `NARRATIVETRACE_EXCLUDE` (`;` or `,` separated; the option in code beats it) and `traceObject()` takes the same `exclude` option. Both lists are published row by row in [Configuration Guide § Instrumentation exclusions](configuration-guide.md#10-instrumentation-exclusions).
 
 ### How it works
 

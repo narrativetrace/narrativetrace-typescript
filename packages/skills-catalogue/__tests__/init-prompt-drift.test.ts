@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { everyCasePromptUnder } from "../evals/case-walk.js";
 import { REPO_ROOT, REPO_ROOT_REACHABLE } from "./repo-root.js";
 
 /**
@@ -46,15 +47,7 @@ const CASES_WHOSE_PROMPT_IS_THE_WHOLE_FILE = [
 
 /** Every `prompt.md` under `evals/`, repo-root-relative with `/` separators, in a stable order. */
 function everyCasePrompt(): readonly string[] {
-  const found: string[] = [];
-  for (const entry of readdirSync(join(REPO_ROOT, EVALS_DIR), {
-    recursive: true,
-    withFileTypes: true,
-  })) {
-    if (!entry.isFile() || entry.name !== "prompt.md") continue;
-    found.push(relative(REPO_ROOT, join(entry.parentPath, entry.name)).split("\\").join("/"));
-  }
-  return found.sort();
+  return everyCasePromptUnder(join(REPO_ROOT, EVALS_DIR)).map((path) => `${EVALS_DIR}/${path}`);
 }
 
 /** Those of them that ARE the published prompt — the ones whose first line is its first line. */

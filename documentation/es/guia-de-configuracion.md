@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 0280a08aa77e | translated: 2026-09-18 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob 10f9b54105a9 | translated: 2026-10-20 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -265,6 +265,35 @@ Las claves reflejan las variables de entorno sin el prefijo `NARRATIVETRACE_`: `
 activa. Las claves desconocidas y los valores con tipo incorrecto se ignoran, de
 modo que un ajuste suelto nunca rompe una ejecución.
 
+### Identidad del servicio
+
+El runtime necesita el nombre del servicio desde el código de configuración y no lo lee de ningún otro sitio.
+Sin definirlo, un capítulo exportado, un span de OTel o la plataforma alojada muestran `unknown_service:node`.
+
+| Ajuste | Variable de entorno | Opción del constructor |
+|---|---|---|
+| Nombre del servicio | `NARRATIVETRACE_SERVICE_NAME` | `serviceName` |
+| Versión del servicio | `NARRATIVETRACE_SERVICE_VERSION` | `serviceVersion` |
+| Entorno de despliegue | `NARRATIVETRACE_ENVIRONMENT` | `environment` |
+
+```ts
+import { NarrativeTraceConfig, SyncNarrativeContext } from "@narrativetrace/core-node";
+
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "checkout-api",
+  serviceVersion: "1.4.2",
+  environment: "production",
+});
+```
+
+`SyncNarrativeContext` acepta un objeto `SyncContextOptions` junto a su constructor posicional,
+que se mantiene por compatibilidad. El objeto de opciones también lleva `pipeline`, `parentResolver`,
+`rootParentOverride`, `inheritedTraceId` y `maxAdoptedSpans`. Un `AsyncNarrativeContext` construido
+sin identidad lee las tres variables al construirse; una identidad pasada en código tiene prioridad.
+`SyncNarrativeContext` vive en el núcleo apto para navegador y no lee el entorno, así que pásale
+`{ ...serviceIdentityFromEnv() }` (de `@narrativetrace/core-node`) para usar las variables.
+`resolveEnvConfig()` las informa como `serviceName`, `serviceVersion` y `environment`.
+
 ### Dos archivos de configuración son un error, no una tirada de moneda
 
 Incluir **ambos** nombres de archivo aceptados hace que la ejecución falle de inmediato:
@@ -379,6 +408,24 @@ AuthService.login(username: "admin", password: ***)
 
 Para ocultación manual (sin decorador), consulta la [Guía de decoradores](guia-de-decoradores.md).
 
+### Ampliar los valores por defecto
+
+Dos mecanismos, y hacen cosas distintas.
+
+```bash
+# AÑADIR al vocabulario incorporado (patrones de nombres de campo separados por comas)
+export NARRATIVETRACE_REDACTION_ADDITIONALPATTERNS=betalingskort,kontonummer
+```
+
+```ts
+// REEMPLAZAR por completo el vocabulario incorporado (solo renderizado directo)
+renderValue(value, { redactionPolicy: RedactionPolicy.ofPatterns(["ssn", "internalRef"]) });
+```
+
+`NARRATIVETRACE_REDACTION_ADDITIONALPATTERNS` es para quien *despliega* la aplicación: no requiere recompilar y se lee solo del entorno. `@narrativetrace/core-node` la lee una vez, al importarse, de modo que toda traza que renderiza la política por defecto (incluido todo lo que captura `traceObject()`) también oculta las adiciones. `ofPatterns` es para quien *escribe* la aplicación. Se combinan: las adiciones siguen aplicándose a una política construida con `ofPatterns`, porque reemplazar el vocabulario es una opinión de la aplicación sobre sus propios campos, no permiso para deshacer la ampliación de un despliegue. Solo `RedactionPolicy.DISABLED` las ignora. El núcleo para navegador no tiene entorno que leer; una aplicación de navegador que quiera adiciones llama ella misma a `registerAdditionalRedactionPatterns("betalingskort,kontonummer")`.
+
+> **Las adiciones son patrones de subcadena**, que coinciden exactamente como el vocabulario incorporado de subcadenas (sin distinguir mayúsculas ni acentos; las entradas se recortan y las vacías se descartan). Uno corto trae la misma trampa que las palabras por token evitan: añadir `id` oculta todos los identificadores de la traza.
+
 ## 6. Opciones de Proxy
 
 `traceObject()` acepta configuración opcional:
@@ -394,8 +441,15 @@ const traced = traceObject(service, context, paramNames, {
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `className` | `target.constructor.name` | Nombre de clase mostrado en las trazas |
+| `className` | `target.constructor.name` | Nombre de clase mostrado en las trazas. El constructor de un objeto plano es `Object`, así que sus spans se leen como `Object.<method>`: traza una instancia de una clase o define esta opción |
 | `includeReturnValues` | `true` | Cuando es `false`, los valores de retorno no se renderizan |
+| `exclude` | `NARRATIVETRACE_EXCLUDE`, si no la lista incluida | Prefijos de nombre de clase que nunca se trazan; ve el [§10](#10-exclusiones-de-instrumentación) |
+
+El runtime no lee ningún nombre de parámetro del código fuente, así que un método trazado que recibe parámetros
+necesita que se los pases (`methods: { placeOrder: { params: ["customerId"] } }`, el equivalente de `@traced`).
+`traceObject()` imprime un `console.warn` único — una vez por proceso y por condición — para un destino cuya
+clase se resolvió a `Object` sin `className`, y para un método con parámetros trazado sin nombres.
+Proporcionar la configuración lo silencia; no existe ningún interruptor que lo oculte.
 
 Un objeto de opciones que lleva una clave fuera de esta tabla — una errata, o una forma de un
 `traceObject()` más nuevo que esta instalación no tiene — **lanza una excepción** nombrando la
@@ -592,6 +646,44 @@ overhead, baja el nivel de trazado; el umbral del logger no cambia nada del cost
 trazado activo en producción pero fuera de los logs, deja el nivel de trazado en `summary` y el
 logger en `warn`: la ruta síncrona se mantiene silenciosa y la ruta con búfer sigue alimentando tus
 exportaciones.
+
+## 10. Exclusiones de instrumentación
+
+El trazado se conecta a propósito: envuelves un objeto con `traceObject()`, o el módulo de NestJS descubre un provider. Dos listas deciden cuál de esos objetivos nunca se envuelve, y tienen dos dueños.
+
+1. **Incluida, no configurable.** Lo que estructuralmente nunca es una frontera de negocio: los hooks propios del runtime, una `class` que no se puede envolver sin romper `new`, una copia `bind()` de una función ajena. Ninguna opción ni variable reactiva un miembro. Solo el caso de la clase se avisa (una vez por proceso, con `console.warn`): la instrumentación omite lo que no puede alcanzar y lo dice, y nunca lanza una excepción dentro de tu llamada.
+2. **Configurable, con un valor predeterminado incluido.** Elementos internos de bibliotecas y frameworks, nombrados por prefijo de nombre de clase. Indicar una lista de exclusión la **reemplaza** por completo (copia los prefijos predeterminados para ampliarla; pasa una lista vacía para no excluir nada). Una exclusión siempre gana a la inclusión: un objetivo cuyo nombre de clase está excluido no se traza por explícito que fuera el envoltorio. Cada prefijo que coincide se avisa una vez, nunca por objetivo.
+
+```ts
+// include: tú lo envuelves; exclude: nombres que nunca se trazan, aunque se envuelvan
+traceObject(gateway, context, { className: "acme.vendor.Gateway", exclude: ["acme.vendor"] });
+
+AutoProxyModule.forRoot({ exclude: ["acme.vendor", HealthController] }); // prefijos y clases
+```
+
+```bash
+NARRATIVETRACE_EXCLUDE="acme.vendor;Reflector" pnpm test   # separados por ';' o ','; la clave presente (incluso vacía) reemplaza el valor predeterminado
+```
+
+Precedencia: la opción en código, luego `NARRATIVETRACE_EXCLUDE`, luego el valor predeterminado incluido.
+Un objeto de JavaScript no lleva paquete, así que el prefijo se compara con el nombre de clase que registra el span (`constructor.name`, o el `className` que diste): `acme.vendor` coincide con `acme.vendor` y `acme.vendor.Gateway`, en un `.`, `/` o `:`, y nunca con `acme.vendorExtra`. Un `.*` o `/` final se acepta y significa lo mismo. Una entrada vacía o duplicada se rechaza (una opción lanza; una variable inválida se ignora con un aviso y se aplica el valor predeterminado). `narrativetrace doctor` informa la lista vigente.
+
+**Lista 1, incluida:**
+
+| Motivo | Regla |
+|---|---|
+| `protocol-hook` | `toString`, `valueOf`, `toJSON`, `then`, todo símbolo bien conocido (`Symbol.iterator`, …) y el hook de inspección de Node: el runtime los llama por cuenta propia |
+| `class-constructor` | una `class` guardada como propiedad o en un prototipo: un envoltorio no se puede `new`ear, así que se deja tal cual y se avisa una vez |
+| `bound-wrapper` | una copia `bind()` de una función que no es método propio del objeto (`log: console.log.bind(console)`); una copia enlazada que sombrea un método heredado sigue trazada |
+
+**Lista 2, el valor predeterminado de `exclude`** (los providers propios de NestJS, hallados arrancando una aplicación con el auto-proxy y listando lo que descubre):
+
+| Prefijo | Motivo | Fuente |
+|---|---|---|
+| `ModuleRef` | el resolvedor del contenedor de inyección de dependencias de NestJS, un provider en cada módulo | [fuente](https://github.com/nestjs/nest/blob/master/packages/core/injector/module-ref.ts) |
+| `Reflector` | lector de metadatos de NestJS que usan guards e interceptors; es infraestructura, no un paso de negocio | [fuente](https://github.com/nestjs/nest/blob/master/packages/core/services/reflector.service.ts) |
+| `MetadataScanner` | escáner de metadatos de clases de NestJS, se ejecuta mientras arranca la aplicación | [fuente](https://github.com/nestjs/nest/blob/master/packages/core/metadata-scanner.ts) |
+| `DiscoveryService` | servicio de descubrimiento de providers de NestJS, sobre el que se construye el propio auto-proxy | [fuente](https://github.com/nestjs/nest/blob/master/packages/core/discovery/discovery-service.ts) |
 
 ## Ver también
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { join } from "node:path";
+import { isAbsolute, join, relative, sep } from "node:path";
 import type { Platform } from "./platform-presets.js";
 
 /**
@@ -159,12 +159,50 @@ function readManifestOrNothing(
   }
 }
 
-/** One `pnpm pack` per package, into {@link registryTarballDir}. */
+/** `path` is absolute and a descendant of `dir` — never `dir` itself, nor a sibling sharing its prefix. */
+function isStrictlyInside(path: string, dir: string): boolean {
+  if (!isAbsolute(path)) return false;
+  const rel = relative(dir, path);
+  return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
+/**
+ * Refuses a pack destination that is not an absolute path strictly inside `workDir`.
+ *
+ * @llmNote A pack runs FROM the real package directory, and `pnpm pack` resolves a relative
+ * `--pack-destination` — `undefined` included, once stringified into argv — against it, so a bad
+ * destination writes the tarball into the repository itself (B-121, 2026-10-19: a mutant of
+ * {@link registryTarballDir} left `packages/<pkg>/undefined/*.tgz` in the live tree). Checked
+ * before any command exists, so nothing runs.
+ *
+ * @throws {Error} naming the work directory and the destination it refused
+ */
+export function assertPackDestination(
+  destination: unknown,
+  workDir: string,
+): asserts destination is string {
+  if (typeof destination !== "string" || !isStrictlyInside(destination, workDir)) {
+    throw new Error(
+      `pack destination must be a path inside ${workDir}, not ${String(destination)}`,
+    );
+  }
+}
+
+/**
+ * One `pnpm pack` per package, into {@link registryTarballDir}.
+ *
+ * @throws {Error} when `workDir` is not absolute, or the destination is not inside it — see
+ * {@link assertPackDestination}
+ */
 export function packCommands(
   packages: readonly CheckoutPackage[],
   workDir: string,
 ): readonly SetupCommand[] {
+  if (typeof workDir !== "string" || !isAbsolute(workDir)) {
+    throw new Error(`the work directory must be an absolute path, not ${String(workDir)}`);
+  }
   const destination = registryTarballDir(workDir);
+  assertPackDestination(destination, workDir);
   return packages.map((pkg) => ({
     argv: ["pnpm", "pack", "--pack-destination", destination],
     cwd: pkg.dir,

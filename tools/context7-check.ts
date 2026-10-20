@@ -161,15 +161,16 @@ export function untaggedFenceLines(text: string): number[] {
   let open: { char: string; length: number } | undefined;
   text.split("\n").forEach((raw, index) => {
     const match = FENCE.exec(raw.replace(/\r$/, ""));
+    const [, fence = "", info = ""] = match ?? [];
     if (open === undefined) {
-      if (match === null || (match[1][0] === "`" && match[2].includes("`"))) return;
-      open = { char: match[1][0], length: match[1].length };
-      if (match[2].trim() === "") lines.push(index + 1);
+      if (match === null || (fence.startsWith("`") && info.includes("`"))) return;
+      open = { char: fence.charAt(0), length: fence.length };
+      if (info.trim() === "") lines.push(index + 1);
     } else if (
       match !== null &&
-      match[1][0] === open.char &&
-      match[1].length >= open.length &&
-      match[2].trim() === ""
+      fence.charAt(0) === open.char &&
+      fence.length >= open.length &&
+      info.trim() === ""
     ) {
       open = undefined;
     }

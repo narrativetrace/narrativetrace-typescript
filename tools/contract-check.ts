@@ -55,7 +55,9 @@ function readVitestRuntimeRange(repoRoot: string): string {
   const root = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf-8")) as {
     devDependencies: Record<string, string>;
   };
-  return root.devDependencies.vitest;
+  const range = root.devDependencies.vitest;
+  if (range === undefined) throw new Error("package.json devDependencies has no vitest range");
+  return range;
 }
 
 function writeScratchProject(dir: string): void {
@@ -102,7 +104,7 @@ function parseArgs(argv: readonly string[]): {
   // asked of the thing that actually produced the answer.
   const keep = argv.includes("--keep");
   const version = argv.find((arg) => !arg.startsWith("-"));
-  return { version, dryRun, keep };
+  return { ...(version === undefined ? {} : { version }), dryRun, keep };
 }
 
 async function main(): Promise<void> {

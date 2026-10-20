@@ -36,7 +36,11 @@ class OrderService {
   }
 }
 
-const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+// serviceName is what the platform and the OTel bridge show for this service; without it, traces
+// read "unknown_service:node". Trace a class instance — a plain object would narrate as "Object".
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "order-service",
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
@@ -61,7 +65,7 @@ Real output, from the run that produced this page:
 
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output.txt mask=duration -->
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.39ms #1
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.29ms #1
 ```
 <!-- /snippet -->
 
@@ -166,7 +170,7 @@ class OrderService {
 // generates a random trace id — so nt.traceName/trace_id below stay the same phrase every time
 // this page's output is regenerated.
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
-const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT)?.traceId;
 
 // Any pino instance works. `sync: true` is this script's own need, not the library's: pino's
 // default destination writes on a later tick, so a script that logs and then prints can have the
@@ -174,14 +178,11 @@ const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 const logger = pino(pino.destination({ sync: true }));
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-const context = new SyncNarrativeContext(
-  new NarrativeTraceConfig(),
-  undefined, // parentResolver — a plain script has no ambient parent span to resolve
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
   pipeline, // routes events to both the logger above and the buffer captureTrace() reads
-  null, // rootParentOverride — no inbound parent span for this root call
-  undefined, // serviceIdentity — not needed for this example
-  fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
-);
+  serviceName: "order-service", // what the platform and the OTel bridge show for this service
+  inheritedTraceId: fixedTraceId, // seeds the trace id an inbound traceparent header would carry on a real request
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
@@ -199,9 +200,9 @@ Real output, from the run that produced this page:
 
 <!-- snippet: examples/sixty-seconds/narrativetrace-output/sixty-seconds/console-output-with-logger.txt mask=duration -->
 ```text
-{"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
-{"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.89ms #1
+{"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","service.name":"order-service","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
+{"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","service.name":"order-service","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms #1
 ```
 <!-- /snippet -->
 

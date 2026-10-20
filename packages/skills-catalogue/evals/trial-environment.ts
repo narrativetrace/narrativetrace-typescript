@@ -30,7 +30,7 @@ import { registryEnv } from "./isolated-agent-config.js";
  * nothing a skill legitimately instructs loses anything by it.
  *
  * @sideEffects {@link installStandIns} creates the work directory and writes one executable per
- * blocked command; {@link recordUserTurn} appends to the transcript; {@link keepEvidence} copies.
+ * blocked command; {@link recordUserTurn} and {@link recordDelivery} append to the transcript; {@link keepEvidence} copies.
  */
 
 /** The one host the `curl` stand-in hands to the real curl: the published site. */
@@ -204,6 +204,15 @@ export function recordUserTurn(workDir: string, turn: number, text: string): voi
   mkdirSync(workDir, { recursive: true });
   const marker = JSON.stringify({ nt_turn: turn, role: "user", text });
   appendFileSync(transcriptPath(workDir), `${marker}\n`);
+}
+
+/**
+ * Records which delivery put the skill pages in place before turn 1, as one JSON line ahead of the
+ * first turn marker, so the kept transcript states what the agent had when it started.
+ */
+export function recordDelivery(workDir: string, delivery: string): void {
+  mkdirSync(workDir, { recursive: true });
+  appendFileSync(transcriptPath(workDir), `${JSON.stringify({ nt_delivery: delivery })}\n`);
 }
 
 /**

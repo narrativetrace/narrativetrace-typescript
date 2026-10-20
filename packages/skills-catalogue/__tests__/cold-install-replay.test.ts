@@ -20,7 +20,7 @@ import { packCommands, publishablePackages, registryTarballDir } from "../evals/
 import { registryProcessStarter } from "../evals/registry-process.js";
 import { ADD_NARRATIVE_TRACING } from "../src/catalogue/add-narrative-tracing.js";
 import { type PlaceSnippet, replaySkill } from "../src/replay.js";
-import { REPO_ROOT } from "./repo-root.js";
+import { inMutationSandbox, REPO_ROOT } from "./repo-root.js";
 
 // Tier A2 for the install skill, from ZERO (B-87). The page used to be replayed only in
 // examples/sixty-seconds, a workspace member that already declares every @narrativetrace package —
@@ -90,54 +90,62 @@ function manifestOf(project: string): Record<string, unknown> & {
   return JSON.parse(readFileSync(join(project, "package.json"), "utf-8"));
 }
 
-describe.sequential("Tier A2 replay of add-narrative-tracing from a cold project", () => {
-  const fixture = join(REPO_ROOT, ADD_NARRATIVE_TRACING.fixture);
-  const scratch = mkdtempSync(join(tmpdir(), "nt-cold-install-"));
-  const project = join(scratch, "project");
-  let results: ReturnType<typeof replaySkill> = [];
-  let stopRegistry = () => {};
+// Never under mutation (B-121): the packs run from the REAL package directories, so a mutant of
+// case-setup.ts's command line writes into the live tree — `packages/<pkg>/undefined/*.tgz` on
+// 2026-10-19. case-setup.test.ts kills those mutants on recorded argv, with nothing executed.
+describe
+  .skipIf(inMutationSandbox(import.meta.dirname))
+  .sequential("Tier A2 replay of add-narrative-tracing from a cold project", () => {
+    const fixture = join(REPO_ROOT, ADD_NARRATIVE_TRACING.fixture);
+    // Made in beforeAll, not here: a skipped describe's body still runs during collection.
+    let scratch = "";
+    let project = "";
+    let results: ReturnType<typeof replaySkill> = [];
+    let stopRegistry = () => {};
 
-  beforeAll(async () => {
-    // Hand the event loop back once before blocking it: see replay.test.ts's own hooks.
-    await new Promise<void>((resolve) => setImmediate(resolve));
-    cpSync(fixture, project, { recursive: true });
-    stopRegistry = serveCheckout(scratch, project);
-    const env = readerEnvironment(scratch);
-    const run = (command: string, cwd: string) =>
-      void execFileSync(command, { shell: true, cwd, stdio: "pipe", env });
-    results = replaySkill(ADD_NARRATIVE_TRACING, project, run, placeSnippet);
-  }, REPLAY_BUDGET_MS);
+    beforeAll(async () => {
+      // Hand the event loop back once before blocking it: see replay.test.ts's own hooks.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      scratch = mkdtempSync(join(tmpdir(), "nt-cold-install-"));
+      project = join(scratch, "project");
+      cpSync(fixture, project, { recursive: true });
+      stopRegistry = serveCheckout(scratch, project);
+      const env = readerEnvironment(scratch);
+      const run = (command: string, cwd: string) =>
+        void execFileSync(command, { shell: true, cwd, stdio: "pipe", env });
+      results = replaySkill(ADD_NARRATIVE_TRACING, project, run, placeSnippet);
+    }, REPLAY_BUDGET_MS);
 
-  afterAll(() => {
-    stopRegistry();
-    rmSync(scratch, { recursive: true, force: true });
+    afterAll(() => {
+      stopRegistry();
+      rmSync(scratch, { recursive: true, force: true });
+    });
+
+    it("the fixture starts from zero: no dependency, no lockfile, no module type", () => {
+      const manifest = JSON.parse(readFileSync(join(fixture, "package.json"), "utf-8"));
+      expect(Object.keys(manifest)).toEqual(["name", "version", "private"]);
+      expect(existsSync(join(fixture, "pnpm-lock.yaml"))).toBe(false);
+    });
+
+    it("every step with something mechanical to run succeeds", () => {
+      const failing = results.filter((r) => !r.ok);
+      expect(failing, JSON.stringify(failing, null, 2)).toEqual([]);
+      expect(results.every((r) => r.ran)).toBe(true);
+    });
+
+    it("the project ends declaring exactly the packages the page added, as an ES module", () => {
+      const manifest = manifestOf(project);
+      expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual([
+        `${SCOPE}core-node`,
+        `${SCOPE}pino`,
+        `${SCOPE}proxy`,
+        "pino",
+      ]);
+      expect(manifest.type).toBe("module");
+    });
+
+    it("the NarrativeTrace packages came from this checkout's registry, not a published release", () => {
+      const lockfile = readFileSync(join(project, "pnpm-lock.yaml"), "utf-8");
+      expect(lockfile).toMatch(/http:\/\/127\.0\.0\.1:\d+\/tarballs\/narrativetrace-core-node-/);
+    });
   });
-
-  it("the fixture starts from zero: no dependency, no lockfile, no module type", () => {
-    const manifest = JSON.parse(readFileSync(join(fixture, "package.json"), "utf-8"));
-    expect(Object.keys(manifest)).toEqual(["name", "version", "private"]);
-    expect(existsSync(join(fixture, "pnpm-lock.yaml"))).toBe(false);
-  });
-
-  it("every step with something mechanical to run succeeds", () => {
-    const failing = results.filter((r) => !r.ok);
-    expect(failing, JSON.stringify(failing, null, 2)).toEqual([]);
-    expect(results.every((r) => r.ran)).toBe(true);
-  });
-
-  it("the project ends declaring exactly the packages the page added, as an ES module", () => {
-    const manifest = manifestOf(project);
-    expect(Object.keys(manifest.dependencies ?? {}).sort()).toEqual([
-      `${SCOPE}core-node`,
-      `${SCOPE}pino`,
-      `${SCOPE}proxy`,
-      "pino",
-    ]);
-    expect(manifest.type).toBe("module");
-  });
-
-  it("the NarrativeTrace packages came from this checkout's registry, not a published release", () => {
-    const lockfile = readFileSync(join(project, "pnpm-lock.yaml"), "utf-8");
-    expect(lockfile).toMatch(/http:\/\/127\.0\.0\.1:\d+\/tarballs\/narrativetrace-core-node-/);
-  });
-});

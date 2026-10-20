@@ -269,6 +269,19 @@ Run `npx vitest run` and open `narrativetrace-output/order-service/customer_plac
 test name became the scenario name, no interface or build-tool plugin required (`traceObject` wraps
 the concrete object directly).
 
+Three names come from your configuration code, because the TypeScript runtime reads none of them
+from source — and the platform and the OTel bridge show them to someone else:
+
+- **The service**: `new SyncNarrativeContext(config, { serviceName: "checkout-api" })`, or
+  `NARRATIVETRACE_SERVICE_NAME` (with `NARRATIVETRACE_SERVICE_VERSION` and
+  `NARRATIVETRACE_ENVIRONMENT`). Unset, exported traces read `unknown_service:node`.
+- **The class**: trace an instance of a class. A plain object's constructor is `Object`, so its
+  spans read `Object.<method>` — pass `{ className: "CheckoutService" }` if you must trace a literal.
+- **The parameters**: pass their names, as above. Unset, they read `arg0`, `arg1`.
+
+`traceObject()` prints a one-time `console.warn` for the last two; `narrativetrace doctor` checks the
+first two.
+
 Want to see the clarity score drop when you rename a method, or a value redacted with
 `@notTraced`? The [Clarity Guide](documentation/clarity-guide.md) and
 [Privacy and Redaction](documentation/privacy-and-redaction.md) walk through both, with real,

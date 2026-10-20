@@ -73,6 +73,25 @@ describe("NarrativeInterceptor DI wiring", () => {
     expect(seen).toBe(traceId);
   });
 
+  test("records an inbound traceparent's parent span as the request root's parent", async () => {
+    const header = "00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01";
+    const { storage, interceptor } = createInterceptor();
+    let parent: string | null | undefined;
+    const handler = {
+      handle: () => {
+        const ctx = storage.current()!;
+        ctx.exitMethodWithReturn("ok", ctx.enterMethod("Svc", "op", []));
+        parent = ctx.captureTrace().roots[0]?.spanContext?.parentSpanId;
+        return of("ok");
+      },
+    } as never;
+
+    await firstValueFrom(
+      interceptor.intercept(mockExecCtx({ headers: { traceparent: header } }), handler),
+    );
+    expect(parent).toBe("b7ad6b7169203331");
+  });
+
   test("extractUser stamps identity and a throwing extractUser does not fail the request", async () => {
     const { storage, interceptor } = createInterceptor({
       extractUser: () => ({ enduserId: "user-9" as never }),

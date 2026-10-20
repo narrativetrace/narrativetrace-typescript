@@ -1,4 +1,4 @@
-<!-- source: documentation/troubleshooting.md blob e6e39418b79c | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/troubleshooting.md blob 3e63fe95d357 | translated: 2026-10-19 | reviewed: - -->
 # Solución de problemas
 
 [English](../troubleshooting.md) | **Español** | [Português](../pt-BR/solucao-de-problemas.md) | [简体中文](../zh-CN/故障排查.md)
@@ -10,9 +10,10 @@ cada hecho.
 
 ## Los parámetros aparecen como `arg0`, `arg1`
 
-**Causa:** JavaScript no conserva los nombres de los parámetros en tiempo de
-ejecución — no existe un flag del compilador que los recupere. Sin ayuda,
-`traceObject()` recurre a nombres posicionales.
+**Causa:** el runtime no lee ningún nombre de parámetro del código fuente — ni
+de una clase ajena, ni de una que escribiste hace un minuto; tampoco existe un
+flag del compilador que los recupere. Sin ayuda, `traceObject()` recurre a
+nombres posicionales y lo avisa una vez con un `console.warn`.
 
 **Solución:** proporciona los nombres de una forma u otra —
 
@@ -32,6 +33,40 @@ traceObject(orderService, context, { placeOrder: ["customerId", "productId", "qu
 Un bundle de producción minificado elimina los nombres de la misma forma,
 así que esto no es solo un problema de desarrollo — consulta
 [Guía de decoradores § `@traced`](guia-de-decoradores.md#traced).
+
+## Las trazas muestran `unknown_service:node`
+
+**Causa:** no se configuró ningún nombre de servicio. El runtime no tiene otra
+fuente para él, así que un capítulo exportado, un span de OTel o una columna de
+la plataforma muestran el valor por defecto honesto: `unknown_service:node`.
+
+**Solución:** define la identidad una sola vez, en código o en el entorno —
+
+```ts
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "checkout-api",
+  serviceVersion: "1.4.2",
+  environment: "production",
+});
+```
+
+o `NARRATIVETRACE_SERVICE_NAME`, `NARRATIVETRACE_SERVICE_VERSION` y
+`NARRATIVETRACE_ENVIRONMENT` (un `AsyncNarrativeContext` las lee por sí mismo;
+un `SyncNarrativeContext` recibe `{ ...serviceIdentityFromEnv() }`). `narrativetrace
+doctor` informa `config.service-identity` cuando el código de la aplicación
+traza y nada nombra el servicio. Consulta la [Guía de configuración § Identidad
+del servicio](guia-de-configuracion.md#identidad-del-servicio).
+
+## Los spans se leen como `Object.<method>`
+
+**Causa:** los spans se nombran según el constructor del objeto trazado, y el
+constructor de un objeto literal es `Object`. `traceObject()` avisa una vez
+cuando encuentra uno.
+
+**Solución:** traza una instancia de una clase — `traceObject(new CheckoutService(), context)`
+— o ponle nombre al literal: `traceObject(service, context, { className: "CheckoutService" })`.
+`narrativetrace doctor` informa `trap.object-class-name` para cualquiera de las
+dos formas, en tu código fuente o en la salida renderizada.
 
 ## No se escribe ningún fichero de traza
 

@@ -16,7 +16,7 @@ import {
   parameterCapture,
   type TraceId,
 } from "@narrativetrace/core";
-import { describe, expect, test } from "vitest";
+import { afterEach, describe, expect, test } from "vitest";
 import { AsyncNarrativeContext } from "../src/async-context.js";
 
 describe("AsyncNarrativeContext", () => {
@@ -467,5 +467,33 @@ describe("AsyncNarrativeContext", () => {
       expect(tree.roots[0]?.signature.methodName).toBe("call");
       expect(tree.roots[0]?.children[0]?.signature.methodName).toBe("call");
     });
+  });
+});
+
+describe("AsyncNarrativeContext service identity from the environment", () => {
+  const saved = process.env.NARRATIVETRACE_SERVICE_NAME;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.NARRATIVETRACE_SERVICE_NAME;
+    else process.env.NARRATIVETRACE_SERVICE_NAME = saved;
+  });
+
+  function enterServiceName(identity?: ServiceIdentity): string | undefined {
+    const received: TraceEvent[] = [];
+    const pipeline = new DualPathPipeline((e) => received.push(e), new BufferedEventConsumer(16));
+    const ctx = new AsyncNarrativeContext(new NarrativeTraceConfig(), pipeline, identity);
+    ctx.enterMethod("Svc", "op", []);
+    ctx.exitMethodWithReturn('"ok"');
+    const enter = received.find((e) => e.type === "enter");
+    return enter?.type === "enter" ? enter.spanContext.serviceName : undefined;
+  }
+
+  test("NARRATIVETRACE_SERVICE_NAME names the service when no identity is passed", () => {
+    process.env.NARRATIVETRACE_SERVICE_NAME = "checkout-api";
+    expect(enterServiceName()).toBe("checkout-api");
+  });
+
+  test("an identity passed in code wins over the environment", () => {
+    process.env.NARRATIVETRACE_SERVICE_NAME = "from-env";
+    expect(enterServiceName({ serviceName: "from-code" })).toBe("from-code");
   });
 });

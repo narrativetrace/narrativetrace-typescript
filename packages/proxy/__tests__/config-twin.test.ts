@@ -222,9 +222,9 @@ describe("unrecognised option keys are rejected, not silently ignored", () => {
   test("an unknown per-method config key throws, naming the accepted keys", () => {
     const ctx = freshContext();
     expect(() =>
+      // @ts-expect-error deliberately wrong key for the runtime-rejection test
       traceObject(new Svc(), ctx, {
         methods: {
-          // @ts-expect-error deliberately wrong key for the runtime-rejection test
           op: { notTraced: [0], nottraced: [0] },
         },
       }),

@@ -21,9 +21,9 @@ export const NARRATIVETRACE_DOCTOR: Skill = {
   canonicalName: "narrativetrace-doctor",
   skillClass: "mechanical",
   description:
-    "Diagnoses a NarrativeTrace TypeScript install and configuration. Use when nothing is being traced, traces aren't showing up, the vitest config crashes on load, parameter names render as arg0/arg1, or you are not sure NarrativeTrace is wired up correctly. Checks Node/vitest-peer/sibling-package versions, the /reporters subpath, traceObject option shapes, NARRATIVETRACE_OUTPUT, whether any consumer is attached to a traced proxy, whether redaction is proven in a test, stale approval-trace diffs, and whether the NarrativeTrace agent skills are installed and current. Read-only — makes no changes. Say 'check my narrativetrace setup', 'is narrativetrace broken', or 'why isn't anything being traced' to invoke it.",
+    "Diagnoses a NarrativeTrace TypeScript install and configuration. Use when nothing is being traced, traces aren't showing up, the vitest config crashes on load, parameter names render as arg0/arg1, or you are not sure NarrativeTrace is wired up correctly. Checks Node/vitest-peer/sibling-package versions, the /reporters subpath, traceObject option shapes, NARRATIVETRACE_OUTPUT, whether any consumer is attached to a traced proxy, whether redaction is proven in a test, stale approval-trace diffs, and whether the NarrativeTrace agent skills are installed in this project and current. Read-only — makes no changes. Say 'check my narrativetrace setup', 'is narrativetrace broken', or 'why isn't anything being traced' to invoke it.",
   whenToUse:
-    "A project already has NarrativeTrace installed and something about it is not working, or an agent wants a pre-flight check before wiring it into new code.",
+    "A project already has NarrativeTrace installed and something about it is not working, or an agent wants a pre-flight check before wiring it into new code. A user who installed these skills as a personal plugin in their agent rather than in this project is also a trigger: a plugin install is invisible to this check by design, and only a project install reaches teammates and other agents.",
   fixture: FIXTURE,
   allowedTools: ["pnpm", "npx", "node"],
   steps: [

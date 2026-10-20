@@ -43,6 +43,9 @@ const BY_ID: ReadonlyMap<string, string> = new Map([
   ["trap.approval-traces", NARRATIVETRACE_DOCTOR],
   ["config.approval-mode", NARRATIVETRACE_VERIFY],
   ["trap.llms-before-you-start", ADD_NARRATIVE_TRACING],
+  ["config.service-identity", ADD_NARRATIVE_TRACING],
+  ["trap.object-class-name", ADD_NARRATIVE_TRACING],
+  ["config.instrumentation-exclusions", ADD_NARRATIVE_TRACING],
 ]);
 
 /**

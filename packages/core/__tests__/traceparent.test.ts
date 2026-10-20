@@ -6,9 +6,18 @@ import type { SpanId, TraceId } from "../src/span-id-generator.js";
 import { formatTraceparent, parseTraceparent } from "../src/traceparent.js";
 
 describe("parseTraceparent", () => {
-  test("extracts traceId from valid traceparent header", () => {
+  test("extracts trace id, parent span id and flags from valid traceparent header", () => {
     const result = parseTraceparent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01");
-    expect(result).toBe("4bf92f3577b34da6a3ce929d0e0e4736" as TraceId);
+    expect(result).toEqual({
+      traceId: "4bf92f3577b34da6a3ce929d0e0e4736" as TraceId,
+      parentSpanId: "00f067aa0ba902b7" as SpanId,
+      traceFlags: 1,
+    });
+  });
+
+  test("reads the flags byte as a number", () => {
+    const result = parseTraceparent("00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-ff");
+    expect(result?.traceFlags).toBe(255);
   });
 
   test("returns undefined for invalid format", () => {
@@ -58,6 +67,6 @@ describe("formatTraceparent", () => {
     const traceId = "aabbccdd11223344aabbccdd11223344" as TraceId;
     const spanId = "1122334455667788" as SpanId;
     const header = formatTraceparent(traceId, spanId);
-    expect(parseTraceparent(header)).toBe(traceId);
+    expect(parseTraceparent(header)).toEqual({ traceId, parentSpanId: spanId, traceFlags: 1 });
   });
 });

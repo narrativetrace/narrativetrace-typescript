@@ -18,10 +18,17 @@
  * project's report legitimately fails some checks while still being well-formed — that is doctor
  * working correctly, not a defect in whatever step is running this.
  */
-/** How many checks the doctor runs: twelve hand-written plus one per framework-table row. */
-export const DOCTOR_CHECK_COUNT = 25;
+/** How many checks the doctor runs: fifteen hand-written plus one per framework-table row. */
+export const DOCTOR_CHECK_COUNT = 28;
 
 export const DOCTOR_REPORT_WELL_FORMED = `npx @narrativetrace/cli doctor --json | node -e "const r=JSON.parse(require('fs').readFileSync(0,'utf8')); if(!Array.isArray(r.findings)||r.findings.length!==${DOCTOR_CHECK_COUNT}) process.exit(1);"`;
+
+/**
+ * The `config.service-identity` finding passes — the "name the service" step's own claim: either no
+ * application code traces yet, or a service name is set where the doctor reads one.
+ */
+export const SERVICE_IDENTITY_SET =
+  "npx @narrativetrace/cli doctor --json | node -e \"const r=JSON.parse(require('fs').readFileSync(0,'utf8')); const f=r.findings.find(x=>x.id==='config.service-identity'); if(!f||f.status!=='pass'){console.error(JSON.stringify(f)); process.exit(1);}\"";
 
 /** Runs the doctor for its report, whatever it finds — a failing finding is the step's input. */
 export const RUN_DOCTOR = "npx @narrativetrace/cli doctor || true";

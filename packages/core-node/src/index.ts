@@ -3,16 +3,30 @@
 // Copyright (c) 2026 Empower Agile
 import { randomBytes } from "node:crypto";
 import type { SpanId, TraceId } from "@narrativetrace/core";
-import { registerIdGenerator } from "@narrativetrace/core";
+import {
+  registerAdditionalRedactionPatterns,
+  registerExcludeFromEnv,
+  registerIdGenerator,
+} from "@narrativetrace/core";
+import { resolveEnvConfig } from "./env-config.js";
 
 registerIdGenerator({
   traceId: () => randomBytes(16).toString("hex") as TraceId,
   spanId: () => randomBytes(8).toString("hex") as SpanId,
 });
 
+const environment = resolveEnvConfig();
+registerAdditionalRedactionPatterns(environment.redactionAdditionalPatterns);
+registerExcludeFromEnv(environment.exclude);
+
 export * from "@narrativetrace/core";
 export { AsyncNarrativeContext } from "./async-context.js";
-export { ENV_KEYS, type EnvConfig, resolveEnvConfig } from "./env-config.js";
+export {
+  ENV_KEYS,
+  type EnvConfig,
+  resolveEnvConfig,
+  serviceIdentityFromEnv,
+} from "./env-config.js";
 export {
   type ConfigFileReader,
   DuplicateConfigurationError,

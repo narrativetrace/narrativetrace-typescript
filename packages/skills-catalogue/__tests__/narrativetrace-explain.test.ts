@@ -140,6 +140,7 @@ describe("narrativetrace-explain — the reading loop", () => {
     expect(last?.flag).toContain("a claim without an id is not a claim");
     expect(last?.flag).toContain("marked as an inference");
     expect(last?.flag).toContain("what was NOT observed");
+    expect(last?.flag).toContain("and the branches this run did not take");
   });
 
   it("is judged on the reply: every step is judgmental, none promotes anything", () => {

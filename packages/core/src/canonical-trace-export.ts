@@ -242,7 +242,8 @@ export function canonicalEntries(tree: TraceTree): CanonicalEntry[] {
   const identity = resolveTraceIdentity(tree);
   let sequence = 0;
   const next = () => ++sequence;
-  for (const root of tree.roots) appendNode(entries, root, null, next, identity);
+  for (const root of tree.roots)
+    appendNode(entries, root, root.spanContext?.parentSpanId ?? null, next, identity);
   return entries;
 }
 

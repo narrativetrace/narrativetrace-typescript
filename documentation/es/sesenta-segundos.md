@@ -1,4 +1,4 @@
-<!-- source: documentation/sixty-seconds.md blob f3f083814b49 | translated: 2026-10-09 | reviewed: - -->
+<!-- source: documentation/sixty-seconds.md blob 21f138f66a60 | translated: 2026-10-19 | reviewed: - -->
 # Ve una traza en 60 segundos
 
 [English](../sixty-seconds.md) | **Español** | [Português](../pt-BR/sessenta-segundos.md) | [简体中文](../zh-CN/60秒.md)
@@ -39,7 +39,11 @@ class OrderService {
   }
 }
 
-const context = new SyncNarrativeContext(new NarrativeTraceConfig());
+// serviceName is what the platform and the OTel bridge show for this service; without it, traces
+// read "unknown_service:node". Trace a class instance — a plain object would narrate as "Object".
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
+  serviceName: "order-service",
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
@@ -63,7 +67,7 @@ node index.js
 Salida real, de la ejecución que produjo esta página:
 
 ```text
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.39ms #1
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.29ms #1
 ```
 
 El `Nms` final es tiempo de reloj — en tu máquina será un número distinto, y la próxima vez que lo
@@ -168,7 +172,7 @@ class OrderService {
 // que siempre genera un id de traza aleatorio — para que nt.traceName/trace_id de abajo se
 // mantengan con la misma frase cada vez que se regenera la salida de esta página.
 const FIXED_TRACEPARENT = "00-a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4-a1b2c3d4a1b2c3d4-01";
-const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
+const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT)?.traceId;
 
 // Cualquier instancia de pino funciona. `sync: true` es una necesidad de este script, no de la
 // librería: el destino por defecto de pino escribe en un tick posterior, así que un script que
@@ -177,14 +181,11 @@ const fixedTraceId = parseTraceparent(FIXED_TRACEPARENT);
 const logger = pino(pino.destination({ sync: true }));
 const pinoConsumer = createPinoEventConsumer(logger, { levels: { enter: "info", return: "info" } });
 const pipeline = new DualPathPipeline(pinoConsumer, new BufferedEventConsumer());
-const context = new SyncNarrativeContext(
-  new NarrativeTraceConfig(),
-  undefined, // parentResolver — un script sencillo no tiene ningún span padre ambiental que resolver
+const context = new SyncNarrativeContext(new NarrativeTraceConfig(), {
   pipeline, // enruta los eventos tanto al logger de arriba como al búfer que lee captureTrace()
-  null, // rootParentOverride — sin span padre entrante para esta llamada raíz
-  undefined, // serviceIdentity — no hace falta para este ejemplo
-  fixedTraceId, // siembra el id de traza que llevaría una cabecera traceparent entrante en una petición real
-);
+  serviceName: "order-service", // lo que la plataforma y el puente de OTel muestran para este servicio
+  inheritedTraceId: fixedTraceId, // siembra el id de traza que llevaría una cabecera traceparent entrante en una petición real
+});
 const service = traceObject(new OrderService(), context, {
   placeOrder: ["customerId", "productId", "quantity"],
 });
@@ -200,9 +201,9 @@ node index-with-logger.js
 Salida real, de la ejecución que produjo esta página:
 
 ```text
-{"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
-{"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
-- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 0.89ms #1
+{"level":30,"time":1789269258472,"pid":22805,"hostname":"9a9362dce156","code.namespace":"OrderService","code.function":"placeOrder","nt.depth":0,"nt.parameters":[{"name":"customerId","value":"\"C1\""},{"name":"productId","value":"\"P1\""},{"name":"quantity","value":"2"}],"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","service.name":"order-service","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_enter","nt.schemaVersion":"1.0","msg":"→ OrderService.placeOrder"}
+{"level":30,"time":1789269258474,"pid":22805,"hostname":"9a9362dce156","nt.outcome":"returned","nt.depth":0,"trace_id":"a1b2c3d4a1b2c3d4a1b2c3d4a1b2c3d4","nt.traceName":"loose hook parks","span_id":"5bbbf25ced9a35c4","service.name":"order-service","nt.storyId":"OrderService.placeOrder","nt.chapterId":"OrderService.placeOrder","nt.entryType":"entry","nt.eventType":"method_exit","nt.schemaVersion":"1.0","nt.returnValue":"\"ORD-C1-P1-2\"","msg":"← returned: \"ORD-C1-P1-2\""}
+- `OrderService.placeOrder(customerId: "C1", productId: "P1", quantity: 2)` → `"ORD-C1-P1-2"` — 1ms #1
 ```
 
 `time`, `pid`, `hostname` y `span_id` están fijados a un valor de relleno para esta muestra
