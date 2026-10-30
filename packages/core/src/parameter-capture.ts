@@ -52,7 +52,7 @@ export function parameterCapture(
  * Defense-in-depth: a capture flagged `redacted` always displays the canonical marker,
  * regardless of the value that happens to be in `renderedValue`. Every renderer and export
  * path funnels param display through here so a redacted secret cannot leak (parallel-path
- * rule from Java's per-renderer `param.redacted()` re-check).
+ * rule: no renderer re-checks `redacted` on its own).
  */
 export function displayParamValue(capture: ParameterCapture): string {
   return capture.redacted ? RedactionPolicy.MARKER : capture.renderedValue;

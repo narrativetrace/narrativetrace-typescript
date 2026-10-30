@@ -6,8 +6,7 @@ import type { DiagramLabel } from "./diagram-label.js";
 
 /**
  * The per-format literals `sequence-walk.ts`'s shared traversal needs to render one trace tree as
- * a sequence diagram — everything Mermaid and PlantUML disagree about, in one place. Port of the
- * Java reference's `SequenceGrammar` interface.
+ * a sequence diagram — everything Mermaid and PlantUML disagree about, in one place.
  *
  * INTENT: `mermaid-sequence.ts` and `plantuml-sequence.ts` used to each own a private copy of the
  * traversal, differing only in header/footer text, arrow syntax, and return/throw/limited-node
@@ -17,11 +16,10 @@ import type { DiagramLabel } from "./diagram-label.js";
  *
  * @remarks Every hook that carries trace-derived text takes a {@link DiagramLabel}, never a raw
  * `string` — see that type's own module doc; `shape-checks/sequence-grammar-shape.ts` is the
- * compile-time proof no hook regresses to a `string` parameter (this port's mirror of the Java
- * reference's reflection-based `SequenceGrammarShapeTest`, since TS has no runtime reflection over
- * a structural interface's declared parameter types). {@link activate}/{@link deactivate} have no
- * Java analog: PlantUML's TS port renders activation bars Java's PlantUML renderer does not, so
- * these two hooks are optional and Mermaid's grammar simply omits them.
+ * compile-time proof no hook regresses to a `string` parameter (a compile-time check, since TS has no
+ * runtime reflection over a structural interface's declared parameter types).
+ * {@link activate}/{@link deactivate} are optional: PlantUML renders activation bars, so its
+ * grammar supplies them, and Mermaid's grammar simply omits them.
  */
 export interface SequenceGrammar {
   /** The diagram's opening line. */

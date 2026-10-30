@@ -5,7 +5,8 @@ import type { CitedNode, FlatChildOp } from "./child-segment.js";
 import { CitableSpanId } from "./citable-span-id.js";
 import { ControlEscape } from "./control-escape.js";
 import { formatDurationMs } from "./duration-format.js";
-import { errorMessage, errorTypeName } from "./error-display.js";
+import { errorTypeName } from "./error-display.js";
+import { ExceptionMessage } from "./exception-message.js";
 import { displayParamValue } from "./parameter-capture.js";
 import { analyze } from "./sequential-async-detector.js";
 import { humanName } from "./trace-namer.js";
@@ -162,7 +163,7 @@ function formatCall(node: TraceNode): string {
   if (node.outcome.kind === "threw") {
     const { error, errorContext } = node.outcome;
     const context = errorContext ? ` | ${ControlEscape.sanitize(errorContext)}` : "";
-    return `${call} ✗ ${errorTypeName(error)}: ${errorMessage(error)}${context}`;
+    return `${call} ✗ ${errorTypeName(error)}: ${ExceptionMessage.text(error)}${context}`;
   }
 
   if (node.outcome.kind === "incomplete") return `${call} ⏳ (incomplete)`;

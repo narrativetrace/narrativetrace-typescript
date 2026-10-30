@@ -364,3 +364,17 @@ describe("citable span ids — the same id the structural trace gives the same c
     expect(result).toMatch(/… \(cycle\)$/);
   });
 });
+
+describe("renderIndentedText exception message redaction (B-174)", () => {
+  test("a credential-shaped exception message prints as the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const node = traceNode(
+      methodSignature("Pay", "charge", []),
+      threw(new Error("4111111111111111")),
+      [],
+    );
+    const result = renderIndentedText(traceTree([node]));
+    expect(result).not.toContain("4111111111111111");
+    expect(result).toContain("✗ Error: [REDACTED]");
+  });
+});

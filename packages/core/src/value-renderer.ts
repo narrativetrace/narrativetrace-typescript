@@ -2,9 +2,12 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { ControlEscape } from "./control-escape.js";
+import { declaredElements, elementOrigin, platformMembers } from "./element-origin.js";
 import { errorTypeName } from "./error-display.js";
 import { isThenable } from "./is-thenable.js";
-import { notTracedFields, RedactionPolicy } from "./redaction-policy.js";
+import { notTracedFields, numberText, RedactionPolicy } from "./redaction-policy.js";
+import { clampLimits } from "./render-limits.js";
+import { RenderWalk, repeatMarker, TOO_MANY } from "./render-walk.js";
 import { withRenderingGuard } from "./rendering-guard.js";
 
 /**
@@ -45,6 +48,8 @@ const INACCESSIBLE = "<inaccessible>";
  * purity contract — see README.md and documentation/decorators-guide.md.)
  * @remarks Edge case: an accessor on an object literal is own-enumerable and *will* run during
  * introspection — prefer class getters or list the field in `static notTraced`.
+ * @remarks Limits contract (B-207): a limit is a size, so one below zero is clamped to `0` -- never
+ * trusted as "all but the last" -- with one `console.warn` line naming each limit clamped.
  */
 export interface RenderOptions {
   readonly maxStringLength?: number;
@@ -62,73 +67,22 @@ const DEFAULTS: Required<RenderOptions> = {
   redactionPolicy: RedactionPolicy.DEFAULT,
 };
 
-/**
- * How many levels of nested complex value {@link renderValue} will follow before it stops and
- * renders `<max-depth>` instead of descending further.
- *
- * @remarks The cycle guard alone does not bound a walk: a linked list, a parent-child tree, or a
- * JSON document mapped to nested objects is arbitrarily deep while repeating no object, so it never
- * trips `RenderWalk`'s ancestor check. Following one recursively without a limit risks a
- * `RangeError: Maximum call stack size exceeded` raised *inside instrumentation* — an
- * observability failure becoming an application failure, which the pipeline contract forbids, and
- * (worse) at a depth that varies run to run with however much of the call stack happened to be
- * free, which is what made an un-capped deep chain non-idempotent. 32 is chosen the way the other
- * three caps are: with five collection items and five object fields per level, a depth-32 walk can
- * already visit more nodes than any narrative is readable at, and real DTO graphs are single digits
- * deep — this cap exists for the shapes the other three don't reach, cyclic-*shaped* but not
- * cyclic data the ancestor guard cannot see.
- */
-const MAX_DEPTH = 32;
+const LIMIT_OPTIONS = [
+  "maxStringLength",
+  "maxArrayItems",
+  "maxObjectKeys",
+  "maxCollectionItems",
+] as const;
 
-/**
- * Where {@link render} currently is inside one object graph: the ancestors on the path it is
- * walking (for the `<circular>` cycle guard) and how deep that path has gone (for the `<max-depth>`
- * cap). Both answer "may I follow this reference?" and both are threaded through every recursive
- * call as a single parameter, so adding the depth cap was a change to one carrier rather than to
- * every function's signature.
- */
-class RenderWalk {
-  private readonly ancestors = new Set<object>();
-  private depth = 0;
-
-  /** Whether `value` is already an ancestor of the current path — a cycle, not a chain. */
-  has(value: object): boolean {
-    return this.ancestors.has(value);
-  }
-
-  /** Records `value` as an ancestor of the current path. */
-  add(value: object): void {
-    this.ancestors.add(value);
-  }
-
-  /** Drops `value` from the path, on the way back out — a value reached again by a different,
-   * non-overlapping path is shared, not cyclic, and must not render `<circular>`. */
-  remove(value: object): void {
-    this.ancestors.delete(value);
-  }
-
-  /**
-   * Takes one step down.
-   *
-   * @returns whether the step was allowed; `false` means the caller must render `<max-depth>`
-   * instead of descending, and must not call {@link ascend}.
-   */
-  descend(): boolean {
-    if (this.depth >= MAX_DEPTH) return false;
-    this.depth++;
-    return true;
-  }
-
-  /** Takes one step back up. Always paired with a {@link descend} that returned `true`. */
-  ascend(): void {
-    this.depth--;
-  }
+/** The options merged over the defaults, every limit below zero clamped to zero (B-207). */
+function resolveOptions(options: RenderOptions | undefined): Required<RenderOptions> {
+  return clampLimits({ ...DEFAULTS, ...options }, LIMIT_OPTIONS);
 }
 
 /**
  * Renders any captured value to a single compact, human-readable string for a trace line, applying
  * truncation, cycle detection (`<circular>`), a depth cap (`<max-depth>`), and key redaction.
- * Dispatch order mirrors the Java `ValueRenderer`: array/Set/Map, then `@narrativeSummary`, then a
+ * Dispatch order is the family's: array/Set/Map, then `@narrativeSummary`, then a
  * custom native stringification (realm platform intrinsics only, e.g. `Date`/`URL`/`RegExp`/typed
  * arrays — see `isPlatformValue`; `Date` renders via `toISOString()`, every other intrinsic via
  * `toString()` — see `nativeStringMethod`), then field introspection.
@@ -147,8 +101,8 @@ class RenderWalk {
  * documentation/decorators-guide.md.)
  */
 export function renderValue(value: unknown, options?: RenderOptions): string {
-  const opts = { ...DEFAULTS, ...options };
-  return withRenderingGuard(() => render(value, opts, new RenderWalk()));
+  const opts = resolveOptions(options);
+  return withRenderingGuard(() => renderRoot(value, opts, new RenderWalk()));
 }
 
 /**
@@ -175,10 +129,10 @@ export function renderCapture(
   value: unknown,
   options?: RenderOptions,
 ): { readonly rendered: string; readonly shapeRedacted: boolean } {
-  const opts = { ...DEFAULTS, ...options };
+  const opts = resolveOptions(options);
   return withRenderingGuard(() => {
     if (typeof value === "string") return renderStringResult(value, opts);
-    return { rendered: render(value, opts, new RenderWalk()), shapeRedacted: false };
+    return { rendered: renderRoot(value, opts, new RenderWalk()), shapeRedacted: false };
   });
 }
 
@@ -186,15 +140,26 @@ type TypeRenderer = (value: any, opts: Required<RenderOptions>, walk: RenderWalk
 
 const TYPE_RENDERERS: Record<string, TypeRenderer> = {
   string: (v, opts) => renderString(v, opts),
-  number: (v) => String(v),
+  number: (v, opts) => numberText(v, opts.redactionPolicy),
   boolean: (v) => String(v),
-  bigint: (v) => `${v}n`,
+  bigint: (v, opts) => numberText(v, opts.redactionPolicy, "n"),
   symbol: (v, opts) => renderSymbol(v, opts),
   function: () => "<function>",
   object: (v, opts, walk) => renderObject(v, opts, walk),
 };
 
+/**
+ * One nested value: counted against the walk's total budget first, then rendered. The count comes
+ * before any scalar/complex split on purpose — the flat and structured paths classify a few leaves
+ * differently, and counting every value rendered keeps their budgets identical (B-185).
+ */
 function render(value: unknown, opts: Required<RenderOptions>, walk: RenderWalk): string {
+  if (!walk.count()) return TOO_MANY;
+  return renderRoot(value, opts, walk);
+}
+
+/** The walk's entry: the root is not counted, only the values nested under it. */
+function renderRoot(value: unknown, opts: Required<RenderOptions>, walk: RenderWalk): string {
   if (value == null) return String(value);
   // After null guard, typeof is one of: string, number, bigint, boolean, symbol, function, object
   // All have entries in TYPE_RENDERERS — assertion avoids untestable fallback branch
@@ -211,6 +176,16 @@ function truncate(value: string, maxLength: number): string {
  * whether the value was captured or narrated. */
 function sanitizeAndCap(text: string, maxStringLength: number): string {
   return truncate(ControlEscape.sanitize(text), maxStringLength);
+}
+
+/** The shared leaf ladder: text a leaf produced through its own string conversion
+ * is checked by SHAPE on the raw text first (a card number, token, JWT or secret is replaced whole
+ * by the marker), else control-escaped, then capped. {@link renderWithToString}, {@link invokeSummary},
+ * {@link renderSymbol}, {@link renderNarrationText} and a string map key all read this one line, so
+ * no leaf text reaches the output without the value-shape axis (B-206). */
+function scanned(text: string, opts: Required<RenderOptions>): string {
+  if (opts.redactionPolicy.shouldRedactValue(text)) return RedactionPolicy.MARKER;
+  return sanitizeAndCap(text, opts.maxStringLength);
 }
 
 // Value-shape masking (RedactionPolicy.shouldRedactValue) is a second, independent redaction axis
@@ -255,9 +230,8 @@ function renderString(value: string, opts: Required<RenderOptions>): string {
  * @returns the redaction marker, or the sanitized and capped text, unquoted.
  */
 export function renderNarrationText(text: string, options?: RenderOptions): string {
-  const opts = { ...DEFAULTS, ...options };
-  if (opts.redactionPolicy.shouldRedactValue(text)) return RedactionPolicy.MARKER;
-  return sanitizeAndCap(text, opts.maxStringLength);
+  const opts = resolveOptions(options);
+  return scanned(text, opts);
 }
 
 // A symbol's description is caller-supplied text (`Symbol(userInput)`), unlike number/bigint/
@@ -265,11 +239,7 @@ export function renderNarrationText(text: string, options?: RenderOptions): stri
 // path here an attacker actually controls, so it gets the same sanitize + truncate treatment as a
 // string rather than a raw, unescaped `toString()`.
 function renderSymbol(value: symbol, opts: Required<RenderOptions>): string {
-  const description = truncate(
-    ControlEscape.sanitize(value.description ?? ""),
-    opts.maxStringLength,
-  );
-  return `Symbol(${description})`;
+  return `Symbol(${scanned(value.description ?? "", opts)})`;
 }
 
 function typeName(value: object): string {
@@ -277,7 +247,7 @@ function typeName(value: object): string {
 }
 
 // A `narrativeSummary()` method (no args) supplies a curated one-line summary that is preferred
-// over field introspection / toString (Java @NarrativeSummary), and — like every other member
+// over field introspection / toString and — like every other member
 // this renderer invokes — is scanned for a value shape (JWT/PAN/SSN/…) as defense-in-depth: the
 // method is the author's own curated text, but curated text can still accidentally interpolate a
 // secret-shaped value the same way a hostile toString does. A throwing summary is NOT ignored:
@@ -285,13 +255,26 @@ function typeName(value: object): string {
 // toString/field introspection, which could reintroduce exactly the leak a summary method was
 // written to prevent. Returns undefined only when there is no
 // `narrativeSummary` method at all, so dispatch can fall through to the next rule.
-function renderSummary(value: object, opts: Required<RenderOptions>): string | undefined {
+function renderSummary(
+  value: object,
+  opts: Required<RenderOptions>,
+  walk: RenderWalk,
+): string | undefined {
   const fn = (value as { narrativeSummary?: unknown }).narrativeSummary;
   if (typeof fn !== "function") return undefined;
+  // The hook is user code and may have a side effect: it runs at most once per instance per walk,
+  // its answer — the failure marker included — cached, so tracing never repeats it.
+  const cached = walk.cachedSummary(value);
+  if (cached !== undefined) return cached;
+  const text = invokeSummary(() => fn.call(value), opts);
+  walk.cacheSummary(value, text);
+  return text;
+}
+
+function invokeSummary(call: () => unknown, opts: Required<RenderOptions>): string {
   try {
-    const text = String(fn.call(value));
-    if (opts.redactionPolicy.shouldRedactValue(text)) return RedactionPolicy.MARKER;
-    return truncate(ControlEscape.sanitize(text), opts.maxStringLength);
+    const text = String(call());
+    return scanned(text, opts);
   } catch (err) {
     return errorMarker(err);
   }
@@ -384,7 +367,7 @@ function nativeStringMethod(value: object): "toString" | "toISOString" {
 
 // An object with its own toString() (or, for a Date, toISOString() — see nativeStringMethod)
 // renders that string (sanitized + truncated) rather than a field dump; a null return falls back
-// to <TypeName>, a throw to the typed error marker (Java renderWithToString). Plain objects
+// to <TypeName>, a throw to the typed error marker Plain objects
 // (Object.prototype.toString) still introspect. Only ever called for a platform value (see
 // dispatchObject) — every other object, leaf or not, always field-walks instead (see
 // isPlatformValue).
@@ -399,7 +382,7 @@ function renderWithToString(value: object, opts: Required<RenderOptions>): strin
     }
     const raw = (value as { toISOString(): unknown; toString(): unknown })[method]();
     if (raw == null) return `<${typeName(value)}>`;
-    return truncate(ControlEscape.sanitize(String(raw)), opts.maxStringLength);
+    return scanned(String(raw), opts);
   } catch (err) {
     return errorMarker(err);
   }
@@ -408,15 +391,13 @@ function renderWithToString(value: object, opts: Required<RenderOptions>): strin
 function renderObject(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
   if (isThenable(value)) return "<pending>";
   if (walk.has(value)) return "<circular>";
+  if (walk.isRepeat(value)) return repeatMarker(value);
+  const isRoot = walk.atRoot;
   if (!walk.descend()) return "<max-depth>";
-  walk.add(value);
   try {
-    return dispatchObject(value, opts, walk);
-  } catch (err) {
-    return errorMarker(err);
+    return walk.visit(value, isRoot, () => dispatchObject(value, opts, walk), errorMarker);
   } finally {
     walk.ascend();
-    walk.remove(value);
   }
 }
 
@@ -425,14 +406,26 @@ function renderObject(value: object, opts: Required<RenderOptions>, walk: Render
 // Set, Map, @narrativeSummary, custom toString
 // (realm platform intrinsics only — see isPlatformValue), then field introspection. A custom
 // toString() on any object that is NOT a platform value is never trusted, fields or not — see
-// isPlatformValue's doc for the private-field/closure leak this closes.
+// isPlatformValue's doc for the private-field/closure leak this closes. The first four steps are
+// the shared origin decision (`elementOrigin`, element-origin.ts) the structured path consults too.
 function dispatchObject(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
-  const declaredElements = renderDeclaredElements(value, opts, walk);
-  if (declaredElements !== undefined) return declaredElements;
-  if (Array.isArray(value)) return renderArray(value, opts, walk);
-  if (value instanceof Set) return renderSet(value, opts, walk);
-  if (value instanceof Map) return renderMap(value, opts, walk);
-  const summary = renderSummary(value, opts);
+  const origin = elementOrigin(value);
+  switch (origin) {
+    case "declared":
+      return renderDeclaredElements(value, opts, walk);
+    case "array":
+      return renderArray(value, opts, walk);
+    case "set":
+      return renderSet(value, opts, walk);
+    case "map":
+      return renderMap(value, opts, walk);
+    case "object":
+      return renderOrdinary(value, opts, walk);
+  }
+}
+
+function renderOrdinary(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
+  const summary = renderSummary(value, opts, walk);
   if (summary !== undefined) return summary;
   if (hasCustomToString(value) && isPlatformValue(value)) {
     return renderWithToString(value, opts);
@@ -440,29 +433,12 @@ function dispatchObject(value: object, opts: Required<RenderOptions>, walk: Rend
   return renderPlainObject(value, opts, walk);
 }
 
-/**
- * The third sanctioned rendering hook, alongside `@narrativeSummary`
- * and a platform leaf's own `toString()`: a type declares its own elements safe to enumerate by
- * implementing this well-known symbol as a method returning an `Iterable`. Unlike every other
- * collection path in this file, the declared method itself IS invoked — that is the point of the
- * hook, the author's own explicit declaration that doing so is safe — but only ever from inside
- * `renderValue`'s rendering guard (already active for the whole call, see `withRenderingGuard`),
- * so a `traceObject`-wrapped call reached from inside it records no span. Elements are collected
- * eagerly (`[...iterable]`) so the total count is known for the same `(N total)` truncation
- * marker every other collection path uses; a throwing hook, or a hook whose returned value is not
- * actually iterable, propagates out of this function and is caught by {@link renderObject}'s
- * outer try/catch, degrading the whole value to the typed error marker like any other hook.
- */
-export const NARRATIVE_ELEMENTS: unique symbol = Symbol.for("narrativetrace.elements");
-
 function renderDeclaredElements(
   value: object,
   opts: Required<RenderOptions>,
   walk: RenderWalk,
-): string | undefined {
-  const hook = (value as Record<symbol, unknown>)[NARRATIVE_ELEMENTS];
-  if (typeof hook !== "function") return undefined;
-  const elements = [...(hook.call(value) as Iterable<unknown>)];
+): string {
+  const elements = declaredElements(value, walk);
   const items = elements.slice(0, opts.maxCollectionItems).map((item) => render(item, opts, walk));
   if (elements.length > opts.maxCollectionItems) {
     items.push(`... (${elements.length} total)`);
@@ -475,11 +451,11 @@ function renderDeclaredElements(
 // the platform ancestor's own state, identity-checked, never the subclass's override. A
 // non-subclassed Set is unaffected: Set.prototype.values.call(value) reads the identical state
 // value.values() would have.
-function renderSet(value: Set<unknown>, opts: Required<RenderOptions>, walk: RenderWalk): string {
-  const members = [...Set.prototype.values.call(value)];
-  const items = members.slice(0, opts.maxCollectionItems).map((v) => render(v, opts, walk));
-  if (members.length > opts.maxCollectionItems) {
-    items.push(`… (${members.length} total)`);
+function renderSet(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
+  const { items: members, total } = platformMembers(value, "set", opts.maxCollectionItems);
+  const items = members.map((v) => render(v, opts, walk));
+  if (total > opts.maxCollectionItems) {
+    items.push(`… (${total} total)`);
   }
   return `[${items.join(", ")}]`;
 }
@@ -488,17 +464,15 @@ function renderSet(value: Set<unknown>, opts: Required<RenderOptions>, walk: Ren
 // the rendering rule requires entries to come from the platform ancestor's own state instead:
 // Map.prototype.entries, called on the instance, bypassing whatever the subclass declared. A
 // non-subclassed Map is unaffected, for the same reason as renderSet above.
-function renderMap(
-  value: Map<unknown, unknown>,
-  opts: Required<RenderOptions>,
-  walk: RenderWalk,
-): string {
-  const entries = [...(Map.prototype.entries.call(value) as IterableIterator<[unknown, unknown]>)];
-  const shown = entries
-    .slice(0, opts.maxCollectionItems)
-    .map(([k, v]) => renderMapEntry(k, v, opts, walk));
-  const joined = shown.join(", ");
-  return entries.length > opts.maxCollectionItems ? `{${joined}, …}` : `{${joined}}`;
+function renderMap(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
+  const { items: entries, total } = platformMembers(value, "map", opts.maxCollectionItems);
+  const joined = entries
+    .map((entry) => {
+      const [k, v] = entry as [unknown, unknown];
+      return renderMapEntry(k, v, opts, walk);
+    })
+    .join(", ");
+  return total > opts.maxCollectionItems ? `{${joined}, …}` : `{${joined}}`;
 }
 
 // A Map key can be an arbitrary object — including one carrying a redacted field, or one whose
@@ -534,16 +508,19 @@ function renderMapKey(key: unknown, opts: Required<RenderOptions>, walk: RenderW
     return render(key, opts, walk);
   }
   if (typeof key === "string") {
-    if (opts.redactionPolicy.shouldRedactValue(key)) return RedactionPolicy.MARKER;
-    return sanitizeAndCap(key, opts.maxStringLength);
+    return scanned(key, opts);
+  }
+  if (typeof key === "number" || typeof key === "bigint") {
+    return numberText(key, opts.redactionPolicy);
   }
   return String(key);
 }
 
-function renderArray(value: unknown[], opts: Required<RenderOptions>, walk: RenderWalk): string {
-  const items = value.slice(0, opts.maxArrayItems).map((item) => render(item, opts, walk));
-  if (value.length > opts.maxArrayItems) {
-    items.push(`... (${value.length} total)`);
+function renderArray(value: object, opts: Required<RenderOptions>, walk: RenderWalk): string {
+  const { items: members, total } = platformMembers(value, "array", opts.maxArrayItems);
+  const items = members.map((item) => render(item, opts, walk));
+  if (total > opts.maxArrayItems) {
+    items.push(`... (${total} total)`);
   }
   return `[${items.join(", ")}]`;
 }
@@ -593,7 +570,7 @@ function renderEntry(
   walk: RenderWalk,
 ): string {
   // Explicit annotation (static `notTraced` class field) redacts independently of the policy,
-  // so it beats even RedactionPolicy.DISABLED (Java: the annotation branch is independent of
+  // so it beats even RedactionPolicy.DISABLED (the annotation branch is independent of
   // shouldRedact).
   if (opts.redactionPolicy.isRedacted(key, explicit.has(key))) {
     return `"${key}": ${RedactionPolicy.MARKER}`;

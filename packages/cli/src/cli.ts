@@ -105,8 +105,8 @@ ${INSTALLER_OPTIONS}`;
 /**
  * Only the three flags an uninstall uses, plus one line about the rest.
  *
- * @llmNote Java's uninstall help prints the install-only flags too, which makes its own help untrue
- * about `--force` and `--from`. The parser is still shared — one flag reader for both verbs — so the
+ * @llmNote The uninstall help leaves out the install-only flags, which would be untrue about
+ * `--force` and `--from` there. The parser is still shared — one flag reader for both verbs — so the
  * flags stay ACCEPTED; they are simply not advertised where they do nothing.
  */
 const UNINSTALL_OPTIONS = `  --dry-run         Show the plan and the unified diff. Removes nothing, always exits 0.

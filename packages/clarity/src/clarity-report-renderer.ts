@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { MarkdownEscape } from "@narrativetrace/core";
 import type { ClarityIssue, ClarityResult } from "./clarity-analyzer.js";
 
 export type ScenarioResult = {
@@ -19,7 +20,7 @@ function fmt(value: number): string {
 }
 
 function renderScoreRow({ scenario, result }: ScenarioResult): string {
-  return `| ${scenario} | ${fmt(result.overall)} | ${fmt(result.method)} | ${fmt(result.class)} | ${fmt(result.parameter)} | ${fmt(result.structural)} | ${fmt(result.cohesion)} |`;
+  return `| ${MarkdownEscape.cell(scenario)} | ${fmt(result.overall)} | ${fmt(result.method)} | ${fmt(result.class)} | ${fmt(result.parameter)} | ${fmt(result.structural)} | ${fmt(result.cohesion)} |`;
 }
 
 function renderIssuesSection(results: readonly ScenarioResult[]): string[] {
@@ -33,7 +34,7 @@ function renderIssuesSection(results: readonly ScenarioResult[]): string[] {
     "",
     ...allIssues.map((issue) => {
       const count = issue.occurrences > 1 ? ` (x${issue.occurrences})` : "";
-      return `- **[${SEVERITY_ICON[issue.severity]}]** ${issue.scenario}: ${issue.element}${count} — ${issue.suggestion}`;
+      return `- **[${SEVERITY_ICON[issue.severity]}]** ${MarkdownEscape.collapseLineBreaks(issue.scenario)}: ${MarkdownEscape.collapseLineBreaks(issue.element)}${count} — ${MarkdownEscape.collapseLineBreaks(issue.suggestion)}`;
     }),
   ];
 }
@@ -50,10 +51,10 @@ export function renderClarityReport(results: readonly ScenarioResult[]): string 
   ].join("\n");
 }
 
-// Suite report thresholds/weights mirror Java ClarityReportRenderer (cross-language contract).
+// Suite report thresholds/weights are the same in every runtime (family contract).
 const LOW_SCORE_THRESHOLD = 0.7;
 
-/** 2-decimal fixed formatting to match Java's `%.2f` (scores are a cross-language contract). */
+/** 2-decimal fixed formatting (scores are a family contract, identical in every runtime). */
 function fmt2(value: number): string {
   return value.toFixed(2);
 }
@@ -83,15 +84,15 @@ function suiteIssuesTable(result: ClarityResult): string[] {
     ...sorted.map((issue) => {
       const element =
         issue.occurrences > 1
-          ? `\`${issue.element}\` (x${issue.occurrences})`
-          : `\`${issue.element}\``;
-      return `| ${issue.severity} | ${issue.category} | ${element} | ${issue.suggestion} |`;
+          ? `${MarkdownEscape.codeSpanCell(issue.element)} (x${issue.occurrences})`
+          : MarkdownEscape.codeSpanCell(issue.element);
+      return `| ${issue.severity} | ${issue.category} | ${element} | ${MarkdownEscape.cell(issue.suggestion)} |`;
     }),
   ];
 }
 
 /**
- * Suite-level Markdown report (Java `ClarityReportRenderer.renderSuiteReport` parity): an ascending
+ * Suite-level Markdown report: an ascending
  * scenario table followed by a weighted-scores + issues detail block for every scenario that scores
  * below 0.7 AND carries issues. Duplicate scenario names are preserved as separate rows so results
  * from test classes sharing a display name are not collapsed. `# Clarity Suite Report` header is
@@ -112,7 +113,9 @@ function scenarioTable(sorted: readonly ScenarioResult[]): string[] {
     "",
     "| Scenario | Score |",
     "|----------|-------|",
-    ...sorted.map(({ scenario, result }) => `| ${scenario} | ${fmt2(result.overall)} |`),
+    ...sorted.map(
+      ({ scenario, result }) => `| ${MarkdownEscape.cell(scenario)} | ${fmt2(result.overall)} |`,
+    ),
   ];
 }
 
@@ -124,7 +127,7 @@ function needsDetail({ result }: ScenarioResult): boolean {
 function detailBlock({ scenario, result }: ScenarioResult): string[] {
   return [
     "",
-    `### ${scenario}`,
+    `### ${MarkdownEscape.collapseLineBreaks(scenario)}`,
     "",
     ...weightedScoresTable(result),
     "",

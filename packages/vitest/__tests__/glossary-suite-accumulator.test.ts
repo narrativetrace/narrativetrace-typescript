@@ -235,6 +235,22 @@ describe("writeSuiteGlossary", () => {
     ]);
   });
 
+  test("writes the committed glossary.json last, so a failed write cannot leave it ahead of its view", () => {
+    const fake = fakeSink();
+    const order: string[] = [];
+    const sink = {
+      ...fake.sink,
+      writeFile: (path: string, content: string) => {
+        order.push(path);
+        fake.sink.writeFile(path, content);
+      },
+    };
+
+    writeSuiteGlossary([SITE], CONFIG, sink);
+
+    expect(order.at(-1)).toBe("./glossary.json");
+  });
+
   test("writes nothing at all when the suite observed nothing", () => {
     const fake = fakeSink();
 

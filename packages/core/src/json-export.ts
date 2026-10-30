@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { SCHEMA_VERSION, serviceNameOrUnknown } from "./canonical-entry.js";
+import { ExceptionMessage } from "./exception-message.js";
 import { displayParamValue } from "./parameter-capture.js";
 import { type ScenarioResult, scenarioResult } from "./scenario-result.js";
 import { resolveTraceIdentity, rootCallName, type TraceIdentity } from "./trace-identity.js";
@@ -22,8 +23,8 @@ const CHAPTER_TREE_VERSION = "1.0";
  * The outcome vocabulary of a chapter record, as `chapter.schema.json` enumerates it.
  *
  * @remarks A third spelling, and deliberately so: a chapter says `partial` where an entry says
- * `incomplete` and a scenario says `error` rather than `failure`. Java draws the same three
- * distinctions (`ChapterExporter`, `CanonicalEntryMapper`, `ScenarioResult`).
+ * `incomplete` and a scenario says `error` rather than `failure`. Every runtime draws the same three
+ * distinctions.
  */
 type ChapterOutcome = "success" | "failure" | "partial";
 
@@ -194,9 +195,8 @@ function chapterIdentityFields(identity: TraceIdentity): Record<string, string> 
  * that failed, and `chapter.schema.json` enumerates it — the old `error` was not a legal value at
  * all.
  *
- * **Pinned divergence from Java.** `ChapterExporter.outcomeOf` reads the *first root only*, so a
- * failure deeper in the tree reports `success`. This runtime keeps the deep reading it already had
- * ({@link hasAnyError}): a chapter containing a thrown call is not a clean success, and the level
+ * **Pinned reading.** The outcome consults every root, not the first root only, so a
+ * failure deeper in the tree is reported ({@link hasAnyError}): a chapter containing a thrown call is not a clean success, and the level
  * field beside it has always said so. Only the vocabulary is being corrected here; changing which
  * nodes are consulted would be an unrelated behaviour change.
  */
@@ -316,15 +316,12 @@ function returnedEventFields(renderedValue: string | null): Partial<JsonEvent> {
 
 function threwEventFields(error: unknown, errorContext: string | null): Partial<JsonEvent> {
   const context = errorContext ? { errorContext } : {};
+  const message = ExceptionMessage.of(error);
+  const present = message === null ? {} : { errorMessage: message };
   if (error instanceof Error) {
-    return {
-      outcome: "threw",
-      errorType: error.constructor.name,
-      errorMessage: error.message,
-      ...context,
-    };
+    return { outcome: "threw", errorType: error.constructor.name, ...present, ...context };
   }
-  return { outcome: "threw", errorMessage: String(error), ...context };
+  return { outcome: "threw", ...present, ...context };
 }
 
 function outcomeFields(node: TraceNode): Partial<JsonEvent> {

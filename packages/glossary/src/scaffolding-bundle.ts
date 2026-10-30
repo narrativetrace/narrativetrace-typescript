@@ -40,9 +40,9 @@ const ES: ScaffoldingBundle = Object.freeze({
 });
 
 /**
- * Simplified Chinese, keyed by the regional tag Java ships (`scaffolding_zh_CN.properties`);
- * `incomplete` and `glossaryGaps` are Java's words, `scenario` is the i18n terminology's, and
- * `callFlow` has no Java counterpart (Java's renderer scaffolds different words).
+ * Simplified Chinese, keyed by the regional tag `zh-CN`; `incomplete` and `glossaryGaps`
+ * follow the family's shared wording, `scenario` is the i18n terminology's, and `callFlow` is
+ * specific to this renderer's scaffolding.
  */
 const ZH_CN: ScaffoldingBundle = Object.freeze({
   locale: "zh-CN",

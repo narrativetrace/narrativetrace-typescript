@@ -10,8 +10,13 @@ import {
   spanContext,
   threw,
 } from "@narrativetrace/core";
-import { SpanStatusCode } from "@opentelemetry/api";
-import { InMemorySpanExporter, SimpleSpanProcessor } from "@opentelemetry/sdk-trace-base";
+import { context, SpanStatusCode, trace } from "@opentelemetry/api";
+import {
+  InMemorySpanExporter,
+  type Sampler,
+  SamplingDecision,
+  SimpleSpanProcessor,
+} from "@opentelemetry/sdk-trace-base";
 import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { createOtelEventConsumer } from "../src/otel-event-consumer.js";
@@ -46,12 +51,14 @@ function enterEvent(
   className: string,
   methodName: string,
   parentN: number | null = null,
+  concurrency?: { groupId: string; taskLabel: string; kind: "fork-join" | "fire-and-forget" },
 ): TraceEvent {
   return {
     type: "enter",
     spanContext: sc(sid(n), parentN !== null ? sid(parentN) : null),
     timestamp: performance.now(),
     signature: methodSignature(className, methodName, []),
+    ...(concurrency && { concurrency }),
   };
 }
 
@@ -281,7 +288,7 @@ describe("createOtelEventConsumer", () => {
     expect(span.status.message).toBe("string-error");
   });
 
-  test("enter with unknown parentSpanId falls back to active context", () => {
+  test("enter with an unknown parentSpanId still starts the span, under a reconstructed parent", () => {
     const tracer = provider.getTracer("test");
     const consumer = createOtelEventConsumer({ tracer });
 
@@ -421,5 +428,97 @@ describe("createOtelEventConsumer", () => {
     expect(spans[0].name).toBe("Svc.first");
     expect(spans[0].status.code).toBe(SpanStatusCode.ERROR);
     expect(spans[0].status.message).toBe("orphaned — exit event lost");
+  });
+});
+
+// B-173: a child entered after its local parent's exit keeps that parent, never a stranger.
+describe("a late child (B-173)", () => {
+  function exitEvent(n: number, parentN: number | null = null): TraceEvent {
+    return {
+      type: "exit",
+      spanContext: sc(sid(n), parentN !== null ? sid(parentN) : null),
+      timestamp: performance.now(),
+      outcome: returned(null),
+    };
+  }
+
+  function enterUnderStranger(consumer: (e: TraceEvent) => void, event: TraceEvent): string {
+    const stranger = provider.getTracer("stranger").startSpan("Unrelated.active");
+    context.with(trace.setSpan(context.active(), stranger), () => consumer(event));
+    stranger.end();
+    return stranger.spanContext().spanId;
+  }
+
+  test("a child entered after its parent ended parents on the parent's OTel span", () => {
+    const consumer = createOtelEventConsumer({ tracer: provider.getTracer("test") });
+    consumer(enterEvent(0, "Svc", "parent"));
+    consumer(exitEvent(0));
+
+    const strangerId = enterUnderStranger(consumer, enterEvent(1, "Svc", "late", 0));
+    consumer(exitEvent(1, 0));
+
+    const spans = exporter.getFinishedSpans();
+    const parent = spans.find((x) => x.name === "Svc.parent");
+    const late = spans.find((x) => x.name === "Svc.late");
+    expect(late?.parentSpanId).not.toBe(strangerId);
+    expect(late?.parentSpanId).toBe(parent?.spanContext().spanId);
+  });
+
+  test("past the finished-frame memory a late fork member gets the marked LOCAL parent", () => {
+    const consumer = createOtelEventConsumer({
+      tracer: provider.getTracer("test"),
+      maxActiveSpans: 1,
+    });
+    consumer(enterEvent(10, "Svc", "parent"));
+    consumer(exitEvent(10));
+    for (const n of [11, 12]) {
+      consumer(enterEvent(n, "Svc", `newer${n}`));
+      consumer(exitEvent(n));
+    }
+
+    const strangerId = enterUnderStranger(
+      consumer,
+      enterEvent(13, "Svc", "late", 10, {
+        groupId: "fork-1",
+        taskLabel: "Svc.late",
+        kind: "fork-join",
+      }),
+    );
+    consumer(exitEvent(13, 10));
+
+    const late = exporter.getFinishedSpans().find((x) => x.name === "Svc.late");
+    expect(late?.parentSpanId).not.toBe(strangerId);
+    expect(late?.parentSpanId).toBe(sid(10));
+    expect(late?.attributes["narrative.parent.synthetic"]).toBe(true);
+    expect(late?.attributes["narrative.parent_span_id"]).toBe(sid(10));
+  });
+
+  // B-178: Java's discriminator — no concurrency tag on a root means the parent id came from an
+  // adopted header, so it is a REMOTE parent, remembered, and never marked synthetic.
+  test("an adopted-header root past any memory keeps a REMOTE parent and is not marked", async () => {
+    await provider.shutdown();
+    const seen: boolean[] = [];
+    const recording: Sampler = {
+      shouldSample(ctx) {
+        seen.push(trace.getSpanContext(ctx)?.isRemote === true);
+        return { decision: SamplingDecision.RECORD_AND_SAMPLED };
+      },
+      toString: () => "recording",
+    };
+    exporter = new InMemorySpanExporter();
+    provider = new NodeTracerProvider({
+      sampler: recording,
+      spanProcessors: [new SimpleSpanProcessor(exporter)],
+    });
+    provider.register();
+    const consumer = createOtelEventConsumer({ tracer: provider.getTracer("test") });
+
+    consumer(enterEvent(20, "Edge", "handle", 99));
+    consumer(exitEvent(20, 99));
+
+    const root = exporter.getFinishedSpans().find((x) => x.name === "Edge.handle");
+    expect(root?.parentSpanId).toBe(sid(99));
+    expect(seen).toEqual([true]);
+    expect(root?.attributes["narrative.parent.synthetic"]).toBeUndefined();
   });
 });

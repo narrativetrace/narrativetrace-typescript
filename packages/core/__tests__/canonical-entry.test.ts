@@ -249,6 +249,7 @@ describe("toCanonicalEntry", () => {
       memberCount: 3,
       wallTimeMs: 42.5,
       timestamp: 100.0,
+      ownerSpanId: null,
     });
 
     expect(entry["nt.eventType"]).toBe("join");
@@ -281,5 +282,21 @@ describe("toCanonicalEntry", () => {
     expect(entry["nt.outcome"]).toBe("incomplete");
     expect(entry["nt.returnValue"]).toBeUndefined();
     expect(entry["exception.message"]).toBeUndefined();
+  });
+});
+
+describe("toCanonicalEntry exception message redaction (B-174)", () => {
+  test("a credential-shaped exception message maps to the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const event: ExitEvent = {
+      type: "exit",
+      spanContext: spanContext(traceId, spanId, null),
+      timestamp: 300.0,
+      outcome: threw(new Error("4111111111111111")),
+    };
+    const entry = toCanonicalEntry(event);
+    expect(JSON.stringify(entry)).not.toContain("4111111111111111");
+    expect(entry["exception.message"]).toBe("[REDACTED]");
+    expect(entry.message).toBe("!! Error: [REDACTED]");
   });
 });

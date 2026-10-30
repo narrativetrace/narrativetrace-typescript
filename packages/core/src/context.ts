@@ -8,6 +8,7 @@ import type { NarrativeTraceConfig } from "./config.js";
 import type { ContextScope, ContextSnapshot } from "./context-snapshot.js";
 import { DualPathPipeline } from "./dual-path-pipeline.js";
 import type { EventPipeline } from "./event-pipeline.js";
+import { spanIdOf } from "./event-store-consumer.js";
 import { methodSignature } from "./method-signature.js";
 import type { NarrativeContext } from "./narrative-context.js";
 import type { ParameterCapture } from "./parameter-capture.js";
@@ -17,7 +18,7 @@ import { type SpanContext, type SpanContextExtras, spanContext } from "./span-co
 import { generateSpanId, generateTraceId, type SpanId, type TraceId } from "./span-id-generator.js";
 import type { EnterEvent, TraceEvent } from "./trace-event.js";
 import { type TraceLoss, traceLoss } from "./trace-loss.js";
-import { returned, threw } from "./trace-outcome.js";
+import { returned, type TraceOutcome, threw } from "./trace-outcome.js";
 import type { TraceTree } from "./trace-tree.js";
 import type { Traceparent } from "./traceparent.js";
 import { buildTraceTree } from "./tree-builder.js";
@@ -25,8 +26,8 @@ import { buildTraceTree } from "./tree-builder.js";
 const NOOP_SPAN_ID = "" as SpanId;
 
 /**
- * Ceiling on the spans one context will take over from asynchronous children (Java parity:
- * `TraceStack.MAX_ADOPTED_SPANS`).
+ * Ceiling on the spans one context will take over from asynchronous children (the same ceiling in every
+ * NarrativeTrace runtime).
  *
  * @remarks A request-scoped context is dropped whole by `reset()`, so the bound is not about its
  * memory. It exists for the context that never resets — a long-lived worker loop dispatching async
@@ -35,10 +36,135 @@ const NOOP_SPAN_ID = "" as SpanId;
 const MAX_ADOPTED_SPANS = 10_000;
 
 /**
+ * Ceiling on the length of a live-child chain — how many simultaneously open async scopes, each
+ * activated from a snapshot of the one before, are visible to a capture while open (B-198; the same
+ * ceiling in every NarrativeTrace runtime).
+ *
+ * @remarks {@link SyncNarrativeContext.reportableSpanIds} and
+ * {@link SyncNarrativeContext.liveChildSpanIds} recurse once per link, so the chain length is a
+ * stack-depth budget on whichever caller reads it: the origin at capture, the worker at scope
+ * close, the request at reset. One worker can hold any number of scopes open, so without this the
+ * chain is as long as the host likes and the read overflows the host's own stack. Real nested
+ * async hops are a handful deep.
+ */
+const MAX_LIVE_CHILD_DEPTH = 64;
+
+/**
+ * How many spans of finished roots on unowned contexts may wait, per pipeline, for a capture that
+ * will probably never come before the oldest are released (B-211; the same
+ * default in every NarrativeTrace runtime).
+ *
+ * @remarks The adoption ceiling's figure, for the same reason: it bounds the context that never
+ * resets. A release pass brings the queue down to half of it, so the store scan that removes the
+ * released events is paid once per that many spans, not once per root.
+ */
+const UNOWNED_SPAN_LIMIT = 10_000;
+
+/**
+ * What the release queue knows of one context — never the context itself, so a queued root keeps
+ * neither its context nor that context's pipeline alive (B-211).
+ *
+ * @remarks Not a `WeakRef`: a `WeakRef` keeps its target alive until the current job ends, so a
+ * synchronous loop that builds thousands of short-lived contexts would hold every one of them, and
+ * every ring, at once.
+ */
+interface UnownedOwner {
+  claimed: boolean;
+  /** No longer live: its `run()` scope settled, or the collector reclaimed it. */
+  ended: boolean;
+  latest: UnownedSegment | null;
+  /** Released roots the context has yet to forget; it does so the next time it is used. */
+  released: (readonly SpanId[])[];
+}
+
+/** One finished root of an unowned context: the spans it made reportable, and its owner. */
+interface UnownedSegment {
+  readonly owner: UnownedOwner;
+  readonly spanIds: readonly SpanId[];
+}
+
+/**
+ * The release queue every context publishing to one pipeline shares, oldest root first.
+ *
+ * @remarks Per pipeline because the store is the pipeline's: the bound is on what the store keeps,
+ * whichever context traced it — the Node context's default scope and its un-reset `run()` scopes
+ * alike.
+ */
+interface UnownedQueue {
+  limit: number;
+  queued: number;
+  segments: UnownedSegment[];
+}
+
+const unownedQueues = new WeakMap<EventPipeline, UnownedQueue>();
+
+/** A collected context is no longer live: its latest queued root becomes releasable. */
+const collectedContexts = new FinalizationRegistry<UnownedOwner>((owner) => {
+  owner.ended = true;
+});
+
+/**
+ * Takes the oldest queued roots off the queue until half the limit is left, and removes their
+ * events from the store in one pass; each owner forgets its own the next time it is used.
+ *
+ * @remarks Dropped without release: a root whose context has been claimed since (its owner keeps
+ * it until its reset). Kept: the latest root of a live context.
+ */
+function releaseOldest(queue: UnownedQueue, pipeline: EventPipeline): void {
+  const released = new Set<SpanId>();
+  const kept: UnownedSegment[] = [];
+  let i = 0;
+  for (; i < queue.segments.length && queue.queued > queue.limit / 2; i++) {
+    const segment = queue.segments[i] as UnownedSegment;
+    const { owner } = segment;
+    if (owner.latest === segment && !owner.ended && !owner.claimed) kept.push(segment);
+    else takeSegment(queue, segment, released);
+  }
+  queue.segments = [...kept, ...queue.segments.slice(i)];
+  if (released.size === 0) return;
+  pipeline.flush();
+  pipeline.removeSpans?.(released);
+}
+
+/** Takes one root off the queue: released, unless its context has been claimed since. */
+function takeSegment(queue: UnownedQueue, segment: UnownedSegment, released: Set<SpanId>): void {
+  const { owner, spanIds } = segment;
+  queue.queued -= spanIds.length;
+  if (owner.claimed) return;
+  owner.released.push(spanIds);
+  for (const id of spanIds) released.add(id);
+}
+
+/** The release queue of `pipeline`, created on first use; `limit` is the test seam. */
+function unownedQueueOf(pipeline: EventPipeline, limit: number | undefined): UnownedQueue {
+  let queue = unownedQueues.get(pipeline);
+  if (!queue) {
+    queue = { limit: UNOWNED_SPAN_LIMIT, queued: 0, segments: [] };
+    unownedQueues.set(pipeline, queue);
+  }
+  if (limit) queue.limit = limit;
+  return queue;
+}
+
+// The core compiles without a DOM or Node lib; `console` is the one host global the diagnostic needs.
+declare const console: { warn(message: string): void };
+
+/** Whether the one-per-process depth-cap diagnostic has been written. */
+let depthCapReported = false;
+
+function reportDepthCapOnce(): void {
+  if (depthCapReported) return;
+  depthCapReported = true;
+  console.warn(
+    `[narrativetrace] async scopes nested over ${MAX_LIVE_CHILD_DEPTH} deep show in a capture only once closed (live-child depth cap)`,
+  );
+}
+
+/**
  * The handle a context hands back when it registers a live asynchronous child, and the only way to
  * end that registration.
  *
- * INTENT: mirrors the `WeakReference` Java's `TraceStack.registerLiveChild` returns. The child is
+ * INTENT: the registration is a weak reference to the child. The child is
  * held **weakly**: a worker whose scope never closes must not keep its origin's view of it alive,
  * and a collected child simply contributes nothing and frees its slot against the ceiling.
  *
@@ -79,6 +205,12 @@ export interface SyncContextOptions {
   readonly rootParentOverride?: SpanId | null | undefined;
   readonly inheritedTraceId?: TraceId | undefined;
   readonly maxAdoptedSpans?: number | undefined;
+  /**
+   * Test seam: the unowned-retention limit of this context's pipeline (B-211), default `10_000`.
+   * The limit belongs to the pipeline's release queue, so setting it on any context sets it for
+   * every context publishing there.
+   */
+  readonly unownedSpanLimit?: number | undefined;
 }
 
 /** The settings both constructor forms reduce to. */
@@ -89,6 +221,7 @@ interface ContextSettings {
   readonly serviceIdentity?: ServiceIdentity | undefined;
   readonly inheritedTraceId?: TraceId | undefined;
   readonly maxAdoptedSpans?: number | undefined;
+  readonly unownedSpanLimit?: number | undefined;
 }
 
 /** The positional constructor's arguments after `parentResolver`, in order. */
@@ -138,6 +271,19 @@ function settingsFromOptions(options: SyncContextOptions): ContextSettings {
  * exception-isolated by the pipeline, so a broken listener never breaks the traced call.
  * `reset()`/request cleanup drop only this context's own spans, leaving other in-flight traces
  * sharing the pipeline untouched.
+ *
+ * A context nothing owns has its spans released in bounded batches (B-211). Owned means a
+ * capture-facing call has claimed it — `reset()`, `captureTrace()`, `traceLoss()`, request or user
+ * metadata, an inherited trace id (the inbound traceparent of a `run()`) — or it runs handed-over
+ * work (a fork member, a nested `run()` scope, an activated snapshot), which its origin reports.
+ * The claim outlives `reset()`. On an unowned context — an app-lifetime context nobody captures, the
+ * Node context's process-wide default scope, a top-level `run()` that never resets — each root
+ * that ends is queued and the next root starts a fresh trace; once more than 10 000 such spans
+ * are queued on one pipeline the oldest roots are removed from their context and the store and
+ * counted as refused on that context. The latest root of a live context is never released, so a
+ * context that captures before it ever claimed still sees its last root whole. Live means not yet
+ * collected (the queue never holds a context; a `FinalizationRegistry` marks one the collector
+ * reclaimed) and, for a context backing a `run()` scope, not yet settled ({@link endScope}).
  * @example
  * ```ts
  * const context = new SyncNarrativeContext(new NarrativeTraceConfig());
@@ -161,13 +307,34 @@ export class SyncNarrativeContext implements NarrativeContext {
   private _chapterId: string | null = null;
   private adoptedSpanIds: Set<SpanId> | null = null;
   private liveChildren: Set<LiveChildRegistration> | null = null;
+  /**
+   * How many live-registration links lie above this context: 0 for one nobody registered, its
+   * origin's depth + 1 for one {@link registerLiveChild} was asked to take — refused or not, so
+   * everything below a refused link is refused too.
+   */
+  private _liveDepth = 0;
   private _refusedScopes = 0;
   private _refusedSpans = 0;
   private _fromSnapshot = false;
   private _generation = 0;
+  /** Its claim, liveness and released roots, as the release queue sees them (B-211). */
+  private readonly owner: UnownedOwner = {
+    claimed: false,
+    ended: false,
+    latest: null,
+    released: [],
+  };
+  /** Spans this unowned context made reportable since its last root ended. */
+  private openSegment: SpanId[] = [];
+  /** Whether this unowned context's next root starts a new trace. */
+  private freshTracePending = false;
+  private readonly unowned: UnownedQueue;
 
   private readonly rootParentOverride: SpanId | null;
   private readonly maxAdoptedSpans: number;
+
+  /** Ceiling on a live-child chain's length (B-198); see the module constant. */
+  static readonly MAX_LIVE_CHILD_DEPTH = MAX_LIVE_CHILD_DEPTH;
 
   /**
    * @param config the tracing level and policy.
@@ -197,7 +364,12 @@ export class SyncNarrativeContext implements NarrativeContext {
     this.serviceIdentity = o.serviceIdentity;
     this.rootParentOverride = o.rootParentOverride ?? null;
     this.maxAdoptedSpans = o.maxAdoptedSpans ?? MAX_ADOPTED_SPANS;
-    if (o.inheritedTraceId) this._traceId = o.inheritedTraceId;
+    this.unowned = unownedQueueOf(this.eventPipeline, o.unownedSpanLimit);
+    // An inherited trace id is an adopted traceparent or a handed-over lineage: both are owned.
+    if (o.inheritedTraceId) {
+      this._traceId = o.inheritedTraceId;
+      this.owner.claimed = true;
+    }
   }
 
   get isActive(): boolean {
@@ -224,12 +396,22 @@ export class SyncNarrativeContext implements NarrativeContext {
     return this._traceId;
   }
 
+  /**
+   * The current trace id, generated if absent.
+   *
+   * @remarks Between two roots on an unowned context this continues the trace that just ended, and
+   * the next root keeps it: the caller is asking for the identity of the work at hand (a log
+   * correlation value, a propagation header). A context that wants a fresh trace per unit of work
+   * claims an owner with {@link reset} between them, as the integrations do (B-211).
+   */
   traceId(): TraceId {
-    if (!this._traceId) this._traceId = generateTraceId();
+    this.freshTracePending = false;
+    this._traceId ??= generateTraceId();
     return this._traceId;
   }
 
   setRequestContext(httpMethod: string, httpRoute: HttpRoute, clientIp: ClientIp): void {
+    this.claim();
     this.requestExtras = {
       ...this.requestExtras,
       httpMethod,
@@ -239,6 +421,7 @@ export class SyncNarrativeContext implements NarrativeContext {
   }
 
   setUserContext(enduserId?: EnduserId, sessionId?: SessionId, tenantId?: TenantId): void {
+    this.claim();
     this.requestExtras = {
       ...this.requestExtras,
       ...(enduserId !== undefined && { enduserId }),
@@ -258,7 +441,11 @@ export class SyncNarrativeContext implements NarrativeContext {
    * @remarks One definition serves both directions — a live child is read through it and a closing
    * scope hands exactly it over — so a call can never be visible while a scope is open and absent
    * once it closes. The recursion cannot cycle: a live child is always a context registered with
-   * one origin at activation, so the registry is a forest with no back edge.
+   * one origin at activation, so the registry is a forest with no back edge. Its depth is NOT
+   * bounded by live workers — one worker can hold any number of scopes open, each activated from
+   * the one before — it is bounded by {@link registerLiveChild}: no registered chain is longer than
+   * {@link MAX_LIVE_CHILD_DEPTH}, so this recursion is at most that deep from any context, for
+   * every reader (capture, hand-over at close, reset).
    */
   reportableSpanIds(): Set<SpanId> {
     const ids = new Set(this.parentMap.keys());
@@ -309,6 +496,8 @@ export class SyncNarrativeContext implements NarrativeContext {
       return;
     }
     for (const id of spanIds) adopted.add(id);
+    // What an unowned root's children handed over leaves with that root (B-211).
+    if (this.unclaimed()) this.openSegment.push(...spanIds);
   }
 
   /**
@@ -340,6 +529,11 @@ export class SyncNarrativeContext implements NarrativeContext {
    * by the same ceiling as adoption, for the same reason — the context that never resets. A refused
    * registration loses nothing (the spans still arrive through {@link adopt} at close) and so is
    * not counted as a refusal.
+   *
+   * Bounded in depth too, by {@link MAX_LIVE_CHILD_DEPTH} (B-198): a child that would sit deeper
+   * is refused on the same terms — visible at its scope's close instead of while open — and so is
+   * everything activated below it, because it keeps the depth it was refused at. The first such
+   * refusal in the process writes one `console.warn` line; nothing is thrown.
    * @param child the freshly activated child context; never this context.
    * @returns the handle to pass to {@link unregisterLiveChild}, or `null` when the ceiling refused.
    * @throws Error if `child` is missing, or is this context — no context is its own live child.
@@ -347,12 +541,23 @@ export class SyncNarrativeContext implements NarrativeContext {
   registerLiveChild(child: SyncNarrativeContext): LiveChildRegistration | null {
     if (!child) throw new Error("Child context is required");
     if (child === this) throw new Error("A context cannot be its own live child");
+    const childDepth = this._liveDepth + 1;
+    child._liveDepth = childDepth;
+    if (childDepth > MAX_LIVE_CHILD_DEPTH) {
+      reportDepthCapOnce();
+      return null;
+    }
     this.liveChildren ??= new Set();
     const children = this.liveChildren;
     if (children.size >= this.maxAdoptedSpans) return null;
     const registration = new LiveChildRegistration(child);
     children.add(registration);
     return registration;
+  }
+
+  /** This context's live-registration depth (test seam). */
+  get liveDepth(): number {
+    return this._liveDepth;
   }
 
   /** Ends a live registration. A `null` handle is a registration the ceiling refused. */
@@ -381,6 +586,7 @@ export class SyncNarrativeContext implements NarrativeContext {
    * reset with it.
    */
   traceLoss(): TraceLoss {
+    this.claim();
     return traceLoss(
       this.eventPipeline.droppedEventCount?.() ?? 0,
       this._refusedScopes,
@@ -396,11 +602,28 @@ export class SyncNarrativeContext implements NarrativeContext {
     options?: { narration?: string; errorContext?: string },
   ): SpanId {
     if (this.config.level === "off") return NOOP_SPAN_ID;
-    this.traceId();
+    const parentSpanId = this.resolveParent();
+    // On an unowned context, async roots interleave: a child of a root that is still open keeps
+    // that root's trace and story even after a later root started a fresh trace (B-211).
+    const open =
+      parentSpanId !== null && this.unclaimed() ? this.spanContextMap.get(parentSpanId) : undefined;
+    this.beginTrace(parentSpanId);
     const spanId = generateSpanId();
     const sig = methodSignature(className, methodName, this.suppressIfNeeded(params), options);
-    this.pushEnter(spanId, sig);
+    this.pushEnter(spanId, sig, parentSpanId, open);
     return spanId;
+  }
+
+  /**
+   * Ensures a trace id for the span about to open: a new one when this is a root on an unowned
+   * context whose previous root has ended (B-211), so unrelated units of work never share an id.
+   */
+  private beginTrace(parentSpanId: SpanId | null): void {
+    if (parentSpanId === null && this.freshTracePending) {
+      this.freshTracePending = false;
+      this._traceId = this._storyId = this._chapterId = null;
+    }
+    this._traceId ??= generateTraceId();
   }
 
   private initStoryIfRoot(
@@ -422,20 +645,25 @@ export class SyncNarrativeContext implements NarrativeContext {
     };
   }
 
-  private pushEnter(spanId: SpanId, signature: ReturnType<typeof methodSignature>): void {
-    const parentSpanId = this.resolveParent();
+  private pushEnter(
+    spanId: SpanId,
+    signature: ReturnType<typeof methodSignature>,
+    parentSpanId: SpanId | null,
+    open: SpanContext | undefined,
+  ): void {
     this.initStoryIfRoot(parentSpanId, signature);
     const sc = spanContext(
-      this._traceId!,
+      open?.traceId ?? this._traceId!,
       spanId,
       parentSpanId,
       this.serviceIdentity,
-      this.buildExtras(),
+      open ?? this.buildExtras(),
     );
     this.eventPipeline.publish(this.enterEvent(sc, signature));
     this.parentMap.set(spanId, parentSpanId);
     this.spanContextMap.set(spanId, sc);
     this.activeStack.push(spanId);
+    if (this.unclaimed()) this.openSegment.push(spanId);
   }
 
   private enterEvent(sc: SpanContext, signature: ReturnType<typeof methodSignature>): EnterEvent {
@@ -471,17 +699,8 @@ export class SyncNarrativeContext implements NarrativeContext {
     handle?: SpanId,
     structured?: RenderedValue,
   ): void {
-    if (this.config.level === "off") return;
-    const resolved = this.resolveSpanId(handle);
-    if (resolved === undefined) return;
-    const sc = this.spanContextMap.get(resolved);
-    if (!sc) return;
-    this.eventPipeline.publish({
-      type: "exit",
-      spanContext: sc,
-      timestamp: performance.now(),
-      outcome: returned(renderedValue, structured),
-    });
+    const sc = this.takeSpan(handle);
+    if (sc) this.publishExit(sc, returned(renderedValue, structured));
   }
 
   exitMethodWithException(
@@ -489,17 +708,109 @@ export class SyncNarrativeContext implements NarrativeContext {
     handle?: SpanId,
     errorContext: string | null = null,
   ): void {
-    if (this.config.level === "off") return;
+    const sc = this.takeSpan(handle);
+    if (sc) this.publishExit(sc, threw(error, errorContext));
+  }
+
+  /**
+   * Resolves the span an exit closes and takes its context out of the map: nothing reads a span's
+   * context once its exit is published (B-211), so a second exit of the same span publishes nothing.
+   */
+  private takeSpan(handle?: SpanId): SpanContext | undefined {
+    if (this.config.level === "off") return undefined;
     const resolved = this.resolveSpanId(handle);
-    if (resolved === undefined) return;
+    if (resolved === undefined) return undefined;
     const sc = this.spanContextMap.get(resolved);
-    if (!sc) return;
+    this.spanContextMap.delete(resolved);
+    return sc;
+  }
+
+  private publishExit(sc: SpanContext, outcome: TraceOutcome): void {
     this.eventPipeline.publish({
       type: "exit",
       spanContext: sc,
       timestamp: performance.now(),
-      outcome: threw(error, errorContext),
+      outcome,
     });
+    this.releaseIfRootEnded();
+  }
+
+  /** Whether nothing owns this context: no claim, and no handed-over work running on it. */
+  private unclaimed(): boolean {
+    return !this.owner.claimed && !this._fromSnapshot;
+  }
+
+  /**
+   * Records that this context's trace has an owner — something that captures or resets it — so
+   * its spans are kept until that owner says otherwise, as before B-211.
+   */
+  private claim(): void {
+    this.owner.claimed = true;
+    this.openSegment = [];
+    this.freshTracePending = false;
+    this.forgetReleased();
+  }
+
+  /**
+   * Marks the `run()` scope this context backs as settled.
+   *
+   * @remarks A settled scope is no longer live, so the release queue treats its latest unowned root
+   * like any older one (B-211).
+   */
+  endScope(): void {
+    this.owner.ended = true;
+  }
+
+  /**
+   * Queues the root that just ended on an unowned context for release, and releases the oldest
+   * queued roots once the pipeline's limit is crossed (B-211).
+   *
+   * INTENT: nothing will ever capture an unowned context's spans unless it later captures itself,
+   * and nothing ever resets it — so without this every span it traced stayed in its maps and in
+   * the store for the life of the process. Releasing at root exit would break the basic usage of
+   * calling traced code and capturing afterwards, so the release is bounded rather than immediate.
+   *
+   * @remarks "Root ended" means no span is on the active stack and no scoped parent is open; an
+   * async root still in flight is detached and is queued with the next root that ends here.
+   */
+  private releaseIfRootEnded(): void {
+    const spanIds = this.openSegment;
+    if (!this.unclaimed() || spanIds.length === 0 || !this.betweenRoots()) return;
+    this.openSegment = [];
+    this.freshTracePending = true;
+    const owner = this.owner;
+    const segment: UnownedSegment = { owner, spanIds };
+    if (!owner.latest) collectedContexts.register(this, owner);
+    owner.latest = segment;
+    const queue = this.unowned;
+    queue.segments.push(segment);
+    queue.queued += spanIds.length;
+    if (queue.queued > queue.limit) releaseOldest(queue, this.eventPipeline);
+    this.forgetReleased();
+  }
+
+  /** No span on the active stack and no scoped parent open: the last root has ended. */
+  private betweenRoots(): boolean {
+    return this.activeStack.length === 0 && this.parentResolver?.() === undefined;
+  }
+
+  /**
+   * Forgets the roots the release queue took from this context, counting them as refused on this
+   * context only — a context that does capture later is told what it is missing, and no other is.
+   */
+  private forgetReleased(): void {
+    const released = this.owner.released;
+    if (released.length === 0) return;
+    this.owner.released = [];
+    for (const spanIds of released) {
+      this._refusedSpans += spanIds.length;
+      for (const id of spanIds) {
+        this.parentMap.delete(id);
+        this.spanContextMap.delete(id);
+        this.adoptedSpanIds?.delete(id);
+      }
+    }
+    this._refusedScopes += released.length;
   }
 
   detachFrame(handle: SpanId): void {
@@ -520,6 +831,7 @@ export class SyncNarrativeContext implements NarrativeContext {
   }
 
   captureTrace(): TraceTree {
+    this.claim();
     this.eventPipeline.flush();
     const reportable = this.reportableSpanIds();
     const filtered = this.eventPipeline.events().filter((e) => this.isOwned(e, reportable));
@@ -535,13 +847,13 @@ export class SyncNarrativeContext implements NarrativeContext {
       case "exit":
         return spanIds.has(event.spanContext.spanId);
       case "fork-created":
-        return spanIds.has(event.parentSpanId as SpanId);
       case "join-complete":
-        return false;
+        return spanIds.has(spanIdOf(event) as SpanId);
     }
   }
 
   reset(): void {
+    this.claim();
     this.cleanupOwnedEvents();
     this.activeStack.length = 0;
     this.parentMap.clear();
@@ -549,12 +861,12 @@ export class SyncNarrativeContext implements NarrativeContext {
     this._traceId = null;
     this.snapshotParentSpanId = null;
     this.requestExtras = {};
-    this._storyId = null;
-    this._chapterId = null;
-    // Java drops the whole TraceStack here; this runtime reuses the object, so everything the stack
+    this._storyId = this._chapterId = null;
+    // This runtime reuses the stack object across a reset, so everything the stack
     // carried — adoptions, live registrations and their refusal counts — is dropped by hand.
     this.adoptedSpanIds = null;
     this.liveChildren = null;
+    this._liveDepth = 0;
     this._refusedScopes = 0;
     this._refusedSpans = 0;
     this._fromSnapshot = false;
@@ -633,8 +945,8 @@ export class SyncNarrativeContext implements NarrativeContext {
   /**
    * How many times this context has been {@link reset}.
    *
-   * @remarks Java drops the whole `TraceStack` on reset, so a snapshot taken before it simply finds
-   * its origin gone. This runtime reuses the object, so the generation is what tells a snapshot that
+   * @remarks This runtime reuses the stack object on reset, so a snapshot taken before it does not
+   * find its origin gone; the generation is what tells a snapshot that
    * the request it belongs to is over — without it a late worker would graft its spans onto whatever
    * request is using the context now.
    */
@@ -686,6 +998,8 @@ export class SyncNarrativeContext implements NarrativeContext {
   }
 
   snapshot(): ContextSnapshot {
+    // The workers belong with the root at hand: an unowned context's trace continues (B-211).
+    this.freshTracePending = false;
     // Weak by construction: a pending snapshot must never keep a finished request's context alive,
     // and an origin that is gone adopts nothing. Nothing below may close over `this` — a strong
     // capture here would reintroduce exactly the leak the weak handle exists to prevent.
@@ -803,7 +1117,7 @@ function adoptingScope(
  * @remarks When the origin is gone (reset, or the request finished) there is no request left to
  * hand the work to — an orphan must not resurrect it. The child's spans/events must not simply
  * rot in the shared pipeline either (no-poison contract): they are discarded and
- * counted as loss instead, exactly as a Java worker's late completion after `reset()` now is.
+ * counted as loss instead, exactly as a worker's late completion after `reset()` is.
  */
 function handOver(
   originContext: SyncNarrativeContext | undefined,

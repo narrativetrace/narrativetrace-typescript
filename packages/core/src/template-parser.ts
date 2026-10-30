@@ -32,7 +32,7 @@ const cache = new Map<string, Segment[]>();
  * missing, or whose getter throws is preserved verbatim (so unresolved tokens are visible
  * and can be flagged). Values interpolate unquoted. A `{obj.prop}` path that names a redacted
  * member resolves to {@link RedactionPolicy.MARKER} instead of the value — naming a path never
- * weakens the rules that apply to the value directly. Port of Java `template/TemplateParser`.
+ * weakens the rules that apply to the value directly.
  */
 export function resolveTemplate(template: string, values: Record<string, unknown>): string {
   const segments = cachedSegments(template);
@@ -146,7 +146,7 @@ function resolveSimple(value: unknown, key: string): string {
  * introspection, so a member cannot be safe on one surface and leaked on the other.
  *
  * @remarks Only a single property level ever resolves here (see {@link accessProperty}), so
- * there is no multi-segment path to walk the way Java's `RedactedPaths` does — the property named
+ * there is no multi-segment path to walk — the property named
  * after the first dot is the only member this function can ever redact or reach.
  */
 function resolveProperty(root: unknown, property: string, fallback: string): string {
@@ -217,7 +217,7 @@ function stringifyOrLiteral(value: unknown, fallback: string): string {
  * renderer never saw the whole value: truncated at `value-renderer`'s field/collection-item cap,
  * cut at its depth cap, or stopped at a cycle. "No marker" meant "nothing is hidden" and "the
  * renderer did not look" alike, and the second reading printed the secret in full — the exact
- * shape Java's `TemplateParser.renderValue` guards against too: a whole-object placeholder whose
+ * shape every runtime's template renderer guards against: a whole-object placeholder whose
  * redacted component sat past the renderer's field cap. A narration that was never leaking keeps
  * the same bytes either way: `value-renderer`
  * already trusts a class's own `toString()` whenever nothing on it is a redaction target (an

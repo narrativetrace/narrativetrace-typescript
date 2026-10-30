@@ -16,12 +16,12 @@ import { carriesSecret, type GraphCase } from "./types.js";
  * token, so the redaction oracle can look for that token in every byte of every output.
  *
  * @remarks JS has no `Optional`/`AtomicReference`/`AtomicReferenceArray`/`Map.Entry`/
- * `CompletableFuture` as distinct types the way Java does, so several Java layer *names* map to the
+ * `CompletableFuture` as distinct types the way other runtimes do, so several corpus layer *names* map to the
  * same JS *shape* here: `optional` and `atomicReference` are both a single-field {@link Holder};
  * `entryValue`/`entryKey` are both a one-entry `Map`; `future` is a resolved `Promise` (JS never
  * exposes a synchronous view of a promise's contents, so the renderer's `isThenable` check renders
  * `<pending>` uniformly regardless of settled state — the `state` field on a `future` `GraphCase`
- * is therefore inert here and deliberately ignored, unlike Java where pending/failed/cancelled are
+ * is therefore inert here and deliberately ignored, unlike runtimes where pending/failed/cancelled are
  * three different objects). None of these carry a custom `toString`, so introspection always takes
  * the safe field-walking path — see `hostile-corpus.test.ts` for the cross-check that every shape
  * still builds and every layer name is recognized.
@@ -67,6 +67,7 @@ const KIND_BUILDERS: Record<string, KindBuilder> = {
   cycle: (c, _payload, sentinel) => ring(c.n, sentinel),
   selfInCollection: (c, payload) => selfReferencing(c.container as string, payload),
   diamond: (_c, payload) => diamond(payload),
+  sharedLadder: (c, payload) => sharedLadder(c.n, payload),
   hostileMember: (c, _payload, sentinel) => hostile(c.member as string, sentinel),
   manyFields: (_c, _payload, sentinel) => new Members.ManyFields(secret(sentinel)),
   emptyContainers: () => emptyContainers(),
@@ -83,7 +84,68 @@ const KIND_BUILDERS: Record<string, KindBuilder> = {
   }),
   platformLookalike: (_c, _payload, sentinel) => new PlatformLookalike(sentinel),
   platformSubclass: (_c, _payload, sentinel) => new PlatformSubclass(sentinel),
+  declaredElements: (_c, _payload, sentinel) => declaredElements(sentinel),
+  userSubclassAncestorState: (_c, _payload, sentinel) => userSubclassAncestorState(sentinel),
+  nativeTextSecretLeaf: () => nativeTextSecretLeaves(),
 };
+
+const JWT_SHAPE = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJhZGEifQ.c2lnbmF0dXJl";
+const CARD_SHAPE = "4111111111111111";
+
+/** A `URL` (a platform leaf) whose own text is `text`. */
+function urlWithText(text: string, freeze: boolean): URL {
+  const url = new URL("https://example.test/leaf");
+  Object.defineProperty(url, "toString", { value: () => text });
+  return freeze ? Object.freeze(url) : url;
+}
+
+/** A `Date` (a platform leaf) whose own text is `text`. */
+function dateWithText(text: string): Date {
+  const date = new Date(0);
+  Object.defineProperty(date, "toISOString", { value: () => text });
+  return date;
+}
+
+/**
+ * The `native-text-secret-leaf` row: five leaves whose own text is a credential shape, no field
+ * name or hook for the name deny-list to match. In order: a `URL` whose text is the signed-token
+ * shape; a `Date` whose text is the card number; the enum-like constant (TS has no enum constants
+ * with bodies, so a FROZEN platform leaf whose text is the signed-token shape — a constant that
+ * cannot be changed after definition); a type whose `narrativeSummary()` hook returns the
+ * signed-token shape; and a `bigint` holding the card number.
+ */
+export function nativeTextSecretLeaves(): unknown[] {
+  return [
+    urlWithText(JWT_SHAPE, false),
+    dateWithText(CARD_SHAPE),
+    urlWithText(JWT_SHAPE, true),
+    new Members.SecretSummary(JWT_SHAPE),
+    BigInt(CARD_SHAPE),
+  ];
+}
+
+/**
+ * The `declared-elements` row: a list holding a declared iterable, a declared map and a declared
+ * iterable whose hook raises, in that order.
+ */
+export function declaredElements(sentinel: string): unknown[] {
+  return [
+    new Members.DeclaredElementsIterable(secret(sentinel)),
+    new Members.DeclaredElementsMap(secret(sentinel)),
+    new Members.DeclaredElementsRaising(),
+  ];
+}
+
+/**
+ * The `structured-path-user-subclass-ancestor-state` row: a list holding a user subclass of a
+ * platform list and a user subclass of a platform map.
+ */
+export function userSubclassAncestorState(sentinel: string): unknown[] {
+  return [
+    new Members.AncestorStateList(secret(sentinel)),
+    new Members.AncestorStateMap(secret(sentinel)),
+  ];
+}
 
 function byKind(graphCase: GraphCase, payload: unknown, sentinel: string): unknown {
   const builder = KIND_BUILDERS[graphCase.kind as string];
@@ -210,6 +272,21 @@ function diamond(payload: unknown): unknown {
   return [new Wrapped("left", shared), new Wrapped("right", shared)];
 }
 
+/** One rung of the `sharedLadder` shape: both fields hold the same next rung. */
+class Rung {
+  constructor(
+    readonly left: unknown,
+    readonly right: unknown,
+  ) {}
+}
+
+/** `rungs` rungs whose two fields hold the same next rung: `rungs + 1` objects, 2^rungs paths. */
+function sharedLadder(rungs: number, payload: unknown): unknown {
+  let current = payload;
+  for (let i = 0; i < rungs; i++) current = new Rung(current, current);
+  return current;
+}
+
 // No JS analog of a HashMap-backed cycle guard calling a value's own hashCode/equals — see
 // hostile-members.ts's module doc. `hashCodeThrows`/`equalsThrows` fold onto the same shape as a
 // throwing toString so the corpus id still resolves to a build-able, exercised graph.
@@ -280,9 +357,9 @@ function throwable(state: string | undefined, depth: number): Error {
 }
 
 /**
- * JavaBean-shaped card whose verification code is annotated out of every output.
+ * Bean-shaped card whose verification code is annotated out of every output.
  *
- * @remarks Defines `toString()` the way a Java record always effectively does (a record's default
+ * @remarks Defines `toString()` the way a record type in other runtimes always effectively does (a record's default
  * representation lists every component, annotated or not) — a plain TS class has no such built-in
  * hazard (`Object.prototype.toString` is inert), so this fixture recreates it deliberately. Without
  * it, the `whole-object-placeholder` corpus case couldn't exercise the bug class that motivated it:
@@ -349,7 +426,7 @@ export class Unicode {
  * A record-shaped class whose own `toString()` prints every component, past `value-renderer`'s
  * default five-key field cap — same shape as every runtime's `Wide` record (`HostileGraphs.java`
  * in the shared corpus), which relies on a record's auto-generated `toString()` doing the same.
- * Found the security-fuzz-suite way (Java `fuzzTemplate`, 2026-09-02, minimized): the safe
+ * Found the security-fuzz-suite way (`fuzzTemplate`, 2026-09-02, minimized): the safe
  * rendering of this shape truncates the redacted 6th field away entirely and so never carries the
  * marker; template resolution reading "no marker" as "nothing hidden" printed `six` in full.
  */
@@ -464,7 +541,7 @@ export class PlatformSubclass extends Date {
 
 /**
  * One link of a chain longer than `value-renderer`'s 32-level depth cap — the same shape as every
- * runtime's `Link` record. Deliberately carries no `toString()` of its own: unlike a Java record,
+ * runtime's `Link` record. Deliberately carries no `toString()` of its own: unlike a record type in other runtimes,
  * a plain TS object's default `toString()` is inert (it does not echo fields), so this shape has
  * no route to leak on this platform, before or after the fix — see `templates.json`'s
  * `whole-object-redacted-below-the-depth-cap` case and the corpus README for why it is still

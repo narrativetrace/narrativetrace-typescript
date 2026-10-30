@@ -4,16 +4,16 @@
 import type { ClarityResult } from "./clarity-analyzer.js";
 import type { ScenarioResult } from "./clarity-report-renderer.js";
 
-/** 2-decimal precision to match Java's `%.2f` score formatting (cross-language contract). */
+/** 2-decimal precision score formatting, the same in every runtime. */
 function round2(score: number): number {
   return Math.round(score * 100) / 100;
 }
 
 /**
- * Builds the Java-compatible scenario object: flat `overallScore`/`methodNameScore`/… keys,
+ * Builds the scenario object in the family's shared shape: flat `overallScore`/`methodNameScore`/… keys,
  * 2-dp scores, upper-case severity, and issues with
- * `category`/`element`/`suggestion`/`severity`/`occurrences`/`impactScore`. Mirrors Java
- * `ClarityJsonExporter` so a Java-shaped consumer (Gradle plugin analog) parses it unchanged.
+ * `category`/`element`/`suggestion`/`severity`/`occurrences`/`impactScore`. A consumer written
+ * against that shared shape parses it unchanged.
  */
 function buildScenarioJson(name: string, result: ClarityResult) {
   return {

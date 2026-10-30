@@ -7,6 +7,7 @@ import {
   SCHEMA_VERSION,
   serviceNameOrUnknown,
 } from "./canonical-entry.js";
+import { ExceptionMessage } from "./exception-message.js";
 import type { SpanContext } from "./span-context.js";
 import type { TraceId } from "./span-id-generator.js";
 import { resolveTraceIdentity, type TraceIdentity } from "./trace-identity.js";
@@ -29,10 +30,6 @@ function outcomeName(outcome: TraceOutcome): EntryOutcome {
   if (outcome.kind === "returned") return "success";
   if (outcome.kind === "threw") return "failure";
   return "incomplete";
-}
-
-function errorMessageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 function errorTypeOf(error: unknown): string {
@@ -104,7 +101,7 @@ function enterEntry(scope: EntryScope): CanonicalEntry {
 type ExitFields = Partial<CanonicalEntry> & { level: string; message: string };
 
 function threwFields(error: unknown): ExitFields {
-  const message = errorMessageOf(error);
+  const message = ExceptionMessage.text(error);
   return {
     level: "error",
     message: `!! Error: ${message}`,

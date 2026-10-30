@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 10f9b54105a9 | translated: 2026-10-20 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob a76aaf2dd37e | translated: 2026-10-27 | reviewed: - -->
 # Guia de Configuração do NarrativeTrace TypeScript
 
 [English](../configuration-guide.md) | [Español](../es/guia-de-configuracion.md) | **Português** | [简体中文](../zh-CN/配置指南.md)
@@ -337,6 +337,20 @@ renderValue(someObject, {
 | `maxStringLength` | 200 | Strings mais longas que isso são truncadas com `"..."` |
 | `maxArrayItems` | 5 | Arrays mostram os primeiros N itens, depois `... (N total)` |
 | `maxObjectKeys` | 5 | Objetos mostram as primeiras N chaves, depois `... (N total)` |
+
+### Limites do renderizador
+
+Todo limite exposto por um renderizador é um tamanho. `renderValue()` e `renderStructured()` não compartilham nomes de opções, então ambos são listados.
+
+| Limite | Padrão | Contrato |
+|--------|--------|----------|
+| Limite de string (`maxStringLength`, ambos) | 200 | Uma string mais longa é cortada no limite e termina com reticências; um limite negativo é ajustado para 0. |
+| Limites de elementos (`maxArrayItems`, `maxCollectionItems` em `renderValue()`; `maxItems` em `renderStructured()`) | 5 | Um array, `Set` ou `Map` mais longo mostra os primeiros elementos e reticências; um limite negativo é ajustado para 0. |
+| Limites de campos (`maxObjectKeys` em `renderValue()`; `maxFields` em `renderStructured()`) | 5 | Um objeto mostra os primeiros campos e reticências; um limite negativo é ajustado para 0. |
+| Profundidade (`maxDepth`, somente `renderStructured()`) | 3 | O aninhamento além dela é reduzido ao nome do tipo; uma profundidade negativa é ajustada para 0. |
+| Orçamento de nós | fixo | Os valores que excedem o orçamento em uma travessia são renderizados como o marcador de nós demais; não é configurável, então não pode ser negativo. |
+
+Um limite negativo nunca é aceito como está: o renderizador se comporta exatamente como se fosse 0 e escreve uma linha com `console.warn` nomeando cada limite ajustado com o valor recebido, uma vez por processo para essa configuração.
 
 ### Tratamento de tipos
 

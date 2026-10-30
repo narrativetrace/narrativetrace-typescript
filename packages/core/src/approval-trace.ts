@@ -12,8 +12,7 @@ import { structuralDelta } from "./structural-delta.js";
  * INTENT: pure decision logic only — no filesystem here, so this stays usable from any host (a
  * Vitest fixture, a future test-framework integration, a standalone script). The caller reads the
  * approved trace (if any) and the current run's `.nt` document, calls {@link evaluateApprovalTrace},
- * and acts on the result: write the received trace, throw to fail the test, or do nothing. Port of
- * Java `output.NarrativeApproval`.
+ * and acts on the result: write the received trace, throw to fail the test, or do nothing.
  */
 export type ApprovalTraceOutcome =
   | { readonly kind: "no-approved-trace"; readonly received: string }

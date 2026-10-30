@@ -1,4 +1,4 @@
-<!-- source: documentation/choosing-an-integration.md blob 8865ad5d1182 | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/choosing-an-integration.md blob 8b61b8f1e4d1 | translated: 2026-10-28 | reviewed: - -->
 # Escolhendo uma integração
 
 [English](../choosing-an-integration.md) | [Español](../es/eligiendo-una-integracion.md) | **Português** | [简体中文](../zh-CN/选择集成方式.md)
@@ -110,7 +110,24 @@ registrado depois que ela é.
   alguma (não há `AsyncLocalStorage` em um navegador); chamadas
   sobrepostas e não aguardadas em um contexto compartilhado se corrompem
   mutuamente. Use um grupo explícito de fork/fire-and-forget por tarefa
-  concorrente, da mesma forma que a ressalva de trabalho assíncrono acima.
+  concorrente, da mesma forma que a ressalva de trabalho assíncrono acima. O
+  header `traceparent` que `tracedFetch`, `useTracedFetch()` e o
+  `traceInterceptor` do Angular enviam é estampado apenas em uma requisição
+  que tem uma chamada rastreada por trás: uma feita enquanto há um span
+  aberto ou, no Angular, uma que um Observable devolvido por um método de um
+  serviço de `provideTraced` envia ao ser inscrito. Essa requisição nomeia o
+  span do método como seu pai mesmo que o span tenha sido fechado quando o
+  método retornou, e cada inscrição envia sua própria requisição com esse
+  mesmo pai. Uma requisição sem nenhuma das duas não leva header, nem uma que
+  o Observable inicia em um tick posterior à sua inscrição (após um timer ou
+  outra resposta). Em um contexto sem dono — um que ninguém entregou a um escopo —,
+  uma unidade de trabalho cujo primeiro ato é `traceId()` ou `snapshot()`
+  antes de sua primeira chamada rastreada continua o trace da unidade
+  anterior: não existe nenhum sinal que distinga uma entrega deliberada (o
+  trabalho em questão pedindo a própria identidade) de uma unidade não
+  relacionada que simplesmente perguntou primeiro. Entregue o contexto, ou
+  chame `reset()` no início de cada unidade de trabalho antes de ler qualquer
+  coisa.
 
 ## Limites da plataforma
 

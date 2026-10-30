@@ -11,6 +11,7 @@ describe("tracedFetch", () => {
   test("attaches traceparent header to outgoing request", async () => {
     const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
     const fetch = tracedFetch(ctx);
+    ctx.enterMethod("Page", "click", []);
 
     const mockResponse = new Response("ok");
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockResponse);
@@ -27,6 +28,7 @@ describe("tracedFetch", () => {
   test("traceparent contains the context traceId", async () => {
     const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
     const fetch = tracedFetch(ctx);
+    ctx.enterMethod("Page", "click", []);
     const traceId = ctx.traceId();
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
@@ -41,6 +43,7 @@ describe("tracedFetch", () => {
   test("preserves existing headers", async () => {
     const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
     const fetch = tracedFetch(ctx);
+    ctx.enterMethod("Page", "click", []);
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
 
@@ -58,6 +61,7 @@ describe("tracedFetch", () => {
   test("preserves headers from Request input", async () => {
     const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
     const wrapped = tracedFetch(ctx);
+    ctx.enterMethod("Page", "click", []);
 
     const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
     const request = new Request("https://api.example.com/data", {
@@ -73,9 +77,44 @@ describe("tracedFetch", () => {
     expect(headers.get("traceparent")).toMatch(/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/);
   });
 
+  test("sends the open span's trace id and span id as the parent", async () => {
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
+    const spanId = ctx.enterMethod("Page", "click", []);
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
+
+    await tracedFetch(ctx)("https://api.example.com/data");
+
+    const traceparent = new Headers(spy.mock.calls[0][1]?.headers).get("traceparent");
+    expect(traceparent).toBe(`00-${ctx.traceId()}-${spanId}-01`);
+  });
+
+  test("sends no traceparent when no span is open", async () => {
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
+
+    await tracedFetch(ctx)("https://api.example.com/data");
+
+    expect(new Headers(spy.mock.calls[0][1]?.headers).has("traceparent")).toBe(false);
+  });
+
+  test("an untraced fetch between two interactions does not continue the first trace", async () => {
+    const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
+    const spy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
+    ctx.enterMethod("Page", "clickA", []);
+    const traceA = ctx.traceId();
+    ctx.exitMethodWithReturn("null");
+
+    await tracedFetch(ctx)("https://api.example.com/data");
+    ctx.enterMethod("Page", "clickB", []);
+
+    expect(new Headers(spy.mock.calls[0][1]?.headers).has("traceparent")).toBe(false);
+    expect(ctx.traceId()).not.toBe(traceA);
+  });
+
   test("returns the fetch response", async () => {
     const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"));
     const fetch = tracedFetch(ctx);
+    ctx.enterMethod("Page", "click", []);
 
     vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("hello"));
 

@@ -43,6 +43,14 @@ export interface NarrativeContext {
    */
   traceLoss?(): TraceLoss;
   reset(): void;
+  /**
+   * The span currently open on this context, or `null` when none is — the caller an outbound
+   * `traceparent` names as its parent.
+   *
+   * Optional: a context that does not expose its open span is read as having none, so an
+   * outbound helper sends no header rather than a made-up one.
+   */
+  readonly activeSpanId?: SpanId | null;
   runScoped<T>(handle: SpanId, fn: () => T): T;
   parentOf(handle: SpanId): SpanId | null;
   traceId(): TraceId;

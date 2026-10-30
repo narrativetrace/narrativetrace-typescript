@@ -323,6 +323,20 @@ renderValue(someObject, {
 | `maxArrayItems` | 5 | Arrays show first N items, then `... (N total)` |
 | `maxObjectKeys` | 5 | Objects show first N keys, then `... (N total)` |
 
+### Renderer limits
+
+Every limit a renderer exposes is a size. `renderValue()` and `renderStructured()` do not share option names, so both are listed.
+
+| Limit | Default | Contract |
+|-------|---------|----------|
+| String cap (`maxStringLength`, both) | 200 | A longer string is cut at the cap and ends with an ellipsis; a negative cap is clamped to 0. |
+| Element caps (`maxArrayItems`, `maxCollectionItems` in `renderValue()`; `maxItems` in `renderStructured()`) | 5 | A longer array, `Set` or `Map` shows the first elements and an ellipsis; a negative cap is clamped to 0. |
+| Field caps (`maxObjectKeys` in `renderValue()`; `maxFields` in `renderStructured()`) | 5 | An object shows the first fields and an ellipsis; a negative cap is clamped to 0. |
+| Depth (`maxDepth`, `renderStructured()` only) | 3 | Nesting past it collapses to the type name; a negative depth is clamped to 0. |
+| Node budget | fixed | Values past it in one walk render as the too-many marker; it cannot be configured, so it cannot be negative. |
+
+A negative limit is never trusted: the renderer behaves exactly as if it were 0 and writes one `console.warn` line, naming each limit it clamped with the value it was given, once per process for that configuration.
+
 ### Type handling
 
 | Type | Rendered as |

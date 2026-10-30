@@ -702,6 +702,9 @@ describe("ServiceIdentity stamping", () => {
     const received: TraceEvent[] = [];
     const pipeline = new DualPathPipeline((e) => received.push(e), new BufferedEventConsumer(16));
     const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"), undefined, pipeline);
+    // A claimed context is one story between resets. A context nothing claims starts a new trace,
+    // and so a new story, at each root (B-211) — pinned in unowned-span-release.test.ts.
+    ctx.reset();
     ctx.enterMethod("OrderService", "placeOrder", []);
     ctx.exitMethodWithReturn(null);
     ctx.enterMethod("ShippingService", "ship", []);

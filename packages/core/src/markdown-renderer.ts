@@ -5,7 +5,8 @@ import type { CitedNode, FlatChildOp } from "./child-segment.js";
 import { CitableSpanId } from "./citable-span-id.js";
 import { ControlEscape } from "./control-escape.js";
 import { formatDurationMs } from "./duration-format.js";
-import { errorMessage, errorTypeName } from "./error-display.js";
+import { errorTypeName } from "./error-display.js";
+import { ExceptionMessage } from "./exception-message.js";
 import { MarkdownEscape } from "./markdown-escape.js";
 import { displayParamValue, type ParameterCapture } from "./parameter-capture.js";
 import { analyze } from "./sequential-async-detector.js";
@@ -32,7 +33,7 @@ export type MarkdownOptions = {
 };
 
 /**
- * Metadata for the Markdown document header (Java `TraceMetadata`).
+ * Metadata for the Markdown document header.
  *
  * `runName` is the ONLY field {@link renderMarkdownDocument} ever folds into the frontmatter's
  * `run:` key — never into `scenario`, never read back by `entry_point`/
@@ -128,12 +129,12 @@ function entryPointLines(tree: TraceTree): string[] {
 }
 
 // YAML frontmatter: type/scenario/entry_point/duration_ms/
-// trace identity/method_count/error_count. `result` moved to the document header (Java parity).
+// trace identity/method_count/error_count. `result` moved to the document header (the same in every runtime).
 //
 // The scenario key is present whenever the caller supplied a scenario at all — testing for
 // `undefined`, never for truthiness, so an explicitly-empty scenario ("" — a corpus/fuzz value,
 // not a hole in the caller's setup) still writes `scenario: ""` rather than silently vanishing
-// from the document, the same contract Java's FrontmatterBuilder keeps (`scenario != null`, never
+// from the document, the same contract every runtime keeps (present-or-absent, never
 // testing the string's content). Found by fuzzing the scenario route (see security-tests'
 // output-format.prop.test.ts).
 function renderFrontmatter(tree: TraceTree, options?: MarkdownOptions): string[] {
@@ -157,7 +158,7 @@ function renderBody(tree: TraceTree, options?: MarkdownOptions): string[] {
   return lines;
 }
 
-/** Body-only Markdown (no `---` frontmatter fences), Java `MarkdownRenderer.render`. */
+/** Body-only Markdown (no `---` frontmatter fences). */
 export function renderMarkdownBody(tree: TraceTree, options?: MarkdownOptions): string {
   return renderBody(tree, options).join("\n");
 }
@@ -213,7 +214,7 @@ function documentHeader(tree: TraceTree, metadata: MarkdownDocumentMetadata): st
 }
 
 /**
- * Full Markdown document (Java `MarkdownRenderer.renderDocument`): frontmatter, a `## Trace:` header
+ * Full Markdown document: frontmatter, a `## Trace:` header
  * with scenario/duration/result, a `### Call Flow` heading, then the node body.
  */
 export function renderMarkdownDocument(
@@ -344,7 +345,7 @@ function joinSuffix(seqAsync: ReturnType<typeof analyze>): string {
 }
 
 // `(waited Xms for <slowest> after <fastest>)` when ≥2 members finished at different times
-// (Java appendWaitAnalysis). Silent when a single member or all members share a duration.
+// Silent when a single member or all members share a duration.
 function waitAnalysis(members: readonly TraceNode[]): string {
   if (members.length < 2) return "";
   let slowest = members[0] as TraceNode;
@@ -382,7 +383,7 @@ function renderForkJoinSegment(
 }
 
 // A redacted capture keeps its marker without ever entering the reference index; only real
-// captured values are deduplicated (Java ValueReferenceIndex.countNode skips redacted params).
+// captured values are deduplicated (the reference index skips redacted params).
 function paramDisplay(param: ParameterCapture, refs: ValueReferenceIndex): string {
   return param.redacted ? displayParamValue(param) : refs.display(param.renderedValue);
 }
@@ -402,7 +403,7 @@ function formatCall(node: TraceNode, refs: ValueReferenceIndex): string {
 
 function formatError(outcome: Threw): string {
   const type = MarkdownEscape.code(errorTypeName(outcome.error));
-  const msg = MarkdownEscape.text(errorMessage(outcome.error));
+  const msg = MarkdownEscape.text(ExceptionMessage.text(outcome.error));
   const context = outcome.errorContext
     ? ` — ${MarkdownEscape.text(ControlEscape.sanitize(outcome.errorContext))}`
     : "";
@@ -417,7 +418,7 @@ function formatReturn(renderedValue: string | null, refs: ValueReferenceIndex): 
 }
 
 // Every timed node shows `— Nms`; a node whose duration strictly exceeds the threshold also
-// gets ` ⚠️ slow` (Java renderDuration). Untimed nodes (duration 0) show nothing.
+// gets ` ⚠️ slow` Untimed nodes (duration 0) show nothing.
 function formatDuration(node: TraceNode, threshold: number): string {
   if (node.durationMs === undefined || node.durationMs <= 0) return "";
   const slow = node.durationMs > threshold ? " ⚠️ slow" : "";

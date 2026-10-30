@@ -6,8 +6,8 @@ import type { Skill } from "../skill.js";
 /**
  * D2 (phase-3-design-2026-09-25.md): the published carrier's `catalogue.json`, versionless — an
  * installer reads its own resolved package's version instead, so a stale literal here could never
- * misreport what a project has installed (mirrors Java's `RenderMain` carrier target and
- * `SkillsCarrierJarTest.theCatalogueCarriesNoVersionLiteral`).
+ * misreport what a project has installed (the carrier's catalogue carries no version literal
+ * in any runtime).
  */
 const CARRIER_RUNTIME = "typescript";
 

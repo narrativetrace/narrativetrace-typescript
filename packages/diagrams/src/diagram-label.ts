@@ -12,8 +12,7 @@ declare const DiagramLabelBrand: unique symbol;
 
 /**
  * One piece of diagram text guaranteed to have passed through `diagram-text.ts`, the one
- * sanitizer both sequence grammars share. Port of the Java reference's `DiagramLabel` (the
- * runtime's micro-type idiom: a branded string, constructed only through this module's factories).
+ * sanitizer both sequence grammars share. It is this runtime's micro-type idiom: a branded string, constructed only through this module's factories.
  *
  * INTENT: "call the sanitizer before a string enters a diagram line" used to be a convention every
  * call site had to remember on its own — {@link identifier}/{@link message}/{@link alias} are the
@@ -21,8 +20,8 @@ declare const DiagramLabelBrand: unique symbol;
  * `DiagramLabel` parameter cannot be satisfied by an un-sanitized string literal (see
  * `shape-checks/sequence-grammar-shape.ts`).
  *
- * @remarks TS branding is a compile-time discipline, not a runtime seal the way Java's private
- * constructor is: a caller willing to write `"raw" as unknown as DiagramLabel` can still forge one
+ * @remarks TS branding is a compile-time discipline, not a runtime seal the way a private
+ * constructor would be in a nominally typed runtime: a caller willing to write `"raw" as unknown as DiagramLabel` can still forge one
  * — {@link DiagramLabelBrand} is deliberately unexported so no *ordinary* assignment or accidental
  * `as DiagramLabel` on a wider type reaches a grammar hook, which is the realistic bar for a
  * structural type system. {@link withParameters} and {@link quoted} compose already-sanitized

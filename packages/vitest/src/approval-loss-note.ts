@@ -6,7 +6,7 @@ import type { CaptureShedding } from "./capture-shedding.js";
 /**
  * Human phrasing of what a capture window lost, for approval-trace messages that must not read as
  * a behavioral change. `undefined` for a clean capture — the caller then compares by byte equality
- * instead of subsequence containment. Port of Java `NarrativeApproval.describe`.
+ * instead of subsequence containment.
  */
 export function approvalLossNote(shedding: CaptureShedding | undefined): string | undefined {
   if (shedding === undefined) return undefined;

@@ -30,7 +30,7 @@ bootstrapApplication(AppComponent, {
 });
 ```
 
-`provideNarrativeTrace()` also installs `traceInterceptor` so outgoing `HttpClient` requests carry the trace context. `TraceCaptureService` and the `NARRATIVE_CONTEXT` token are exported for capturing traces manually.
+`provideNarrativeTrace()` also installs `traceInterceptor`, so an outgoing `HttpClient` request with a traced call behind it carries the trace context: one made while a span is open, or one an Observable returned by a `provideTraced` method sends on `subscribe()`, parented to that method's span. Any other request carries no header. `TraceCaptureService` and the `NARRATIVE_CONTEXT` token are exported for capturing traces manually.
 
 ## Learn more
 

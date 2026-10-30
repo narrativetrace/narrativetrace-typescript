@@ -827,3 +827,17 @@ describe("bounded tree walk (cyclic and very deep trees)", () => {
     expect(() => exportChapter(traceTree([cyclicRoot()]), { scenario: "Test" })).not.toThrow();
   });
 });
+
+describe("exportJson exception message redaction (B-174)", () => {
+  test("a credential-shaped exception message exports as the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const node = traceNode(
+      methodSignature("Pay", "charge", []),
+      threw(new Error("4111111111111111")),
+      [],
+    );
+    const json = exportJson(traceTree([node]), { scenario: "Redaction" });
+    expect(json).not.toContain("4111111111111111");
+    expect(JSON.parse(json).events[1].errorMessage).toBe("[REDACTED]");
+  });
+});

@@ -102,7 +102,22 @@ recorded once it is.
 - **Browser** — `SyncNarrativeContext` has no implicit propagation at all
   (no `AsyncLocalStorage` in a browser); overlapping un-awaited calls on a
   shared context corrupt each other. Use an explicit fork/fire-and-forget
-  group per concurrent task, same as the async-work caveat above.
+  group per concurrent task, same as the async-work caveat above. The
+  `traceparent` header that `tracedFetch`, `useTracedFetch()` and the
+  Angular `traceInterceptor` send is stamped only on a request with a traced
+  call behind it: one made while a span is open, or, in Angular, one that an
+  Observable returned by a `provideTraced` service method sends when it is
+  subscribed. That request names the method's span as its parent even though
+  the span closed when the method returned, and every subscription sends its
+  own request with that same parent. A request with neither carries no
+  header, and neither does one that the Observable starts on a later tick
+  than its subscription (after a timer or another response). On an unowned context
+  — one nobody has handed to a scope — a unit of work whose first act is
+  `traceId()` or `snapshot()` before its first traced call continues the
+  previous unit's trace: there is no signal that tells a deliberate handover
+  (the work at hand asking for its own identity) apart from an unrelated unit
+  that simply asked first. Hand the context over, or call `reset()` at the
+  start of each unit of work before reading anything.
 
 ## Platform ceilings
 

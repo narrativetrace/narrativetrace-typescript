@@ -3,8 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 /**
  * The commands of `narrativetrace-verify`, `narrativetrace-debug` and `narrativetrace-explain`, in
- * the closed TypeScript vocabulary — each one what an ADOPTER runs in their own project. Port of
- * Java `VerifyCommands` and `ExplainCommands`.
+ * the closed TypeScript vocabulary — each one what an ADOPTER runs in their own project.
  *
  * Tier A2 replays every one against `examples/sixty-seconds`, the placeholder filled with that
  * fixture's flow test. The listing commands print paths (and, for a review copy, its text) and

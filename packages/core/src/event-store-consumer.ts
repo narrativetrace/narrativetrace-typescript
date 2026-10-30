@@ -27,8 +27,8 @@ export class EventStoreConsumer {
   }
 
   /**
-   * Removes only the enter/exit events belonging to the given span ids, leaving
-   * other traces' events (and group lifecycle events) untouched. Request-scoped
+   * Removes only the enter/exit events of the given span ids and the group lifecycle events they own, leaving
+   * other traces' events (and group events created outside every span) untouched. Request-scoped
    * cleanup: a finishing request drops its own events without disturbing other
    * in-flight traces sharing this store.
    */
@@ -43,9 +43,22 @@ export class EventStoreConsumer {
   }
 }
 
-function spanIdOf(event: TraceEvent): SpanId | null {
-  if (event.type === "enter" || event.type === "exit") {
-    return event.spanContext.spanId;
+/**
+ * The span id an event belongs to: an enter or exit event's own span, a group lifecycle event's
+ * owning span (the span that launched the group). `null` when there is none — a group created
+ * outside every span, which therefore stays retained (documented limit).
+ *
+ * INTENT: retention keys on this. A request's end removes every event whose span id is one of the
+ * request's spans, so a group event leaves with the request that launched it.
+ */
+export function spanIdOf(event: TraceEvent): SpanId | null {
+  switch (event.type) {
+    case "enter":
+    case "exit":
+      return event.spanContext.spanId;
+    case "fork-created":
+      return event.parentSpanId === "" ? null : (event.parentSpanId as SpanId);
+    case "join-complete":
+      return (event.ownerSpanId as SpanId | null) ?? null;
   }
-  return null;
 }

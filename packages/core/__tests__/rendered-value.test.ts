@@ -2,9 +2,11 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, test } from "vitest";
+import { NARRATIVE_ELEMENTS } from "../src/element-origin.js";
 import { RedactionPolicy } from "../src/redaction-policy.js";
 import { renderStructured } from "../src/rendered-value.js";
 import { isRenderingInProgress } from "../src/rendering-guard.js";
+import { renderValue } from "../src/value-renderer.js";
 
 describe("renderStructured", () => {
   test("primitives keep their type", () => {
@@ -197,5 +199,221 @@ describe("renderStructured never re-enters tracing", () => {
     };
     renderStructured(probed);
     expect(observedDuringRender).toBe(false);
+  });
+});
+
+// B-191: the third sanctioned hook (NARRATIVE_ELEMENTS) is part of the one origin decision, so
+// the structured path shows a declaring type's elements exactly as the flat path does.
+describe("renderStructured honours the declared-elements hook like renderValue does", () => {
+  class Basket {
+    calls = 0;
+    guarded = false;
+    readonly parts: unknown[];
+    constructor(parts: unknown[]) {
+      Object.defineProperty(this, "parts", { value: parts, enumerable: false });
+    }
+    [NARRATIVE_ELEMENTS](): Iterable<unknown> {
+      this.calls++;
+      this.guarded = isRenderingInProgress();
+      return this.parts;
+    }
+  }
+
+  test("shows the elements under the cap, not the (empty) own fields", () => {
+    const basket = new Basket(["a", "b", "c", "d", "e", "f", "g"]);
+    expect(renderStructured(basket)).toEqual({
+      kind: "list",
+      items: ["a", "b", "c", "d", "e"].map((value) => ({ kind: "string", value })),
+    });
+  });
+
+  test("honours maxItems", () => {
+    const rendered = renderStructured(new Basket(["a", "b", "c"]), { maxItems: 2 });
+    expect(rendered).toEqual({
+      kind: "list",
+      items: ["a", "b"].map((value) => ({ kind: "string", value })),
+    });
+  });
+
+  test("wins over a platform collection the declaring type also is", () => {
+    class DeclaredList extends Array<string> {
+      [NARRATIVE_ELEMENTS](): Iterable<string> {
+        return ["declared"];
+      }
+    }
+    const list = DeclaredList.from([]);
+    list.push("platform");
+    expect(renderStructured(list)).toEqual({
+      kind: "list",
+      items: [{ kind: "string", value: "declared" }],
+    });
+  });
+
+  test("a map-shaped declaration yields key/value pairs", () => {
+    const declared = new Basket([
+      ["k0", "v0"],
+      ["k1", "v1"],
+    ]);
+    expect(renderStructured(declared)).toEqual({
+      kind: "list",
+      items: [
+        {
+          kind: "list",
+          items: [
+            { kind: "string", value: "k0" },
+            { kind: "string", value: "v0" },
+          ],
+        },
+        {
+          kind: "list",
+          items: [
+            { kind: "string", value: "k1" },
+            { kind: "string", value: "v1" },
+          ],
+        },
+      ],
+    });
+  });
+
+  test("runs the hook once, under the rendering guard, even when reached twice", () => {
+    const basket = new Basket(["a"]);
+    renderStructured({ first: basket, second: basket });
+    expect(basket.calls).toBe(1);
+    expect(basket.guarded).toBe(true);
+    expect(isRenderingInProgress()).toBe(false);
+  });
+
+  test("a throwing hook is the typed error marker, on the root and on a nested field", () => {
+    class Refuses {
+      [NARRATIVE_ELEMENTS](): Iterable<string> {
+        throw new RangeError("the hook refuses");
+      }
+    }
+    expect(renderStructured(new Refuses())).toEqual({ kind: "other", text: "<error: RangeError>" });
+    expect(renderStructured({ held: new Refuses() })).toEqual({
+      kind: "object",
+      typeName: "Object",
+      fields: { held: { kind: "other", text: "<error: RangeError>" } },
+    });
+    expect(renderValue(new Refuses())).toBe("<error: RangeError>");
+  });
+
+  test("a hook returning a non-iterable is the error marker too", () => {
+    const notIterable = { [NARRATIVE_ELEMENTS]: () => 42 };
+    expect(renderStructured(notIterable)).toEqual({ kind: "other", text: "<error: TypeError>" });
+  });
+
+  test("elements are redacted by shape like any other nested scalar", () => {
+    const jwt = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abcdefghijklmnopqrstuvwxyz012345";
+    const rendered = JSON.stringify(renderStructured(new Basket([jwt])));
+    expect(rendered).not.toContain("eyJhbGci");
+  });
+});
+
+// B-191: a user subclass of Array / Set / Map is enumerated through the platform ancestor's own
+// state on the structured path too; none of the subclass's overrides ever runs.
+describe("renderStructured reads a platform collection subclass's own state", () => {
+  test("an Array subclass: the override, the species constructor and the views never run", () => {
+    let overrides = 0;
+    class Hostile extends Array<unknown> {
+      constructor(...args: number[]) {
+        super(...args);
+        overrides++;
+      }
+      override [Symbol.iterator](): ArrayIterator<unknown> {
+        overrides++;
+        throw new Error("iterator");
+      }
+      override values(): ArrayIterator<unknown> {
+        overrides++;
+        throw new Error("values");
+      }
+      override entries(): ArrayIterator<[number, unknown]> {
+        overrides++;
+        throw new Error("entries");
+      }
+    }
+    const list = new Hostile();
+    list.push("ancestor-list-element", "second");
+    overrides = 0;
+    expect(renderStructured(list)).toEqual({
+      kind: "list",
+      items: [
+        { kind: "string", value: "ancestor-list-element" },
+        { kind: "string", value: "second" },
+      ],
+    });
+    expect(overrides).toBe(0);
+  });
+
+  test("a Set subclass: the override never runs", () => {
+    let overrides = 0;
+    class Hostile extends Set<string> {
+      override [Symbol.iterator](): SetIterator<string> {
+        overrides++;
+        throw new Error("iterator");
+      }
+      override values(): SetIterator<string> {
+        overrides++;
+        throw new Error("values");
+      }
+    }
+    expect(renderStructured(new Hostile(["ancestor-set-element"]))).toEqual({
+      kind: "list",
+      items: [{ kind: "string", value: "ancestor-set-element" }],
+    });
+    expect(overrides).toBe(0);
+  });
+
+  test("a Map subclass: entries, keys, values and the iterator never run", () => {
+    let overrides = 0;
+    class Hostile extends Map<string, unknown> {
+      override entries(): MapIterator<[string, unknown]> {
+        overrides++;
+        throw new Error("entries");
+      }
+      override keys(): MapIterator<string> {
+        overrides++;
+        throw new Error("keys");
+      }
+      override values(): MapIterator<unknown> {
+        overrides++;
+        throw new Error("values");
+      }
+      override [Symbol.iterator](): MapIterator<[string, unknown]> {
+        overrides++;
+        throw new Error("iterator");
+      }
+    }
+    const map = new Hostile([["visible", "ancestor-map-value"]]);
+    expect(renderStructured(map)).toEqual({
+      kind: "object",
+      typeName: "Map",
+      fields: { visible: { kind: "string", value: "ancestor-map-value" } },
+    });
+    expect(overrides).toBe(0);
+  });
+
+  test("the flat path agrees on all three", () => {
+    class L extends Array<unknown> {
+      override [Symbol.iterator](): ArrayIterator<unknown> {
+        throw new Error("iterator");
+      }
+    }
+    class S extends Set<string> {
+      override [Symbol.iterator](): SetIterator<string> {
+        throw new Error("iterator");
+      }
+    }
+    class M extends Map<string, string> {
+      override [Symbol.iterator](): MapIterator<[string, string]> {
+        throw new Error("iterator");
+      }
+    }
+    const list = new L();
+    list.push("a");
+    expect(renderValue(list)).toBe('["a"]');
+    expect(renderValue(new S(["b"]))).toBe('["b"]');
+    expect(renderValue(new M([["k", "c"]]))).toBe('{k="c"}');
   });
 });

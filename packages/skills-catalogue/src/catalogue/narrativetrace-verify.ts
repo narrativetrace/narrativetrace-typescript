@@ -27,8 +27,7 @@ const NO_STRUCTURAL_TRACE = {
 
 /**
  * `narrativetrace-verify` — reads what a change actually did before the agent says it is done, and
- * pins the result as an approval baseline behind the user's yes. Port of Java
- * `NarrativeTraceVerifySkill` (design D1–D3, D5, D8).
+ * pins the result as an approval baseline behind the user's yes. (design D1–D3, D5, D8).
  *
  * The loop runs after the tests are green and before the report: decide whether the change is
  * worth tracing and say so (a pure function is not); write the intent down BEFORE the run, because

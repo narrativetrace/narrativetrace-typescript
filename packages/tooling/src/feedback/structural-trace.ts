@@ -20,8 +20,7 @@
  * Loosening this means loosening what a report may attach, so loosen the FORMAT first and this
  * after.
  *
- * @llmNote Two of the shapes accepted here are this runtime's and are NOT in the Java reference's
- * grammar check: `~ fire-and-forget` carries no bracketed count (there is no group to count), and a
+ * @llmNote Two of the shapes accepted here are specific to this runtime's renderer: `~ fire-and-forget` carries no bracketed count (there is no group to count), and a
  * call line may end in ` … (cycle)` or ` … (depth limit)` where the tree walk refused to descend.
  * `structural-trace-renderer.ts` writes both, so a grammar that refused them would refuse this
  * runtime's real artifacts.

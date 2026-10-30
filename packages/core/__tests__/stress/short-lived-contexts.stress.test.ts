@@ -7,13 +7,17 @@ import { NarrativeTraceConfig } from "../../src/config.js";
 import { SyncNarrativeContext } from "../../src/context.js";
 import { DualPathPipeline } from "../../src/dual-path-pipeline.js";
 
-// Deliberately NOT scaled by stressScale for the long sweep: each instance allocates a full
-// default 65,536-slot ring (~512 KB, the cost documented in the configuration guide's sizing
-// section), so multiplying this count the way other stress scenarios multiply their volume
-// stresses V8's array allocator, not this runtime's leak-prevention logic. "Thousands" already
-// exercises the invariant; a fixed 2000 stays representative of the real per-request/per-click
-// shape at both cadences.
+// Deliberately NOT scaled by stressScale for the long sweep: "thousands" already exercises the
+// invariant, and a fixed 2000 stays representative of the real per-request/per-click shape at both
+// cadences.
 const CONTEXTS = 2000;
+
+// The timer lifecycle under test does not depend on the ring's size, so each consumer gets a small
+// ring rather than the default 65,536 slots (~512 KB each, allocated on the first event). With
+// the default, the first test held 2000 rings live at once — ~1 GB of heap. Every static mutant
+// reruns this file, so all four mutation workers reached ~1.2 GB together, and the container's
+// OOM killer took them (B-219).
+const RING_CAPACITY = 16;
 
 /**
  * Thousands of short-lived, per-request-shaped contexts (stress mirror of the leak class the
@@ -39,7 +43,7 @@ describe("thousands of short-lived contexts leave no timer/handle behind (stress
   // not a spec (it flaked exactly once, at 6.3s, in the containerized verify).
   test(`${CONTEXTS} closed request-shaped contexts: one timer per live consumer, zero once all close`, () => {
     const pipelines = Array.from({ length: CONTEXTS }, () => {
-      const pipeline = new DualPathPipeline(null, new BufferedEventConsumer());
+      const pipeline = new DualPathPipeline(null, new BufferedEventConsumer(RING_CAPACITY));
       const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"), undefined, pipeline);
       ctx.enterMethod("Controller", "handle", []);
       ctx.exitMethodWithReturn('"ok"');
@@ -56,7 +60,7 @@ describe("thousands of short-lived contexts leave no timer/handle behind (stress
 
   test(`${CONTEXTS} request-shaped contexts nobody closes still self-stop once their drain empties`, () => {
     for (let i = 0; i < CONTEXTS; i++) {
-      const pipeline = new DualPathPipeline(null, new BufferedEventConsumer());
+      const pipeline = new DualPathPipeline(null, new BufferedEventConsumer(RING_CAPACITY));
       const ctx = new SyncNarrativeContext(new NarrativeTraceConfig("detail"), undefined, pipeline);
       ctx.enterMethod("Controller", "handle", []);
       ctx.exitMethodWithReturn('"ok"');

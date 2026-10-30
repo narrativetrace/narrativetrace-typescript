@@ -68,7 +68,7 @@ export function extractServiceIdentity(context: NarrativeContext): ServiceIdenti
 
 // Request/user metadata (httpRoute, clientIp, enduserId, tenantId, …) is propagated onto forked
 // and fire-and-forget children so background spans carry the same identity as the request that
-// spawned them (Java ContextSnapshot carries RequestMetadata).
+// spawned them (a context snapshot carries the request metadata).
 export function extractRequestExtras(context: NarrativeContext): SpanContextExtras {
   const exporter = (context as { exportRequestExtras?: () => SpanContextExtras })
     .exportRequestExtras;

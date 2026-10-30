@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 /**
- * Structural inputs are the trace-wide maxima (Java `ClarityAnalyzer.structuralFactor`): the single
+ * Structural inputs are the trace-wide maxima: the single
  * highest parameter count across all nodes and the deepest call depth. The score is one global-max
  * penalty, NOT a per-node average — a trace is only as structurally clear as its worst offender.
  */
@@ -14,7 +14,7 @@ export type StructuralInput = {
 const MAX_GOOD_PARAMS = 4;
 const MAX_GOOD_DEPTH = 5;
 
-// Java parity (structuralFactor): 0.10 per parameter over 4, 0.05 per depth level over 5.
+// Family contract: 0.10 per parameter over 4, 0.05 per depth level over 5.
 const PARAM_PENALTY_PER_EXCESS = 0.1;
 const DEPTH_PENALTY_PER_EXCESS = 0.05;
 

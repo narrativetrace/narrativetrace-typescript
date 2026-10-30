@@ -16,8 +16,8 @@ const EMERGENCY_THRESHOLD = 0.9;
  * How many extra terminal drains {@link BufferedEventConsumer.close} spends absorbing publishes
  * that land reentrantly during its own drain — a subscriber's `onEvent` synchronously tracing more
  * work on a context sharing this consumer. Bounded so a pathological subscriber that always
- * republishes cannot loop forever; sized like Java's `ThreadLocalNarrativeContext.DRAIN_ATTEMPTS`,
- * enough to absorb a real cascade without pretending to solve an infinite one.
+ * republishes cannot loop forever; sized to absorb a
+ * real cascade without pretending to solve an infinite one.
  */
 const CLOSE_DRAIN_ATTEMPTS = 64;
 
@@ -47,8 +47,8 @@ interface SubscriberSlot {
   /**
    * Set once a delivery to this subscriber throws or its returned promise rejects — a failing
    * best-effort listener must not be offered every subsequent event forever (no-poison contract;
-   * Java's `ListenerFanoutConsumer` disables a listener the same way, on any
-   * `Throwable`). Never cleared: a subscriber that misbehaved once is not trusted again this run.
+   * every NarrativeTrace runtime disables a listener the same way, on any
+   * thrown value). Never cleared: a subscriber that misbehaved once is not trusted again this run.
    */
   disabled: boolean;
 }
@@ -125,8 +125,8 @@ export class BufferedEventConsumer {
    * relieving pressure. Load-shedding belongs to the timer path alone, and {@link lastDrainMode}
    * is left untouched.
    *
-   * @llmNote **Barrier contract** (family parity with Java `BufferedEventConsumer.flush()`, whose
-   * `synchronized` drain gives the same guarantee across real OS threads): once this call returns,
+   * @llmNote **Barrier contract** (the same guarantee in every NarrativeTrace runtime, where
+   * a lock-guarded drain provides it across real OS threads): once this call returns,
    * every event whose {@link accept} had already returned is either counted in {@link events} or in
    * {@link overflowCount} — nothing sits in limbo between the ring's claim (the index bookkeeping in
    * {@link BoundedEventBuffer.drain}) and its account ({@link EventStoreConsumer.accept} /
@@ -134,10 +134,10 @@ export class BufferedEventConsumer {
    * `accept → BoundedEventBuffer.put/drain → processNormal → store.accept` chain is synchronous
    * top to bottom with zero `await`/microtask-yield points, so JS's run-to-completion semantics
    * alone rule out another `accept()`, a concurrent `flush()`, or a timer tick running mid-drain —
-   * there is no OS thread here for Java's lock to exclude. **Never add `await` inside that chain**
+   * there is no OS thread here for a lock to exclude. **Never add `await` inside that chain**
    * (`flush`, {@link drainAll}, `BoundedEventBuffer.drain`, {@link processNormal},
    * `EventStoreConsumer.accept`) without re-deriving this proof; doing so reopens exactly the
-   * claim-then-write window Java's `synchronized` block exists to close. Pinned by the concurrent
+   * claim-then-write window a lock exists to close on threaded runtimes. Pinned by the concurrent
    * async-producer/flusher interleaving test in `ring-atomicity.stress.test.ts`.
    */
   flush(): void {
@@ -174,7 +174,7 @@ export class BufferedEventConsumer {
   /**
    * Events not delivered because a subscriber was still busy with a prior async `onEvent`.
    *
-   * @remarks Subscriber backpressure only, matching Java's `droppedCount()`. Events lost by the
+   * @remarks Subscriber backpressure only, the same across runtimes. Events lost by the
    * ring itself are a different failure with a different remedy (size the cap up, not the
    * subscriber) and are counted by {@link overflowCount}.
    */
@@ -241,7 +241,7 @@ export class BufferedEventConsumer {
 
   /**
    * Stops draining and releases awaiters, after draining whatever is still buffered so a shutdown
-   * does not silently discard the tail (Java's `close` → `drainRemaining`). Idempotent: a second
+   * does not silently discard the tail (close runs a final unlimited drain). Idempotent: a second
    * call drains nothing further.
    */
   close(): void {
@@ -273,9 +273,9 @@ export class BufferedEventConsumer {
    * non-empty. Armed by the first event into an empty buffer, cleared by the drain that empties
    * it, re-armed by the next event. One timer per consumer with pending work; zero at idle.
    *
-   * @remarks This is the honest translation of Java's per-instance parked drain *thread* (cheap,
-   * daemon, woken only when the queue has work). JavaScript has no threads to park, and the
-   * original port's literal-looking translation — a per-instance always-firing `setInterval` — was
+   * @remarks This is the single-threaded answer to a per-instance parked drain thread (cheap,
+   * woken only when the queue has work). JavaScript has no threads to park, and the
+   * literal-looking alternative — a per-instance always-firing `setInterval` — was
    * the actual defect: every un-closed consumer kept a live timer, a GC root and a process
    * keep-alive, firing every 100 ms for nothing. Tying the timer's lifetime to the buffer's
    * contents is what makes an idle consumer collectable without {@link close}; `unref()` below is
@@ -295,7 +295,8 @@ export class BufferedEventConsumer {
     if (this.timer !== undefined || this._closed) return;
     const timer = setInterval(() => this.drainCycle(), this.drainIntervalMs);
     // Defense in depth for the same problem: on Node, unref() lets the process exit while a drain
-    // is still pending (Java's daemon drain thread). It is absent in the browser, so guard it.
+    // is still pending (a background drain never keeps the process alive). It is absent in the
+    // browser, so guard it.
     (timer as { unref?: () => void }).unref?.();
     this.timer = timer;
   }
@@ -324,7 +325,7 @@ export class BufferedEventConsumer {
   }
 
   /**
-   * Unlimited, always-storing drain — the flush/shutdown path (Java `drainRemaining`).
+   * Unlimited, always-storing drain — the flush/shutdown path.
    *
    * @llmNote The seam {@link flush}'s barrier contract depends on: synchronous, no `limit`, no
    * `await`. See that doc comment before changing this method's signature or body.
@@ -333,7 +334,7 @@ export class BufferedEventConsumer {
     this.buffer.drain((e) => this.processNormal(e));
   }
 
-  /** One adaptive, chunk-limited drain — the timer path (Java `drainCycle`). */
+  /** One adaptive, chunk-limited drain — the timer path. */
   private drainOnce(): void {
     const fill = this.buffer.fillLevel;
     if (fill > EMERGENCY_THRESHOLD) this.shedChunk("emergency");

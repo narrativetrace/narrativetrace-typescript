@@ -4,8 +4,8 @@
 // A character that ends or splits a line for some consumer of the diagram: an ISO control (C0
 // 0x00-0x1F, C1 0x7F-0x9F incl. U+0085) or U+2028/U+2029. The Unicode separators are not controls,
 // yet JavaScript (Mermaid's own runtime), regex engines and most viewers treat them as line
-// terminators — a mid-string one in a participant name broke the Mermaid statement grammar (Java
-// nightly fuzz finding, 2026-10-10).
+// terminators — a mid-string one in a participant name broke the Mermaid statement grammar
+// (nightly fuzz finding, 2026-10-10).
 function endsALine(code: number): boolean {
   return code <= 0x1f || (code >= 0x7f && code <= 0x9f) || code === 0x2028 || code === 0x2029;
 }
@@ -15,8 +15,7 @@ const MAX_IDENTIFIER_LENGTH = 200;
 /**
  * Folds every ISO control character (notably CR/LF) and U+2028/U+2029 in interpolated diagram text to a single
  * space so a rendered value cannot inject a new diagram statement — e.g. a Mermaid `click` or
- * PlantUML `!include` directive (diagram-injection / SSRF / local-file read). Port of Java
- * `diagrams/DiagramText.message`.
+ * PlantUML `!include` directive (diagram-injection / SSRF / local-file read).
  *
  * @remarks Private implementation — {@link DiagramLabel} (`diagram-label.ts`) is the only caller;
  * a raw trace string reaches a diagram line only through that type's factories.
@@ -36,7 +35,7 @@ export function message(text: string): string {
  * into `'` (neither grammar can escape a quote *inside* a quoted name — the character must stop
  * being a quote), collapses Mermaid's `%%` comment opener, caps length, and maps an
  * empty-or-all-control name to `<unnamed>` rather than emitting a bare, malformed statement.
- * Port of Java `DiagramText.identifier` (cross-runtime shape F4, 2026-09-02 audit).
+ * The shape is the same in every runtime (F4, 2026-09-02 audit).
  *
  * @remarks Private implementation — see {@link message}'s own remark.
  */
@@ -55,8 +54,7 @@ const UNNAMED_ALIAS = "P";
 
 /**
  * A bare Mermaid/PlantUML participant alias: a single unquotable token, safe unquoted both on a
- * `participant X as Name` declaration and on every arrow line that names it. Port of Java
- * `DiagramText.aliasToken`.
+ * `participant X as Name` declaration and on every arrow line that names it.
  *
  * @remarks {@link identifier} is not enough here — an alias sits in grammar position, not text
  * position, and its output can still carry a space, a colon, an arrow fragment (`->>`) or a quote,

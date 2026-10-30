@@ -71,6 +71,6 @@ export interface AutoProxyOptions {
   readonly onRequestComplete?: (ctx: NarrativeContext, completion: NestRequestCompletion) => void;
   /** Optional per-request user identity extractor, stamped onto spans. */
   readonly extractUser?: (req: unknown) => NestUserInfo | undefined;
-  /** Reserved for log-consumer naming parity with Java's loggerName. */
+  /** Reserved for naming the logger a log consumer writes to; not yet read. */
   readonly loggerName?: string;
 }

@@ -38,8 +38,7 @@ const ENV_ON =
 const STRING_LITERAL = /(["'`])(?:\\.|(?!\1)[^\\\n])*\1/g;
 
 /**
- * `config.approval-mode` — committed `.approved.nt` baselines, with approval mode off. Port of
- * Java `ApprovalModeCheck`.
+ * `config.approval-mode` — committed `.approved.nt` baselines, with approval mode off.
  *
  * INTENT: a baseline is the durable form of what a flow is supposed to do, and it only guards
  * anything while a run compares against it. With approval mode off the tests pass whatever the

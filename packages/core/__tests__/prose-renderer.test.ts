@@ -268,3 +268,17 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     expect(renderProse(traceTree([deepChain(10_001)]))).toContain("… (depth limit)");
   }, 20_000);
 });
+
+describe("renderProse exception message redaction (B-174)", () => {
+  test("a credential-shaped exception message prints as the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const node = traceNode(
+      methodSignature("Pay", "charge", []),
+      threw(new Error("4111111111111111")),
+      [],
+    );
+    const result = renderProse(traceTree([node]));
+    expect(result).not.toContain("4111111111111111");
+    expect(result).toContain("Error: [REDACTED]");
+  });
+});

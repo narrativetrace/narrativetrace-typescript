@@ -11,8 +11,7 @@ import type { TraceNode } from "./trace-node.js";
 
 /**
  * The citable id of one span in a rendered trace: its position path in the tree, `#1`, `#1.3`,
- * `#1.3.2` (root call, its third child, that child's second child). Port of Java
- * `render.SpanId`; not to be confused with the W3C `SpanId` a capture mints
+ * `#1.3.2` (root call, its third child, that child's second child). Not to be confused with the W3C `SpanId` a capture mints
  * (`span-id-generator.ts`), which is random, stored, and never printed in a structural artifact.
  *
  * INTENT: an agent's report, a grader, an approval delta and a human review must be able to point
@@ -62,7 +61,7 @@ export const CitableSpanId = {
 
   /**
    * The order the members of one fork or async group take their ids in: `Class.method`, ordinal
-   * (code-unit) comparison — byte-stable across ICU locales (Java `SpanId.CONCURRENT_ORDER`). A
+   * (code-unit) comparison — byte-stable across ICU locales. A
    * stable sort keeps equal signatures in capture order.
    */
   concurrentOrder(left: TraceNode, right: TraceNode): number {
@@ -149,7 +148,7 @@ function addConcurrent(
   return first + members.length - 1;
 }
 
-// Ordinal (code-unit) comparison — byte-stable across ICU locales (Java String.compareTo); the
+// Ordinal (code-unit) comparison — byte-stable across ICU locales; the
 // same order the structural renderer prints a group's members in.
 function compareSignatures(left: TraceNode, right: TraceNode): number {
   const leftKey = `${left.signature.className}.${left.signature.methodName}`;

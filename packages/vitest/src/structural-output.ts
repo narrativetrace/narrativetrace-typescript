@@ -91,7 +91,7 @@ function mkdirFor(path: string, io: StructuralIo): void {
 
 /**
  * Runs approval-mode verification, when an approved-trace path is configured, and reports what it
- * found. Never called for an already-failed test (Java parity: "failing tests are never verified" —
+ * found. Never called for an already-failed test (family rule: "failing tests are never verified" —
  * their structure is mid-flight and must not churn the received files).
  */
 function verifyApproval(
@@ -111,8 +111,7 @@ function verifyApproval(
 }
 
 /**
- * The full per-test structural write, mirroring Java `TraceTestSupport.writeStructuralArtifact` +
- * `NarrativeApproval.verify`: render the current structure, compare it to the last-green baseline
+ * The full per-test structural write: render the current structure, compare it to the last-green baseline
  * for the delta every caller reports, run approval-mode verification when configured, and — only on
  * a fully green verdict (the test itself passed AND, when approval mode is on, its structure was
  * approved) — promote the current render to the new last-green baseline.

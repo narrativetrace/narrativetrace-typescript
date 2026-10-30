@@ -45,4 +45,9 @@ describe("errorMessage", () => {
   test("control-sanitizes the message", () => {
     expect(errorMessage(new Error("a\nb"))).toBe("a\\nb");
   });
+
+  test("is the filtered reading: a credential-shaped message is the marker (B-174)", () => {
+    // Public test card number, not a real credential.
+    expect(errorMessage(new Error("4111111111111111"))).toBe("[REDACTED]");
+  });
 });

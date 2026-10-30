@@ -22,6 +22,15 @@
 // `init` is run for real, against the CLI under test — and the first contract run against 0.2.0
 // (2026-10-06) is how this was learned: doctor exited 1 on `config.skills-installed` and the probe
 // read it as the CLI not exiting clean, a report aimed at the fixture rather than the package.
+//
+// Since 0.4.2 a healthy install also NAMES ITS SERVICE: `config.service-identity` fails when
+// application code calls traceObject() and nothing sets a service name (the check reads
+// `serviceName` in application code, the process environment, or an npm script). The scratch
+// project's non-test sources are the sibling probe scripts the orchestrator copies in, several of
+// which call traceObject(), so the fixture sets the documented environment variable for the doctor
+// run, exactly as an adopter names the service where the app starts. The check is intended; the
+// first contract run against 0.4.2 (2026-10-21) read it as the CLI not exiting clean, a report
+// aimed at the fixture rather than the package.
 import { spawnSync } from "node:child_process";
 import { rmSync, writeFileSync } from "node:fs";
 import { assertFixtureRan, couldNotProbe, runVitest } from "./probe-support.mjs";
@@ -61,7 +70,10 @@ try {
       `${init.stdout ?? ""}${init.stderr ?? ""}`,
     );
   }
-  const doctor = spawnSync("npx", ["narrativetrace", "doctor"], { encoding: "utf-8" });
+  const doctor = spawnSync("npx", ["narrativetrace", "doctor"], {
+    encoding: "utf-8",
+    env: { ...process.env, NARRATIVETRACE_SERVICE_NAME: "contract-probe" },
+  });
   const report = `${doctor.stdout ?? ""}${doctor.stderr ?? ""}`;
   // Exit 2 is doctor's own "could not run" — its answer to this claim is then no answer at all.
   if (doctor.status === null || doctor.status === 2) {

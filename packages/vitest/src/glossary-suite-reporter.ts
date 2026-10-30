@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import type { ClarityIssue } from "@narrativetrace/clarity";
 import { resolveEnvConfig } from "@narrativetrace/core-node";
 import type { SourcePathLookup } from "@narrativetrace/glossary";
+import { atomicWriteFile } from "./atomic-write-file.js";
 import {
   collectGlossarySites,
   type GlossaryArtifactSink,
@@ -67,6 +68,10 @@ export interface GlossarySuiteReporterOptions {
  * report, kept out of the fixture so glossary mechanics stay in one place. Opt-in only, and an
  * empty suite writes nothing.
  *
+ * @remarks A harvest that fails — a committed `glossary.json` that is not valid JSON, an
+ * unwritable directory — prints one `narrative-trace:` line naming the file and the cause and
+ * leaves the run's status untouched; a reporting artifact never fails the suite that produced it.
+ *
  * @example
  * ```ts
  * // vitest.config.ts — with NARRATIVETRACE_GLOSSARY=true in the environment
@@ -84,7 +89,7 @@ export class GlossarySuiteReporter {
     this.options = options;
     this.sink = options.sink ?? {
       mkdir: (dir) => mkdirSync(dir, { recursive: true }),
-      writeFile: (path, content) => writeFileSync(path, content, "utf-8"),
+      writeFile: atomicWriteFile,
       fileExists: existsSync,
       readFile: (path) => readFileSync(path, "utf-8"),
     };
@@ -93,9 +98,17 @@ export class GlossarySuiteReporter {
 
   onFinished(files: readonly TaskLike[] = []): void {
     if (!(this.options.enabled ?? glossaryHarvestEnabled())) return;
-    const outcome = writeSuiteGlossary(collectGlossarySites(files), this.config(), this.sink);
-    this.issues = outcome.issues;
-    if (outcome.summary !== undefined) this.log(outcome.summary);
+    const config = this.config();
+    try {
+      const outcome = writeSuiteGlossary(collectGlossarySites(files), config, this.sink);
+      this.issues = outcome.issues;
+      if (outcome.summary !== undefined) this.log(outcome.summary);
+    } catch (e) {
+      this.log(
+        `narrative-trace: glossary harvest skipped for ${config.glossaryDir}/glossary.json ` +
+          `(${e instanceof Error ? e.message : String(e)})`,
+      );
+    }
   }
 
   private config() {

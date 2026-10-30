@@ -17,7 +17,6 @@ export interface TemplateWarning {
 /**
  * Post-capture safety net: walks the trace and reports every `{token}` that survived template
  * resolution in a node's narration or errorContext (e.g. `{customer.name}` that never resolved).
- * Port of Java `output/TemplateWarningCollector`.
  */
 export function collectTemplateWarnings(trace: TraceTree): TemplateWarning[] {
   const warnings: TemplateWarning[] = [];

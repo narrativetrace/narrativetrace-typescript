@@ -16,8 +16,7 @@ const NO_NARRATIVE = {
 
 /**
  * `narrativetrace-debug` — finds the cause of a symptom by reading what the code did with the
- * values, fixes it where it diverged, and pins the reproduction behind the user's yes. Port of Java
- * `NarrativeTraceDebugSkill` (design D4, R2).
+ * values, fixes it where it diverged, and pins the reproduction behind the user's yes. (design D4, R2).
  *
  * The loop starts from a symptom, not a change: reproduce it with the smallest input and tracing
  * on; across async work read the sequence diagram first; name, by span id, the first span whose
@@ -33,7 +32,7 @@ const NO_NARRATIVE = {
  * @llmNote NO allowed tools, as for verify: the pin promotes through `npx`
  * (`promotionNotPreApproved`). In this runtime `@notTraced` (and `traceObject`'s `notTraced`)
  * REDACTS parameters — it never scopes a trace — which is why the bisect step narrows by wrapping
- * one more collaborator instead (Java cross-port item 2). A red run writes no `.nt` (the file on
+ * one more collaborator instead (cross-port item 2). A red run writes no `.nt` (the file on
  * disk is the last green one) but does write the `.md` and diagram, so the shape before the fix is
  * the `.md`'s calls and ids (cross-port item 3).
  */

@@ -748,3 +748,35 @@ describe("citable span ids in the Markdown narrative", () => {
     expect(renderMarkdownBody(traceTree([node]))).toBe("- `Pay.charge()` ❌ `Error`: declined #1");
   });
 });
+
+describe("renderMarkdown exception message redaction (B-174)", () => {
+  test("a credential-shaped exception message prints as the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const node = traceNode(
+      methodSignature("Pay", "charge", []),
+      threw(new Error("4111111111111111")),
+      [],
+    );
+    const result = renderMarkdown(traceTree([node]));
+    expect(result).not.toContain("4111111111111111");
+    expect(result).toContain("REDACTED");
+  });
+});
+
+describe("renderMarkdownDocument header with a hostile scenario (B-226 pin)", () => {
+  const hostile = "evil --> <img src=x onerror=1>\n## Forged heading";
+  const doc = renderMarkdownDocument(
+    traceTree([traceNode(methodSignature("A", "b", []), returned('"OK"'), [], 1)]),
+    { scenario: hostile, result: "PASSED" },
+  );
+
+  test("the body carries no raw HTML comment terminator or tag from the scenario", () => {
+    const body = doc.slice(doc.indexOf("\n---\n", 4));
+    expect(body).not.toContain("-->");
+    expect(body).not.toContain("<img");
+  });
+
+  test("a line break in the scenario cannot open a heading of its own", () => {
+    expect(doc).not.toMatch(/^## Forged heading/m);
+  });
+});

@@ -13,13 +13,13 @@ import { scoreParameterName } from "./parameter-name-scorer.js";
 import { scoreStructural } from "./structural-scorer.js";
 import { classifyVerb } from "./verb-dictionary.js";
 
-/** Severity, upper-cased to match Java's cross-language `clarity-results.json` contract. */
+/** Severity, upper-cased, as the `clarity-results.json` contract is the same in every runtime. */
 export type ClaritySeverity = "HIGH" | "MEDIUM" | "LOW";
 
 const SEVERITY_WEIGHT: Record<ClaritySeverity, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
 /**
- * One actionable naming issue (Java `ClarityIssue` parity). `impactScore` = severity weight ×
+ * One actionable naming issue. `impactScore` = severity weight ×
  * occurrences drives ranking; dedup groups by `category|element` summing occurrences.
  */
 export type ClarityIssue = {
@@ -31,7 +31,7 @@ export type ClarityIssue = {
   readonly impactScore: number;
 };
 
-// Score bands (Java HIGH ≤0.20, MEDIUM ≤0.50); anything above 0.50 is not flagged as an issue.
+// Score bands (HIGH ≤0.20, MEDIUM ≤0.50, the same in every runtime); anything above 0.50 is not flagged as an issue.
 const HIGH_SEVERITY_THRESHOLD = 0.2;
 const MEDIUM_SEVERITY_THRESHOLD = 0.5;
 
@@ -143,7 +143,7 @@ function computeScores(infos: NodeInfo[], vocabulary: DomainVocabulary): Dimensi
     i.paramNames.map((p) => scoreParameterName(p, vocabulary)),
   );
   const parameter = allParamScores.length > 0 ? average(allParamScores) : 1.0;
-  // Java parity: a single global-max penalty from the worst param count + deepest node, not a
+  // Family contract: a single global-max penalty from the worst param count + deepest node, not a
   // per-node average (which would dilute one bad frame across a large clean trace).
   const maxParamCount = Math.max(...infos.map((i) => i.paramCount));
   const maxDepth = Math.max(...infos.map((i) => i.depth));
@@ -272,7 +272,7 @@ function collectIssues(infos: NodeInfo[], vocabulary: DomainVocabulary): Clarity
   return deduplicateAndRank(all);
 }
 
-// Java parity: an empty trace is not all-zeros. Absent params default to a perfect 1.0, structural
+// Family contract: an empty trace is not all-zeros. Absent params default to a perfect 1.0, structural
 // has no penalty (1.0), and cohesion falls back to the unknown-role 0.7 — yielding overall 0.47.
 const EMPTY_RESULT: ClarityResult = {
   overall: WEIGHTS.parameter + WEIGHTS.structural + 0.7 * WEIGHTS.cohesion,

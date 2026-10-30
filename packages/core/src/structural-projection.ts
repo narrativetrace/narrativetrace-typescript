@@ -25,8 +25,7 @@ const ELIDED = "[ELIDED]";
  * **Stance for new schema fields**: fields flow through this projection BY DEFAULT. That is correct
  * for identity-shaped fields (namespaces, span/trace ids, service/environment identity, duration,
  * timestamps — all source or environment identity, never *runtime content*). Any new VALUE-shaped
- * field must be explicitly elided here — classify every schema addition against this rule. Port of
- * Java `export.StructuralProjection`.
+ * field must be explicitly elided here — classify every schema addition against this rule.
  */
 export function projectStructural(entry: CanonicalEntry): CanonicalEntry {
   const projected: CanonicalEntry = {

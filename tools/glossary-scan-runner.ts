@@ -89,10 +89,11 @@ function writeArtifacts(
   artifacts: { glossaryJson: string; glossaryMarkdown: string; usageReport: string },
 ): void {
   io.mkdir(options.glossaryDir);
-  io.writeFile(`${options.glossaryDir}/glossary.json`, artifacts.glossaryJson);
   io.writeFile(`${options.glossaryDir}/glossary.md`, artifacts.glossaryMarkdown);
   io.mkdir(options.outputDir);
   io.writeFile(`${options.outputDir}/glossary-usage.json`, artifacts.usageReport);
+  // Last: the committed source of truth changes only once every other artifact has landed.
+  io.writeFile(`${options.glossaryDir}/glossary.json`, artifacts.glossaryJson);
 }
 
 function harvestAndWrite(options: ScanOptions, io: ScanIo, classes: ScannedClass[]): void {

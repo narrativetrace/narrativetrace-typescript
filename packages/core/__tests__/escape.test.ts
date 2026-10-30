@@ -66,3 +66,70 @@ describe("ControlEscape — the Unicode line and paragraph separators", () => {
     expect(ControlEscape.sanitize("‧‪")).toBe("‧‪");
   });
 });
+
+describe("MarkdownEscape.cell", () => {
+  test("escapes pipes so a value cannot split a table row", () => {
+    expect(MarkdownEscape.cell("a|b")).toBe("a\\|b");
+  });
+
+  test.each(["\r\n", "\n", "\r"])("collapses the line break %j to one space", (lineBreak) => {
+    expect(MarkdownEscape.cell(`a${lineBreak}| b`)).toBe("a \\| b");
+  });
+
+  test("leaves a plain value untouched", () => {
+    expect(MarkdownEscape.cell("plain text")).toBe("plain text");
+  });
+});
+
+describe("MarkdownEscape.collapseLineBreaks", () => {
+  test("collapses every line-break form to a space and keeps pipes", () => {
+    expect(MarkdownEscape.collapseLineBreaks("a\r\nb\nc\rd|e")).toBe("a b c d|e");
+  });
+});
+
+describe("MarkdownEscape.codeSpanCell", () => {
+  test("wraps a cell-escaped value in a code span", () => {
+    expect(MarkdownEscape.codeSpanCell("A.b\n|c")).toBe("`A.b \\|c`");
+  });
+
+  test("widens the fence when the value carries a backtick", () => {
+    expect(MarkdownEscape.codeSpanCell("a`b")).toBe("`` a`b ``");
+  });
+});
+
+describe("MarkdownEscape.prose", () => {
+  test.each([
+    ["a heading run, one backslash per character", "## Title", "\\#\\# Title"],
+    ["a backtick fence", "```ts", "\\```ts"],
+    ["a tilde fence", "~~~", "\\~~~"],
+    ["a dash list marker", "- item", "\\- item"],
+    ["a numbered list marker", "1. item", "1\\. item"],
+    ["a table pipe", "| a | b |", "\\| a | b |"],
+    ["an indented heading", "  # Title", "  \\# Title"],
+    ["a setext underline", "---", "\\---"],
+  ])("neutralises %s at the start of a line", (_name, input, expected) => {
+    expect(MarkdownEscape.prose(input)).toBe(expected);
+  });
+
+  test.each([
+    ["ordinary text", "Charging, invoicing."],
+    ["a mid-line hash", "issue #12 and a - b"],
+    ["a hyphenated word at the line start", "-ish wording"],
+  ])("leaves %s untouched", (_name, input) => {
+    expect(MarkdownEscape.prose(input)).toBe(input);
+  });
+
+  test("escapes each line of a multi-line value and keeps the line breaks", () => {
+    expect(MarkdownEscape.prose("a\r\n# b\n```")).toBe("a\r\n\\# b\n\\```");
+  });
+});
+
+describe("MarkdownEscape.inlineCode", () => {
+  test("wraps plain text in one backtick pair", () => {
+    expect(MarkdownEscape.inlineCode("packages/billing")).toBe("`packages/billing`");
+  });
+
+  test("percent-encodes embedded backticks so the span keeps exactly two", () => {
+    expect(MarkdownEscape.inlineCode("a`b``c")).toBe("`a%60b%60%60c`");
+  });
+});

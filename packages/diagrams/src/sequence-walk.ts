@@ -15,11 +15,8 @@ import type { SequenceGrammar } from "./sequence-grammar.js";
 /**
  * The one traversal both sequence-diagram renderers share: bounded, cycle-safe (via
  * `walkPreOrder`), emitting exactly one call arrow on the way into a node and exactly one outcome
- * (return, throw, or in-flight note) on the way out. Port of the Java reference's `SequenceWalk`
- * plus `SequenceParticipants` — this port always renders in alias mode for both formats (a
- * pre-existing divergence from Java, which has a plain and an alias mode for Mermaid only and no
- * alias mode for PlantUML at all), so participant collection and alias assignment are one function
- * here rather than two.
+ * (return, throw, or in-flight note) on the way out. It always renders in alias mode for both
+ * formats, so participant collection and alias assignment are one function rather than two.
  *
  * @remarks A node beyond `walkPreOrder`'s depth limit or already on the current path (a cycle)
  * still gets its own call arrow and outcome, rendered exactly like a leaf, plus
@@ -86,7 +83,7 @@ function formatCall(node: TraceNode): DiagramLabel {
 }
 
 // Root nodes self-return (callerAlias === alias) so the entry point shows a real return arrow
-// rather than a note (Java seeds the root caller as itself).
+// rather than a note.
 function pushResponse(
   response: Response,
   alias: DiagramLabel,

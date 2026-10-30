@@ -5,8 +5,8 @@
  * Structural (not name-based) secret detection for {@link RedactionPolicy.shouldRedactValue} —
  * a second, independent redaction axis: what a string *is*, not what its field is named.
  * Deliberately narrow — no entropy/"looks random" heuristics — because a value blanked by
- * guesswork is a hole in the narrative the reader cannot see and cannot switch off per-value. Port
- * of the cross-runtime shape from Java's `SecretValueShapes`.
+ * guesswork is a hole in the narrative the reader cannot see and cannot switch off per-value. The shape is
+ * the same in every runtime.
  *
  * @remarks The fourth axis, national identity numbers (Chilean RUT, Brazilian CPF/CNPJ, Spanish
  * DNI/NIE, French NIR, Chinese resident id, and the US SSN's structural-rule exception), lives in
@@ -79,7 +79,7 @@ const COMBINING_MARKS = /\p{M}+/gu;
  * INTENT: the deny-list carries every language's vocabulary, and a Spanish team writes
  * `contraseña` while the same team's DTO generator writes `contrasena`. Both are the word
  * "password" and both must be hidden, so the fold happens on *both* sides rather than the pattern
- * set listing every spelling. Mirrors Java's `SecretValueShapes.canonical`.
+ * set listing every spelling. The fold is the same in every runtime.
  *
  * @llmNote The ASCII test in front is not premature: this runs once per introspected member on
  * the rendering path, and virtually every real field name is ASCII, where `toLowerCase` alone

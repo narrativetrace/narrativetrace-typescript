@@ -90,11 +90,11 @@ const GENERIC_SUFFIXES = new Set([
   "impl",
 ]);
 
-// Java parity (RoleSuffixDictionary.EXPECTED_VERBS): the exact per-role verb expectations the
-// CohesionScorer aligns against, since cohesion scores are a cross-language contract. `service` is
+// The exact per-role verb expectations the CohesionScorer aligns against; cohesion scores are a
+// family contract, identical in every runtime. `service` is
 // deliberately empty — a Service is an unconstrained broad role (scores 0.9 via classify, not a
 // verb ratio); roles absent here (handler, adapter, provider, …) also fall through to the broad/
-// unknown envelope by their suffix category. Do not "enrich" these lists without matching Java.
+// unknown envelope by their suffix category. Do not "enrich" these lists in every runtime at once.
 const ROLE_VERBS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ["repository", new Set(["find", "save", "delete", "exists", "count", "get"])],
   ["factory", new Set(["create", "build", "make", "of", "from", "new"])],

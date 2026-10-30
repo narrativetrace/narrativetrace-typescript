@@ -40,8 +40,7 @@ import { type FeedbackArguments, parseFeedbackArguments } from "./feedback-argum
  * filed under a draft that was edited after it was shown. "Never edit the draft after showing it —
  * draft it again and show it again" is enforced by there being nothing else to do.
  *
- * @llmNote The doctor's report is GENERATED here rather than read from a file, which is where this
- * port departs from the Java reference. Nothing in this runtime persists a doctor report — `doctor
+ * @llmNote The doctor's report is GENERATED here rather than read from a file. Nothing in this runtime persists a doctor report — `doctor
  * --json` prints to stdout — so reading a file would make every `doctor` and `skill` report refuse
  * for want of its mandatory attachment. Running the doctor in-process over the same injected
  * snapshot the `doctor` verb uses also means the attachment is always the generator's own bytes.

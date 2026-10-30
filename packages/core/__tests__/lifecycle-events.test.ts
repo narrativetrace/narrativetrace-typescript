@@ -28,6 +28,7 @@ function joinCompleteEvent(overrides?: Partial<JoinCompleteEvent>): JoinComplete
     memberCount: 3,
     wallTimeMs: 42,
     timestamp: 200,
+    ownerSpanId: null,
     ...overrides,
   };
 }

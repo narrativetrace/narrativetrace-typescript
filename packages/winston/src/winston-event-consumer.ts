@@ -5,8 +5,8 @@ import {
   ControlEscape,
   type EnterEvent,
   type EventConsumer,
+  ExceptionMessage,
   type ExitEvent,
-  errorMessage,
   errorTypeName,
   type ForkCreatedEvent,
   humanName,
@@ -18,8 +18,8 @@ import {
 import type { Logger } from "winston";
 
 /**
- * Per-event log levels. Defaults follow the Java SLF4J listener's intent — entry/return are quiet
- * (`debug`, winston's closest analog to Java's TRACE) and exceptions are `warn`, not `error`, so a
+ * Per-event log levels. Entry/return are quiet
+ * (`debug`, winston's closest analog to a trace level) and exceptions are `warn`, not `error`, so a
  * handled-and-narrated failure does not masquerade as an unhandled logger error.
  *
  * @remarks `runName` is the enclosing test-suite (or process) run's three-word phrase, bound once
@@ -112,7 +112,7 @@ function exitMeta(
 }
 
 /**
- * Pops the exiting span's frame and reports the depth we return **to** (the parent's), Java's
+ * Pops the exiting span's frame and reports the depth we return **to** (the parent's),
  * `max(0, depth-1)` — a root exit reports 0, not -1.
  */
 function exitDepth(frames: Map<SpanId, Frame>, spanId: SpanId): number {
@@ -129,7 +129,7 @@ function logThrew(
   outcome: Extract<ExitEvent["outcome"], { kind: "threw" }>,
 ): void {
   const type = errorTypeName(outcome.error);
-  const msg = errorMessage(outcome.error);
+  const msg = ExceptionMessage.text(outcome.error);
   const safeCtx =
     outcome.errorContext !== null ? ControlEscape.sanitize(outcome.errorContext) : null;
   const message = safeCtx !== null ? `!! ${type}: ${msg} [${safeCtx}]` : `!! ${type}: ${msg}`;
@@ -166,7 +166,7 @@ const LIFECYCLE_SCHEMA = { "nt.entryType": "entry", "nt.schemaVersion": "1.0" };
 /**
  * A fork group's own lifecycle, not a call: the launch of one member (a `fork-created` event is
  * published per member root, so a group of N logs N launch lines) and the join that closes the
- * group. Messages and levels follow the Java SLF4J listener — the launch and the join are written
+ * group. The launch and the join are written
  * at the enter level. The join's wall time is left out: it differs on every run, and a log line
  * that does must not be the thing a documentation page embeds.
  */

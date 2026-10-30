@@ -97,14 +97,22 @@ describe("setOutcomeAttributes", () => {
     const rec = recorder();
     const err = new Error("insufficient funds");
     setOutcomeAttributes(threw(err), rec.span);
-    expect(rec.exceptions).toEqual([err]);
+    expect(rec.events).toHaveLength(1);
+    expect(rec.events[0]?.name).toBe("exception");
+    expect(rec.events[0]?.attrs?.["exception.type"]).toBe("Error");
+    expect(rec.events[0]?.attrs?.["exception.message"]).toBe("insufficient funds");
+    expect(rec.exceptions).toEqual([]);
     expect(rec.status()).toEqual({ code: SpanStatusCode.ERROR, message: "insufficient funds" });
   });
 
   test("stringifies a non-Error throw instead of passing it through as an object", () => {
     const rec = recorder();
     setOutcomeAttributes(threw("boom" as unknown as Error), rec.span);
-    expect(rec.exceptions).toEqual(["boom"]);
+    expect(rec.events[0]?.attrs).toMatchObject({
+      "exception.type": "string",
+      "exception.message": "boom",
+    });
+    expect(rec.exceptions).toEqual([]);
     expect(rec.status()).toEqual({ code: SpanStatusCode.ERROR, message: "boom" });
   });
 });

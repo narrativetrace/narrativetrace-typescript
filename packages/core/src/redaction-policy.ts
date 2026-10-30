@@ -3,8 +3,8 @@
 // Copyright (c) 2026 Empower Agile
 import { canonical, isSecretShaped } from "./secret-value-shapes.js";
 
-// The default vocabulary is multilingual and always on (family standard, ported from the Java
-// runtime's RedactionPolicy): Spanish, Portuguese, French and Chinese words sit beside the
+// The default vocabulary is multilingual and always on (the family standard, identical in every
+// runtime): Spanish, Portuguese, French and Chinese words sit beside the
 // English ones, with no locale to select and nothing to opt into. A deny-list that only reads
 // English hides a `password` field and shows the `contraseña` beside it — not a weaker guarantee
 // but a differently-distributed one: it protects whoever happens to name fields in the language
@@ -133,7 +133,7 @@ let additionalPatterns: readonly string[] = [];
  * INTENT: the additive half of redaction configuration — {@link RedactionPolicy.ofPatterns}
  * *replaces* the vocabulary, which is the wrong tool for "our DTOs also carry `betalingskort`".
  * Every policy except {@link RedactionPolicy.DISABLED} — the default one and any `ofPatterns`
- * one, whenever constructed — also matches these. Port of Java `AdditionalRedactionPatterns`.
+ * one, whenever constructed — also matches these.
  *
  * @llmNote The browser core has no environment, so it never reads one: `@narrativetrace/core-node`
  * calls this at import with `NARRATIVETRACE_REDACTION_ADDITIONALPATTERNS`, and a browser app
@@ -178,7 +178,7 @@ function matchesPattern(pattern: string, canon: string, tokens: () => string[]):
  * words sit beside the English ones, with no locale to select — names and patterns are both
  * folded through `canonical`, so `contraseña` and `contrasena` are one pattern. Teams tracing
  * fields that collide with a pattern override the set via {@link ofPatterns} or opt out with
- * {@link DISABLED}. Port of Java `render/RedactionPolicy`.
+ * {@link DISABLED}.
  */
 export class RedactionPolicy {
   /** Marker emitted in place of a redacted value, matching the not-traced marker. */
@@ -252,7 +252,7 @@ export class RedactionPolicy {
    * `renderStructured` twin, and `@narrated`/`@onError` template paths — asks this one method
    * rather than each holding its own copy of `annotated || shouldRedact(name)`. Two
    * implementations of "is this redacted?" would drift, and a drifted redaction rule is a leak on
-   * whichever surface fell behind. Port of Java `RedactionPolicy.isRedacted`.
+   * whichever surface fell behind.
    *
    * @param memberName the field/property name being rendered or resolved.
    * @param annotated whether that member is explicitly listed in `static notTraced`.
@@ -276,4 +276,29 @@ const NO_FIELDS: ReadonlySet<string> = new Set();
 export function notTracedFields(value: object): ReadonlySet<string> {
   const list = (value.constructor as { notTraced?: unknown } | undefined)?.notTraced;
   return Array.isArray(list) ? new Set(list.map(String)) : NO_FIELDS;
+}
+
+/** Fewest characters a numeric text needs before it is scanned (no card number is shorter). */
+const NUMERIC_SCAN_MIN_LENGTH = 12;
+
+/**
+ * Whether a number's own text is a secret by shape (B-206): twelve or
+ * more characters that the value-shape axis recognises, which for digits means a Luhn-valid card
+ * number. A double whose text carries an exponent is not scanned.
+ *
+ * @llmNote A 16-digit PAN held as a `number` or `bigint` is the same secret as the same digits in a
+ * string; the shape axis asks what the bytes say, not which type holds them. Known trade-off: a
+ * Luhn-valid 13-19-digit value that is not a card (an epoch-millisecond timestamp) also renders as
+ * the marker -- only ever number -> marker. The flat and structured paths both ask this one function.
+ */
+export function numericTextIsSecret(text: string, policy: RedactionPolicy): boolean {
+  return (
+    text.length >= NUMERIC_SCAN_MIN_LENGTH && !/e/i.test(text) && policy.shouldRedactValue(text)
+  );
+}
+
+/** A number's display text: the marker when {@link numericTextIsSecret}, else the digits plus `suffix` (bigint's `n`). */
+export function numberText(value: number | bigint, policy: RedactionPolicy, suffix = ""): string {
+  const text = String(value);
+  return numericTextIsSecret(text, policy) ? RedactionPolicy.MARKER : text + suffix;
 }

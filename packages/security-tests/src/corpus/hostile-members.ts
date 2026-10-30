@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { isRenderingInProgress, NARRATIVE_ELEMENTS } from "@narrativetrace/core";
 import type { Secret } from "./hostile-graphs.js";
 
 /**
@@ -9,9 +10,9 @@ import type { Secret } from "./hostile-graphs.js";
  * renderer that falls back to `toString` because introspection failed must not print past the
  * redaction.
  *
- * @remarks Two Java shapes have no seam here and are intentionally absent: `hashCodeThrows` and
+ * @remarks Two shapes of the shared corpus have no seam here and are intentionally absent: `hashCodeThrows` and
  * `equalsThrows`. The renderer's cycle guard is a JS `Set` keyed by reference (`SameValueZero`),
- * which never invokes a value's own comparison/hash logic — unlike Java, where a naive cycle guard
+ * which never invokes a value's own comparison/hash logic — unlike a runtime where a naive cycle guard
  * could be backed by a hashing collection. There is no code path here that could call a throwing
  * `hashCode`/`equals` analog, so both are folded into {@link Throwing} in the graph builder rather
  * than given their own class; see `hostile-corpus.test.ts` for the pinned evidence.
@@ -205,13 +206,13 @@ export class LookalikeCollection {
 /**
  * A hand-rolled Map-like type — not a `Map` subclass — whose enumeration method (`entries()`)
  * both counts its own calls and refuses, for the rendering rule's 2026-09-18 refinement: the
- * ABSTRACT-platform-base row (Java's `AbstractMap`/`AbstractCollection`).
+ * ABSTRACT-platform-base row (`AbstractMap`/`AbstractCollection` in runtimes that have them).
  *
  * @remarks TypeScript has no abstract platform collection base, so this is not a `Map` subclass
  * on purpose. `Map` here is concrete: a `Map` subclass still carries the platform ancestor's own
  * internal slots, so `renderMap` already reads real state through
  * `Map.prototype.entries.call(value)`, bypassing any subclass override — the identical shape
- * {@link SideEffectingIteratorList} above already pins for `Array`. Java's `AbstractMap` is
+ * {@link SideEffectingIteratorList} above already pins for `Array`. A runtime's `AbstractMap` is
  * different: it is ABSTRACT and owns no state of its own, so a subclass's override is the *only*
  * path to its data — there is no honest ancestor read to fall back on. Extending `Map` would not
  * reproduce that; it would just retest the already-live `Array`/`Map`-subclass shape under a new
@@ -236,14 +237,14 @@ export class AbstractMapSubclassOverride {
  * @remarks Structurally the same "implemented from scratch, no platform ancestor" fixture as
  * {@link LookalikeCollection} above — TypeScript's `Set` is concrete (extending it would carry
  * real ancestor state, the same non-match reasoning as {@link AbstractMapSubclassOverride}), so
- * the honest twin of Java's ABSTRACT `AbstractCollection` row is the same "from scratch" shape as
+ * the honest twin of the ABSTRACT `AbstractCollection` row is the same "from scratch" shape as
  * the earlier "not platform-defined" row, not a `Set` subclass. Kept as its own class, not reused
  * from {@link LookalikeCollection}, so this row's id and member key (`abstract-collection-
  * subclass-override` / `abstractCollectionSubclassOverride`) stay independently traceable to the
  * byte-identical master corpus row, per §6.7. `held` is a plain own-enumerable field, not a
  * private backing field behind a getter (unlike {@link LookalikeCollection}'s `#backing`), so
  * "object-introspected" — the master row's stated expected outcome — is literally what happens:
- * `renderPlainObject` finds and renders `held` directly, the same way Java's field-reflection
+ * `renderPlainObject` finds and renders `held` directly, the same way field reflection
  * reaches a `private final` field without calling any accessor.
  */
 export class AbstractCollectionSubclassOverride {
@@ -257,13 +258,13 @@ export class AbstractCollectionSubclassOverride {
 
 /**
  * A FIELDLESS user type whose own `toString()` delegates to an overridden `[Symbol.iterator]` —
- * the honest twin of Java's `FieldlessAbstractSubclassToStringDoor` (a fieldless subclass of the
+ * the honest twin of the corpus's `FieldlessAbstractSubclassToStringDoor` (a fieldless subclass of the
  * ABSTRACT platform base `AbstractCollection`, whose only path to its data is the INHERITED
- * `toString()`, which walks `iterator()` internally — the "toString door" Java's
+ * `toString()`, which walks `iterator()` internally — the "toString door" that
  * `rendersItsOwnString` still trusts because a fieldless type has no field to make it distrustful).
  *
  * @remarks TypeScript has no abstract platform collection base to subclass (same reasoning as
- * {@link AbstractCollectionSubclassOverride} above), and — unlike Java, where any composite's own
+ * {@link AbstractCollectionSubclassOverride} above), and — unlike a runtime where any composite's own
  * `toString()` is trusted once it has no instance field — `dispatchObject` (value-renderer.ts) only
  * ever trusts a custom `toString()` for a value identity-checked as a realm platform intrinsic
  * (`isPlatformValue`, by prototype identity). This fixture's prototype is never one of those, so
@@ -271,10 +272,10 @@ export class AbstractCollectionSubclassOverride {
  * `toString()` is never reached at all — there is no door here to begin with, by construction of
  * the dispatch itself rather than by a fieldless-specific carve-out. Carried for corpus
  * completeness (§6.7), not because it reproduces a bypass on this runtime — same reasoning as
- * {@link NumberHostileToString} above. `held` is deliberately absent, matching Java's fixture (no
+ * {@link NumberHostileToString} above. `held` is deliberately absent, matching the corpus fixture (no
  * constructor argument, unlike every other `hostileMember` shape): accepting one only to discard it
  * would still read as a stored field to a careless refactor, and the whole point of this fixture is
- * to carry zero. The counter is `static`, not instance, for the same reason Java's is: an instance
+ * to carry zero. The counter is `static`, not instance, for the same reason it is in every runtime: an instance
  * field would defeat the fieldless precondition the fixture exists to hold. Callers reset it before
  * use, since it is shared across every instance.
  */
@@ -291,7 +292,7 @@ export class FieldlessAbstractSubclassToStringDoor {
 
 /**
  * A FIELDLESS class whose `toString()` holds its real state entirely off the reflectable-field
- * graph, in a static identity-keyed side table — the honest twin of Java's
+ * graph, in a static identity-keyed side table — the honest twin of the corpus's
  * `FieldlessSideTableToStringDoor` (gap 3: a fieldless class that is no composite at all, so
  * emptiness is not statelessness; the text a stateless leaf's stringification exemption would
  * trust it for reads the table).
@@ -324,7 +325,7 @@ export class FieldlessSideTableToStringDoor {
 
 /**
  * A `Number` subclass carrying a deny-listed field (`password`) whose own `toString()`
- * interpolates it — the honest twin of Java's `NumberSubclassToStringDoor`
+ * interpolates it — the honest twin of the corpus's `NumberSubclassToStringDoor`
  * (`number-subclass-tostring-door`): a `Number` subclass is a composite whose base happens to be
  * numeric, not a trusted scalar, so it must be field-walked and redacted like any other composite,
  * never read through its own text.
@@ -392,5 +393,115 @@ export class Ring {
   }
   linkTo(node: Ring): void {
     this.next = node;
+  }
+}
+
+/**
+ * The third sanctioned hook on an iterable type: seven elements, the first the sentinel-bearing
+ * record, past the collection cap of five. Counts its hook calls and records whether the
+ * rendering guard was active while the hook ran (corpus row `DeclaredElementsIterable`).
+ */
+export class DeclaredElementsIterable {
+  hookCalls = 0;
+  guardActiveDuringHook = false;
+  readonly #items: unknown[];
+  constructor(held: Secret) {
+    this.#items = [held];
+    for (let i = 1; i < 7; i++) this.#items.push(`elem-${i}`);
+  }
+  [NARRATIVE_ELEMENTS](): Iterable<unknown> {
+    this.hookCalls++;
+    this.guardActiveDuringHook = isRenderingInProgress();
+    return this.#items;
+  }
+}
+
+/**
+ * The same hook on a `Map`: seven entries, the first value the sentinel-bearing record. The
+ * platform map is EMPTY, so only the hook can supply the entries - it wins over the `Map`
+ * ancestor, as the origin decision orders it. The hook yields `[key, value]` pairs.
+ */
+export class DeclaredElementsMap extends Map<string, unknown> {
+  hookCalls = 0;
+  guardActiveDuringHook = false;
+  readonly #held: Secret;
+  constructor(held: Secret) {
+    super();
+    this.#held = held;
+  }
+  [NARRATIVE_ELEMENTS](): Iterable<[string, unknown]> {
+    this.hookCalls++;
+    this.guardActiveDuringHook = isRenderingInProgress();
+    const entries: [string, unknown][] = [["entry-key-0", this.#held]];
+    for (let i = 1; i < 7; i++) entries.push([`entry-key-${i}`, `entry-value-${i}`]);
+    return entries;
+  }
+}
+
+/** A declaring type whose hook raises: the typed error marker on both paths. */
+export class DeclaredElementsRaising {
+  [NARRATIVE_ELEMENTS](): Iterable<unknown> {
+    throw new RangeError("the hook refuses");
+  }
+}
+
+/**
+ * A user subclass of the platform `Array` whose iterator and views count their calls and refuse:
+ * the ancestor's own indexed state is the only honest read.
+ */
+export class AncestorStateList extends Array<unknown> {
+  overrideCalls = 0;
+  constructor(held: Secret) {
+    super();
+    this.push("ancestor-list-element", held);
+  }
+  override [Symbol.iterator](): never {
+    this.overrideCalls++;
+    throw new Error("[Symbol.iterator] must never be called by rendering");
+  }
+  override values(): never {
+    this.overrideCalls++;
+    throw new Error("values() must never be called by rendering");
+  }
+  override entries(): never {
+    this.overrideCalls++;
+    throw new Error("entries() must never be called by rendering");
+  }
+}
+
+/**
+ * A user subclass of the platform `Map` whose views and iterator count their calls and refuse:
+ * the ancestor's own table is the only honest read.
+ */
+export class AncestorStateMap extends Map<string, unknown> {
+  overrideCalls = 0;
+  constructor(held: Secret) {
+    super();
+    this.set("visible", "ancestor-map-value");
+    this.set("held", held);
+  }
+  override entries(): never {
+    this.overrideCalls++;
+    throw new Error("entries() must never be called by rendering");
+  }
+  override keys(): never {
+    this.overrideCalls++;
+    throw new Error("keys() must never be called by rendering");
+  }
+  override values(): never {
+    this.overrideCalls++;
+    throw new Error("values() must never be called by rendering");
+  }
+  override [Symbol.iterator](): never {
+    this.overrideCalls++;
+    throw new Error("[Symbol.iterator] must never be called by rendering");
+  }
+}
+
+/** A type whose curated `narrativeSummary()` hook returns the text it was given (a secret shape). */
+export class SecretSummary {
+  constructor(private readonly text: string) {}
+  narrativeSummary(): string {
+    return this.text;
   }
 }

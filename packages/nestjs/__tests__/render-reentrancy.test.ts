@@ -151,3 +151,32 @@ describe("render reentrancy — wrapPrototypeMethods", () => {
     expect(names).toEqual(["receive", "add"]);
   });
 });
+
+describe("render hook reaches an intercepted collaborator — wrapPrototypeMethods", () => {
+  test("a summary hook calling an auto-wrapped collaborator emits no span", () => {
+    const { ctx, storage, events } = setup();
+    class Gateway {
+      stamp(): string {
+        return "stamped";
+      }
+    }
+    wrapPrototypeMethods(Gateway.prototype, "Gateway", storage);
+    const gateway = new Gateway();
+    class Receipt {
+      narrativeSummary(): string {
+        return `Receipt(${gateway.stamp()})`;
+      }
+    }
+    class Checkout {
+      pay(_receipt: Receipt): string {
+        return "paid";
+      }
+    }
+    wrapPrototypeMethods(Checkout.prototype, "Checkout", storage);
+
+    storage.run(ctx, () => new Checkout().pay(new Receipt()));
+
+    const entered = events.filter((e) => e.type === "enter");
+    expect(entered).toHaveLength(1);
+  });
+});

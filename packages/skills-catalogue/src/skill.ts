@@ -80,7 +80,7 @@ export interface ReasonedRule {
 
 /**
  * A named block of reference text a skill renders after its steps — a table or a short list the
- * steps point at, which is neither a step nor an always/never rule. Port of Java `SkillSection`.
+ * steps point at, which is neither a step nor an always/never rule.
  *
  * INTENT: two skills that read traces share one "how to read a trace" text; a section is how that
  * text is written once in the catalogue and rendered into both pages identically, instead of being

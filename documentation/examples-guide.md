@@ -365,7 +365,7 @@ Demonstrates all `@narrativetrace/angular` features:
 - `provideNarrativeTrace()` — one-call setup with automatic `traceparent` headers
 - `provideTraced(OrderService)` — zero-code service tracing via Angular DI
 - `TraceCaptureService` — captures client-side trace after each order
-- `traceInterceptor` — automatically adds W3C `traceparent` header to every `HttpClient` request
+- `traceInterceptor` — automatically adds W3C `traceparent` header to every `HttpClient` request made from inside a traced call, including the one `OrderService.placeOrder`'s Observable sends when it is subscribed, which names `placeOrder`'s span as its parent
 
 ### Running
 

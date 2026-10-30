@@ -104,7 +104,14 @@ describe("createLiveStreamConsumer", () => {
       strategy: "fork-join",
       timestamp: 0,
     });
-    consume({ type: "join-complete", groupId: "g1", memberCount: 2, wallTimeMs: 6, timestamp: 6 });
+    consume({
+      type: "join-complete",
+      groupId: "g1",
+      memberCount: 2,
+      wallTimeMs: 6,
+      timestamp: 6,
+      ownerSpanId: null,
+    });
     consume({
       type: "fork-created",
       groupId: "g2",

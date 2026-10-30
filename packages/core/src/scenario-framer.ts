@@ -7,12 +7,12 @@
  * human-readable and passes through verbatim; otherwise `test_`/`should_` prefixes are dropped,
  * underscores/camelCase become spaces, and the first letter is capitalized.
  *
- * DECISION PINNED: TS does NOT prepend Java's "Scenario: " — the markdown frontmatter key and
+ * DECISION PINNED: no "Scenario: " prefix is prepended — the markdown frontmatter key and
  * prose already supply that context, so a bare label avoids "scenario: Scenario: …" duplication.
  */
 export function frameScenario(testName: string): string {
   const stripped = testName.replace(/\s*\([^)]*\)\s*$/, "").trim();
-  // Already-spaced → treat as human-authored and pass through untouched (Java humanize).
+  // Already-spaced → treat as human-authored and pass through untouched.
   if (/\s/.test(stripped)) return stripped;
   const words = stripped
     .replace(/^(test_|should_)/, "")

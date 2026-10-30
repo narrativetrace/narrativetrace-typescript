@@ -1,19 +1,23 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   CGROUP_CPU_MAX_PATH,
   CGROUP_MEMORY_MAX_PATH,
   explicitCount,
   MEASURED_PEAK_RUNNER_BYTES,
+  MIN_RUNNER_HEAP_BYTES,
   memoryCount,
   quotaCount,
-  resolveStrykerConcurrency,
+  resolveStrykerOptions,
   resolveWorkerCount,
+  runnerHeapLimitMb,
+  testRunnerNodeArgs,
   WORKERS_ENV_VAR,
   workerCount,
   workerCountSource,
@@ -226,7 +230,49 @@ describe("resolveWorkerCount against the real filesystem", () => {
   });
 });
 
-describe("resolveStrykerConcurrency — the value a package's stryker.config.mjs assigns", () => {
+const MIB = 1024 * 1024;
+const THREE_GIB = String(3 * 1024 * MIB);
+
+describe("runnerHeapLimitMb — one test runner's share of the container's memory (B-219)", () => {
+  it("is the ceiling split over the workers plus Stryker's own process — the nightly's 3 GiB, 4 workers", () => {
+    expect(runnerHeapLimitMb(4, THREE_GIB)).toBe(614);
+  });
+
+  it("never drops below the floor a clean run needs, however many workers share the ceiling", () => {
+    expect(runnerHeapLimitMb(16, THREE_GIB)).toBe(MIN_RUNNER_HEAP_BYTES / MIB);
+  });
+
+  it("uses a 512 MiB floor, the one B-218 measured for the Python runners", () => {
+    expect(MIN_RUNNER_HEAP_BYTES).toBe(512 * MIB);
+  });
+
+  it("rounds down so the shares never add up past the ceiling", () => {
+    expect(runnerHeapLimitMb(2, String(3001 * MIB))).toBe(1000);
+  });
+
+  it("sets no limit where the container sets no ceiling", () => {
+    expect(runnerHeapLimitMb(4, "max\n")).toBeUndefined();
+    expect(runnerHeapLimitMb(4, undefined)).toBeUndefined();
+    expect(runnerHeapLimitMb(4, "garbage")).toBeUndefined();
+  });
+
+  it("rejects a worker count that is not a positive integer", () => {
+    expect(() => runnerHeapLimitMb(0, THREE_GIB)).toThrow(RangeError);
+    expect(() => runnerHeapLimitMb(1.5, THREE_GIB)).toThrow(RangeError);
+  });
+});
+
+describe("testRunnerNodeArgs — the Node flags each Stryker test-runner process starts with", () => {
+  it("caps the heap at the runner's share, so a runaway mutant fails alone instead of feeding the OOM killer", () => {
+    expect(testRunnerNodeArgs(4, THREE_GIB)).toEqual(["--max-old-space-size=614"]);
+  });
+
+  it("passes nothing where there is no ceiling to share — macOS, a bare host", () => {
+    expect(testRunnerNodeArgs(4, undefined)).toEqual([]);
+  });
+});
+
+describe("resolveStrykerOptions — what a package's stryker.config.mjs spreads in", () => {
   let dir: string;
   let logs: string[];
   let originalLog: typeof console.log;
@@ -246,38 +292,77 @@ describe("resolveStrykerConcurrency — the value a package's stryker.config.mjs
     rmSync(dir, { recursive: true, force: true });
   });
 
-  it("the derived count is the value assigned as `concurrency` — the flag reaches the config", () => {
+  it("sizes the heap cap from the same worker count it assigns as concurrency", () => {
     process.env[WORKERS_ENV_VAR] = "4";
-    const concurrency = resolveStrykerConcurrency(
-      "core",
-      join(dir, "absent"),
-      join(dir, "absent-memory"),
-    );
-    expect(concurrency).toBe(4);
+    const memoryMax = join(dir, "memory.max");
+    writeFileSync(memoryMax, THREE_GIB);
+    expect(resolveStrykerOptions("core", join(dir, "absent"), memoryMax)).toEqual({
+      concurrency: 4,
+      testRunnerNodeArgs: ["--max-old-space-size=614"],
+    });
     expect(logs).toEqual([
-      `mutation-workers[core]: running Stryker with concurrency 4 (from ${WORKERS_ENV_VAR})`,
+      `mutation-workers[core]: running Stryker with concurrency 4 (from ${WORKERS_ENV_VAR}), test-runner heap cap 614 MiB`,
     ]);
   });
 
   it("an over-quota worker count is never used — a 4-CPU quota on any host yields 4, not the host's own count", () => {
-    delete process.env[WORKERS_ENV_VAR];
     const cpuMax = join(dir, "cpu.max");
     writeFileSync(cpuMax, "400000 100000\n");
-    const concurrency = resolveStrykerConcurrency("core", cpuMax, join(dir, "absent-memory"));
-    expect(concurrency).toBe(4);
-    expect(logs).toEqual([
-      "mutation-workers[core]: running Stryker with concurrency 4 (from cgroup cpu.max quota)",
-    ]);
+    expect(resolveStrykerOptions("core", cpuMax, join(dir, "absent-memory")).concurrency).toBe(4);
+    expect(logs[0]).toMatch(/\(from cgroup cpu\.max quota\), no test-runner heap cap/);
   });
 
-  it("a memory ceiling below the CPU-derived count is named and used", () => {
-    delete process.env[WORKERS_ENV_VAR];
+  it("a memory ceiling below the CPU-derived count is named, used, and sizes the cap", () => {
+    process.env[WORKERS_ENV_VAR] = "8";
     const memoryMax = join(dir, "memory.max");
-    writeFileSync(memoryMax, String(3 * 1024 * 1024 * 1024));
-    const concurrency = resolveStrykerConcurrency("core", join(dir, "absent"), memoryMax);
-    expect(concurrency).toBeLessThanOrEqual(4);
-    expect(logs[0]).toMatch(
-      /^mutation-workers\[core\]: running Stryker with concurrency \d+ \(from (cgroup memory\.max ceiling|runtime CPU count)\)$/,
-    );
+    writeFileSync(memoryMax, THREE_GIB);
+    expect(resolveStrykerOptions("core", join(dir, "absent"), memoryMax)).toEqual({
+      concurrency: 4,
+      testRunnerNodeArgs: ["--max-old-space-size=614"],
+    });
+    expect(logs[0]).toMatch(/\(from cgroup memory\.max ceiling\), test-runner heap cap 614 MiB$/);
+  });
+
+  it("announces no cap where the container sets no ceiling", () => {
+    process.env[WORKERS_ENV_VAR] = "2";
+    expect(resolveStrykerOptions("core", join(dir, "absent"), join(dir, "absent-memory"))).toEqual({
+      concurrency: 2,
+      testRunnerNodeArgs: [],
+    });
+    expect(logs).toEqual([
+      `mutation-workers[core]: running Stryker with concurrency 2 (from ${WORKERS_ENV_VAR}), no test-runner heap cap (no memory ceiling)`,
+    ]);
+  });
+});
+
+describe("every package's stryker.config.mjs passes the resolved options", () => {
+  const repoRoot = join(import.meta.dirname, "..", "..");
+  const configs = readdirSync(join(repoRoot, "packages"))
+    .map((name) => join(repoRoot, "packages", name, "stryker.config.mjs"))
+    .filter((path) => existsSync(path));
+  let originalLog: typeof console.log;
+
+  beforeEach(() => {
+    originalLog = console.log;
+    console.log = () => {};
+    process.env[WORKERS_ENV_VAR] = "4";
+  });
+
+  afterEach(() => {
+    console.log = originalLog;
+    delete process.env[WORKERS_ENV_VAR];
+  });
+
+  it("finds the packages' configs at all", () => {
+    expect(configs.length).toBeGreaterThan(0);
+  });
+
+  it.each(
+    configs,
+  )("%s carries this machine's concurrency and test-runner heap cap", async (path) => {
+    const { default: config } = await import(pathToFileURL(path).href);
+    const expected = resolveStrykerOptions("expected");
+    expect(config.concurrency).toBe(expected.concurrency);
+    expect(config.testRunnerNodeArgs).toEqual(expected.testRunnerNodeArgs);
   });
 });

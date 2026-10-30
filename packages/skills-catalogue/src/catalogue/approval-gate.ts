@@ -5,8 +5,7 @@ import type { ReasonedRule } from "../skill.js";
 
 /**
  * The approval gate every skill uses before it turns something it SHOWED into something durable or
- * public: show the whole artifact, ask once and stop the turn, and act only on what was shown. Port
- * of Java `ApprovalGate`.
+ * public: show the whole artifact, ask once and stop the turn, and act only on what was shown.
  *
  * INTENT: the feedback skill files a public issue and the verify and debug skills promote a
  * committed approval baseline; both are a person's decision, made on an artifact they read, in a

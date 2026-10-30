@@ -78,8 +78,10 @@ function existingGlossary(existingJson: string | undefined) {
  * @param request the run's inputs; see {@link GlossaryHarvestRequest}.
  * @returns every artifact of the run as text; see {@link GlossaryHarvestArtifacts}.
  * @throws {TypeError} if `existingJson` is not a valid glossary document, or `firstSeen` is not an
- * ISO `YYYY-MM-DD` date. A malformed committed glossary fails the run loudly rather than being
- * silently replaced by an empty one, which would drop every curated definition in the repository.
+ * ISO `YYYY-MM-DD` date. A malformed committed glossary throws rather than being silently
+ * replaced by an empty one, which would drop every curated definition in the repository. The
+ * suite reporter catches that throw, prints one line naming the file and the reader's message, and
+ * skips the harvest — a bad glossary is reported and ignored, never a suite failure.
  * @remarks Renders text and writes nothing — this package stays free of filesystem APIs so it runs
  * unchanged in a browser test run. The caller owns every file, including which directory the
  * committed pair goes in and which the volatile report goes in.

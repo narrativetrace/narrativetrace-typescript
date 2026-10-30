@@ -117,7 +117,16 @@ describe("type declarations", () => {
 });
 
 describe("size budget", () => {
-  // ~94 KiB today (raised from 92 KiB, 2026-10-20, for §175's instrumentation exclusions: the
+  // ~99 KiB today (raised from 97 KiB, 2026-10-28, to 100 KiB — owner decision — for B-211's
+  // release of spans no execution context owns: the per-stack ownership claim, the segment queue and
+  // its bounded release, the fresh trace per unowned root — genuinely new @narrativetrace/core
+  // behaviour, measured 100 716 / 101 342 B for the ESM/classic bundles against the old 99 328,
+  // none of it a dependency slipping into `noExternal`).
+  // ~96 KiB before that (raised from 96 KiB, 2026-10-27, to
+  // 97 KiB for B-198's live-child depth cap: the constant, the per-context depth, the registration
+  // guard and the one-per-process diagnostic — genuinely new @narrativetrace/core behaviour,
+  // ~+0.3 KiB for the classic bundle, none of it a dependency slipping into `noExternal`).
+  // ~94 KiB before that (raised from 92 KiB, 2026-10-20, for §175's instrumentation exclusions: the
   // exclude grammar, the shipped default with its reasons and sources, the structural skip list and
   // its published rules — genuinely new @narrativetrace/core public API, ~+2.1 KiB over the old
   // budget for the classic bundle, none of it a dependency slipping into `noExternal`).
@@ -145,7 +154,7 @@ describe("size budget", () => {
   // budget catches accidental growth (a Node package or a large dependency slipping into
   // `noExternal`) before it reaches a page that loads this on every visit — a few KiB of
   // headroom stays tight enough for that, since a real accidental dependency adds far more.
-  const BUDGET_BYTES = 96 * 1024;
+  const BUDGET_BYTES = 100 * 1024;
 
   test.each([
     ["ES module", ESM_BUNDLE],

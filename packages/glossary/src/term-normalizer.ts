@@ -81,8 +81,7 @@ const PARAMETER_ROLE = "id";
  * INTENT: pairs the text a term would carry with the grammatical shape derived from the
  * identifier's structure, so the harvester never has to re-inspect the identifier.
  *
- * @remarks The Java reference calls this `TermNormalizer.Candidate`; the name is spelled out here
- * because this package has no nested types. Distinct from `HarvestCandidate`, which is this phrase
+ * @remarks The name is spelled out in full because this package has no nested types. Distinct from `HarvestCandidate`, which is this phrase
  * *plus* where it was observed.
  */
 export interface TermCandidate {

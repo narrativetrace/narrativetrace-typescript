@@ -105,8 +105,8 @@ function readVendor(value: string, reading: Reading): void {
 /**
  * Why the next argument cannot be this flag's value, or `undefined` when it can.
  *
- * @llmNote A value that reads as the NEXT FLAG is refused rather than taken, which Java's parser does
- * not do. `init --from --dry-run` there means "install for real, from a carrier called `--dry-run`" —
+ * @llmNote A value that reads as the NEXT FLAG is refused rather than taken. Taking it would make
+ * `init --from --dry-run` mean "install for real, from a carrier called `--dry-run`" —
  * a misread that APPLIES where the person asked to preview. The escape hatch is the `=` spelling,
  * which says the value out loud.
  */
@@ -122,8 +122,8 @@ function nextFlagMessage(name: string, value: string): string {
  * is left for the loop to read as whatever it is.
  *
  * @param spelledOut whether the value came from the `--flag=value` spelling, which says it out loud
- * @llmNote A value that reads as the NEXT FLAG is refused rather than taken, which Java's parser does
- * not do. `init --from --dry-run` there means "install for real, from a carrier called `--dry-run`" —
+ * @llmNote A value that reads as the NEXT FLAG is refused rather than taken. Taking it would make
+ * `init --from --dry-run` mean "install for real, from a carrier called `--dry-run`" —
  * a misread that APPLIES where the person asked to preview. The `=` spelling is the escape hatch.
  */
 function readValued(
@@ -171,7 +171,7 @@ function splitArgument(argument: string): SplitArgument {
  * Reads one argument and returns the index of the last one it consumed.
  *
  * @llmNote A switch given a value (`--force=false`) is refused, not read as the switch alone — the
- * other deviation from Java's parser, and the dangerous direction of the same class: there, a person
+ * dangerous direction of the same class: taking the switch alone, a person
  * spelling out `--force=false` would be granting exactly the permission they meant to withhold.
  */
 function readOne(args: readonly string[], index: number, reading: Reading): number {

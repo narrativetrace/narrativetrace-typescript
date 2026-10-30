@@ -67,6 +67,8 @@ export class FireAndForgetGroup {
       traceId ?? undefined,
     );
     forked.applyRequestExtras(extractRequestExtras(this.parentContext));
+    // Members activate a snapshot, which is what tags their first enter (asyncTagFor).
+    forked.applySnapshot(traceId, parentSpanId);
     const taskPromise = new Promise<void>((resolve) => resolve(task(forked) as undefined));
     taskPromise
       .then(() => this.emitForkCreated(forked, parentSpanId))

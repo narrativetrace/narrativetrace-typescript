@@ -143,6 +143,17 @@ describe("runGlossaryScan", () => {
     expect(readOnly.errors.join("\n")).toContain("read-only file system");
   });
 
+  test("writes nothing to glossary.json when glossary.md cannot be written", () => {
+    const failing = fakeIo({ "packages/billing/overdraft-service.ts": SERVICE });
+    failing.io.writeFile = (path, content) => {
+      if (path.endsWith("glossary.md")) throw new Error("EISDIR");
+      failing.written[path] = content;
+    };
+
+    expect(runGlossaryScan(OPTIONS, failing.io)).toBe(1);
+    expect(Object.keys(failing.written)).not.toContain("./glossary.json");
+  });
+
   test("skips a source file that declares no vocabulary at all", () => {
     const constants = fakeIo({ "packages/billing/limits.ts": "export const MAX = 10;" });
 

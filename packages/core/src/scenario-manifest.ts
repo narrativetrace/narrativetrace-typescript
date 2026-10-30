@@ -15,7 +15,7 @@ const SCHEMA = "narrativetrace/scenario-manifest/1";
  *
  * INTENT: artifact names are derived, not announced, so a reader who knows a scenario had to guess
  * which file holds it — and once a test runs more than once, guessing stops working. `manifest.json`
- * answers the question directly. Port of Java `output.ScenarioManifest.Entry`.
+ * answers the question directly.
  */
 export interface ScenarioManifestEntry {
   /** The humanized scenario name, as the artifacts' own headers spell it. */
@@ -49,8 +49,7 @@ function renderEntry(entry: ScenarioManifestEntry): string {
 
 /**
  * The `"run": {...},\n` object naming the test-suite run that produced the manifest, or empty text
- * when `run` is `undefined` — a caller that has not adopted `RunIdentity` (Java
- * `ScenarioManifest.renderRun`).
+ * when `run` is `undefined` — a caller that has not adopted `RunIdentity`.
  */
 function renderRun(run: RunIdentity | undefined): string {
   if (run === undefined) return "";
@@ -60,7 +59,6 @@ function renderRun(run: RunIdentity | undefined): string {
 /**
  * Renders the `manifest.json` document: one row per traced scenario, in execution order, plus a
  * top-level `run` object (`id`, `name`) naming the enclosing test-suite run when `run` is given.
- * Port of Java `output.ScenarioManifest.render`.
  */
 export function renderScenarioManifest(
   entries: readonly ScenarioManifestEntry[],

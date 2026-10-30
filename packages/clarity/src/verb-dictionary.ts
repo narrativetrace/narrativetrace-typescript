@@ -11,10 +11,10 @@ import { allRoleExpectedVerbs } from "./role-suffix-dictionary.js";
 
 export type VerbCategory = "domain" | "standard" | "generic" | "boolean" | "unknown";
 
-// Verb tiers ported verbatim from Java VerbDictionary (cross-language clarity contract): 828
-// domain verbs across 34 industry category sets, 197 standard, 21 generic, 17 boolean
-// prefixes. Java enforces Generic ∩ Domain = ∅ and Boolean ∩ Domain = ∅; classifyVerb's precedence
-// (boolean > domain > standard > generic) is the tie-breaker, matching Java's categorize order.
+// Verb tiers are a family contract, identical in every runtime: 828 domain verbs across 34
+// industry category sets, 197 standard, 21 generic, 17 boolean prefixes. Generic ∩ Domain = ∅ and
+// Boolean ∩ Domain = ∅ in every runtime; classifyVerb's precedence
+// (boolean > domain > standard > generic) is the tie-breaker, the same categorize order everywhere.
 const domainVerbs = new Set([
   "abandon",
   "accommodate",
@@ -1107,7 +1107,7 @@ const derivedDomainVerbs = new Set([
  * generic. What a project can do is claim a word the built-in dictionaries would score as merely
  * standard or unknown: in its domain, `fold` and `send` are domain verbs. Generic is checked
  * before standard here, which is behaviour-preserving only because the two tiers are disjoint —
- * `verb-dictionary.test.ts` asserts that, matching Java's `enforceNoOverlap`.
+ * `verb-dictionary.test.ts` asserts that.
  */
 export function classifyVerb(
   verb: string,

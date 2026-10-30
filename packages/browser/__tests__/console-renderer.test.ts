@@ -201,3 +201,19 @@ describe("bounded call-tree walk (cyclic and very deep trees)", () => {
     vi.restoreAllMocks();
   }, 3_000);
 });
+
+describe("renderToConsole exception message redaction (B-174)", () => {
+  it("prints a credential-shaped exception message as the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+    const tree = traceTree([
+      traceNode(methodSignature("Pay", "charge", []), threw(new Error("4111111111111111")), []),
+    ]);
+
+    renderToConsole(tree);
+
+    expect(JSON.stringify(spy.mock.calls)).not.toContain("4111111111111111");
+    expect(spy).toHaveBeenCalledWith("Pay.charge() ✗ [REDACTED]");
+    spy.mockRestore();
+  });
+});

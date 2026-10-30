@@ -45,9 +45,11 @@ export { ContextExport } from "./context-export.js";
 export type { ContextScope, ContextSnapshot } from "./context-snapshot.js";
 export { ControlEscape } from "./control-escape.js";
 export { DualPathPipeline, ensureStoreBacked } from "./dual-path-pipeline.js";
+export { NARRATIVE_ELEMENTS } from "./element-origin.js";
 export { errorMessage, errorTypeName } from "./error-display.js";
 export type { EventConsumer, EventPipeline } from "./event-pipeline.js";
 export { EventStoreConsumer } from "./event-store-consumer.js";
+export { ExceptionMessage } from "./exception-message.js";
 export { SHIPPED_EXCLUDE, type ShippedExclusion, STRUCTURAL_SKIPS } from "./exclusion-catalogue.js";
 export { buildFailureReport } from "./failure-report.js";
 export { FireAndForgetGroup } from "./fire-and-forget-group.js";
@@ -169,7 +171,6 @@ export { formatTraceparent, parseTraceparent, type Traceparent } from "./tracepa
 export { isActiveLevel, isEnabled, parseTracingLevel, type TracingLevel } from "./tracing-level.js";
 export { TREE_WALK_MARKER, TreeWalk, type TreeWalkStop, walkPreOrder } from "./tree-walk.js";
 export {
-  NARRATIVE_ELEMENTS,
   type RenderOptions,
   renderCapture,
   renderValue,

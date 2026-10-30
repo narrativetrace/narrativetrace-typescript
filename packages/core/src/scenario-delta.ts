@@ -11,8 +11,7 @@ export type ScenarioDeltaKind = "new" | "unchanged" | "changed";
  *
  * INTENT: the unit the trace writer reports upward after each test — the suite footer aggregates
  * these into the post-run delta line, and the failure surface prints the diff of the failing
- * scenario. Produced beside the artifact write so baseline reading happens exactly once. Port of
- * Java `output.ScenarioDelta`.
+ * scenario. Produced beside the artifact write so baseline reading happens exactly once.
  */
 export interface ScenarioDelta {
   /** The humanized scenario name (the `scenario:` header value). */

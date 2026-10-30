@@ -1,4 +1,4 @@
-<!-- source: documentation/agent-skills.md blob 7f72a18c3fe0 | translated: 2026-10-15 | reviewed: - -->
+<!-- source: documentation/agent-skills.md blob 4a4bb5f01a04 | translated: 2026-10-15 | reviewed: - -->
 # Habilidades de agente
 
 [English](../agent-skills.md) | [Español](../es/habilidades-de-agente.md) | **Português** | [简体中文](../zh-CN/智能体技能.md)
@@ -119,7 +119,7 @@ Uma prévia `--dry-run --json` contra um projeto vazio se parece com isto:
 
 ```json
 {
-  "carrier": "@narrativetrace/skills@0.4.2",
+  "carrier": "@narrativetrace/skills@0.5.1",
   "actions": [
     {
       "kind": "create",

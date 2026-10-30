@@ -33,6 +33,7 @@ describe("provideNarrativeTrace", () => {
   });
 
   test("HTTP requests include traceparent header", () => {
+    TestBed.inject(NARRATIVE_CONTEXT).enterMethod("Page", "click", []);
     http.get("/api/test").subscribe();
     const req = httpMock.expectOne("/api/test");
     expect(req.request.headers.has("traceparent")).toBe(true);

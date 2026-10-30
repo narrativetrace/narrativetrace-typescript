@@ -26,8 +26,7 @@ const NOTHING_WRITTEN = {
 
 /**
  * `narrativetrace-explain` — explains what an application actually does by running one scenario
- * and reading its trace, for a user who has not thought of tracing at all. Port of Java
- * `NarrativeTraceExplainSkill`.
+ * and reading its trace, for a user who has not thought of tracing at all.
  *
  * The other skills answer somebody who already wants tracing, is verifying a change, or is chasing
  * a symptom. This one answers "show me what my application actually does", "walk me through what

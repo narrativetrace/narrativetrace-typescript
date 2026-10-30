@@ -28,6 +28,13 @@
 // measured figure, not a chosen round number. `memory.max` reading `max` (no ceiling) or being
 // absent (macOS, a bare host, cgroup v1) applies no memory bound at all.
 //
+// 2026-10-28 finding (B-219): the worker count bounds how many runners exist, not how large one
+// grows. Each runner's isolates defaulted to a heap limit of about half the HOST's memory, so one
+// runaway mutant reached 1.78 GB by itself and the container's OOM killer SIGKILLed runners in the
+// nightly. Each runner therefore also gets `--max-old-space-size` at its share of the ceiling —
+// `memory.max / (workers + 1)`, floored at 512 MiB, the rule B-218 lands for the Python port — so a
+// runaway fails alone instead. See `runnerHeapLimitMb`.
+//
 // Plain ESM (not TypeScript): Stryker's config reader imports `stryker.config.mjs` directly with
 // plain Node, with no tsx/ts-node loader in that process — a `.ts` module here would not resolve.
 // Tested the same way as `packages/*/src` via `tools/__tests__/mutation-workers.test.ts`.
@@ -41,6 +48,15 @@ export const CGROUP_MEMORY_MAX_PATH = "/sys/fs/cgroup/memory.max";
 
 /** Measured per-runner peak anon-rss (2026-09-17 dmesg trace, range 0.35–1.48 GB) — not a chosen round number. */
 export const MEASURED_PEAK_RUNNER_BYTES = 700 * 1024 * 1024;
+
+const MIB = 1024 * 1024;
+
+/**
+ * The least heap a test runner is ever capped at, however many share the ceiling: the floor B-218
+ * measured for the Python runners (300 MB starved the clean run there). The clean `core` suite
+ * passes in one Vitest thread at 512 MiB (B-219).
+ */
+export const MIN_RUNNER_HEAP_BYTES = 512 * MIB;
 
 /** A validated `NT_MUTATION_WORKERS` value, never a silent fallback on a typo'd budget. */
 export function explicitCount(raw) {
@@ -77,11 +93,19 @@ function cpuDerivedCount(env, cgroupCpuMax, hostCpuCount) {
  * parse. `floor(bytes / MEASURED_PEAK_RUNNER_BYTES)`, floored at 1 so the pool is never empty.
  */
 export function memoryCount(cgroupMemoryMax) {
-  const trimmed = cgroupMemoryMax.trim();
+  const bytes = ceilingBytes(cgroupMemoryMax);
+  return bytes === undefined
+    ? undefined
+    : Math.max(1, Math.floor(bytes / MEASURED_PEAK_RUNNER_BYTES));
+}
+
+/** The ceiling in bytes from a cgroup v2 `memory.max` line, or `undefined` for none/unparsable. */
+function ceilingBytes(cgroupMemoryMax) {
+  const trimmed = (cgroupMemoryMax ?? "").trim();
   if (trimmed === "max") return undefined;
   const bytes = Number(trimmed);
   if (!Number.isInteger(bytes) || bytes < 1) return undefined;
-  return Math.max(1, Math.floor(bytes / MEASURED_PEAK_RUNNER_BYTES));
+  return bytes;
 }
 
 /**
@@ -150,10 +174,48 @@ export function resolveWorkerCount(
 }
 
 /**
- * The `concurrency` value a package's `stryker.config.mjs` assigns, announced once at config-load
- * time so a scoped `stryker run` shows which worker count and source it used.
+ * The heap cap, in MiB, for one Stryker test-runner process: the container's memory ceiling split
+ * over the `workers` runners plus Stryker's own parent process, floored at
+ * {@link MIN_RUNNER_HEAP_BYTES} — the rule B-218 lands for the Python port's `RLIMIT_DATA`.
+ * `undefined` where `cgroupMemoryMax` sets no ceiling (`max`, absent, unparsable): there is nothing
+ * to share, and Node's own default applies.
+ *
+ * Why a cap at all (B-219): without one, every runner's isolates default to a heap limit of about
+ * half the host's memory (1.58 GB on the 7.75 GB VM), so one runaway mutant — a renderer walk that
+ * never stops on a cyclic tree, its indentation growing with the depth — reached 1.78 GB alone,
+ * and the kernel's OOM killer, not the mutant, ended runs inside the 3 GiB nightly container. With
+ * the cap that runner's worker thread fails alone (`ERR_WORKER_OUT_OF_MEMORY`) and the rest of the
+ * pool keeps running.
+ *
+ * @throws {RangeError} when `workers` is not a positive integer.
  */
-export function resolveStrykerConcurrency(
+export function runnerHeapLimitMb(workers, cgroupMemoryMax) {
+  if (!Number.isInteger(workers) || workers < 1) {
+    throw new RangeError(`workers must be a positive integer, got ${workers}`);
+  }
+  const ceiling = ceilingBytes(cgroupMemoryMax);
+  if (ceiling === undefined) return undefined;
+  const share = Math.max(ceiling / (workers + 1), MIN_RUNNER_HEAP_BYTES);
+  return Math.floor(share / MIB);
+}
+
+/**
+ * The Node flags every Stryker test-runner process starts with (Stryker's `testRunnerNodeArgs`,
+ * which reaches the runner processes only — never Stryker's own): `--max-old-space-size` at
+ * {@link runnerHeapLimitMb}, or none where the container sets no memory ceiling. V8 applies the
+ * flag to every isolate in the process, so it bounds the Vitest worker thread the tests run in.
+ */
+export function testRunnerNodeArgs(workers, cgroupMemoryMax) {
+  const heapMb = runnerHeapLimitMb(workers, cgroupMemoryMax);
+  return heapMb === undefined ? [] : [`--max-old-space-size=${heapMb}`];
+}
+
+/**
+ * The resource options a package's `stryker.config.mjs` spreads in — `concurrency` from
+ * {@link workerCount} and `testRunnerNodeArgs` sized for that many runners — announced once at
+ * config-load time so a scoped `stryker run` shows the worker count, its source and the heap cap.
+ */
+export function resolveStrykerOptions(
   packageName,
   cgroupCpuPath = CGROUP_CPU_MAX_PATH,
   cgroupMemoryPath = CGROUP_MEMORY_MAX_PATH,
@@ -161,10 +223,15 @@ export function resolveStrykerConcurrency(
   const cgroupCpuMax = readCgroupCpuMax(cgroupCpuPath);
   const cgroupMemoryMax = readCgroupMemoryMax(cgroupMemoryPath);
   const hostCpuCount = cpus().length;
-  const workers = workerCount(process.env, cgroupCpuMax, hostCpuCount, cgroupMemoryMax);
+  const concurrency = workerCount(process.env, cgroupCpuMax, hostCpuCount, cgroupMemoryMax);
   const source = workerCountSource(process.env, cgroupCpuMax, hostCpuCount, cgroupMemoryMax);
+  const heapMb = runnerHeapLimitMb(concurrency, cgroupMemoryMax);
+  const cap =
+    heapMb === undefined
+      ? "no test-runner heap cap (no memory ceiling)"
+      : `test-runner heap cap ${heapMb} MiB`;
   console.log(
-    `mutation-workers[${packageName}]: running Stryker with concurrency ${workers} (from ${source})`,
+    `mutation-workers[${packageName}]: running Stryker with concurrency ${concurrency} (from ${source}), ${cap}`,
   );
-  return workers;
+  return { concurrency, testRunnerNodeArgs: testRunnerNodeArgs(concurrency, cgroupMemoryMax) };
 }

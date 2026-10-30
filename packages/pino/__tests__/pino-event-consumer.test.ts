@@ -339,6 +339,7 @@ describe("createPinoEventConsumer", () => {
       groupId: "fork-1",
       memberCount: 3,
       wallTimeMs: 12.5,
+      ownerSpanId: null,
       timestamp: 0,
     });
 
@@ -356,5 +357,24 @@ describe("createPinoEventConsumer", () => {
     consumer(forkCreated("fork-1", "fork-join"));
 
     expect(entries[0]?.level).toBe(30);
+  });
+});
+
+describe("pino exception message redaction (B-174)", () => {
+  test("a credential-shaped exception message is logged as the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const { logger, entries } = createTestLogger();
+    const consumer = createPinoEventConsumer(logger);
+
+    consumer({
+      type: "exit",
+      spanContext: sc(sid(0)),
+      timestamp: 1,
+      outcome: threw(new Error("4111111111111111")),
+    });
+
+    expect(JSON.stringify(entries)).not.toContain("4111111111111111");
+    expect(entries[0]?.["exception.message"]).toBe("[REDACTED]");
+    expect(entries[0]?.msg).toBe("!! Error: [REDACTED]");
   });
 });

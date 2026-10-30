@@ -8,7 +8,7 @@ import { APPROVE, RUN_THE_SUITE, SHOW_RECEIVED } from "./verify-commands.js";
 /**
  * The pin — a structural trace promoted to a committed `.approved.nt` behind the user's yes — as
  * the four steps every skill that pins renders: approval mode on, run and show, ask and stop,
- * promote. Port of Java `BaselinePin`.
+ * promote.
  *
  * INTENT: the verify skill pins a flow it checked and the debug skill pins the regression it fixed;
  * it is the same act on the same artifact behind the same gate ({@link ApprovalGate}), so it is
@@ -16,7 +16,7 @@ import { APPROVE, RUN_THE_SUITE, SHOW_RECEIVED } from "./verify-commands.js";
  *
  * @remarks The approval run is the WHOLE suite, never the one test the skill ran: approval mode
  * compares every traced test, so a one-test run leaves every other traced test without a baseline
- * and the suite red (found by Java's trials, cross-port item 1 of its milestone 2).
+ * and the suite red (found by a trial run of the skill).
  */
 export const BaselinePin = {
   /** The pin's "always" rule: the whole review copy is shown before the question. */

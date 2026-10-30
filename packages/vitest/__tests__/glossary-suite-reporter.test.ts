@@ -1,7 +1,15 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
@@ -175,6 +183,47 @@ describe("GlossarySuiteReporter with its shipped defaults", () => {
     expect(glossary.terms.map((t: { term: string }) => t.term)).toContain("open account");
     expect(existsSync(join(temp, "repo", "glossary.md"))).toBe(true);
     expect(existsSync(join(temp, "out", "glossary-usage.json"))).toBe(true);
+  });
+
+  test.each([
+    ["a conflict-marker file", "<<<<<<< HEAD\n{}\n=======\n{}\n>>>>>>> branch\n"],
+    ["a file that is not JSON at all", "not json"],
+  ])("reports %s as one line and skips the harvest instead of throwing", (_name, content) => {
+    mkdirSync(join(temp, "repo"), { recursive: true });
+    writeFileSync(join(temp, "repo", "glossary.json"), content);
+    const logged: string[] = [];
+    const reporter = new GlossarySuiteReporter({
+      enabled: true,
+      glossaryDir: join(temp, "repo"),
+      outputDir: join(temp, "out"),
+      log: (message) => logged.push(message),
+    });
+
+    expect(() => reporter.onFinished(FILES)).not.toThrow();
+
+    expect(logged).toHaveLength(1);
+    expect(logged[0]).toContain("narrative-trace:");
+    expect(logged[0]).toContain(join(temp, "repo", "glossary.json"));
+    expect(logged[0]).toContain("glossary is not valid JSON");
+    expect(readFileSync(join(temp, "repo", "glossary.json"), "utf-8")).toBe(content);
+    expect(existsSync(join(temp, "out", "glossary-usage.json"))).toBe(false);
+  });
+
+  test("leaves the committed glossary.json byte-identical when glossary.md cannot be written", () => {
+    seedGlossary(join(temp, "repo"));
+    mkdirSync(join(temp, "repo", "glossary.md"));
+    const before = readFileSync(join(temp, "repo", "glossary.json"), "utf-8");
+
+    realReporter({ today: "2026-08-31" }).onFinished(FILES);
+
+    expect(readFileSync(join(temp, "repo", "glossary.json"), "utf-8")).toBe(before);
+    expect(readdirSync(join(temp, "repo")).sort()).toStrictEqual(["glossary.json", "glossary.md"]);
+  });
+
+  test("leaves no temporary file beside the glossary after a harvest", () => {
+    realReporter({ today: "2026-08-31" }).onFinished(FILES);
+
+    expect(readdirSync(join(temp, "repo")).sort()).toStrictEqual(["glossary.json", "glossary.md"]);
   });
 
   test("reads the committed glossary back and files terms under its bounded context", () => {

@@ -249,4 +249,60 @@ describe("live-child registry", () => {
     expect(origin.refusedScopeCount()).toBe(0);
     expect(origin.refusedSpanCount()).toBe(0);
   });
+
+  describe("depth cap (B-198)", () => {
+    const cap = SyncNarrativeContext.MAX_LIVE_CHILD_DEPTH;
+
+    /** Builds a registered chain `links` long under `origin`; returns every context, origin first. */
+    function chainOf(origin: SyncNarrativeContext, links: number): SyncNarrativeContext[] {
+      const chain = [origin];
+      for (let i = 0; i < links; i++) {
+        const child = stack();
+        chain[chain.length - 1]?.registerLiveChild(child);
+        chain.push(child);
+      }
+      return chain;
+    }
+
+    test("a chain exactly at the cap is visible whole", () => {
+      const chain = chainOf(stack(), cap);
+      const deepest = chain[chain.length - 1] as SyncNarrativeContext;
+      const spanId = traceCall(deepest);
+
+      expect(deepest.liveDepth).toBe(cap);
+      expect(chain[0]?.liveChildSpanIds()).toEqual(new Set([spanId]));
+    });
+
+    test("the link one past the cap is refused, and so is everything below it", () => {
+      const chain = chainOf(stack(), cap);
+      const atCap = chain[chain.length - 1] as SyncNarrativeContext;
+      const pastCap = stack();
+      const belowPastCap = stack();
+
+      expect(atCap.registerLiveChild(pastCap)).toBeNull();
+      expect(pastCap.registerLiveChild(belowPastCap)).toBeNull();
+      traceCall(pastCap);
+      traceCall(belowPastCap);
+
+      expect(chain[0]?.liveChildSpanIds()).toEqual(new Set());
+      expect(pastCap.liveDepth).toBe(cap + 1);
+      expect(belowPastCap.liveDepth).toBe(cap + 2);
+    });
+
+    test("a context one below the cap still registers its child", () => {
+      const chain = chainOf(stack(), cap - 1);
+      const child = stack();
+
+      expect(chain[chain.length - 1]?.registerLiveChild(child)).not.toBeNull();
+      expect(child.liveDepth).toBe(cap);
+    });
+
+    test("reset makes a context a fresh origin again", () => {
+      const chain = chainOf(stack(), 3);
+      const last = chain[chain.length - 1] as SyncNarrativeContext;
+      last.reset();
+
+      expect(last.liveDepth).toBe(0);
+    });
+  });
 });

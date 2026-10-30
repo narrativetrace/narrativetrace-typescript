@@ -195,7 +195,7 @@ function withChildren(node: TraceNode, children: readonly TraceNode[]): TraceNod
 }
 
 // ERRORS: keep every error node with its full subtree, keep ancestors that have an error
-// descendant (pruned to only the error path), drop pure-success branches (Java retainErrorPaths).
+// descendant (pruned to only the error path), drop pure-success branches.
 //
 // Explicit-stack (non-recursive) post-order build, depth-bounded via TreeWalk. The flat enter/exit
 // event stream this tree is always assembled from makes it structurally cycle-free, but a stream
@@ -263,7 +263,7 @@ function finishRetainFrame(stack: RetainFrame[], walk: TreeWalk<TraceNode>): Tra
 }
 
 // SUMMARY: keep root + leaves and error frames, collapsing intermediate successful frames
-// (Java pruneSummary / pruneSummaryCollect). Bounded and cycle-safe via `walkPreOrder`, for the
+// Bounded and cycle-safe via `walkPreOrder`, for the
 // same reason `retainErrorPaths` above needs `TreeWalk`: depth alone is enough to overflow ordinary
 // call-stack recursion here, well before any renderer sees this tree.
 function pruneSummary(roots: readonly TraceNode[]): TraceNode[] {

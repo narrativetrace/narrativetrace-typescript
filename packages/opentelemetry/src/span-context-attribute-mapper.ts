@@ -4,7 +4,8 @@
 import {
   type ConcurrencyInfo,
   ContextExport,
-  errorMessage,
+  ExceptionMessage,
+  errorTypeName,
   humanName,
   type MethodSignature,
   type ParameterCapture,
@@ -81,13 +82,71 @@ export function setOutcomeAttributes(outcome: TraceOutcome, span: Span): void {
       span.setAttribute("narrative.outcome", outcome.renderedValue);
   } else if (outcome.kind === "threw") {
     const err = outcome.error;
-    span.recordException(err instanceof Error ? err : String(err));
+    addExceptionEvent(span, err);
     span.setStatus({
       code: SpanStatusCode.ERROR,
-      message: err instanceof Error ? err.message : String(err),
+      message: ExceptionMessage.text(err),
     });
   } else {
     span.setAttribute("narrative.outcome", "in-flight");
+  }
+}
+
+/**
+ * Adds the semantic-convention `exception` event by hand instead of `Span.recordException`, which
+ * would hand the SDK the raw error and let it print `message` and the whole `stack` (whose first
+ * line repeats the message) unredacted.
+ *
+ * @remarks `exception.message` goes through {@link ExceptionMessage}, the same filter as the
+ * status description. `exception.stacktrace` is the type name then the frames only; every `cause`
+ * contributes its type name, its filtered message and its frames. A cyclic cause chain is cut at
+ * the first repeat.
+ */
+function addExceptionEvent(span: Span, thrown: unknown): void {
+  const type = errorTypeName(thrown);
+  const stacktrace = [`${type}${framesOf(thrown)}`];
+  const seen = new Set<unknown>([thrown]);
+  let cause = causeOf(thrown);
+  while (cause !== undefined && !seen.has(cause)) {
+    seen.add(cause);
+    stacktrace.push(
+      `Caused by: ${errorTypeName(cause)}: ${ExceptionMessage.text(cause)}${framesOf(cause)}`,
+    );
+    cause = causeOf(cause);
+  }
+  span.addEvent("exception", {
+    "exception.type": type,
+    "exception.message": ExceptionMessage.text(thrown),
+    "exception.stacktrace": stacktrace.join("\n"),
+  });
+}
+
+function causeOf(error: unknown): unknown {
+  try {
+    return error instanceof Error ? error.cause : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The stack's frame lines (`\n    at …`) with the header — `Name: message`, which can span several
+ * lines — cut off by position, so a message that itself contains `at` lines is not mistaken for
+ * frames. Reading `stack` and `message` is guarded: an unreadable one yields no frames.
+ */
+function framesOf(error: unknown): string {
+  try {
+    if (!(error instanceof Error) || typeof error.stack !== "string") return "";
+    const message = typeof error.message === "string" ? error.message : "";
+    const at = message === "" ? -1 : error.stack.indexOf(message);
+    const rest = at >= 0 ? error.stack.slice(at + message.length) : error.stack;
+    return rest
+      .split("\n")
+      .filter((line) => /^\s+at /.test(line))
+      .map((line) => `\n${line}`)
+      .join("");
+  } catch {
+    return "";
   }
 }
 
@@ -118,7 +177,7 @@ export function buildEventAttributes(sig: MethodSignature, outcome: TraceOutcome
   if (outcome.kind === "returned" && outcome.renderedValue !== null) {
     attrs["narrative.outcome"] = outcome.renderedValue;
   } else if (outcome.kind === "threw") {
-    attrs["narrative.outcome"] = `error: ${errorMessage(outcome.error)}`;
+    attrs["narrative.outcome"] = `error: ${ExceptionMessage.text(outcome.error)}`;
   }
   return attrs;
 }
@@ -191,7 +250,7 @@ function setHomogeneousList(set: SetAttr, prefix: string, items: readonly Render
 /**
  * Type-inference fallback when no structured value is available (manual construction, fixtures):
  * `true`/`false` → boolean, integers/decimals → number, `"quoted"` → the unquoted string, else the
- * raw string. Mirrors Java's `setTypedFromString`.
+ * raw string.
  */
 function setTypedFromString(set: SetAttr, prefix: string, rendered: string): void {
   if (rendered === "true" || rendered === "false") {

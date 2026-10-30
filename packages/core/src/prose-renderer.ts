@@ -4,7 +4,8 @@
 import type { CitedNode, FlatChildOp } from "./child-segment.js";
 import { CitableSpanId } from "./citable-span-id.js";
 import { ControlEscape } from "./control-escape.js";
-import { errorMessage, errorTypeName } from "./error-display.js";
+import { errorTypeName } from "./error-display.js";
+import { ExceptionMessage } from "./exception-message.js";
 import { displayParamValue } from "./parameter-capture.js";
 import { analyze } from "./sequential-async-detector.js";
 import { humanName } from "./trace-namer.js";
@@ -64,7 +65,7 @@ function formatOutcome(node: TraceNode): string {
     // Subject already reads "failed to <action>"; the closing names the type + message + context.
     const { error, errorContext } = node.outcome;
     const context = errorContext ? ` (${ControlEscape.sanitize(errorContext)})` : "";
-    return ` — ${errorTypeName(error)}: ${errorMessage(error)}${context}`;
+    return ` — ${errorTypeName(error)}: ${ExceptionMessage.text(error)}${context}`;
   }
   if (node.outcome.kind === "incomplete") return " — incomplete (no exit recorded)";
   // `null` is the void-completion contract — a call that produced no value to narrate.
@@ -72,7 +73,7 @@ function formatOutcome(node: TraceNode): string {
   return ret === null ? "" : `, returning ${ret}`;
 }
 
-// "failed to <base verb>" for errors/incompletes (Java parity); third-person for success.
+// "failed to <base verb>" for errors/incompletes (the same in every runtime); third-person for success.
 function actionPhrase(node: TraceNode): string {
   const methodName = ControlEscape.sanitize(node.signature.methodName);
   return isErrorOutcome(node)

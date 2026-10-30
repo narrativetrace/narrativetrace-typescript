@@ -16,6 +16,36 @@ import { join, relative } from "node:path";
  */
 export const HISTORY_PATTERN = /owner ruling|ruled 20\d\d|\(20\d\d-\d\d-\d\d\)|, unreleased\)/;
 
+const FRAMING_PHRASES = new RegExp(
+  [
+    "golden (source|copy)",
+    "reference implementation",
+    "the Java (repo|runtime|implementation|reference|version|port|edition)",
+    "the JVM edition",
+    "matching the JVM",
+    "Java builder",
+    "(mirrors?|mirroring|matches|matching|ported from|port of|same as|like|as in|replaced by|follows?|following|tracks?|tracking|copied from) (the )?Java\\b",
+    "Java's",
+  ].join("|"),
+  "i",
+);
+
+// Case-sensitive on purpose: a CamelCase / capitalised class name is what marks a Java
+// cross-reference, and the `i` flag would make `[A-Z]` match any lower-case word after "Java".
+const JAVA_CROSS_REFERENCE = /Java `|\(Java [A-Z]|Java B-\d+|Java [A-Z][a-z]+[A-Z]/;
+
+/**
+ * Port framing as it would read INSIDE a source comment: wording that presents this runtime as
+ * secondary to another one ("mirrors Java's X", "ported from Java", "the golden source", a Java
+ * class or ledger id as the cross-reference). Every runtime is first-class; a genuine
+ * cross-runtime contract is stated as a family contract ("the same in every NarrativeTrace
+ * runtime"). `Java` alone (an interop fact) and `JavaScript` never match. Exposes `test` like a
+ * `RegExp`, because one half of the match is case-insensitive and the other is not.
+ */
+export const PORT_FRAMING_PATTERN: { test(line: string): boolean } = {
+  test: (line) => FRAMING_PHRASES.test(line) || JAVA_CROSS_REFERENCE.test(line),
+};
+
 export interface CommentHygieneHit {
   /** Repo-relative, POSIX-separated. */
   readonly file: string;
@@ -51,26 +81,39 @@ export function packagesSourceFiles(repoRoot: string): string[] {
   return files.sort();
 }
 
-/** Every line in `content` matching {@link HISTORY_PATTERN}, 1-indexed. */
-function linesMatching(content: string): { line: number; text: string }[] {
+/** Every line in `content` matching `pattern`, 1-indexed. */
+function linesMatching(
+  content: string,
+  pattern: { test(line: string): boolean },
+): { line: number; text: string }[] {
   const hits: { line: number; text: string }[] = [];
   content.split("\n").forEach((text, index) => {
-    if (HISTORY_PATTERN.test(text)) hits.push({ line: index + 1, text: text.trim() });
+    if (pattern.test(text)) hits.push({ line: index + 1, text: text.trim() });
   });
+  return hits;
+}
+
+function findHits(repoRoot: string, pattern: { test(line: string): boolean }): CommentHygieneHit[] {
+  const hits: CommentHygieneHit[] = [];
+  for (const file of packagesSourceFiles(repoRoot)) {
+    const rel = relative(repoRoot, file);
+    for (const { line, text } of linesMatching(readFileSync(file, "utf-8"), pattern)) {
+      hits.push({ file: rel, line, text });
+    }
+  }
   return hits;
 }
 
 /** Every {@link HISTORY_PATTERN} hit across {@link packagesSourceFiles}, repo-relative and sorted
  * by file then line — allowlist filtering is the caller's job (see `lint`). */
 export function findHistoryComments(repoRoot: string): CommentHygieneHit[] {
-  const hits: CommentHygieneHit[] = [];
-  for (const file of packagesSourceFiles(repoRoot)) {
-    const rel = relative(repoRoot, file);
-    for (const { line, text } of linesMatching(readFileSync(file, "utf-8"))) {
-      hits.push({ file: rel, line, text });
-    }
-  }
-  return hits;
+  return findHits(repoRoot, HISTORY_PATTERN);
+}
+
+/** Every {@link PORT_FRAMING_PATTERN} hit across {@link packagesSourceFiles}, shaped and ordered
+ * like {@link findHistoryComments}. */
+export function findPortFramingComments(repoRoot: string): CommentHygieneHit[] {
+  return findHits(repoRoot, PORT_FRAMING_PATTERN);
 }
 
 export interface LintResult {
@@ -83,14 +126,14 @@ export interface LintResult {
 }
 
 /**
- * Lints `packages/*​/src` for {@link HISTORY_PATTERN}, excusing exactly the files named in
+ * Lints `packages/*​/src` for {@link HISTORY_PATTERN} and {@link PORT_FRAMING_PATTERN}, excusing exactly the files named in
  * `allowlist` (repo-relative, POSIX-separated paths, each mapped to a human reason — enforced by
  * the caller, never read here). An allowlisted file that no longer has ANY hit is flagged too
  * (`staleAllowlistEntries`): the allowlist is meant to shrink as each package's comment-hygiene
  * wave lands, not to accumulate entries nobody has to remove.
  */
 export function lint(repoRoot: string, allowlist: ReadonlyMap<string, string>): LintResult {
-  const hits = findHistoryComments(repoRoot);
+  const hits = [...findHistoryComments(repoRoot), ...findPortFramingComments(repoRoot)];
   const hitFiles = new Set(hits.map((hit) => hit.file));
   return {
     violations: hits.filter((hit) => !allowlist.has(hit.file)),

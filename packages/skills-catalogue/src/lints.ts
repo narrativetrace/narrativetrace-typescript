@@ -114,9 +114,8 @@ function everyCommand(skill: Skill): readonly string[] {
 
 /**
  * A skill that promotes a `.received.nt` to its committed `.approved.nt` — in any step command or
- * verify command, the verb by name or by path — must declare NO allowed tool. Port of Java `Lints#promotionNotPreApproved`, stricter by one entry: Java allows its
- * read-only `find`; this port's vocabulary (`pnpm`/`npx`/`node`/`git`) has no tool that is
- * read-only by nature, and every one of them can run the promotion — so any declared tool
+ * verify command, the verb by name or by path — must declare NO allowed tool. This runtime's vocabulary (`pnpm`/`npx`/`node`/`git`) has no tool that
+ * is read-only by nature, and every one of them can run the promotion — so any declared tool
  * pre-approves the pinning in the turn the approval gate says must stop.
  *
  * @returns one message per promoting skill that declares a tool; empty when the rule holds.

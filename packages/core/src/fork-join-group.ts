@@ -89,6 +89,8 @@ export class ForkJoinGroup {
       traceId ?? undefined,
     );
     forked.applyRequestExtras(extractRequestExtras(this.parentContext));
+    // Members activate a snapshot, which is what tags their first enter (asyncTagFor).
+    forked.applySnapshot(traceId, parentSpanId);
     return forked;
   }
 
@@ -134,7 +136,17 @@ export class ForkJoinGroup {
       memberCount: this.tasks.length,
       wallTimeMs,
       timestamp: performance.now(),
+      ownerSpanId: this.ownerSpanId(),
     });
+  }
+
+  // The span the group was forked under. Each fork-created event carries its task's `parentSpanId`
+  // (the active span of the parent context when `fork` was called); the join-complete event takes the
+  // first task's, so the two agree for the usual single-parent group. With no task, or a group forked
+  // outside every span, it falls back to the span active at join time (null outside every span).
+  private ownerSpanId(): SpanId | null {
+    for (const task of this.tasks) if (task.parentSpanId !== null) return task.parentSpanId;
+    return extractActiveSpanId(this.parentContext);
   }
 
   private computeMaxDuration(): number {

@@ -63,9 +63,8 @@ export const REDACTION_MARKER = "[REDACTED]";
  * and a key class of letters and digits alone stops at `contrasen`, fails to see the colon, and
  * then matches the single letter `a` after the mark as the key instead. The folding in
  * `canonicalKey` can only help a key that was captured whole. Corpus row
- * `named-secret-spanish-decomposed` is that bug; Java's own `\w` under
- * `UNICODE_CHARACTER_CLASS` already includes the mark categories, which is why the reference
- * implementation never had to say this.
+ * `named-secret-spanish-decomposed` is that bug; a `\w` that includes the Unicode
+ * mark categories would not need this lookahead.
  *
  * @llmNote The value is a LOOKAHEAD, not a consumed character, and that is not a
  * micro-optimisation. Consuming it ate the first letter of the next key, so in an indented YAML

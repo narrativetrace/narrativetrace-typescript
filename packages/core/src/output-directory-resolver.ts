@@ -7,8 +7,7 @@
  *
  * INTENT: the family's naming scheme — every NarrativeTrace runtime mirrors this byte for byte, so
  * an artifact written by one runtime is found under the same name by another, and a name computed
- * once here never disagrees with a name computed by hand elsewhere. Port of Java
- * `output.OutputDirectoryResolver`.
+ * once here never disagrees with a name computed by hand elsewhere.
  */
 
 /**
@@ -44,7 +43,7 @@ const MAX_LABEL_BYTES = 60;
  */
 const INVOCATION_SEPARATOR = "-";
 
-/** UTF-8 bytes one code point costs (matching Java's `String#getBytes(UTF_8).length`). */
+/** UTF-8 bytes one code point costs (the same byte count every runtime computes). */
 function utf8Width(codePoint: number): number {
   if (codePoint < 0x80) return 1;
   if (codePoint < 0x800) return 2;
@@ -73,7 +72,7 @@ function truncateToUtf8Bytes(value: string, maxBytes: number): string {
 /**
  * `javaStringHashCode(value)` as eight lowercase hex digits — the family's one shared hash, chosen
  * because `String#hashCode` is *specified* (stable across JVMs, processes and runs), unlike a
- * per-process hash. `Math.imul` gives the exact 32-bit multiply Java's `int * int` performs.
+ * per-process hash. `Math.imul` gives the exact 32-bit integer multiply every runtime's hash performs.
  */
 function javaStringHashCodeHex(value: string): string {
   let hash = 0;

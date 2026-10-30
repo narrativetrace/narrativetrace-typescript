@@ -45,7 +45,10 @@ export interface ExitEvent {
  *
  * INTENT: marks the boundary where child spans branch off a parent. `strategy` distinguishes
  * `fork-join` (parent awaits the members) from `fire-and-forget` (parent does not); `rootSpanId`
- * anchors the group's members and `parentSpanId` links back to the spawning call.
+ * anchors the group's members and `parentSpanId` links back to the spawning call. `parentSpanId` is
+ * also the event's owner for retention: it leaves the store with the request that launched the group.
+ * An empty `parentSpanId` means the group was created outside every span; such an event has no owner
+ * and is retained (a documented limit).
  */
 export interface ForkCreatedEvent {
   readonly type: "fork-created";
@@ -68,6 +71,11 @@ export interface JoinCompleteEvent {
   readonly memberCount: number;
   readonly wallTimeMs: number;
   readonly timestamp: number;
+  /**
+   * The span the group was forked under — the request this event belongs to — or `null` for a group
+   * created outside every span (such an event belongs to no request and is never removed with one).
+   */
+  readonly ownerSpanId: string | null;
 }
 
 /**

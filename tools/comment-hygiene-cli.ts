@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { lint } from "./comment-hygiene.js";
 
 // CLI entry `check` runs every commit, no network: fails on any `owner ruling`/`ruled 20YY-...`/
-// `(20YY-MM-DD)`/`, unreleased)` history left in a `packages/*/src` comment (see
+// `(20YY-MM-DD)`/`, unreleased)` history, or port framing ("mirrors Java's X"), left in a `packages/*/src` comment (see
 // comment-hygiene.ts's own doc for why), excusing only the files named in
 // comment-hygiene-allowlist.json — each with a reason. Also fails on a stale allowlist entry (a
 // file the allowlist excuses that no longer has any hit): the allowlist is meant to shrink, one
@@ -25,7 +25,7 @@ const { violations, staleAllowlistEntries } = lint(REPO_ROOT, allowlist);
 
 if (violations.length > 0) {
   console.error(
-    `comment-hygiene: ${violations.length} history reference(s) left in code comments:`,
+    `comment-hygiene: ${violations.length} history or port-framing reference(s) left in code comments:`,
   );
   for (const hit of violations) console.error(`  ${hit.file}:${hit.line}: ${hit.text}`);
   console.error(`  (add a reason to ${ALLOWLIST_PATH} only for a package not yet swept)`);

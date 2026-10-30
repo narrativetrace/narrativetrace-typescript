@@ -1,4 +1,4 @@
-<!-- source: documentation/choosing-an-integration.md blob 8865ad5d1182 | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/choosing-an-integration.md blob 8b61b8f1e4d1 | translated: 2026-10-28 | reviewed: - -->
 # Eligiendo una integración
 
 [English](../choosing-an-integration.md) | **Español** | [Português](../pt-BR/escolhendo-uma-integracao.md) | [简体中文](../zh-CN/选择集成方式.md)
@@ -109,7 +109,23 @@ registra una vez envuelta.
   implícita (no hay `AsyncLocalStorage` en un navegador); las llamadas
   superpuestas y no esperadas sobre un contexto compartido se corrompen
   entre sí. Usa un grupo explícito de fork/fire-and-forget por cada tarea
-  concurrente, igual que en la salvedad de trabajo asíncrono de arriba.
+  concurrente, igual que en la salvedad de trabajo asíncrono de arriba. El
+  header `traceparent` que envían `tracedFetch`, `useTracedFetch()` y el
+  `traceInterceptor` de Angular se estampa solo en una petición que tiene
+  detrás una llamada trazada: una hecha mientras hay un span abierto o, en
+  Angular, una que envía al suscribirse un Observable devuelto por un método
+  de un servicio de `provideTraced`. Esa petición nombra el span del método
+  como su padre aunque el span se cerró cuando el método retornó, y cada
+  suscripción envía su propia petición con ese mismo padre. Una petición sin
+  ninguna de las dos no lleva header, y tampoco una que el Observable inicia
+  en un tick posterior a su suscripción (tras un timer u otra respuesta). En un
+  contexto sin dueño — uno que nadie ha entregado a un ámbito —, una unidad
+  de trabajo cuyo primer acto es `traceId()` o `snapshot()` antes de su
+  primera llamada trazada continúa la traza de la unidad anterior: no existe
+  ninguna señal que distinga una entrega deliberada (el trabajo en curso
+  pidiendo su propia identidad) de una unidad no relacionada que simplemente
+  preguntó primero. Entrega el contexto, o llama a `reset()` al comenzar cada
+  unidad de trabajo antes de leer nada.
 
 ## Límites de la plataforma
 

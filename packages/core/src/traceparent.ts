@@ -18,7 +18,7 @@ const FORBIDDEN_VERSION = "ff";
  *
  * @llmNote Pass it, as returned, to `NarrativeContext.run` as the inherited trace: the callee's
  * root span then records `traceId` as its trace and `parentSpanId` as its parent, which is the
- * link between the two services' traces. Equivalent to Java's `Traceparent` record.
+ * link between the two services' traces.
  */
 export interface Traceparent {
   readonly traceId: TraceId;

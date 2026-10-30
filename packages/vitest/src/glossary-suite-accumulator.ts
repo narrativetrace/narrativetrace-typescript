@@ -182,6 +182,8 @@ const UNRESOLVED: SourcePathLookup = () => undefined;
  * @param sites everything the suite observed.
  * @param config destination directories and the harvest date.
  * @param sink the read/write seam.
+ * @remarks `glossary.json` is written last: it is the source of truth the next run reads, so a
+ * failure on any other artifact leaves it exactly as committed.
  * @returns what happened; a suite that observed nothing writes nothing at all, so an unrelated
  * test run cannot rewrite a committed glossary with an empty one.
  * @example
@@ -203,9 +205,9 @@ export function writeSuiteGlossary(
     firstSeen: config.today,
   });
   sink.mkdir(config.glossaryDir);
-  sink.writeFile(glossaryFile, artifacts.glossaryJson);
   sink.writeFile(`${config.glossaryDir}/glossary.md`, artifacts.glossaryMarkdown);
   sink.mkdir(config.outputDir);
   sink.writeFile(`${config.outputDir}/glossary-usage.json`, artifacts.usageReport);
+  sink.writeFile(glossaryFile, artifacts.glossaryJson);
   return { written: true, summary: artifacts.summary, issues: artifacts.issues };
 }

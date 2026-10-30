@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { MarkdownEscape } from "@narrativetrace/core";
 import type { BoundedContext } from "./bounded-context.js";
 import type { Glossary } from "./glossary.js";
 import type { GlossaryTerm } from "./glossary-term.js";
@@ -22,14 +23,8 @@ const KIND_HEADINGS: Record<TermKind, string> = {
   template: "Templates",
 };
 
-/**
- * Makes text safe inside a table cell: pipes are escaped, and every newline form collapses to a
- * space. A raw pipe would silently split a row into extra columns, and a raw newline would end the
- * table — both turn one bad definition into a corrupted document.
- */
-function cell(text: string): string {
-  return text.replaceAll("|", "\\|").replaceAll(/\r\n|[\r\n]/g, " ");
-}
+const cell = MarkdownEscape.cell;
+const inlineCode = MarkdownEscape.inlineCode;
 
 function synonymsCell(term: GlossaryTerm): string {
   return term.synonyms
@@ -74,7 +69,9 @@ function kindTable(terms: readonly GlossaryTerm[], kind: TermKind): string {
 function abbreviationSection(model: Glossary): string {
   if (model.abbreviations.size === 0) return "";
   const rows = byKey(model.abbreviations)
-    .map(([abbreviation, expansion]) => `| \`${cell(abbreviation)}\` | ${cell(expansion)} |\n`)
+    .map(
+      ([abbreviation, expansion]) => `| ${inlineCode(cell(abbreviation))} | ${cell(expansion)} |\n`,
+    )
     .join("");
   return `\n## Abbreviations\n\nAccepted shorthand: these are the project's own words, not names to spell out.\n\n${ABBREVIATION_TABLE_HEADER}${rows}`;
 }
@@ -82,9 +79,12 @@ function abbreviationSection(model: Glossary): string {
 function contextSection(model: Glossary, context: BoundedContext): string {
   const terms = model.terms.filter((term) => term.context === context.name);
   const parts = [`\n## ${cell(context.name)}\n`];
-  if (context.description !== undefined) parts.push(`\n${context.description}\n`);
+  if (context.description !== undefined)
+    parts.push(`\n${MarkdownEscape.prose(context.description)}\n`);
   if (context.packages.length > 0) {
-    parts.push(`\nPackages: ${context.packages.map((name) => `\`${cell(name)}\``).join(", ")}\n`);
+    parts.push(
+      `\nPackages: ${context.packages.map((name) => inlineCode(cell(name))).join(", ")}\n`,
+    );
   }
   parts.push(...TERM_KINDS.map((kind) => kindTable(terms, kind)));
   return parts.join("");

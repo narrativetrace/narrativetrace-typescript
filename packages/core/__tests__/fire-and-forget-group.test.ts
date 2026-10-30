@@ -246,14 +246,43 @@ describe("FireAndForgetGroup no-poison contract: reset after collection", () => 
     parent.reset();
     pipeline.flush();
 
-    // Per-span events (enter/exit) are fully swept. One known, deliberately deferred residual
-    // remains: the "fork-created" lifecycle event carries no span id, so span-keyed removal can
-    // never see it — Java's own S5 fix left the identical gap open for the same reason ("Group
-    // lifecycle events are never cleared" — TODO 55, ~100 B per group, unbounded only in an app
-    // that fire-and-forgets without limit). Pinned here rather than silently passing a too-loose
-    // assertion.
-    const perSpanEvents = pipeline.events().filter((e) => e.type === "enter" || e.type === "exit");
-    expect(perSpanEvents).toHaveLength(0);
-    expect(pipeline.events().map((e) => e.type)).toEqual(["fork-created"]);
+    // Every event is swept: the group event belongs to the span that launched the group (B-165).
+    expect(pipeline.events()).toHaveLength(0);
+  });
+});
+
+// B-178: same Java rule as the fork member — the first enter of a detached member is tagged.
+describe("FireAndForgetGroup member enter-time tag (B-178)", () => {
+  test("a member's first enter event carries the concurrency tag, deeper spans do not", async () => {
+    const received: TraceEvent[] = [];
+    const pipeline = new DualPathPipeline((e) => received.push(e), new BufferedEventConsumer(64));
+    const parent = new SyncNarrativeContext(
+      new NarrativeTraceConfig("detail"),
+      undefined,
+      pipeline,
+    );
+    parent.enterMethod("OrderService", "placeOrder", []);
+    const launcher = received.find(
+      (e) => e.type === "enter" && e.signature.methodName === "placeOrder",
+    );
+    const group = FireAndForgetGroup.create(parent);
+    group.launch((ctx) => {
+      ctx.enterMethod("Notifier", "send", []);
+      ctx.enterMethod("Notifier", "deeper", []);
+      ctx.exitMethodWithReturn('"d"');
+      ctx.exitMethodWithReturn('"sent"');
+    });
+    await settle();
+    parent.exitMethodWithReturn('"ok"');
+
+    const first = received.find((e) => e.type === "enter" && e.signature.methodName === "send");
+    const deeper = received.find((e) => e.type === "enter" && e.signature.methodName === "deeper");
+    const launcherId = launcher?.type === "enter" ? launcher.spanContext.spanId : undefined;
+    expect(first?.type === "enter" && first.concurrency).toEqual({
+      groupId: `async-${launcherId}`,
+      taskLabel: "Notifier.send",
+      kind: "async",
+    });
+    expect(deeper?.type === "enter" && deeper.concurrency).toBeUndefined();
   });
 });

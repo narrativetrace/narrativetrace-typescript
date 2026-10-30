@@ -118,8 +118,7 @@ function apply(action: Action, projectDirectory: string): AppliedAction {
     return applyEdit(action, target);
   } catch (cause) {
     // `String(error)` on a Node filesystem error reads "Error: ENOTEMPTY: directory not empty,
-    // rmdir '…'" — the class, the code and the path, which is what a person needs and all Java's own
-    // `getSimpleName() + ": " + getMessage()` gives either. Reading `.code`/`.message` off an unknown
+    // rmdir '…'" — the class, the code and the path, which is what a person needs. Reading `.code`/`.message` off an unknown
     // would add two fallbacks no test could reach.
     return appliedAction(action, "refused", String(cause));
   }

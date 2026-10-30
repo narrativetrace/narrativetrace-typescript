@@ -8,12 +8,11 @@
  * INTENT: the rendering half of {@link structuralDelta} — kept free of any `.nt` format knowledge
  * so the delta module owns what a change *means* and this module owns how a change *reads*. Inputs
  * are whole documents; ties between a deletion and an insertion resolve to the deletion, so removed
- * lines always precede their replacements. Port of Java `output.LineDiff`.
+ * lines always precede their replacements.
  */
 
 /**
- * A document's lines, without their terminators: LF, CRLF and a lone CR all end a line (Java
- * `String.lines()`), and a final terminator opens no empty last line. Line endings are a checkout's
+ * A document's lines, without their terminators: LF, CRLF and a lone CR all end a line, and a final terminator opens no empty last line. Line endings are a checkout's
  * encoding (`core.autocrlf`), never structure.
  */
 function splitLines(document: string): readonly string[] {

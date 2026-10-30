@@ -26,8 +26,8 @@ export function drainStructuralDeltas(): ScenarioDelta[] {
 }
 
 /**
- * Builds the one-shot "Since last green" suite line (Java `ConsoleSummaryReporter.formatDeltaLine`,
- * prefixed the way the reference runtime's footer prints it). Returns `undefined` when no test
+ * Builds the one-shot "Since last green" suite line, prefixed the way every
+ * NarrativeTrace runtime's suite footer prints it. Returns `undefined` when no test
  * wrote a structural artifact, so callers print nothing.
  */
 export function structuralDeltaFooterLine(deltas: readonly ScenarioDelta[]): string | undefined {

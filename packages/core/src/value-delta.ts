@@ -96,8 +96,8 @@ function changedFields(from: ObjectValue, to: ObjectValue): string[] | undefined
  *
  * @remarks Computed from the two *structured* trees, formatting scalar leaves only. It never
  * reconstructs a flat render from a structured value: the flat and structured channels are captured
- * independently, and deriving one from the other is a divergence class the reference implementation
- * has already paid for twice.
+ * independently, and deriving one from the other is a divergence class that has already
+ * cost a defect twice.
  */
 export function valueDelta(
   reference: RenderedValue | undefined,

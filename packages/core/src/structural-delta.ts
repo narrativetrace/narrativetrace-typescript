@@ -12,7 +12,7 @@ import { isSubsequence, unifiedLineDiff } from "./line-diff.js";
  * is equality of the artifact's LINES with span ids set aside: the renderer is deterministic, so
  * the same lines mean the same behaviour, and any difference is real change worth surfacing. A
  * baseline written before span ids existed, or checked out with CRLF line endings, or missing its
- * final newline, still compares. Port of Java `output.StructuralDelta`.
+ * final newline, still compares.
  */
 export interface StructuralDelta {
   /**

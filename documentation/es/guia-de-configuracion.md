@@ -1,4 +1,4 @@
-<!-- source: documentation/configuration-guide.md blob 10f9b54105a9 | translated: 2026-10-20 | reviewed: - -->
+<!-- source: documentation/configuration-guide.md blob a76aaf2dd37e | translated: 2026-10-27 | reviewed: - -->
 
 # Guía de configuración de NarrativeTrace para TypeScript
 
@@ -332,6 +332,20 @@ renderValue(someObject, {
 | `maxStringLength` | 200 | Las cadenas más largas que este valor se truncan con `"..."` |
 | `maxArrayItems` | 5 | Los arreglos muestran los primeros N elementos y luego `... (N total)` |
 | `maxObjectKeys` | 5 | Los objetos muestran las primeras N claves y luego `... (N total)` |
+
+### Límites del renderizador
+
+Cada límite que expone un renderizador es un tamaño. `renderValue()` y `renderStructured()` no comparten nombres de opciones, así que se listan ambos.
+
+| Límite | Valor por defecto | Contrato |
+|--------|-------------------|----------|
+| Tope de cadena (`maxStringLength`, ambos) | 200 | Una cadena más larga se corta en el tope y termina con puntos suspensivos; un tope negativo se ajusta a 0. |
+| Topes de elementos (`maxArrayItems`, `maxCollectionItems` en `renderValue()`; `maxItems` en `renderStructured()`) | 5 | Un arreglo, `Set` o `Map` más largo muestra los primeros elementos y puntos suspensivos; un tope negativo se ajusta a 0. |
+| Topes de campos (`maxObjectKeys` en `renderValue()`; `maxFields` en `renderStructured()`) | 5 | Un objeto muestra los primeros campos y puntos suspensivos; un tope negativo se ajusta a 0. |
+| Profundidad (`maxDepth`, solo `renderStructured()`) | 3 | El anidamiento más allá se reduce al nombre del tipo; una profundidad negativa se ajusta a 0. |
+| Presupuesto de nodos | fijo | Los valores que superan el presupuesto en un recorrido se renderizan como el marcador de demasiados nodos; no es configurable, así que no puede ser negativo. |
+
+Un límite negativo nunca se acepta tal cual: el renderizador se comporta exactamente como si fuera 0 y escribe una línea con `console.warn` que nombra cada límite ajustado con el valor recibido, una vez por proceso para esa configuración.
 
 ### Manejo de tipos
 

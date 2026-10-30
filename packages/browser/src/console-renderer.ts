@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import {
+  ExceptionMessage,
   humanName,
   TREE_WALK_MARKER,
   type TraceId,
@@ -19,9 +20,7 @@ function formatCall(node: TraceNode): string {
 
 function formatOutcome(node: TraceNode): string {
   if (node.outcome.kind === "threw") {
-    const err = node.outcome.error;
-    const msg = err instanceof Error ? err.message : String(err);
-    return ` \u2717 ${msg}`;
+    return ` \u2717 ${ExceptionMessage.text(node.outcome.error)}`;
   }
   if (node.outcome.kind === "incomplete") return " \u23F3 (incomplete)";
   const ret = node.outcome.renderedValue;

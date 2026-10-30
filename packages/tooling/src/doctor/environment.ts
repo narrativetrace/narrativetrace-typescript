@@ -44,7 +44,8 @@ const BASE_PACKAGES = [
   "@narrativetrace/vitest",
 ];
 
-const MAX_FILES = 20_000;
+/** The production cap on entries one doctor walk visits. */
+export const MAX_FILES = 20_000;
 
 const MANIFEST = "package.json";
 
@@ -165,30 +166,35 @@ function visitEntry(ctx: WalkContext, dir: string, entry: string): void {
   bucketFor(ctx.state, kind).set(rel, safeRead(full));
 }
 
-/**
- * Walks `root` breadth-first, bucketing files into source (extension-filtered), the output
- * directory, and the approved-trace directory — excluding `node_modules`/build/coverage noise.
- * Bounded by {@link MAX_FILES} so a doctor run in a huge repo degrades to a partial scan rather
- * than hanging. The outer loop's own `state.visited < MAX_FILES` half of that bound is equivalent
- * under mutation — the inner loop's `if (state.visited >= MAX_FILES) break;` enforces the exact
- * same cap on its own, before any further entry is ever visited, so weakening the outer guard only
- * costs a few extra, immediately aborted `listDirectory` calls on already-queued directories; no
- * test can observe a different `WalkState`.
- */
-function walk(root: string, output: string, approved: string): WalkState {
-  const state: WalkState = {
+function emptyWalkState(): WalkState {
+  return {
     manifests: new Map(),
     sourceFiles: new Map(),
     outputFiles: new Map(),
     approvedDirFiles: new Map(),
     visited: 0,
   };
+}
+
+/**
+ * Walks `root` breadth-first, bucketing files into source (extension-filtered), the output
+ * directory, and the approved-trace directory — excluding `node_modules`/build/coverage noise.
+ * Bounded by `maxFiles` (default {@link MAX_FILES}) so a doctor run in a huge repo degrades to a
+ * partial scan rather than hanging; tests pass a small cap to prove the bound without writing
+ * {@link MAX_FILES} files. The outer loop's own `state.visited < maxFiles` half of that bound is equivalent
+ * under mutation — the inner loop's `if (state.visited >= maxFiles) break;` enforces the exact
+ * same cap on its own, before any further entry is ever visited, so weakening the outer guard only
+ * costs a few extra, immediately aborted `listDirectory` calls on already-queued directories; no
+ * test can observe a different `WalkState`.
+ */
+function walk(root: string, output: string, approved: string, maxFiles = MAX_FILES): WalkState {
+  const state = emptyWalkState();
   const ctx: WalkContext = { state, root, output, approved, queue: [root] };
   // Stryker disable next-line ConditionalExpression,EqualityOperator: see the doc comment above.
-  while (ctx.queue.length > 0 && state.visited < MAX_FILES) {
+  while (ctx.queue.length > 0 && state.visited < maxFiles) {
     const dir = ctx.queue.shift() as string;
     for (const entry of listDirectory(dir)) {
-      if (state.visited >= MAX_FILES) break;
+      if (state.visited >= maxFiles) break;
       visitEntry(ctx, dir, entry);
     }
   }
@@ -267,10 +273,18 @@ function agentSkillsIn(
 }
 
 /** {@link walk} over `cwd`, with the output and approved directories the environment names. */
-function walkFor(cwd: string, env: Env): WalkState {
+function walkFor(cwd: string, env: Env, maxFiles?: number): WalkState {
   const output = env.NARRATIVETRACE_OUTPUT_DIR ?? "narrativetrace-output";
   const approved = env.NARRATIVETRACE_APPROVED_DIR ?? "narratives";
-  return walk(cwd, output, approved);
+  return walk(cwd, output, approved, maxFiles);
+}
+
+/** The walk's result buckets — without its internal `visited` counter. */
+function bucketsOf(
+  walked: WalkState,
+): Pick<DoctorSnapshot, "manifests" | "sourceFiles" | "outputFiles" | "approvedDirFiles"> {
+  const { manifests, sourceFiles, outputFiles, approvedDirFiles } = walked;
+  return { manifests, sourceFiles, outputFiles, approvedDirFiles };
 }
 
 /** The lockfiles present at the project root — never a workspace member's. */
@@ -296,29 +310,33 @@ function projectConfigOf(cwd: string): Pick<DoctorSnapshot, "projectConfig"> {
   return {};
 }
 
+/** Test-only knobs of {@link buildSnapshot}: `maxFiles` replaces the {@link MAX_FILES} walk cap. */
+interface SnapshotOptions {
+  maxFiles?: number;
+}
+
 /**
  * Builds a {@link DoctorSnapshot} from the real filesystem rooted at `cwd`. The one impure module.
  *
  * @param bundledSkillsDirectory the running CLI's own package directory, whose `skills/` holds the
  * carrier it bundles — the same fallback `init` uses (D4). `undefined` when the caller has none to
  * offer, e.g. a host that is not the CLI.
+ * @param options internal, for tests only: `maxFiles` replaces the {@link MAX_FILES} walk cap.
+ * Callers outside this package's tests never pass it.
  */
 export function buildSnapshot(
   cwd: string,
   env: Env,
   bundledSkillsDirectory?: string,
+  { maxFiles }: SnapshotOptions = {},
 ): DoctorSnapshot {
-  const { manifests, sourceFiles, outputFiles, approvedDirFiles } = walkFor(cwd, env);
   return {
     cwd,
     nodeVersion: process.version.replace(/^v/, ""),
     env,
     ...rootHalf(cwd),
     ...projectConfigOf(cwd),
-    manifests,
-    sourceFiles,
-    outputFiles,
-    approvedDirFiles,
+    ...bucketsOf(walkFor(cwd, env, maxFiles)),
     installedPackages: resolveInstalledPackages(cwd),
     ...agentSkillsIn(cwd, env, bundledSkillsDirectory),
   };

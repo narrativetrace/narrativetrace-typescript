@@ -4,13 +4,13 @@
 import { tokenize } from "./identifier-tokenizer.js";
 import { classifyRoleSuffix, expectedVerbsForRole } from "./role-suffix-dictionary.js";
 
-// Java parity (CohesionScorer): a class with a recognized-but-unconstrained suffix (Service,
+// Family contract: a class with a recognized-but-unconstrained suffix (Service,
 // Strategy, …) scores BROAD; an unrecognized suffix (Widget) scores UNKNOWN; an empty class name
 // or empty method list also falls back to UNKNOWN.
 const UNKNOWN_ROLE_SCORE = 0.7;
 const BROAD_ROLE_SCORE = 0.9;
 
-/** A method aligns when its first token starts with any expected verb (Java `String::startsWith`). */
+/** A method aligns when its first token starts with any expected verb (a prefix match, not a whole-token match). */
 function isAligned(methodName: string, expectedVerbs: ReadonlySet<string>): boolean {
   const first = tokenize(methodName)[0];
   if (first === undefined) return false;
@@ -21,8 +21,7 @@ function isAligned(methodName: string, expectedVerbs: ReadonlySet<string>): bool
 }
 
 /**
- * Scores vocabulary consistency for one class against its role suffix (Java
- * `CohesionScorer.scoreClass`). Returns the ratio of methods whose verb aligns with the role's
+ * Scores vocabulary consistency for one class against its role suffix. Returns the ratio of methods whose verb aligns with the role's
  * expected verbs, or the broad/unknown envelope when the role has no verb expectations.
  */
 export function scoreCohesion(methodNames: readonly string[], className?: string): number {

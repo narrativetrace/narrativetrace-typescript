@@ -465,7 +465,7 @@ export function App() {
 }
 ```
 
-`useNarrativeTrace()` returns the raw context, and `useTracedFetch()` returns a `fetch` that stamps `traceparent` on outgoing requests.
+`useNarrativeTrace()` returns the raw context, and `useTracedFetch()` returns a `fetch` that stamps `traceparent` on outgoing requests made from inside a traced call (with no span open, no header is sent).
 
 ### React Router navigation capture
 
@@ -526,6 +526,20 @@ new TraceSpanExporter(tracer).export(roots);
 ### Attribute vocabulary
 
 Each span is stamped with `nt.trace_id` and other `nt.*` schema attributes (trace identity, depth, concurrency, level) plus typed `narrative.param.<name>` values for method parameters. The span-attribute mappers — `setSpanAttributes`, `setNtSchemaAttributes`, `setOutcomeAttributes`, `buildEventAttributes`, and friends — are exported for building custom exporters.
+
+### Matching span ids
+
+The runtime does not build your tracer provider, so build it with the helper: `narrativeTraceProviderConfig` returns the provider options with `NarrativeTraceIdGenerator` installed, and every other option passes through. A span's OpenTelemetry id is then its NarrativeTrace id, and a child that starts after its parent has ended parents on the real parent:
+
+```ts
+import { narrativeTraceProviderConfig } from "@narrativetrace/opentelemetry";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+
+const provider = new NodeTracerProvider(narrativeTraceProviderConfig({ resource }));
+provider.register();
+```
+
+The same effect without the helper is the one-liner `new NodeTracerProvider({ idGenerator: new NarrativeTraceIdGenerator() })`. An `idGenerator` you set yourself is kept (with one warning that ids will not mirror). Opt out with `{ mirrorIds: false }` or `NARRATIVETRACE_OTEL_MIRROR_IDS=false`. Export each trace through one path, the live consumer or `TraceSpanExporter`, not both.
 
 ## 9. Winston & Pino
 

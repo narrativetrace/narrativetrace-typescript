@@ -1,4 +1,4 @@
-<!-- source: documentation/framework-integration-guide.md blob 3e35a1b0f94f | translated: 2026-10-20 | reviewed: - -->
+<!-- source: documentation/framework-integration-guide.md blob 3f54632c7ae1 | translated: 2026-10-28 | reviewed: - -->
 # Guia de Integração de Frameworks do NarrativeTrace TypeScript
 
 [English](../framework-integration-guide.md) | [Español](../es/guia-de-integracion-de-frameworks.md) | **Português** | [简体中文](../zh-CN/框架集成指南.md)
@@ -469,7 +469,7 @@ export function App() {
 }
 ```
 
-`useNarrativeTrace()` retorna o contexto bruto, e `useTracedFetch()` retorna um `fetch` que estampa `traceparent` nas requisições de saída.
+`useNarrativeTrace()` retorna o contexto bruto, e `useTracedFetch()` retorna um `fetch` que estampa `traceparent` nas requisições de saída feitas de dentro de uma chamada rastreada (sem nenhum span aberto, nenhum header é enviado).
 
 ### Captura de navegação do React Router
 
@@ -530,6 +530,20 @@ new TraceSpanExporter(tracer).export(roots);
 ### Vocabulário de atributos
 
 Cada span é estampado com `nt.trace_id` e outros atributos de schema `nt.*` (identidade do trace, profundidade, concorrência, nível), além de valores tipados `narrative.param.<name>` para os parâmetros de método. Os mapeadores de atributos de span — `setSpanAttributes`, `setNtSchemaAttributes`, `setOutcomeAttributes`, `buildEventAttributes` e afins — são exportados para a construção de exportadores personalizados.
+
+### Ids de span coincidentes
+
+O runtime não constrói o seu provedor de traces, então construa-o com o auxiliar: `narrativeTraceProviderConfig` devolve as opções do provedor com `NarrativeTraceIdGenerator` instalado, e as demais opções passam sem alteração. O id do OpenTelemetry de um span passa a ser o seu id do NarrativeTrace, e um filho que começa depois que o pai terminou se associa ao pai real:
+
+```ts
+import { narrativeTraceProviderConfig } from "@narrativetrace/opentelemetry";
+import { NodeTracerProvider } from "@opentelemetry/sdk-trace-node";
+
+const provider = new NodeTracerProvider(narrativeTraceProviderConfig({ resource }));
+provider.register();
+```
+
+O mesmo efeito sem o auxiliar é a linha única `new NodeTracerProvider({ idGenerator: new NarrativeTraceIdGenerator() })`. Um `idGenerator` definido por você é mantido (com um aviso de que os ids não serão espelhados). Para desativar, use `{ mirrorIds: false }` ou `NARRATIVETRACE_OTEL_MIRROR_IDS=false`. Exporte cada trace por um único caminho, o consumidor ao vivo ou `TraceSpanExporter`, não ambos.
 
 ## 9. Winston & Pino
 

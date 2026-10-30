@@ -17,7 +17,7 @@ const SHUTDOWN_EVENTS = ["beforeExit", "SIGTERM"] as const;
 
 /**
  * Drains and closes a pipeline/consumer on graceful Node shutdown so buffered-but-undrained tail
- * events are not lost (Java's shutdown hook → close() → drainRemaining). The flush+close runs at
+ * events are not lost (shutdown signal → close() → drain remaining). The flush+close runs at
  * most once regardless of which signal fires or whether close() was already called explicitly
  * (target.close() must itself be idempotent). Returns a disposer that removes the listeners.
  */

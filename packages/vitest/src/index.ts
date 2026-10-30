@@ -236,7 +236,7 @@ function parseFormats(raw?: string): TraceFormat[] | undefined {
 
 /**
  * Artifacts emitted when nothing selects a format: the narrative, its canonical JSON, and its
- * sequence diagram — the same always-on set Java's `TraceTestSupport` writes per test. PlantUML
+ * sequence diagram — the always-on set written per test in every NarrativeTrace runtime. PlantUML
  * and clarity JSON stay opt-in.
  */
 const DEFAULT_FORMATS: readonly TraceFormat[] = ["md", "json", "mmd"];
@@ -329,8 +329,8 @@ function buildTestPath(task: { name: string; suite?: SuiteLike }): string {
 }
 
 /**
- * The artifact-grouping name for a test file — the platform stand-in for Java's test *class*,
- * since a TS test file is the unit a class is on the JVM. `src/__tests__/order-service.test.ts`
+ * The artifact-grouping name for a test file — the unit that groups a test's
+ * artifacts, since a TS test file is the natural test container. `src/__tests__/order-service.test.ts`
  * becomes `order-service`; a file with no resolvable path falls back to `unknown-module`.
  */
 export function moduleNameOf(filepath: string | undefined): string {
@@ -694,8 +694,7 @@ export interface OutputSink {
 }
 
 /**
- * Prints the per-test narrative diagnostics a JUnit run would emit (Java `NarrativeTraceExtension`
- * parity): any unresolved-template warnings always, and on failure the framed scenario followed by
+ * Prints the per-test narrative diagnostics a test run emits: any unresolved-template warnings always, and on failure the framed scenario followed by
  * its IndentedText execution trace. A passing test with a clean trace prints nothing.
  */
 export function reportTestNarrative(
@@ -788,10 +787,9 @@ const FORMAT_EXTENSIONS: Partial<Record<TraceFormat, string>> = {
 const DIAGRAM_FORMATS: ReadonlySet<TraceFormat> = new Set<TraceFormat>(["mmd", "puml"]);
 
 /**
- * `manifest.json`'s artifact role per format — one entry per format written, no collisions (unlike
- * Java's `ScenarioManifest`, where every text/diagram format shares one `"trace"` role because a
- * run there writes exactly one; this port's default config writes several formats at once, so `md`
- * alone keeps the pre-existing `"trace"` name and every other format keys on its own name).
+ * `manifest.json`'s artifact role per format — one entry per format written, no collisions. The
+ * default config writes several formats at once, so one shared role would collide; `md` alone
+ * keeps the pre-existing `"trace"` name and every other format keys on its own name.
  */
 const MANIFEST_ROLES: Record<TraceFormat, string> = {
   md: "trace",
@@ -845,7 +843,7 @@ function withNotices(
  * property-test description, a hostile value that ended up in a test title), and sanitizing never
  * shortened it — `mkdirSync`/`writeFileSync` raised `ENAMETOOLONG` instead of writing a truncated
  * but usable artifact. Kept well under the OS limit (the family artifact-path-cap scheme's own
- * figure, shared by Java's and Swift's `OutputDirectoryResolver`) so it survives every nesting this
+ * figure, shared by every NarrativeTrace runtime) so it survives every nesting this
  * module adds (`diagrams/`, the longest extension) with room to spare.
  */
 const MAX_SEGMENT_LENGTH = 100;
@@ -855,14 +853,14 @@ const MAX_SEGMENT_LENGTH = 100;
  *
  * INTENT: truncation alone is a silent overwrite — two long names sharing a prefix past the cut
  * point would land on one artifact, and one test's approved baseline would then judge another
- * test's trace. The family scheme every NarrativeTrace runtime converges on (Java's and Swift's
- * `OutputDirectoryResolver`) truncates to the budget and appends an eight-hex-digit hash of the
+ * test's trace. The family scheme every NarrativeTrace runtime converges on
+ * truncates to the budget and appends an eight-hex-digit hash of the
  * whole slug, so two names differing only past the cut still resolve to different artifacts.
- * Unified onto Java's own formula rather than FNV-1a — the family hash is Java's JLS-stable
- * `String#hashCode`, not each port improvising its own; dotnet hand-reimplements the identical
- * formula for the same reason `javaStringHashCodeHex` below does. Not a security boundary, only a
- * cross-port collision-avoidance one, but a *shared* one is only useful if every port derives the
- * same suffix from the same slug. This runtime ASCII-folds every
+ * The family hash is the JLS-stable 31-multiplier string hash (the
+ * `String#hashCode` formula), not each runtime improvising its own; every runtime implements the
+ * identical formula, as `javaStringHashCodeHex` below does. Not a security boundary, only a
+ * cross-runtime collision-avoidance one, but a *shared* one is only useful if every runtime derives
+ * the same suffix from the same slug. This runtime ASCII-folds every
  * segment before length is ever measured (see `sanitizeFileName` below), so a byte cap and a
  * character cap are the same number here — the family scheme's multibyte/astral
  * read-buffer-boundary care is structurally moot.
@@ -874,18 +872,16 @@ function capped(slug: string, maxLength: number): string {
 }
 
 /**
- * `value`'s hash under Java's `String#hashCode()` — `s[0]*31^(n-1) + s[1]*31^(n-2) + … + s[n-1]`,
+ * `value`'s hash under the family string hash (the 31-multiplier `String#hashCode` formula) — `s[0]*31^(n-1) + s[1]*31^(n-2) + … + s[n-1]`,
  * computed over UTF-16 code units with silent 32-bit signed overflow — as eight lowercase hex
- * digits (the two's-complement bit pattern, matching Java's own `String.format("%08x", hash)` for
- * a negative result).
+ * digits (the two's-complement bit pattern, the same in every runtime, for a negative result).
  *
  * @remarks JS has no built-in equivalent, so this reimplements the formula explicitly:
- * `Math.imul` gives the exact 32-bit multiply Java's `int * int` performs (plain `*` would drift
+ * `Math.imul` gives the exact signed 32-bit multiply (plain `*` would drift
  * once the running hash needs more than 53 bits of precision to stay exact), and `| 0` truncates
- * the addition to a 32-bit signed integer the same way Java's `int` addition wraps. This is also
- * the one NarrativeTrace runtime where the port is exact with no adaptation: the formula is
+ * the addition to a 32-bit signed integer so it wraps. The formula is
  * defined over UTF-16 code units, and a JS `string` already *is* a UTF-16 code unit sequence —
- * `charCodeAt` reads exactly what Java's `charAt`/`String#hashCode` reads, surrogate pairs
+ * `charCodeAt` reads exactly the units the formula is defined over, surrogate pairs
  * included, with no re-encoding step for either side to disagree over.
  */
 function javaStringHashCodeHex(value: string): string {
@@ -906,7 +902,7 @@ function sanitizeFileName(testName: string): string {
 
 /**
  * Where one artifact is written. Diagram formats mirror the module tree under `diagrams/`,
- * matching Java's `diagrams/<Class>/<test>.mmd`; everything else sits beside the Markdown.
+ * as `diagrams/<module>/<test>.mmd`; everything else sits beside the Markdown.
  */
 function targetDir(outputDir: string, moduleName: string, format: TraceFormat): string {
   const safeModule = sanitizeFileName(moduleName);
@@ -935,7 +931,7 @@ export interface TraceOutputTarget {
   /** Root of the artifact tree, e.g. `narrativetrace-output`. */
   readonly outputDir: string;
   /**
-   * Groups a test file's artifacts, the platform equivalent of Java's test *class* directory.
+   * Groups a test file's artifacts, the per-test-file directory.
    * Derived from the test file's base name; sanitized, so a crafted path cannot escape
    * `outputDir`.
    */
@@ -956,8 +952,8 @@ export interface TraceOutputTarget {
 /**
  * Writes one test's trace artifacts.
  *
- * INTENT: the per-test file emitter behind {@link createNarrativeTest}, laid out like Java's
- * `TraceTestSupport` — `<outputDir>/<module>/<test>.md` plus siblings, with diagrams under
+ * INTENT: the per-test file emitter behind {@link createNarrativeTest}, laid out as
+ * `<outputDir>/<module>/<test>.md` plus siblings, with diagrams under
  * `<outputDir>/diagrams/<module>/`. An empty trace writes nothing at all, so a suite that
  * captured no spans leaves no directories behind.
  *
@@ -965,6 +961,10 @@ export interface TraceOutputTarget {
  * @param target destination and formats; see {@link TraceOutputTarget}.
  * @returns `manifest.json` role → path relative to `outputDir`, one entry per format actually
  * written; empty for an empty trace.
+ *
+ * @remarks Before writing, the same test's files of every format NOT in `target.formats` are
+ * deleted ({@link removeStaleFormats}), so switching formats — or turning `canonical-json` off —
+ * never leaves the previous run's file next to this run's. An empty trace deletes nothing.
  */
 /** Writes one format's file and returns its manifest role → relative-path entry. */
 function writeOneFormat(
@@ -986,6 +986,27 @@ function writeOneFormat(
   return [MANIFEST_ROLES[format], relativeArtifactPath(target.moduleName, format, baseName)];
 }
 
+/**
+ * Deletes this test's artifact of every format the current run does not write, so the output
+ * directory describes only this run (B-224, B-227). Runs BEFORE any write — the formats this
+ * run does write are never touched here, which is what keeps a run with an opt-in format (e.g.
+ * `canonical-json`) on listing its fresh file. Confined to the trace / diagram / JSON files
+ * derived from this test's own `baseName`; approval baselines (`.approved.nt` / `.received.nt`)
+ * and the structural last-green tree are never in scope.
+ */
+function removeStaleFormats(target: TraceOutputTarget, baseName: string): void {
+  for (const format of Object.keys(RENDERERS) as TraceFormat[]) {
+    if (target.formats.includes(format)) continue;
+    const extension = FORMAT_EXTENSIONS[format] ?? format;
+    rmSync(
+      join(targetDir(target.outputDir, target.moduleName, format), `${baseName}.${extension}`),
+      {
+        force: true,
+      },
+    );
+  }
+}
+
 export function writeTraceOutput(
   tree: TraceTree,
   target: TraceOutputTarget,
@@ -994,6 +1015,7 @@ export function writeTraceOutput(
   if (tree.roots.length === 0) return artifacts;
 
   const baseName = sanitizeFileName(target.testName);
+  removeStaleFormats(target, baseName);
   const scenario = frameScenario(target.testName);
   const notices = [shedNotice(target.shedding), refusalNotice(target.shedding)];
 

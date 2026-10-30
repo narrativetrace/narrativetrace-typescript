@@ -4,8 +4,8 @@
 import { skillSection } from "../skill.js";
 
 /**
- * How to read a trace — the reference text every skill that reads one renders, written once. Port
- * of Java `TraceReading`, with this runtime's file locations and renderer names.
+ * How to read a trace — the reference text every skill that reads one renders, written once. It uses
+ * this runtime's file locations and renderer names.
  *
  * INTENT: the verify skill reads a trace to check a change, the debug skill to find a defect; both
  * need the same answer to "which artifact answers which question" and the same list of shapes that

@@ -8,8 +8,8 @@
 export type TreeWalkStop = "depth-limit" | "cycle";
 
 /**
- * Output marker for a node the walk stopped at (`TreeWalkStop` → display text), matching the Java
- * `TreeWalk` reference wording exactly, for cross-runtime parity of rendered output.
+ * Output marker for a node the walk stopped at (`TreeWalkStop` → display text), the same wording
+ * in every runtime, for cross-runtime parity of rendered output.
  */
 export const TREE_WALK_MARKER: Record<TreeWalkStop, string> = {
   "depth-limit": "… (depth limit)",
@@ -22,8 +22,7 @@ const MAX_DEPTH = 10_000;
  * Bound and cycle guard shared by every recursive TraceNode/TraceTree-shaped walker (renderers,
  * exporters, aggregators): a 10,000-level depth cap plus identity-based cycle detection, so a
  * hand-built, replayed or deserialized tree — cyclic or merely very deep — can never crash a
- * walker with a stack overflow or grow its output/loop forever. Mirrors the Java `TreeWalk`
- * reference shape (`ai.narrativetrace.core.aggregate.TreeWalk`).
+ * walker with a stack overflow or grow its output/loop forever.
  *
  * INTENT: call {@link enter} immediately before descending into a node's children — the node's own
  * content is always produced first (a stopped node still "contributes itself", just not its

@@ -365,3 +365,20 @@ describe("bounded tree walk (cyclic and very deep trees)", () => {
     expect(() => canonicalEntries(traceTree([deepChain(10_001)]))).not.toThrow();
   }, 3_000);
 });
+
+describe("canonicalEntries exception message redaction (B-174)", () => {
+  test("a credential-shaped exception message maps to the marker, never in clear", () => {
+    // Public test card number, not a real credential.
+    const node = traceNode(
+      methodSignature("Pay", "charge", []),
+      threw(new Error("4111111111111111")),
+      [],
+      1,
+      0,
+    );
+    const exit = canonicalEntries(traceTree([node]))[1];
+    expect(JSON.stringify(exit)).not.toContain("4111111111111111");
+    expect(exit?.["exception.message"]).toBe("[REDACTED]");
+    expect(exit?.message).toBe("!! Error: [REDACTED]");
+  });
+});

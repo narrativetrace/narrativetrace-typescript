@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import type { TraceId } from "./span-id-generator.js";
 
-// Word arrays identical to Java's TraceNamer.java for cross-platform consistency.
+// Word arrays identical in every NarrativeTrace runtime, for cross-platform consistency.
 // 256 adjectives × 512 nouns × 256 verbs = ~33.5M combinations.
 
 // prettier-ignore
@@ -1063,7 +1063,7 @@ validate("VERBS", VERBS, 256);
  *
  * Maps the first 25 bits of the 32-char hex trace ID to a three-word
  * "adjective noun verb" phrase like "bold elk soars". The same trace ID
- * always produces the same name across Java and TypeScript runtimes.
+ * always produces the same name across every runtime.
  *
  * Bit layout from the first 7 hex chars (28 bits):
  *   bits 27-20 (8 bits) -> adjective index (0-255)

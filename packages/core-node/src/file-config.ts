@@ -35,7 +35,7 @@ const SOURCES = ["narrativetrace.config.json", ".narrativetracerc.json"] as cons
  *
  * INTENT: two configurations must never resolve by silent precedence — the reader cannot know
  * which one the author meant, and picking either hides the mistake until it surprises someone in
- * production. Port of Java `DuplicateConfigurationException` (ConfigResolver's classpath rule).
+ * production.
  */
 export class DuplicateConfigurationError extends Error {
   constructor(readonly sources: readonly string[]) {

@@ -135,9 +135,9 @@ function sameMarkdownFenceCounts(
 }
 
 /**
- * No timer or handle this library starts survives a render — the JS analog of Java's
- * "no library thread left behind" oracle (rendering is synchronous here, so there is no thread to
- * leak; a stray `setInterval`/`setTimeout`/`setImmediate` left registered is the equivalent hazard).
+ * No timer or handle this library starts survives a render — this runtime's form of the
+ * family's "no library thread left behind" oracle (rendering is synchronous here, so there is no
+ * thread to leak; a stray `setInterval`/`setTimeout`/`setImmediate` left registered is the equivalent hazard).
  *
  * @param work the synchronous render call to audit.
  */

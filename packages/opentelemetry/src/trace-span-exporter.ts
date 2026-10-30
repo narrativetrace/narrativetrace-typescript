@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import { type TraceNode, type TreeWalkStop, walkPreOrder } from "@narrativetrace/core";
 import { type Context, context, type Span, type Tracer, trace } from "@opentelemetry/api";
+import { startWithIds } from "./narrative-trace-id-generator.js";
 import {
   emitChildEvent,
   setConcurrencyAttributes,
@@ -17,7 +18,7 @@ import {
  * Exports completed {@link TraceNode} trees as OpenTelemetry spans after capture (batch counterpart
  * to the streaming `createOtelEventConsumer`). Parent-child structure is recreated by nesting span
  * scopes; span start/end anchor to each node's recorded timing and every span carries
- * `narrative.duration_ms`. Port of Java `TraceSpanExporter`.
+ * `narrative.duration_ms`.
  */
 /** Per-run bookkeeping the explicit-stack walk threads node-to-node: each node's own span, and the
  * parent context its span was started under (absent for a root — it starts under the active
@@ -49,19 +50,32 @@ export class TraceSpanExporter {
   // immediately here (walkPreOrder never calls endSpan for it) with a truncation marker instead of
   // spanning its descendants.
   private enterNode(node: TraceNode, stop: TreeWalkStop | undefined, state: ExportState): void {
-    const { className, methodName } = node.signature;
-    const parentCtx = state.parentCtxOf.get(node) ?? context.active();
-    const span = this.tracer.startSpan(
-      `${className}.${methodName}`,
-      { startTime: node.startTimeMs },
-      parentCtx,
-    );
+    const span = this.startNodeSpan(node, state);
     this.decorate(span, node, !state.parentCtxOf.has(node));
     state.spanOf.set(node, span);
     if (stop !== undefined) {
       span.setAttribute("narrative.truncated", stop);
       this.endSpan(node, state);
     }
+  }
+
+  // Offers the node's NarrativeTrace ids to a mirroring id generator for exactly this synchronous
+  // call; a node without span identity starts with a random id.
+  private startNodeSpan(node: TraceNode, state: ExportState): Span {
+    const { className, methodName } = node.signature;
+    const parentCtx = state.parentCtxOf.get(node) ?? context.active();
+    const sc = node.spanContext;
+    const ids =
+      sc === undefined
+        ? null
+        : { spanId: sc.spanId, traceId: state.parentCtxOf.has(node) ? null : sc.traceId };
+    return startWithIds(ids, "batch", () =>
+      this.tracer.startSpan(
+        `${className}.${methodName}`,
+        { startTime: node.startTimeMs },
+        parentCtx,
+      ),
+    );
   }
 
   // Records each child's completion event on its parent's span and its parent context — the

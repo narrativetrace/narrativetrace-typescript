@@ -5,7 +5,7 @@ import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
-import { buildSnapshot } from "../src/doctor/environment.js";
+import { buildSnapshot, MAX_FILES } from "../src/doctor/environment.js";
 
 let dir: string;
 
@@ -221,35 +221,39 @@ describe("buildSnapshot", () => {
     expect(snapshot.installedPackages.has("@narrativetrace/proxy")).toBe(false);
   });
 
-  test("caps at exactly MAX_FILES, not MAX_FILES + 1 — the inner break is off-by-one-sensitive", () => {
+  test("the production walk cap is 20 000 entries", () => {
+    expect(MAX_FILES).toBe(20_000);
+  });
+
+  test("caps at exactly the cap, not the cap + 1 — the inner break is off-by-one-sensitive", () => {
     // A dedicated, package.json-free subdirectory makes the visited count from the root's own
     // entries the only offset (exactly 1, for package.json itself) — enough to pin the exact
     // boundary and catch a `>` vs `>=` slip in the inner break, not just "some" truncation.
     write("package.json", "{}");
     mkdirSync(join(dir, "many"), { recursive: true });
-    const total = 20_001;
-    for (let i = 0; i < total; i++) {
+    const cap = 50;
+    for (let i = 0; i < cap + 1; i++) {
       writeFileSync(join(dir, "many", `f${i}.ts`), "");
     }
-    const snapshot = buildSnapshot(dir, {});
-    expect(snapshot.sourceFiles.size).toBe(19_999);
-  }, 30_000);
+    const snapshot = buildSnapshot(dir, {}, undefined, { maxFiles: cap });
+    expect(snapshot.sourceFiles.size).toBe(cap - 1);
+  });
 
-  test("caps the walk at MAX_FILES rather than visiting every entry in an oversized directory", () => {
-    // Exercises the real MAX_FILES=20_000 safety bound end to end: a directory holding more than
+  test("caps the walk at the cap rather than visiting every entry in an oversized directory", () => {
+    // Exercises the safety bound end to end (with a small injected cap): a directory holding more than
     // the cap must be truncated, not fully walked — the only way to observe that the visited
     // counter genuinely counts up (and the inner break genuinely fires) rather than merely
     // existing. Asserts "clearly capped", not an exact count, since package.json itself consumes
     // one slot of the same budget and readdir order isn't guaranteed.
     write("package.json", "{}");
-    const total = 20_050;
+    const total = 60;
     for (let i = 0; i < total; i++) {
       writeFileSync(join(dir, `f${i}.ts`), "");
     }
-    const snapshot = buildSnapshot(dir, {});
+    const snapshot = buildSnapshot(dir, {}, undefined, { maxFiles: 50 });
     expect(snapshot.sourceFiles.size).toBeGreaterThan(0);
     expect(snapshot.sourceFiles.size).toBeLessThan(total);
-  }, 30_000);
+  });
 
   test("strips only a leading v from the reported Node version", () => {
     const original = process.version;

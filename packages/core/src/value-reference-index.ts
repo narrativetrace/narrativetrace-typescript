@@ -15,7 +15,7 @@ const MIN_REF_LENGTH = 40;
 /** Longest label text kept before it is elided with `…`. */
 const MAX_LABEL_LENGTH = 24;
 
-/** Field names, in priority order, whose string value names the entity (Java's identity ladder). */
+/** Field names, in priority order, whose string value names the entity (the identity ladder). */
 const IDENTITY_FIELDS = ["name", "id", "description", "title", "key", "label", "code"] as const;
 
 function isObject(

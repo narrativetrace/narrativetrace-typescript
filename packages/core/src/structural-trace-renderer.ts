@@ -19,7 +19,7 @@ import { TREE_WALK_MARKER, TreeWalk } from "./tree-walk.js";
  * exception messages, no durations, no timestamps, no trace identifiers. Zero runtime values means
  * zero prompt-injection surface and zero PII, and the output is deterministic byte-for-byte for
  * identical behavior — the property that makes it the approval-testing baseline (`.approved.nt`)
- * and the cross-runtime conformance-fixture format. Port of Java `render.StructuralTraceRenderer`.
+ * and the cross-runtime conformance-fixture format.
  *
  * @param tree the captured trace.
  * @returns the structural document body (no `scenario:` header); an empty tree yields `""`.
@@ -51,7 +51,7 @@ export function structuralSubtreeKey(node: TraceNode): string {
 /**
  * One node queued for rendering: its depth, its citable span id (`null` for the ROOT of a
  * {@link structuralSubtreeKey} walk — a key is compared, never cited, so its root prints none and its
- * children are numbered as roots, `#1`, `#2`, exactly as Java `subtreeKey` does; ids are positional,
+ * children are numbered as roots, `#1`, `#2`, as every runtime does; ids are positional,
  * so equal shapes still give equal keys), and text to print immediately before/after it.
  */
 interface Planned {
@@ -82,7 +82,7 @@ interface PlanResult {
 /**
  * The state one sibling list is planned with: the queued items, marker text that has no queued
  * node yet (`carry`), and the span-id cursor — the next position in planning order, which IS the
- * id order (Java `SpanCursor`).
+ * id order.
  */
 interface SiblingPlan {
   readonly items: Planned[];
@@ -128,9 +128,9 @@ function planSegment(
  * work — nests under it as a sibling list of its own, in capture order.
  *
  * @edgeCase Every member renders as itself. Treating the first member as a launcher whose
- * children were the launched work (the shape of the Java reference's synthetic launcher node,
+ * children were the launched work (a synthetic launcher node,
  * which this runtime never builds) dropped each worker's own line and every other worker of the
- * group — Java cross-port item 4, "a fire-and-forget WORKER root is a plain node".
+ * group: a fire-and-forget WORKER root is a plain node.
  */
 function planFireAndForget(members: readonly TraceNode[], depth: number, plan: SiblingPlan): void {
   const launch = nextId(plan);
@@ -194,7 +194,7 @@ function appendLine(item: Planned, marker: string | undefined): string {
 /**
  * Attaches `carry` (leftover marker text with no node of its own — an empty concurrent group) to
  * the render: the trailing text of the last queued item if there is one, otherwise straight onto
- * the output, since nothing else will ever print it (Java `flushCarryToLast`).
+ * the output, since nothing else will ever print it.
  */
 function attachCarry(plan: PlanResult, out: { text: string }): void {
   if (plan.carry === "") return;

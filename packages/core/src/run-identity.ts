@@ -5,8 +5,7 @@ import { generateTraceId, type TraceId } from "./span-id-generator.js";
 import { humanName } from "./trace-namer.js";
 
 /**
- * A test-suite execution's own identity: a W3C-shaped id and the three-word phrase derived from it
- * (Java `output.RunIdentity`).
+ * A test-suite execution's own identity: a W3C-shaped id and the three-word phrase derived from it.
  *
  * INTENT: A trace has a name because a trace id is unreadable; a whole SUITE RUN needs the same
  * thing for a different reason — before this type, nothing named "this execution" at all, so a

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { ExceptionMessage } from "./exception-message.js";
 import type { SpanContext } from "./span-context.js";
 import type { TraceId } from "./span-id-generator.js";
 import type {
@@ -67,8 +68,8 @@ export const SCHEMA_VERSION = "1.2" as const;
  *
  * @remarks Deliberately *not* the capture model's `returned`/`threw`/`incomplete`: those words
  * describe control flow and stay inside the chapter-tree envelope, while an entry is a log record
- * read by ingestion pipelines that expect success/failure. Java maps the same three cases the same
- * way (`CanonicalEntryMapper.mapOutcome`).
+ * read by ingestion pipelines that expect success/failure. Every runtime maps the same three cases the same
+ * way.
  */
 export type EntryOutcome = "success" | "failure" | "incomplete";
 
@@ -121,16 +122,12 @@ function mapEnter(event: EnterEvent): CanonicalEntry {
   };
 }
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 function errorType(error: unknown): string {
   return error instanceof Error ? error.constructor.name : typeof error;
 }
 
 function threwFields(error: unknown): Partial<CanonicalEntry> {
-  const msg = errorMessage(error);
+  const msg = ExceptionMessage.text(error);
   return {
     level: "error",
     message: `!! Error: ${msg}`,

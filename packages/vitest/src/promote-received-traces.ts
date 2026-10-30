@@ -3,10 +3,9 @@
 // Copyright (c) 2026 Empower Agile
 /**
  * Promotes reviewed `*.received.nt` traces to `*.approved.nt` baselines — the whole of "approving"
- * an approval trace: a received trace becomes the new committed contract. Port of Java
- * `output.NarrativeApproval#promoteReceived` (mirrored here rather than reused, so this package's
- * build stays free of a runtime dependency on the approval-evaluation module for what is otherwise
- * a pure filesystem sweep).
+ * an approval trace: a received trace becomes the new committed contract. Implemented here rather
+ * than reused from the approval-evaluation module, so this package's build stays free of a runtime
+ * dependency on it for what is otherwise a pure filesystem sweep.
  */
 
 /** Injected filesystem seam so the sweep is testable without a real filesystem. */

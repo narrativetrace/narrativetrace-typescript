@@ -31,8 +31,8 @@ import { VALUE_FREE_RULES, type ValueFreeRule } from "./value-free-rule.js";
  * "no test asserts the literal `[REDACTED]`", and its message, its fix and its pass message all
  * quote that literal — whether the check passes or fails. So one rule, read against this one field,
  * refuses every report from every project that has NarrativeTrace installed at all, and the verb
- * can draft nothing. Found in the Java reference by running the verb against a real project rather
- * than against a hand-written stand-in for one; `cli-feedback.test.ts` runs this port's verb
+ * can draft nothing. Found by running the verb against a real project rather
+ * than against a hand-written stand-in for one; `cli-feedback.test.ts` runs this runtime's verb
  * against a real project for the same reason.
  *
  * @llmNote Named by a string because that is what a field map is keyed by, so this constant and

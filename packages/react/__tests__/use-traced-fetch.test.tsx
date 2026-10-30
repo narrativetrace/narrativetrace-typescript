@@ -4,6 +4,7 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { NarrativeTraceProvider } from "../src/provider.js";
+import { useNarrativeTrace } from "../src/use-narrative-trace.js";
 import { useTracedFetch } from "../src/use-traced-fetch.js";
 
 afterEach(cleanup);
@@ -24,6 +25,7 @@ afterEach(() => {
 
 function FetchComponent() {
   const tracedFetch = useTracedFetch();
+  useNarrativeTrace().enterMethod("Page", "click", []);
   tracedFetch("/api/test");
   const tp = lastHeaders?.get("traceparent") ?? "none";
   return <div data-testid="tp">{tp}</div>;
@@ -31,6 +33,7 @@ function FetchComponent() {
 
 function FetchWithHeaders() {
   const tracedFetch = useTracedFetch();
+  useNarrativeTrace().enterMethod("Page", "click", []);
   tracedFetch("/api/test", { headers: { "X-Custom": "value" } });
   const custom = lastHeaders?.get("X-Custom") ?? "none";
   const tp = lastHeaders?.get("traceparent") ?? "none";
@@ -90,6 +93,7 @@ describe("useTracedFetch", () => {
   test("preserves headers from Request input", () => {
     function FetchWithRequest() {
       const tracedFetch = useTracedFetch();
+      useNarrativeTrace().enterMethod("Page", "click", []);
       tracedFetch(new Request("https://example.test/api", { headers: { "X-Custom": "value" } }));
       const custom = lastHeaders?.get("X-Custom") ?? "none";
       const tp = lastHeaders?.get("traceparent") ?? "none";
@@ -108,5 +112,40 @@ describe("useTracedFetch", () => {
     );
     expect(screen.getByTestId("req-custom").textContent).toBe("value");
     expect(screen.getByTestId("req-tp").textContent).toMatch(/^00-/);
+  });
+
+  test("sends the open span's trace id and span id as the parent", () => {
+    function Probe() {
+      const ctx = useNarrativeTrace();
+      const spanId = ctx.enterMethod("Page", "click", []);
+      useTracedFetch()("/api/test");
+      const expected = `00-${ctx.traceId()}-${spanId}-01`;
+      return <div data-testid="match">{String(lastHeaders?.get("traceparent") === expected)}</div>;
+    }
+    render(
+      <NarrativeTraceProvider>
+        <Probe />
+      </NarrativeTraceProvider>,
+    );
+    expect(screen.getByTestId("match").textContent).toBe("true");
+  });
+
+  test("an untraced fetch between two interactions does not continue the first trace", () => {
+    function Probe() {
+      const ctx = useNarrativeTrace();
+      ctx.enterMethod("Page", "clickA", []);
+      const traceA = ctx.traceId();
+      ctx.exitMethodWithReturn("null");
+      useTracedFetch()("/api/test");
+      const sent = lastHeaders?.has("traceparent");
+      ctx.enterMethod("Page", "clickB", []);
+      return <div data-testid="r">{`${sent}/${ctx.traceId() !== traceA}`}</div>;
+    }
+    render(
+      <NarrativeTraceProvider>
+        <Probe />
+      </NarrativeTraceProvider>,
+    );
+    expect(screen.getByTestId("r").textContent).toBe("false/true");
   });
 });

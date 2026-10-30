@@ -36,11 +36,9 @@ function stringSetting(source: Record<string, unknown>, key: string): string | u
  * Resolves effective settings from both channels, highest precedence first:
  * environment variable → config file → `fallbackLevel`.
  *
- * INTENT: the single entry point production code and test fixtures should use. It is the
- * platform equivalent of Java's `ConfigResolver` (system property → `narrativetrace.properties`),
- * with env vars standing in for system properties and a project-root JSON file for the classpath
- * resource. Unknown keys and wrongly-typed values in the file are ignored, but an unreadable or
- * duplicated file is a hard error — see {@link readFileConfig}.
+ * INTENT: the single entry point production code and test fixtures should use. Environment
+ * variables take precedence over a project-root JSON file. Unknown keys and wrongly-typed values
+ * in the file are ignored, but an unreadable or duplicated file is a hard error — see {@link readFileConfig}.
  *
  * @param options injectable channels; see {@link ResolveConfigOptions}.
  * @returns the merged settings, always carrying a `level`.

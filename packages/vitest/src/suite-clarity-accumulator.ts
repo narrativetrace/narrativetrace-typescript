@@ -12,8 +12,7 @@ import { type ArtifactSink, whenNonEmpty } from "./suite-artifact-io.js";
 
 /**
  * Per-process registry that fixtures push into as each test completes, drained by the suite
- * reporter/globalSetup teardown once every test in the process has run (Java's suite-level
- * `NarrativeTraceExtension` behaviour) — see `per-process-registry.ts`.
+ * reporter/globalSetup teardown once every test in the process has run — see `per-process-registry.ts`.
  */
 const registry = createPerProcessRegistry<ScenarioResult>();
 
@@ -41,7 +40,7 @@ export interface SuiteArtifactOutcome {
 
 /**
  * Writes ONE `clarity-results.json` (all N entries, insertion order, duplicates retained) and ONE
- * `clarity-report.md` (Java suite-report shape) to `outputDir`. An empty suite writes nothing — no
+ * `clarity-report.md` (the family suite-report shape) to `outputDir`. An empty suite writes nothing — no
  * empty files, matching the fixture's "empty trace writes nothing" contract.
  */
 export function writeSuiteClarityArtifacts(
@@ -60,7 +59,7 @@ export function writeSuiteClarityArtifacts(
 }
 
 /**
- * Builds the one-shot suite footer (Java `ConsoleSummaryReporter.formatSuiteFooter`) with the
+ * Builds the one-shot suite footer with the
  * high/moderate/low clarity split. Returns undefined for an empty suite so callers print nothing.
  *
  * @param runName the enclosing test-suite run's three-word phrase, or `undefined` outside a

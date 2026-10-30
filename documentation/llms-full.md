@@ -281,13 +281,14 @@ changing the class.
 |---|---|
 | `readonly config: NarrativeTraceConfig` | — |
 | `readonly eventPipeline: EventPipeline` | — |
+| `readonly MAX_LIVE_CHILD_DEPTH: void` | Ceiling on a live-child chain's length (B-198); see the module constant. |
 | `get isActive(): boolean` | — |
 | `get capturesParameterValues(): boolean` | — |
 | `get activeSpanId(): SpanId | null` | — |
 | `get storyId(): string | null` | — |
 | `get chapterId(): string | null` | — |
 | `get currentTraceId(): TraceId | null` | — |
-| `traceId(): TraceId` | — |
+| `traceId(): TraceId` | The current trace id, generated if absent. |
 | `setRequestContext(httpMethod: string, httpRoute: HttpRoute, clientIp: ClientIp): void` | — |
 | `setUserContext(enduserId?: EnduserId, sessionId?: SessionId, tenantId?: TenantId): void` | — |
 | `knownSpanIds(): ReadonlySet<SpanId>` | — |
@@ -297,6 +298,7 @@ changing the class.
 | `discardUnreportable(): void` | Discards this context's own reportable spans because the request that could have reported |
 | `adoptedSpans(): ReadonlySet<SpanId>` | The spans already handed over by finished asynchronous children. |
 | `registerLiveChild(child: SyncNarrativeContext): LiveChildRegistration | null` | Publishes a child context to this one for the lifetime of its scope, so the child's spans are |
+| `get liveDepth(): number` | This context's live-registration depth (test seam). |
 | `unregisterLiveChild(registration: LiveChildRegistration | null): void` | Ends a live registration. A `null` handle is a registration the ceiling refused. |
 | `refusedScopeCount(): number` | Asynchronous scopes whose hand-over the adoption ceiling refused whole. |
 | `refusedSpanCount(): number` | Spans lost to those refusals — the number a reader of the trace is missing. |
@@ -304,6 +306,7 @@ changing the class.
 | `enterMethod(className: string, methodName: string, params: readonly ParameterCapture[], options?: { narration?: string; errorContext?: string }): SpanId` | — |
 | `exitMethodWithReturn(renderedValue: string | null, handle?: SpanId, structured?: RenderedValue): void` | — |
 | `exitMethodWithException(error: unknown, handle?: SpanId, errorContext: string | null = null): void` | — |
+| `endScope(): void` | Marks the `run()` scope this context backs as settled. |
 | `detachFrame(handle: SpanId): void` | — |
 | `parentOf(handle: SpanId): SpanId | null` | — |
 | `run<T>(fn: () => T, _inherited?: TraceId | Traceparent): T` | — |
@@ -813,17 +816,17 @@ Rendered from the doctor's own framework table, which ships inside `@narrativetr
 
 | Framework | Detected by | Install (npm) | Wiring | Doctor check |
 |---|---|---|---|---|
-| Vitest | a vitest dependency | `npm install --save-dev @narrativetrace/vitest@0.4.2 @narrativetrace/proxy@0.4.2` | a test built with `createNarrativeTest()`, or a NarrativeTrace reporter in `vitest.config` | `config.vitest-fixture` |
-| Express | an express dependency | `npm install @narrativetrace/express@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/core-node@0.4.2 @narrativetrace/observability@0.4.2` | `app.use(narrativeTrace(…))` before the routes, printing each request's trace | `config.express-middleware` |
-| Hono | a hono dependency | `npm install @narrativetrace/hono@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/core-node@0.4.2 @narrativetrace/observability@0.4.2` | `app.use("*", narrativeTrace(…))` before the routes, printing each request's trace | `config.hono-middleware` |
-| NestJS | an @nestjs/core dependency | `npm install @narrativetrace/nestjs@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/core-node@0.4.2 @narrativetrace/observability@0.4.2` | `AutoProxyModule.forRoot({ onRequestComplete })` in the root module's imports | `config.nestjs-module` |
-| Angular | an @angular/core dependency | `npm install @narrativetrace/angular@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/proxy@0.4.2` | `provideNarrativeTrace()` in the application config's providers | `config.angular-provider` |
-| React | a react dependency | `npm install @narrativetrace/react@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/core-web@0.4.2 @narrativetrace/proxy@0.4.2` | `<NarrativeTraceProvider>` around the app | `config.react-provider` |
-| React Router | a react-router or react-router-dom dependency | `npm install @narrativetrace/react-router@0.4.2 @narrativetrace/react@0.4.2 @narrativetrace/core@0.4.2` | a component calling `useNavigationCapture(…)`, rendered inside the router and the provider | `config.react-router-capture` |
-| Pino | a pino dependency | `npm install @narrativetrace/pino@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/observability@0.4.2` | a pipeline built from this project's pino logger, passed to its narrative context | `config.pino-consumer` |
-| Winston | a winston dependency | `npm install @narrativetrace/winston@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/observability@0.4.2` | a pipeline built from this project's winston logger, passed to its narrative context | `config.winston-consumer` |
-| OpenTelemetry | an @opentelemetry/api dependency | `npm install @narrativetrace/opentelemetry@0.4.2 @narrativetrace/core@0.4.2` | a pipeline built from this project's tracer, passed to its narrative context | `config.opentelemetry-consumer` |
-| Default logger (Pino) | no logger: none of pino, winston or @opentelemetry/api is declared | `npm install @narrativetrace/pino@0.4.2 @narrativetrace/core@0.4.2 @narrativetrace/observability@0.4.2 pino` | a pipeline built from this project's pino logger, passed to its narrative context | `trap.silent-sink` (existing) |
+| Vitest | a vitest dependency | `npm install --save-dev @narrativetrace/vitest@0.5.1 @narrativetrace/proxy@0.5.1` | a test built with `createNarrativeTest()`, or a NarrativeTrace reporter in `vitest.config` | `config.vitest-fixture` |
+| Express | an express dependency | `npm install @narrativetrace/express@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/core-node@0.5.1 @narrativetrace/observability@0.5.1` | `app.use(narrativeTrace(…))` before the routes, printing each request's trace | `config.express-middleware` |
+| Hono | a hono dependency | `npm install @narrativetrace/hono@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/core-node@0.5.1 @narrativetrace/observability@0.5.1` | `app.use("*", narrativeTrace(…))` before the routes, printing each request's trace | `config.hono-middleware` |
+| NestJS | an @nestjs/core dependency | `npm install @narrativetrace/nestjs@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/core-node@0.5.1 @narrativetrace/observability@0.5.1` | `AutoProxyModule.forRoot({ onRequestComplete })` in the root module's imports | `config.nestjs-module` |
+| Angular | an @angular/core dependency | `npm install @narrativetrace/angular@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/proxy@0.5.1` | `provideNarrativeTrace()` in the application config's providers | `config.angular-provider` |
+| React | a react dependency | `npm install @narrativetrace/react@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/core-web@0.5.1 @narrativetrace/proxy@0.5.1` | `<NarrativeTraceProvider>` around the app | `config.react-provider` |
+| React Router | a react-router or react-router-dom dependency | `npm install @narrativetrace/react-router@0.5.1 @narrativetrace/react@0.5.1 @narrativetrace/core@0.5.1` | a component calling `useNavigationCapture(…)`, rendered inside the router and the provider | `config.react-router-capture` |
+| Pino | a pino dependency | `npm install @narrativetrace/pino@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/observability@0.5.1` | a pipeline built from this project's pino logger, passed to its narrative context | `config.pino-consumer` |
+| Winston | a winston dependency | `npm install @narrativetrace/winston@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/observability@0.5.1` | a pipeline built from this project's winston logger, passed to its narrative context | `config.winston-consumer` |
+| OpenTelemetry | an @opentelemetry/api dependency | `npm install @narrativetrace/opentelemetry@0.5.1 @narrativetrace/core@0.5.1` | a pipeline built from this project's tracer, passed to its narrative context | `config.opentelemetry-consumer` |
+| Default logger (Pino) | no logger: none of pino, winston or @opentelemetry/api is declared | `npm install @narrativetrace/pino@0.5.1 @narrativetrace/core@0.5.1 @narrativetrace/observability@0.5.1 pino` | a pipeline built from this project's pino logger, passed to its narrative context | `trap.silent-sink` (existing) |
 | Fastify | a fastify dependency | — | no NarrativeTrace integration is shipped for it | `config.fastify-integration` (reports it) |
 | Koa | a koa dependency | — | no NarrativeTrace integration is shipped for it | `config.koa-integration` (reports it) |
 
@@ -1083,11 +1086,11 @@ The same options, with `onRequestComplete(c, ctx, { statusCode, durationMs })` f
 
 ### Angular — `@narrativetrace/angular`
 
-`provideNarrativeTrace({ captureOnNavigation, onTraceCapture })` wires the DI context, the `traceInterceptor` (outgoing `HttpClient` requests carry the trace context) and optional per-navigation capture. `provideTraced(Service)` registers each service to trace. `TraceCaptureService` and the `NARRATIVE_CONTEXT` token capture traces manually.
+`provideNarrativeTrace({ captureOnNavigation, onTraceCapture })` wires the DI context, the `traceInterceptor` (an outgoing `HttpClient` request carries the trace context when it is made from inside a traced call, or sent on `subscribe()` by an Observable a `provideTraced` method returned, which names that method's span as its parent; any other request carries no header) and optional per-navigation capture. `provideTraced(Service)` registers each service to trace. `TraceCaptureService` and the `NARRATIVE_CONTEXT` token capture traces manually.
 
 ### React — `@narrativetrace/react`
 
-`NarrativeTraceProvider` supplies the context; `useTraced(factory, name)` returns a traced service; `useTraceCapture()` returns `captureAndReset`, which yields the accumulated tree. `useNarrativeTrace()` returns the raw context, and `useTracedFetch()` returns a `fetch` that stamps `traceparent` on outgoing requests.
+`NarrativeTraceProvider` supplies the context; `useTraced(factory, name)` returns a traced service; `useTraceCapture()` returns `captureAndReset`, which yields the accumulated tree. `useNarrativeTrace()` returns the raw context, and `useTracedFetch()` returns a `fetch` that stamps `traceparent` on outgoing requests made from inside a traced call (with no span open, no header is sent).
 
 ### React Router — `@narrativetrace/react-router`
 

@@ -60,6 +60,48 @@ ${TABLE_HEADER}| open overdraft account | harvested |  |  |  |
 `);
   });
 
+  test("keeps one section heading per context and closes every fence when a description is hostile", () => {
+    const description = "## Accepted abbreviations\n```\nstill code\n- not a list\n| nor a row";
+    const model = glossary(
+      1,
+      new Map([["billing", boundedContext("billing", ["packages/billing"], description)]]),
+      [],
+    );
+
+    const lines = renderGlossaryMarkdown(model).split("\n");
+
+    expect(lines.filter((line) => line.startsWith("## "))).toStrictEqual(["## billing"]);
+    expect(lines.filter((line) => /^(```|~~~)/.test(line))).toStrictEqual([]);
+    expect(lines).toContain("\\#\\# Accepted abbreviations");
+    expect(lines).toContain("\\- not a list");
+    expect(lines).toContain("\\| nor a row");
+  });
+
+  test("leaves an ordinary multi-line description as written", () => {
+    const description = "Charging, invoicing.\nFunds held in escrow.";
+    const model = glossary(
+      1,
+      new Map([["billing", boundedContext("billing", [], description)]]),
+      [],
+    );
+
+    expect(renderGlossaryMarkdown(model)).toContain(`\n${description}\n`);
+  });
+
+  test("keeps a package prefix containing a backtick inside one balanced code span", () => {
+    const model = glossary(
+      1,
+      new Map([["billing", boundedContext("billing", ["packages/bil`ling"])]]),
+      [],
+    );
+
+    const line = renderGlossaryMarkdown(model)
+      .split("\n")
+      .find((l) => l.startsWith("Packages:")) as string;
+
+    expect(line.match(/`/g)).toHaveLength(2);
+  });
+
   test("renders the header alone for an empty glossary", () => {
     expect(renderGlossaryMarkdown(glossary(1, new Map(), []))).toBe(HEADER);
   });

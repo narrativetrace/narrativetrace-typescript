@@ -144,8 +144,8 @@ export class AsyncNarrativeContext implements NarrativeContext {
    * @remarks Nested inside another scope, the new scope is **registered as that scope's live child**
    * and hands its whole reportable set back when `fn` settles, so work launched from a request is
    * reported by the request's capture — while it is still in flight, not only once it finishes. A
-   * top-level scope has no parent to register with: it *is* the request, the analogue of Java's
-   * per-request thread getting its own `TraceStack`.
+   * top-level scope has no parent to register with: it *is* the request, and gets its own
+   * trace stack.
    *
    * @remarks Call {@link captureTrace} **inside** `fn`. It reads the scope it is called from, and
    * outside every `run()` that is the process-wide default scope, which holds none of this scope's
@@ -153,6 +153,13 @@ export class AsyncNarrativeContext implements NarrativeContext {
    * too, so a throwing export cannot leave the request's spans in the shared pipeline. Use one
    * context per process and one `run()` per request; concurrent top-level scopes never see each
    * other's spans.
+   *
+   * @remarks A top-level scope nothing claims — no `reset()`, capture, request or user metadata,
+   * and no inbound trace id — is unowned, like work outside every `run()` (the process-wide default
+   * scope): its finished roots are released in bounded batches and each root starts a fresh trace
+   * (B-211). Such a scope stays live, keeping its latest root, until `fn` settles; a callback-style
+   * `fn` that returns before its work finishes should claim the scope (the integrations set request
+   * metadata first) to keep everything until its capture.
    */
   run<T>(fn: () => T, inherited?: TraceId | Traceparent): T {
     const parent = this.storage.getStore();
@@ -226,7 +233,8 @@ function registerLiveChild(
   parent: SyncNarrativeContext | undefined,
   inner: SyncNarrativeContext,
 ): () => void {
-  if (!parent) return () => {};
+  // A top-level scope has nobody to hand over to; once it settles it is no longer live (B-211).
+  if (!parent) return () => inner.endScope();
   const registration = parent.registerLiveChild(inner);
   return () => {
     parent.adopt(inner.reportableSpanIds());

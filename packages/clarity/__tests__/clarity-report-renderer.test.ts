@@ -3,7 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import { describe, expect, test } from "vitest";
 import type { ClarityResult } from "../src/clarity-analyzer.js";
-import { renderClarityReport } from "../src/clarity-report-renderer.js";
+import { renderClarityReport, renderClaritySuiteReport } from "../src/clarity-report-renderer.js";
 
 const goodResult: ClarityResult = {
   overall: 0.92,
@@ -107,5 +107,35 @@ describe("ClarityReportRenderer", () => {
     const report = renderClarityReport([{ scenario: "Test", result: goodResult }]);
     expect(report).toContain("92%");
     expect(report).toContain("95%");
+  });
+});
+
+describe("Markdown table-cell escaping in the clarity reports", () => {
+  const hostile = "Evil|\nname";
+  const hostileIssue = {
+    category: "method-name" as const,
+    element: "Foo.bar|\nbaz",
+    suggestion: "Rename|\nit",
+    severity: "HIGH" as const,
+    occurrences: 1,
+    impactScore: 3,
+  };
+  const hostileResult = { ...poorResult, issues: [hostileIssue] };
+
+  test("a pipe and newline in a scenario name stay inside one row of the score table", () => {
+    const report = renderClarityReport([{ scenario: hostile, result: goodResult }]);
+    expect(report).toContain("| Evil\\| name | 92% |");
+  });
+
+  test("a newline in a scenario or issue cannot start a new line of the issues list", () => {
+    const report = renderClarityReport([{ scenario: hostile, result: hostileResult }]);
+    expect(report).toContain("Evil| name: Foo.bar| baz — Rename| it");
+  });
+
+  test("the suite report keeps a hostile scenario, element and suggestion in one table row each", () => {
+    const report = renderClaritySuiteReport([{ scenario: hostile, result: hostileResult }]);
+    expect(report).toContain("| Evil\\| name | 0.35 |");
+    expect(report).toContain("### Evil| name");
+    expect(report).toContain("| HIGH | method-name | `Foo.bar\\| baz` | Rename\\| it |");
   });
 });

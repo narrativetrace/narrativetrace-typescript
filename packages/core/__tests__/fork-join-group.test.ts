@@ -327,13 +327,45 @@ describe("ForkJoinGroup no-poison contract: reset after collection", () => {
     parent.reset();
     pipeline.flush();
 
-    // Per-span events are fully swept. "fork-created" and "join-complete" carry no span id, so
-    // span-keyed removal can never see them — the same deliberately deferred residual Java's own
-    // S5 fix left open (TODO 55, "Group lifecycle events are never cleared").
-    const perSpanEvents = pipeline.events().filter((e) => e.type === "enter" || e.type === "exit");
-    expect(perSpanEvents).toHaveLength(0);
-    expect(new Set(pipeline.events().map((e) => e.type))).toEqual(
-      new Set(["fork-created", "join-complete"]),
+    // Every event is swept: the group events belong to the span that launched the group (B-165).
+    expect(pipeline.events()).toHaveLength(0);
+  });
+});
+
+// B-178: Java tags the enter event of the first span a group member opens (the member's context is
+// a propagated-snapshot scope, so ThreadLocalNarrativeContext.asyncTagFor applies); the group's own
+// fork-join tag lands on the merged node, not on the event.
+describe("ForkJoinGroup member enter-time tag (B-178)", () => {
+  test("a member's first enter event carries the concurrency tag, deeper spans do not", async () => {
+    const received: TraceEvent[] = [];
+    const pipeline = new DualPathPipeline((e) => received.push(e), new BufferedEventConsumer(64));
+    const parent = new SyncNarrativeContext(
+      new NarrativeTraceConfig("detail"),
+      undefined,
+      pipeline,
     );
+    parent.enterMethod("Ctrl", "handle", []);
+    const launcher = received.find(
+      (e) => e.type === "enter" && e.signature.methodName === "handle",
+    );
+    const group = ForkJoinGroup.create(parent);
+    await group.fork((ctx) => {
+      ctx.enterMethod("Svc", "task", []);
+      ctx.enterMethod("Svc", "deeper", []);
+      ctx.exitMethodWithReturn('"d"');
+      ctx.exitMethodWithReturn('"ok"');
+    });
+    await group.join();
+    parent.exitMethodWithReturn('"done"');
+
+    const first = received.find((e) => e.type === "enter" && e.signature.methodName === "task");
+    const deeper = received.find((e) => e.type === "enter" && e.signature.methodName === "deeper");
+    const launcherId = launcher?.type === "enter" ? launcher.spanContext.spanId : undefined;
+    expect(first?.type === "enter" && first.concurrency).toEqual({
+      groupId: `async-${launcherId}`,
+      taskLabel: "Svc.task",
+      kind: "async",
+    });
+    expect(deeper?.type === "enter" && deeper.concurrency).toBeUndefined();
   });
 });

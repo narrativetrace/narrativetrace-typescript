@@ -11,7 +11,7 @@ import { frameScenario } from "./scenario-framer.js";
  * the method runs more than once (a parameterized or repeated test) — every invocation would
  * otherwise write the same path, and the last one would win. This is the identity every per-test
  * artifact keys by: the trace, the JSON export, the diagram, the structural `.nt` artifact, and the
- * committed approved trace beside them. Port of Java `output.ArtifactIdentity` — the family's master
+ * committed approved trace beside them. The family's one
  * definition of the naming scheme; every runtime mirrors it byte for byte.
  *
  * - An ordinary test method keeps its bare method slug — `customerPlacesOrder` →
@@ -29,7 +29,7 @@ import { frameScenario } from "./scenario-framer.js";
  *   the artifact written on the next.
  */
 export interface ArtifactIdentity {
-  /** The test module (a class in Java/.NET terms; a test file in this port), qualified or bare. */
+  /** The test module (a class or a test file, depending on the runtime), qualified or bare. */
   readonly moduleName: string;
   /** The test's own name, shared by every invocation of it. */
   readonly testName: string;

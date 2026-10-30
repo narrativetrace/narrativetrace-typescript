@@ -1,4 +1,4 @@
-<!-- source: documentation/examples-guide.md blob 6803c120761c | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/examples-guide.md blob 81ca44ec6e2e | translated: 2026-10-28 | reviewed: - -->
 
 # Guía de ejemplos
 
@@ -410,7 +410,8 @@ Demuestra todas las funcionalidades de `@narrativetrace/angular`:
 - `provideTraced(OrderService)` — trazado de servicios sin código a través de la DI de Angular
 - `TraceCaptureService` — captura la traza del lado del cliente después de cada pedido
 - `traceInterceptor` — añade automáticamente el header W3C `traceparent` a cada solicitud de
-  `HttpClient`
+  `HttpClient` hecha desde dentro de una llamada trazada, incluida la que envía el Observable de
+  `OrderService.placeOrder` al suscribirse, que nombra el span de `placeOrder` como su padre
 
 ### Ejecución
 

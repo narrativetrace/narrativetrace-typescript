@@ -15,7 +15,7 @@ function isIsoControl(code: number): boolean {
 }
 
 /**
- * U+2028 and U+2029: not ISO controls, but line terminators to JavaScript, `java.util.regex` and
+ * U+2028 and U+2029: not ISO controls, but line terminators to JavaScript, regex engines and
  * many log viewers, so a raw one forges a line exactly as `\n` does.
  */
 function isLineSeparator(code: number): boolean {
@@ -26,8 +26,7 @@ function isLineSeparator(code: number): boolean {
  * Folds control characters into printable escapes so trace values/messages cannot inject
  * newlines or terminal directives (anti log-forging / output-injection). Common controls use
  * mnemonics (`\n \r \t \b \f`); any other ISO-control char, and the Unicode line and paragraph
- * separators U+2028/U+2029, becomes `\uXXXX`. Port of Java
- * `render/ControlEscape`.
+ * separators U+2028/U+2029, becomes `\uXXXX`.
  */
 export const ControlEscape = {
   sanitize(text: string): string {

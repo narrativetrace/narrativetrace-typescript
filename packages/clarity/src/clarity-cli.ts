@@ -6,7 +6,7 @@ import { evaluateClarityGate } from "./clarity-gate.js";
 import { renderClaritySuiteReport, type ScenarioResult } from "./clarity-report-renderer.js";
 
 /**
- * The clarity CLI operates on the accumulated `clarity-results.json` (Java's flat suite shape)
+ * The clarity CLI operates on the accumulated `clarity-results.json` (the flat suite shape every runtime shares)
  * that the vitest runtime aggregation writes — TS has no bytecode to scan, so the results file is
  * the input, not compiled classes. It re-renders artifacts and enforces a build gate.
  */

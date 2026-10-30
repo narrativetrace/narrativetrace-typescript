@@ -109,6 +109,20 @@ export type ProxyOptions = {
    * it as the fourth argument, `traceObject(t, ctx, undefined, { exclude })`, to be unambiguous.
    */
   readonly exclude?: readonly string[];
+  /**
+   * Called with each traced method's result while that method's span is still the open span on
+   * the context; what it returns is what the caller receives.
+   *
+   * INTENT: the seam a framework integration uses to tie a *lazy* result to the call that made it —
+   * `@narrativetrace/angular`'s `provideTraced` wraps a returned Observable so the request it sends
+   * on `subscribe()`, after this span has closed, still names this span as its parent. It runs
+   * inside the span, so `context.activeSpanId` and `context.traceId()` read that method's span.
+   * @llmNote The span records the method's own result, never the replacement, and closes the way
+   * it would without the hook (a thenable on settle). Not called when the method throws or the
+   * context is inactive. A hook that throws is ignored: the caller receives the method's own
+   * result (no-poison). Must be a function; anything else is rejected when the object is wrapped.
+   */
+  readonly wrapResult?: (result: unknown) => unknown;
 };
 
 type AnyFn = (...args: never[]) => unknown;
@@ -177,7 +191,7 @@ function buildCaptures(
 }
 
 // Skip value rendering entirely when the context won't retain it (OFF/SUMMARY/NARRATIVE), rather
-// than rendering and discarding post-hoc (Java capturesParameterValues hint). The name axis, when
+// than rendering and discarding post-hoc. The name axis, when
 // it fires, short-circuits before the value is ever rendered — RedactionPolicy.MARKER substitutes
 // directly, never renderCapture(arg) — the same promise every @notTraced/deny-listed parameter
 // already makes: the raw value never reaches a renderer. `shapeRedacted` flags a value-shape match
@@ -219,7 +233,7 @@ function buildMethodOptions(
 }
 
 // @onError/config error context resolves at throw time against the actual thrown type, choosing
-// the most specific matching declaration (Java resolveErrorContext / findMostSpecificOnError).
+// the most specific matching declaration.
 function resolveErrorContext(
   fn: AnyFn,
   cfg: MethodTraceConfig | undefined,
@@ -261,8 +275,8 @@ function isSubclassOf(sub: OnErrorSpec["exception"], sup: OnErrorSpec["exception
  * @remarks JavaScript has no static `void`, so a method that returns nothing yields `undefined` —
  * and rendering that as the *string* `"undefined"` made every renderer hide a value by comparing
  * against it, and put `"returnValue": "undefined"` into artifacts where a value was never
- * produced. `null` is the cross-runtime void contract (Java's `Returned.renderedValue == null`), and
- * it is the same answer capture already gives when the return is suppressed.
+ * produced. `null` is the cross-runtime void contract (a null rendered value),
+ * and it is the same answer capture already gives when the return is suppressed.
  *
  * A method that returns the *string* `"undefined"` is unaffected: it renders quoted.
  */
@@ -308,7 +322,7 @@ function exitAsyncResult(
 }
 
 // The business outcome must always reach the caller even if rendering the value
-// or recording the exit throws (Java exitDeferredWrapped's finally guarantee).
+// or recording the exit throws (a finally guarantee).
 function recordReturn(ctx: NarrativeContext, val: unknown, includeReturn: boolean, handle: SpanId) {
   try {
     const structured = includeReturn ? renderStructured(val) : undefined;
@@ -349,10 +363,21 @@ type TracingConfig = {
   includeReturnValues: boolean;
   paramNames?: Record<string, string[]>;
   methods?: Record<string, MethodTraceConfig>;
+  wrapResult?: (result: unknown) => unknown;
 };
 
 function invokeTarget(fn: AnyFn, obj: object, args: unknown[]): unknown {
   return Reflect.apply(fn as (...a: unknown[]) => unknown, obj, args);
+}
+
+// The hook runs inside the method's span; a throwing hook leaves the method's own result in force.
+function wrapWithin(wrap: TracingConfig["wrapResult"], result: unknown): unknown {
+  if (wrap === undefined) return result;
+  try {
+    return wrap(result);
+  } catch {
+    return result;
+  }
 }
 
 type EntryInfo = { handle: SpanId; onError: ErrorContextResolver };
@@ -403,8 +428,28 @@ function buildEntry(
   }
 }
 
+// The target runs inside its span, and so does the wrapResult hook; the span exits on the method's
+// own result, and the caller receives the hook's replacement when there is one.
+function invokeInSpan(
+  fn: AnyFn,
+  obj: object,
+  args: unknown[],
+  config: TracingConfig,
+  { handle, onError }: EntryInfo,
+): unknown {
+  const ctx = config.context;
+  let wrapped: unknown;
+  const result = ctx.runScoped(handle, () => {
+    const own = invokeTarget(fn, obj, args);
+    wrapped = wrapWithin(config.wrapResult, own);
+    return own;
+  });
+  const exited = exitWithResult(ctx, result, config.includeReturnValues, handle, onError);
+  return wrapped === result ? exited : wrapped;
+}
+
 function wrapMethod(fn: AnyFn, obj: object, methodName: string, config: TracingConfig) {
-  const { context: ctx, includeReturnValues } = config;
+  const ctx = config.context;
   return function (this: unknown, ...args: unknown[]) {
     // Inactive context, or this call is itself a side effect of rendering a value (a
     // narrativeSummary() invoked while capturing some OTHER traced call's parameter/return —
@@ -413,12 +458,10 @@ function wrapMethod(fn: AnyFn, obj: object, methodName: string, config: TracingC
     if (!ctx.isActive || isRenderingInProgress()) return invokeTarget(fn, obj, args);
     const entry = buildEntry(fn, methodName, args, config);
     if (!entry) return invokeTarget(fn, obj, args);
-    const { handle, onError } = entry;
     try {
-      const result = ctx.runScoped(handle, () => invokeTarget(fn, obj, args));
-      return exitWithResult(ctx, result, includeReturnValues, handle, onError);
+      return invokeInSpan(fn, obj, args, config, entry);
     } catch (error) {
-      recordException(ctx, error, handle, onError);
+      recordException(ctx, error, entry.handle, entry.onError);
       throw error;
     }
   };
@@ -440,6 +483,7 @@ function buildTracingConfig(
     includeReturnValues: options?.includeReturnValues !== false,
     ...(paramNames !== undefined && { paramNames }),
     ...(options?.methods !== undefined && { methods: options.methods }),
+    ...(options?.wrapResult !== undefined && { wrapResult: options.wrapResult }),
   };
 }
 
@@ -583,7 +627,13 @@ function isExcludedTarget(target: object, options: ProxyOptions | undefined): bo
   return excludedPrefixOf(className, effectiveExclude(options?.exclude)) !== undefined;
 }
 
-const PROXY_OPTION_KEYS = ["className", "includeReturnValues", "methods", "exclude"] as const;
+const PROXY_OPTION_KEYS = [
+  "className",
+  "includeReturnValues",
+  "methods",
+  "exclude",
+  "wrapResult",
+] as const;
 const METHOD_CONFIG_KEYS = ["params", "notTraced", "narration", "onError"] as const;
 
 // A paramNames map's values are always arrays of names; ProxyOptions' distinguishing keys never
@@ -620,6 +670,7 @@ function splitWrapArguments(
 function validateProxyOptions(options: ProxyOptions): void {
   rejectUnknownKeys(options, PROXY_OPTION_KEYS, "traceObject options");
   if (options.exclude !== undefined) validateExclude(options.exclude);
+  validateWrapResult(options.wrapResult);
   if (options.methods === undefined) return;
   for (const [methodName, cfg] of Object.entries(options.methods)) {
     if (cfg === null || typeof cfg !== "object" || Array.isArray(cfg)) {
@@ -630,6 +681,13 @@ function validateProxyOptions(options: ProxyOptions): void {
     }
     rejectUnknownKeys(cfg, METHOD_CONFIG_KEYS, `traceObject methods.${methodName}`);
   }
+}
+
+function validateWrapResult(wrap: unknown): void {
+  if (wrap === undefined || typeof wrap === "function") return;
+  throw new TypeError(
+    `traceObject options.wrapResult must be a function (got ${typeof wrap}) → narrativetrace-doctor skill`,
+  );
 }
 
 // Validated up front, before the invalid list could be masked by an early return.
