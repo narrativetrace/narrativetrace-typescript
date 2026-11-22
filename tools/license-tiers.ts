@@ -2,10 +2,10 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 /**
- * This port's licence-category source — the one place that decides which published package ships
+ * This runtime's licence-category source — the one place that decides which published package ships
  * Apache-2.0 instead of the BUSL-1.1 runtime licence. Mirrors the Java reference repository's
  * `licensing.properties` (`module.narrativetrace-skills=open`, `module.narrativetrace-cli=open`,
- * `module.narrativetrace-tooling=open`), minus the file: this port has three packages, not
+ * `module.narrativetrace-tooling=open`), minus the file: this runtime has three packages, not
  * dozens, so one shared module is the whole registry rather than a parsed properties file.
  * `__tests__/package-metadata.test.ts` and `__tests__/notice.test.ts` both gate against THIS set —
  * neither defines its own copy, so the two can never silently disagree about which packages are
@@ -16,7 +16,7 @@ export const RUNTIME_LICENSE = "BUSL-1.1";
 export const OPEN_LICENSE = "Apache-2.0";
 
 // The "open" tier (README § License; the Java reference's `licensing.properties` precedent): the
-// standards surface third-party code compiles against ships Apache 2.0, distinct from the
+// agent-skill carrier, the CLI and the tooling library ship Apache 2.0, distinct from the
 // BUSL-1.1 runtime. `cli` is the first such package — the format CLI over the open artifact
 // formats (Pro TODO §4.5, ruled free/Open). Adding a package here is a licensing decision, not a
 // default: it belongs on this list only when that decision has actually been made and recorded

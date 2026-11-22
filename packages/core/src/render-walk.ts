@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { errorTypeName } from "./error-display.js";
 /**
  * Where a value renderer currently is inside one object graph — shared by the flat walk (`value-renderer.ts`)
  * and the structured walk (`rendered-value.ts`) so both make one decision.
@@ -52,7 +53,7 @@ export const TOO_MANY = "<max-nodes>";
 
 /** The back-reference marker for an instance already rendered in full earlier in the walk. */
 export function repeatMarker(value: object): string {
-  return `<repeat: ${value.constructor?.name ?? "Object"}>`;
+  return `<repeat: ${errorTypeName(value)}>`;
 }
 
 /** What a declared-elements hook answered for one instance: its elements, or how it failed. */

@@ -31,6 +31,67 @@ describe("errorTypeName", () => {
     Object.defineProperty(HostileError, "name", { value: "A\nB" });
     expect(errorTypeName(new HostileError("x"))).toBe("A\\nB");
   });
+
+  // A thrown value is held LIVE in TraceOutcome (exception-message.ts's INTENT comment), so
+  // reading its type name is reading an application object at emit time — the same hazard
+  // ExceptionMessage.of already answers with `<error>` on the message axis ("a message that cannot
+  // be read answers <error>"). The type axis has no such guard: `error instanceof Error` and
+  // `error.constructor` are both operations an application object can make throw, and this is the
+  // one reader every text renderer, the diagram walk and the pino/winston/OTel consumers share.
+  // The degraded text is the fix's choice; what these pin is that nothing propagates.
+  describe("ADV-2026-11-03-1: a type name that cannot be read degrades, it never propagates", () => {
+    test("a revoked proxy as the thrown value", () => {
+      const { proxy, revoke } = Proxy.revocable({}, {});
+      revoke();
+      expect(() => errorTypeName(proxy)).not.toThrow();
+    });
+
+    test("a thrown Error whose own constructor accessor throws", () => {
+      const hostile = new Error("x");
+      Object.defineProperty(hostile, "constructor", {
+        get() {
+          throw new Error("boom");
+        },
+      });
+      expect(() => errorTypeName(hostile)).not.toThrow();
+    });
+
+    test("a thrown non-Error object whose own constructor accessor throws", () => {
+      const hostile = {};
+      Object.defineProperty(hostile, "constructor", {
+        get() {
+          throw new Error("boom");
+        },
+      });
+      expect(() => errorTypeName(hostile)).not.toThrow();
+    });
+  });
+
+  // A type name is author-written metadata, not data: it is control-escaped but never shape-scanned.
+  test("a credential-shaped type name prints as written", () => {
+    class Hostile extends Error {}
+    // Public test card number, not a real credential.
+    Object.defineProperty(Hostile, "name", { value: "4111111111111111" });
+
+    expect(errorTypeName(new Hostile("ok"))).toBe("4111111111111111");
+  });
+
+  test("a type name carrying a control character is escaped", () => {
+    class Hostile extends Error {}
+    Object.defineProperty(Hostile, "name", { value: "A\nB" });
+
+    expect(errorTypeName(new Hostile("ok"))).toBe("A\\nB");
+  });
+
+  describe("a type name that is not a string degrades, it never propagates", () => {
+    test("a thrown object whose constructor carries a numeric name", () => {
+      expect(() => errorTypeName({ constructor: { name: 404 } })).not.toThrow();
+    });
+
+    test("a thrown object whose constructor carries an object name", () => {
+      expect(() => errorTypeName({ constructor: { name: { toString: () => "X" } } })).not.toThrow();
+    });
+  });
 });
 
 describe("errorMessage", () => {

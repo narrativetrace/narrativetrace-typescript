@@ -10,7 +10,7 @@ import { renderSkillBody } from "./body.js";
  * `~/.agents/skills` for user-global skills (developers.openai.com/codex/skills,
  * developers.openai.com/codex/concepts/customization; fetched 2026-09-13). Its documented
  * frontmatter is a strict subset of Claude's plugin frontmatter — `name` and `description` only,
- * no `when_to_use`, no `allowed-tools` — so the page BODY is rendered through the exact same
+ * no `when_to_use` — so the page BODY is rendered through the exact same
  * function `render/claude.ts` uses (`render/body.ts`) and only the frontmatter differs here.
  */
 export function renderAgentsSkill(skill: Skill, resolveSnippet: (path: string) => string): string {

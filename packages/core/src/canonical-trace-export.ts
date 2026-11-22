@@ -7,6 +7,7 @@ import {
   SCHEMA_VERSION,
   serviceNameOrUnknown,
 } from "./canonical-entry.js";
+import { errorTypeName, isErrorInstance } from "./error-display.js";
 import { ExceptionMessage } from "./exception-message.js";
 import type { SpanContext } from "./span-context.js";
 import type { TraceId } from "./span-id-generator.js";
@@ -33,7 +34,7 @@ function outcomeName(outcome: TraceOutcome): EntryOutcome {
 }
 
 function errorTypeOf(error: unknown): string {
-  return error instanceof Error ? error.constructor.name : typeof error;
+  return isErrorInstance(error) ? errorTypeName(error) : typeof error;
 }
 
 /** One node's place in the flattening: the node, the ids it was assigned, and the tree's identity. */

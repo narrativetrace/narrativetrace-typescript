@@ -5,7 +5,7 @@ import { ControlEscape } from "./control-escape.js";
 import { RedactionPolicy } from "./redaction-policy.js";
 
 /** What an emitter says when the message could not be read at all. */
-const UNREADABLE = "<error>";
+export const UNREADABLE = "<error>";
 
 /**
  * The one reading of an exception's message every emitter shares.

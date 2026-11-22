@@ -109,7 +109,7 @@ A `--dry-run --json` preview against an empty project looks like this:
 <!-- snippet: packages/cli/narrativetrace-output/init-preview.json -->
 ```json
 {
-  "carrier": "@narrativetrace/skills@0.5.1",
+  "carrier": "@narrativetrace/skills@0.5.2",
   "actions": [
     {
       "kind": "create",
@@ -273,19 +273,25 @@ No skill is ever hand-edited.
 `packages/skills-catalogue/src/catalogue/narrativetrace-debug.ts` and
 `packages/skills-catalogue/src/catalogue/narrativetrace-explain.ts` are the seven sources of truth (the
 reading section the last three share, and the approval gate and pin verify and debug share, are written once, beside them);
-`pnpm run skills-render` regenerates every skill's `.claude/skills/` and `.agents/skills/` pages
-and this repository's own `AGENTS.md` section from them, and `pnpm run skills-check` (wired into
-`pnpm run check`) fails the build the moment any rendered page drifts from the typed source. Every code
+`pnpm run skills-render` regenerates every skill's `.claude/skills/` and `.agents/skills/` pages,
+this repository's own `AGENTS.md` section, and the Claude plugin's own
+`.claude/.claude-plugin/plugin.json`, `icon.png` and `.claude/README.md` from them, and
+`pnpm run skills-check` (wired into `pnpm run check`) fails the build the moment any rendered page
+drifts from the typed source. Every code
 block a rendered page shows is embedded from real, tested source through the same
 `<!-- snippet: -->` marker convention this repository's other docs use — never a hand-typed
 example. A Tier A lint keeps private planning-note citations out of the pages: rationale sentences
-ship, the citation naming the note does not. A second lint guards the one piece of frontmatter whose
-absence is a feature: a skill whose steps can make something public — today,
-`narrativetrace-feedback` — must declare no `allowed-tools`, because that field pre-approves its
-listed tools for the turn that loads the skill, and a reporting skill that pre-approved its own
-reporting command would stop the harness asking exactly where asking is the point. A third lint
-holds the same line for the two skills that promote an approval baseline (`narrativetrace-verify`,
-`narrativetrace-debug`): a skill that runs the approve command declares no allowed tool at all.
+ship, the citation naming the note does not. The rendered Claude pages carry no `allowed-tools` line
+at all, because the plugin directory accepts that key beyond read-only tools only from verified
+publishers: a user gets Claude Code's normal permission prompt the first time a skill runs `pnpm`,
+`npx`, `node` or `git`. A second lint still guards the command set each skill declares: a skill
+whose steps can make something public — today, `narrativetrace-feedback` — must declare no tool
+that would pre-approve its own reporting command, so a flavour that ever emits the key again cannot
+stop the harness asking exactly where asking is the point. A third lint holds the same line for the
+two skills that promote an approval baseline (`narrativetrace-verify`, `narrativetrace-debug`): a
+skill that runs the approve command declares no tool at all. A fourth lint fails the build on a
+pinned NarrativeTrace version in any skill: the skills install without a version, so the package
+manager resolves the newest release from the npm registry.
 
 ## Context7
 

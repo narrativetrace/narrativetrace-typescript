@@ -22,9 +22,9 @@ import {
  * inferred from the turn that asked, and not from a summary of a report they never saw.
  *
  * @llmNote This skill declares NO allowed tools, and that is a safety property rather than an
- * omission. A Claude-flavour `allowed-tools` grants its listed tools for the turn that loads the
- * skill, without prompting — so a skill that declared `npx` would pre-approve its own reporting
- * command. `publishingNotPreApproved` in `../lints.ts` fails the build if that is ever added back.
+ * omission. No rendered page carries an `allowed-tools` line today, and were one ever to, a skill
+ * that declared `npx` would pre-approve its own reporting command.
+ * `publishingNotPreApproved` in `../lints.ts` fails the build if that is ever added back.
  */
 export const NARRATIVETRACE_FEEDBACK: Skill = {
   canonicalName: "narrativetrace-feedback",

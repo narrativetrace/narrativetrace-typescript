@@ -841,3 +841,30 @@ describe("exportJson exception message redaction (B-174)", () => {
     expect(JSON.parse(json).events[1].errorMessage).toBe("[REDACTED]");
   });
 });
+
+// ADV-2026-11-03-3 — INVARIANT: every emitter's output is well-formed for every input, and a
+// hostile value degrades rather than propagating. A thrown value is held live in TraceOutcome, and
+// this exporter reads its type with its own copy of the type-name logic (`error.constructor.name`,
+// json-export.ts:319) instead of the one reader every other emitter shares. The copy has neither
+// the shared reader's optional chain nor any guard, so it crashes on two shapes the shared reader
+// already answers: a thrown value whose `constructor` cannot be read at all, and an `Error`
+// carrying no `constructor` (which errorTypeName answers with the name "Error").
+describe("ADV-2026-11-03-3: a hostile thrown value cannot stop the JSON export", () => {
+  function treeThatThrew(error: unknown) {
+    return traceTree([traceNode(methodSignature("Payments", "charge", []), threw(error), [])]);
+  }
+
+  test("a revoked proxy as the thrown value still exports", () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    expect(() => exportJson(treeThatThrew(proxy), { scenario: "Payment fails" })).not.toThrow();
+    expect(() => exportChapter(treeThatThrew(proxy), { scenario: "Payment fails" })).not.toThrow();
+  });
+
+  test("an Error carrying no constructor still exports", () => {
+    const error = new Error("declined");
+    Object.defineProperty(error, "constructor", { value: undefined });
+    expect(() => exportJson(treeThatThrew(error), { scenario: "Payment fails" })).not.toThrow();
+    expect(() => exportChapter(treeThatThrew(error), { scenario: "Payment fails" })).not.toThrow();
+  });
+});

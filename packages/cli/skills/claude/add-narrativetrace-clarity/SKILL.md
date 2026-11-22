@@ -2,7 +2,6 @@
 name: add-narrativetrace-clarity
 description: "Adds or verifies NarrativeTrace Clarity in a TypeScript Vitest project. Use when you want a first naming report, per-element explanations, renames for unclear names, or an explicit clarity quality gate. Registers the clarity reporter in the Vitest config, runs the suite, checks the fresh nonempty results file, reads the scores and issues, applies the report's rename suggestions and re-runs until the gate is clean, and preserves existing thresholds. Repairs a missing or empty results file by making a test capture a traced call; route tracing itself being broken to narrativetrace-doctor. Say 'add a clarity report', 'explain our clarity scores', 'set up a clarity quality gate', 'why is the clarity report empty', or 'which names make the trace hard to read' to invoke it."
 when_to_use: "A project has NarrativeTrace and Vitest, and needs a first clarity report, a score explanation, renames, or optional build enforcement."
-allowed-tools: Bash(pnpm *), Bash(npx *), Bash(node *), Bash(git *)
 ---
 
 # add-narrativetrace-clarity

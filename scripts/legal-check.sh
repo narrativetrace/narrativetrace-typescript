@@ -36,6 +36,9 @@
 #     preflight, because a publish must never ship drifted legal text.
 #     Canonical repo absent -> (b) is skipped with a note; (a) still runs
 #     and can still fail in strict mode.
+# (d) The BSL warranty disclaimer quoted in README.md and its translations equals
+#     the passage in this repo's own LICENSE (whitespace-normalised). Runs
+#     unconditionally — no sibling required — and fails in every mode.
 #
 # LEGAL_CANONICAL_REPO resolution (rule-2 class, 2026-09-17 corpus-mirror finding: the dev
 # container mounts the canonical repo at /workspace-java, never at legal.properties'
@@ -219,6 +222,31 @@ else
     else
         echo "SKIPPED: canonical repo not found at $tried — skipping canonical-copy comparison (CI without the sibling stays green; set NARRATIVETRACE_REQUIRE_LEGAL=1 to fail instead)."
     fi
+fi
+
+# --- (d) the BSL warranty disclaimer quoted in the READMEs equals LICENSE -----
+# The no-warranty notice quotes the disclaimer paragraph of LICENSE in README.md
+# and its translations. Whitespace is normalised; nothing else may differ.
+norm() { tr -s '[:space:]' ' ' | sed 's/^ //; s/ $//'; }
+echo ">> BSL disclaimer quote vs LICENSE ..."
+if [ -f LICENSE ]; then
+    bsl_ref="$(awk '/^TO THE EXTENT PERMITTED BY APPLICABLE LAW/{on=1} on&&/^$/{exit} on{print}' LICENSE | norm)"
+    if [ -z "$bsl_ref" ]; then
+        echo "ERROR: LICENSE carries no 'TO THE EXTENT PERMITTED' disclaimer paragraph"
+        FAILED=1
+    fi
+    for file in $FILES; do
+        [ -f "$file" ] || continue
+        bsl_quote="$(awk '/^> TO THE EXTENT PERMITTED BY APPLICABLE LAW/{on=1} on&&!/^>/{exit} on{sub(/^> ?/,""); print}' "$file" | norm)"
+        if [ "$bsl_quote" != "$bsl_ref" ]; then
+            echo "ERROR: $file quotes a BSL disclaimer that differs from LICENSE (or quotes none)"
+            FAILED=1
+        fi
+    done
+    echo ">>   done."
+else
+    echo "ERROR: no LICENSE to compare the quoted BSL disclaimer against"
+    FAILED=1
 fi
 
 if [ "$FAILED" -eq 1 ]; then

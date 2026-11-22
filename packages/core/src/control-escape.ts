@@ -29,6 +29,7 @@ function isLineSeparator(code: number): boolean {
  * separators U+2028/U+2029, becomes `\uXXXX`.
  */
 export const ControlEscape = {
+  /** `text` must already be a string; a caller holding application data coerces it first. */
   sanitize(text: string): string {
     let out = "";
     for (const ch of text) {

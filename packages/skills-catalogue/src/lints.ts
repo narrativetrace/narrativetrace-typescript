@@ -79,11 +79,11 @@ function preApproves(entry: string, token: string): boolean {
  * A skill whose steps can make something public must declare NO allowed tool that would pre-approve
  * the command doing it.
  *
- * INTENT: the Claude flavour's `allowed-tools` grants its listed tools for the turn that LOADS the
- * skill, without prompting. A reporting skill that declared `npx` would therefore pre-approve its
- * own reporting command, and the harness would stop asking exactly where asking is the product.
- * The absence of the field is the safety property, so it is linted rather than left to whoever
- * edits the catalogue next.
+ * INTENT: a Claude `allowed-tools` line grants its listed tools for the turn that LOADS the skill,
+ * without prompting, so a reporting skill that declared `npx` would pre-approve its own reporting
+ * command and the harness would stop asking exactly where asking is the product. No rendered page
+ * carries the line today, and this lint keeps the declared set honest so that the safety property
+ * survives if a flavour ever emits it again.
  *
  * @llmNote Named `sendNotPreApproved` in the design, before the private endpoint was deferred and
  * "send" became "file publicly". Same rule, honest name: nothing is sent anywhere, and what must not
@@ -128,6 +128,41 @@ export function promotionNotPreApproved(skills: readonly Skill[]): readonly stri
       (skill) =>
         `${skill.canonicalName}: declares allowed tools ${JSON.stringify(skill.allowedTools)} while it promotes an approval baseline — a skill that pins must let the harness ask`,
     );
+}
+
+/** `@narrativetrace/<package>@<version>`: a package named with an exact version or range. */
+const PINNED_PACKAGE_SPEC = /@narrativetrace\/[a-z0-9-]+@[\^~=>v]*\d[\w.+-]*/g;
+
+/** `"@narrativetrace/<package>": "<version>"`: a dependency entry carrying an exact version or range. */
+const PINNED_DEPENDENCY = /"@narrativetrace\/[a-z0-9-]+"\s*:\s*"[\^~=>v]*\d[^"]*"/g;
+
+/** Prose and code a skill ships: everything {@link proseOf} reads plus the code its steps show. */
+function shippedTextOf(skill: Skill): readonly string[] {
+  const code = skill.steps.flatMap((step) => (step.body.kind === "code" ? [step.body.code] : []));
+  return [...proseOf(skill), ...code];
+}
+
+/**
+ * Every NarrativeTrace package, in any skill's shipped text, that carries a literal version
+ * instead of naming the package alone.
+ *
+ * INTENT: the TypeScript skills pin no NarrativeTrace version by design. `pnpm add @narrativetrace/x`
+ * with no version resolves the newest release from the npm registry, so a release that leaves the
+ * skills alone leaves their pages byte-identical, and a page never names a number that is not yet
+ * published. Scoped to NarrativeTrace's own packages, like the documentation's version lint: a
+ * `"version": "0.0.0"` in an example `package.json`, or another project's version in a snippet (a
+ * logger, a test runner), is its own fact and is not flagged. The `latest` tag names no number and
+ * is accepted.
+ */
+export function pinnedNarrativeTraceVersions(skills: readonly Skill[]): readonly string[] {
+  return skills.flatMap((skill) =>
+    shippedTextOf(skill).flatMap((text) =>
+      [...text.matchAll(PINNED_PACKAGE_SPEC), ...text.matchAll(PINNED_DEPENDENCY)].map(
+        (match) =>
+          `${skill.canonicalName}: pins a NarrativeTrace version in "${match[0]}" — name the package without a version`,
+      ),
+    ),
+  );
 }
 
 const SECTION_MARK = "§";

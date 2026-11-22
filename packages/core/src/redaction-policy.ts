@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { canonical, isSecretShaped } from "./secret-value-shapes.js";
+import { SHORTEST_BARE_DIGIT_ID_LENGTH } from "./national-id-shapes.js";
+import { canonical, isSecretShaped, PAN_MIN_DIGITS } from "./secret-value-shapes.js";
 
 // The default vocabulary is multilingual and always on (the family standard, identical in every
 // runtime): Spanish, Portuguese, French and Chinese words sit beside the
@@ -278,13 +279,14 @@ export function notTracedFields(value: object): ReadonlySet<string> {
   return Array.isArray(list) ? new Set(list.map(String)) : NO_FIELDS;
 }
 
-/** Fewest characters a numeric text needs before it is scanned (no card number is shorter). */
-const NUMERIC_SCAN_MIN_LENGTH = 12;
+/** Fewest characters a numeric text needs before it is scanned: the shortest bare-digit secret any
+ * shape matcher recognises, so no number a matcher accepts is published unscanned. */
+const NUMERIC_SCAN_MIN_LENGTH = Math.min(PAN_MIN_DIGITS, SHORTEST_BARE_DIGIT_ID_LENGTH);
 
 /**
- * Whether a number's own text is a secret by shape (B-206): twelve or
- * more characters that the value-shape axis recognises, which for digits means a Luhn-valid card
- * number. A double whose text carries an exponent is not scanned.
+ * Whether a number's own text is a secret by shape (B-206): at least
+ * {@link NUMERIC_SCAN_MIN_LENGTH} characters that the value-shape axis recognises, which for digits
+ * means a Luhn-valid card number or a checksum-valid national id. A double whose text carries an exponent is not scanned.
  *
  * @llmNote A 16-digit PAN held as a `number` or `bigint` is the same secret as the same digits in a
  * string; the shape axis asks what the bytes say, not which type holds them. Known trade-off: a

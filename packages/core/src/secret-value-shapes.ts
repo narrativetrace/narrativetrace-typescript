@@ -24,7 +24,9 @@ function isJwtShaped(value: string): boolean {
 }
 
 const PAN_SEPARATORS = /[ -]/g;
-const PAN_DIGITS = /^\d{13,19}$/;
+/** Fewest digits a card number has. */
+export const PAN_MIN_DIGITS = 13;
+const PAN_DIGITS = new RegExp(`^\\d{${PAN_MIN_DIGITS},19}$`);
 
 /** 13–19 digits (optionally space/dash separated) passing the Luhn checksum — a structural check,
  * not a length guess, so an order number that fails Luhn stays visible. */

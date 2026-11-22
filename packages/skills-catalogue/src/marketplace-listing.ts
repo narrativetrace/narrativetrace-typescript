@@ -14,7 +14,8 @@
 export interface MarketplaceListing {
   /**
    * The marketplace identifier AND the plugin's — what a user types after `@` when installing,
-   * and (with no `plugin.json` in the tree) the plugin's manifest name too.
+   * and the `name` of the plugin's own `plugin.json`, which must be the same string (the directory
+   * names a plugin after its manifest, never after its folder).
    */
   readonly name: string;
   readonly owner: MarketplaceOwner;
@@ -31,6 +32,8 @@ export interface MarketplaceListing {
   /** SPDX identifier of the pages the plugin ships, which may differ from the repository root's own licence. */
   readonly license: string;
   readonly homepage: string;
+  /** The public source repository's URL, shown in the plugin manifest. */
+  readonly repository: string;
   readonly keywords: readonly string[];
 }
 

@@ -3,6 +3,7 @@
 // Copyright (c) 2026 Empower Agile
 import * as fc from "fast-check";
 import { describe, expect, test } from "vitest";
+import { renderStructured } from "../src/index.js";
 import { isRenderingInProgress } from "../src/rendering-guard.js";
 import { resolveTemplate } from "../src/template-parser.js";
 import { renderValue } from "../src/value-renderer.js";
@@ -43,12 +44,9 @@ function fakeTracedCall<T>(spans: string[], name: string, fn: () => T): T {
 }
 
 describe("rendering reads state, never runs behaviour", () => {
-  // pending: rendering reads state, never runs behaviour — see the rendering rule in the repository's agent guide
-  // Today, `renderFieldValue` (value-renderer.ts) reads an own-enumerable field with a plain
-  // property access, which invokes an accessor's getter when the field is one — a documented but
-  // unfixed gap (RenderOptions remarks, value-renderer.ts). An object-literal getter is
-  // own-enumerable by default, so this is exactly the shape the remark warns about. Observed red
-  // today: "expected 1 to be +0" (the getter ran once).
+  // Live regression guard: `renderFieldValue` (value-renderer.ts) reads a field through its own
+  // property descriptor, so an own-enumerable getter — the shape an object literal's `get` makes —
+  // is never invoked and the data fields beside it still render.
   test("a getter's invocation counter stays at zero and the data fields still render", () => {
     let calls = 0;
     const account = {
@@ -63,11 +61,8 @@ describe("rendering reads state, never runs behaviour", () => {
     expect(rendered).toContain('"owner": "alice"');
   });
 
-  // pending: rendering reads state, never runs behaviour — see the rendering rule in the repository's agent guide
-  // Today, a throwing accessor field degrades to the typed error marker for that one field
-  // (`renderFieldValue`'s try/catch) — the getter still ran and still threw. Under the rule, an
-  // accessor is never invoked at all, so there is nothing to catch and no marker to show for it.
-  // Observed red today: rendered text still contains "<error:".
+  // Live regression guard: a throwing accessor is never invoked, so there is nothing to catch and
+  // no failure marker for it; its siblings render untouched.
   test("a throwing getter's sibling fields render, with no failure marker for the getter itself", () => {
     const obj = {
       ok: 1,
@@ -78,6 +73,71 @@ describe("rendering reads state, never runs behaviour", () => {
     const rendered = renderValue(obj);
     expect(rendered).toContain('"ok": 1');
     expect(rendered).not.toContain("<error:");
+  });
+
+  describe("the structured channel obeys the same rule", () => {
+    test("a getter's invocation counter stays at zero and the data sibling still renders", () => {
+      let calls = 0;
+      const account = {
+        owner: "alice",
+        get balance() {
+          calls++;
+          return 100;
+        },
+      };
+      const rendered = renderStructured(account);
+      expect(calls).toBe(0);
+      expect(rendered).toMatchObject({ kind: "object", fields: { owner: { value: "alice" } } });
+    });
+
+    test("a throwing getter never runs and its sibling renders with no failure marker for it", () => {
+      const obj = {
+        ok: 1,
+        get bad(): never {
+          throw new Error("getter throws");
+        },
+      };
+      const rendered = renderStructured(obj);
+      expect(rendered).toMatchObject({ fields: { ok: { kind: "number", value: 1 } } });
+      expect(JSON.stringify(rendered)).not.toContain("<error:");
+    });
+
+    test("a getter's return value never reaches the JSON-serialised structured output", () => {
+      const order = {
+        id: "o-1",
+        get total() {
+          return "from-getter";
+        },
+      };
+      const json = JSON.stringify(renderStructured(order));
+      expect(json).not.toContain("from-getter");
+      expect(json).toContain("o-1");
+    });
+
+    test("an accessor field gets the same verdict on both paths: the inaccessible marker", () => {
+      const obj = {
+        id: 7,
+        get total() {
+          return "from-getter";
+        },
+      };
+      expect(renderValue(obj)).toBe('{"id": 7, "total": <inaccessible>}');
+      expect(renderStructured(obj)).toMatchObject({
+        fields: { id: { value: 7 }, total: { kind: "other", text: "<inaccessible>" } },
+      });
+    });
+
+    test("a redacted key that is a getter answers the redaction marker, never run", () => {
+      let calls = 0;
+      const obj = {
+        get password() {
+          calls++;
+          return "hunter2";
+        },
+      };
+      expect(JSON.stringify(renderStructured(obj))).toContain("[REDACTED]");
+      expect(calls).toBe(0);
+    });
   });
 
   // Live regression guard, not pending: `renderArray` (value-renderer.ts) reads elements via

@@ -49,17 +49,20 @@ describe("renderClaudeSkill (full-structure snapshots)", () => {
 });
 
 describe("renderClaudeSkill", () => {
-  it("renders frontmatter with name, description, and allowed-tools as Bash tool patterns", () => {
+  it("renders frontmatter with name and description", () => {
     const rendered = renderClaudeSkill(BASE, () => "");
     expect(rendered).toContain("name: example-skill");
     expect(rendered).toContain('description: "An example skill."');
-    expect(rendered).toContain("allowed-tools: Bash(pnpm *), Bash(node *)");
+    expect(rendered).toMatch(/^---\nname: example-skill\ndescription: [^\n]*\n---\n/);
   });
 
-  it("omits the allowed-tools line when the skill pre-approves nothing", () => {
-    const rendered = renderClaudeSkill({ ...BASE, allowedTools: [] }, () => "");
+  // Anthropic's plugin directory accepts `allowed-tools` beyond read-only tools only from Verified
+  // organizations (owner ruling 2026-11-19), so a declared command set renders no line at all,
+  // whatever the skill declares and however it is spelled.
+  it("renders no allowed-tools line however many commands the skill declares", () => {
+    const rendered = renderClaudeSkill({ ...BASE, allowedTools: ["pnpm", "npx", "git"] }, () => "");
     expect(rendered).not.toContain("allowed-tools");
-    expect(rendered).toMatch(/^---\nname: example-skill\ndescription: [^\n]*\n---\n/);
+    expect(rendered).not.toContain("Bash(");
   });
 
   it("omits when_to_use when absent, includes it when present", () => {

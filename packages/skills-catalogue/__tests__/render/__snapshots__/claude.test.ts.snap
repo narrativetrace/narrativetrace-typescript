@@ -5,7 +5,6 @@ exports[`renderClaudeSkill (full-structure snapshots) > matches the known-good r
 name: example-skill
 description: "An example skill."
 when_to_use: "when it matters"
-allowed-tools: Bash(pnpm *), Bash(node *)
 ---
 
 # example-skill
@@ -44,7 +43,6 @@ exports[`renderClaudeSkill (full-structure snapshots) > matches the known-good r
 "---
 name: example-skill
 description: "An example skill."
-allowed-tools: Bash(pnpm *), Bash(node *)
 ---
 
 # example-skill

@@ -5,7 +5,6 @@ import { describe, expect, it } from "vitest";
 import type { Skill } from "../src/skill.js";
 import {
   allowedToolsViolations,
-  claudeToolPattern,
   commandStrings,
   descriptionFitsBudget,
   firstToken,
@@ -100,16 +99,6 @@ describe("vocabularyViolations", () => {
   });
 });
 
-describe("claudeToolPattern", () => {
-  it("wraps a command in a Bash tool pattern matching it and its arguments", () => {
-    expect(claudeToolPattern("git")).toBe("Bash(git *)");
-  });
-
-  it("wraps a dotted-path command the same way", () => {
-    expect(claudeToolPattern("./gradlew")).toBe("Bash(./gradlew *)");
-  });
-});
-
 describe("allowedToolsViolations", () => {
   it("is empty when every allowed tool is a bare command of the closed vocabulary", () => {
     const skill: Skill = { ...BASE, allowedTools: ["pnpm", "node", "git"] };
@@ -123,10 +112,10 @@ describe("allowedToolsViolations", () => {
     ]);
   });
 
-  it("flags an allowed tool already written as a rendered platform spelling", () => {
+  it("flags an allowed tool already written as a platform tool-pattern spelling", () => {
     const skill: Skill = { ...BASE, allowedTools: ["Bash(git *)"] };
     expect(allowedToolsViolations(skill)).toEqual([
-      'example-skill: allowed tool "Bash(git *)" is a rendered platform spelling — declare the bare command and let the renderer spell it',
+      'example-skill: allowed tool "Bash(git *)" is a platform tool-pattern spelling — declare the bare command',
     ]);
   });
 });

@@ -5,9 +5,9 @@ NarrativeTrace is a trademark of Empower Agile.
 This product includes software developed at Empower Agile
 (https://www.empoweragile.com).
 
-NarrativeTrace's API and output format are open standards (Apache 2.0). Its runtime is free and
-source-available (BSL 1.1, converting to Apache 2.0 four years after each release). Pro is
-commercial.
+NarrativeTrace's output format is an open standard: its JSON schemas are Apache 2.0. Its runtime,
+the decorator API included, is free and source-available (BSL 1.1, converting to Apache 2.0 four
+years after each release). Pro is commercial.
 
 Which licence applies to what
 ------------------------------
@@ -17,12 +17,13 @@ Which licence applies to what
   @narrativetrace/tooling
       Apache License, Version 2.0 — see LICENSE-APACHE.
       The `narrativetrace` launcher, the agent-skill carrier it bundles, and the installer and
-      doctor library behind it. Open for the same reason the annotation/decorator API is — what a
-      consumer's own agents and build read has to be readable, and reusable, without agreeing to
-      anything.
+      doctor library behind it. Open because what a consumer's own agents and build read has to be
+      readable, and reusable, without agreeing to anything.
 
   the rendered agent-skill pages in this repository, and the marketplace file that lists them:
-  .claude/skills/**, .agents/skills/** and .claude-plugin/marketplace.json
+  .claude/skills/**, .agents/skills/** and .claude-plugin/marketplace.json, with the plugin's own
+  manifest and icon in .claude/.claude-plugin/plugin.json and .claude/.claude-plugin/icon.png, and
+  its README in .claude/README.md
       Apache License, Version 2.0.
       Build output of the same catalogue the skills carrier package ships, published at the paths
       agent tools discover them at. Whoever installs them — by copying a directory, through the

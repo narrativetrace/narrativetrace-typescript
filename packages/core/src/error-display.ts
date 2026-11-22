@@ -2,7 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { ControlEscape } from "./control-escape.js";
-import { ExceptionMessage } from "./exception-message.js";
+import { ExceptionMessage, UNREADABLE } from "./exception-message.js";
 
 /**
  * The exception's type name for display — the constructor name for Error instances and other
@@ -18,10 +18,30 @@ export function errorTypeName(error: unknown): string {
   return ControlEscape.sanitize(rawErrorTypeName(error));
 }
 
+/**
+ * Whether `error` is an `Error` instance, answering `false` when the check itself throws (a revoked
+ * `Proxy` throws from `instanceof`). Every emitter that branches on the kind of a thrown value
+ * reads it here rather than with a bare `instanceof`.
+ */
+export function isErrorInstance(error: unknown): error is Error {
+  try {
+    return error instanceof Error;
+  } catch {
+    return false;
+  }
+}
+
+// A thrown value is held live, so reading its type is application code: `instanceof` and
+// `constructor.name` can both throw, and `name` need not be a string. An unreadable type answers
+// `<error>`, as an unreadable message does; any other name is coerced to text.
 function rawErrorTypeName(error: unknown): string {
-  if (error instanceof Error) return error.constructor?.name || "Error";
-  if (typeof error === "object" && error !== null) return error.constructor?.name || "Object";
-  return typeof error;
+  try {
+    if (typeof error !== "object" || error === null) return typeof error;
+    const name: unknown = (error as { constructor?: { name?: unknown } }).constructor?.name;
+    return name ? String(name) : error instanceof Error ? "Error" : "Object";
+  } catch {
+    return UNREADABLE;
+  }
 }
 
 /**

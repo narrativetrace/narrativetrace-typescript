@@ -382,3 +382,26 @@ describe("canonicalEntries exception message redaction (B-174)", () => {
     expect(exit?.message).toBe("!! Error: [REDACTED]");
   });
 });
+
+// ADV-2026-11-03-3 — INVARIANT: every emitter's output is well-formed for every input, and a
+// hostile value degrades rather than propagating. `canonical-entry.ts`'s `errorType` is the second
+// copy of the type-name read (`error instanceof Error ? error.constructor.name : typeof error`),
+// bypassing the one reader every text renderer shares and so missing both its optional chain and
+// any guard — see the twin block in json-export.test.ts.
+describe("ADV-2026-11-03-3: a hostile thrown value cannot stop the canonical export", () => {
+  function treeThatThrew(error: unknown) {
+    return traceTree([traceNode(methodSignature("Payments", "charge", []), threw(error), [])]);
+  }
+
+  test("a revoked proxy as the thrown value still exports", () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    expect(() => exportCanonicalJson(treeThatThrew(proxy))).not.toThrow();
+  });
+
+  test("an Error carrying no constructor still exports", () => {
+    const error = new Error("declined");
+    Object.defineProperty(error, "constructor", { value: undefined });
+    expect(() => exportCanonicalJson(treeThatThrew(error))).not.toThrow();
+  });
+});

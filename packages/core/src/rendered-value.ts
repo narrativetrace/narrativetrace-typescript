@@ -4,6 +4,7 @@
 import { ControlEscape } from "./control-escape.js";
 import { declaredElements, elementOrigin, platformMembers } from "./element-origin.js";
 import { errorTypeName } from "./error-display.js";
+import { INACCESSIBLE, readOwnField } from "./field-read.js";
 import { isThenable } from "./is-thenable.js";
 import {
   notTracedFields,
@@ -63,6 +64,7 @@ function other(text: string): RenderedValue {
 }
 
 const REDACTED: RenderedValue = other(RedactionPolicy.MARKER);
+const INACCESSIBLE_VALUE: RenderedValue = other(INACCESSIBLE);
 
 /**
  * Converts an arbitrary runtime value into a bounded, typed {@link RenderedValue} tree.
@@ -187,7 +189,7 @@ function structuredObject(
     value,
     depth === 0,
     () => dispatchObject(value, opts, depth, walk),
-    () => other(objectTypeName(value)),
+    (err) => other(`<error: ${errorTypeName(err)}>`),
   );
 }
 
@@ -325,11 +327,24 @@ function structuredFields(
   for (const key of Object.keys(value).slice(0, opts.maxFields)) {
     fields[key] = opts.redactionPolicy.isRedacted(key, explicit.has(key))
       ? REDACTED
-      : structured((value as Record<string, unknown>)[key], opts, depth + 1, walk);
+      : structuredField(value, key, opts, depth, walk);
   }
   return { kind: "object", typeName: objectTypeName(value), fields };
 }
 
+// An accessor field is the `other` marker `<inaccessible>` — the structured twin of the flat
+// path's text — because the field read (`readOwnField`) is the one decision both paths share.
+function structuredField(
+  value: object,
+  key: string,
+  opts: Required<StructuredOptions>,
+  depth: number,
+  walk: RenderWalk,
+): RenderedValue {
+  const field = readOwnField(value, key);
+  return field.accessible ? structured(field.value, opts, depth + 1, walk) : INACCESSIBLE_VALUE;
+}
+
 function objectTypeName(value: object): string {
-  return value.constructor?.name ?? "Object";
+  return errorTypeName(value);
 }

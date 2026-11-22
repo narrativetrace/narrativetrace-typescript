@@ -2,9 +2,8 @@
 
 One `npx` command over NarrativeTrace's open artifact formats. Three verbs: `doctor` diagnoses a
 project, `init` installs the NarrativeTrace agent skills into it, and `uninstall` removes exactly
-what `init` wrote. `view`, `validate`, and `diff` are planned. Licensed Apache 2.0 — this package is
-the open, standards surface (annotation/decorator API, output-format spec, clarity rubric), distinct
-from the Business Source License 1.1 runtime packages published from this repository.
+what `init` wrote. `view`, `validate`, and `diff` are planned. Licensed Apache 2.0 — like `@narrativetrace/skills` and `@narrativetrace/tooling`, and unlike the
+Business Source License 1.1 runtime packages published from this repository.
 
 Every verb is zero-network and every flag follows the verb:
 

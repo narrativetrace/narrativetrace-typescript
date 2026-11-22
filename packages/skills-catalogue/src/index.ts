@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 export {
+  CLAUDE_DIRECTORY,
   findProListing,
   findSkill,
   MARKETPLACE,
@@ -9,6 +10,7 @@ export {
   PRO_LISTINGS,
   SKILLS,
 } from "./catalogue-index.js";
+export type { ClaudeListing } from "./claude-listing.js";
 export {
   allowedToolsViolations,
   CATALOGUE_CHAR_BUDGET,
@@ -18,6 +20,7 @@ export {
   citationViolations,
   descriptionFitsBudget,
   listingsDisagreeingWithFeatureGuide,
+  pinnedNarrativeTraceVersions,
   stepsWithoutVerify,
   unparseableCommands,
   vocabularyViolations,
@@ -36,6 +39,11 @@ export { renderSkillBody } from "./render/body.js";
 export type { CarrierCatalogueEntry } from "./render/catalogue-json.js";
 export { carrierCatalogueEntries, renderCarrierCatalogueJson } from "./render/catalogue-json.js";
 export { renderClaudeSkill } from "./render/claude.js";
+export {
+  CLAUDE_PLUGIN_ICON_PATH,
+  renderClaudePluginJson,
+} from "./render/claude-plugin-json.js";
+export { renderClaudePluginReadme } from "./render/claude-plugin-readme.js";
 export {
   CURSOR_RULE_PATH,
   CURSOR_SKILLS_PATH,
@@ -68,7 +76,6 @@ export type {
 } from "./skill.js";
 export {
   COMMAND_VOCABULARY,
-  claudeToolPattern,
   commandStrings,
   firstToken,
 } from "./skill.js";

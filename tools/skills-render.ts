@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import {
+  CLAUDE_DIRECTORY,
   MARKETPLACE,
   OPENAI_DIRECTORY,
   OPENAI_PLUGIN_ROOT,
@@ -10,6 +11,8 @@ import {
   renderAgentsMdSnippet,
   renderAgentsSkill,
   renderCarrierCatalogueJson,
+  renderClaudePluginJson,
+  renderClaudePluginReadme,
   renderClaudeSkill,
   renderCursorMarketplaceJson,
   renderCursorPluginJson,
@@ -81,6 +84,19 @@ const CURSOR_RULE_FILE_PATH = ".cursor/rules/narrativetrace.mdc";
  */
 const OPENAI_PLUGIN_JSON_PATH = `${OPENAI_PLUGIN_ROOT}/plugin.json`;
 
+/**
+ * The plugin's own manifest and icon, INSIDE the plugin folder the marketplace entry points at (the
+ * marketplace file is at the repository root; a manifest is read from the plugin root). Without a
+ * manifest the directory names the plugin after its folder, `.claude`, a reserved name. The icon is
+ * a byte-for-byte copy of the OpenAI package's logo: one brand asset, two copies. The README is
+ * what the directory shows as the listing and its security scan reads; every fact in it comes from
+ * the catalogue.
+ */
+const CLAUDE_PLUGIN_JSON_PATH = ".claude/.claude-plugin/plugin.json";
+const CLAUDE_PLUGIN_README_PATH = ".claude/README.md";
+const PLUGIN_ICON_FILE = ".claude/.claude-plugin/icon.png";
+const OPENAI_LOGO_PATH = `${OPENAI_PLUGIN_ROOT}/assets/logo.png`;
+
 function renderedSkillFiles(): ReadonlyMap<string, string> {
   const files = new Map<string, string>();
   for (const skill of SKILLS) {
@@ -101,6 +117,8 @@ function allRenderedFiles(): ReadonlyMap<string, string> {
     ...renderedSkillFiles(),
     ...renderedCatalogueFiles(),
     [MARKETPLACE_JSON_PATH, renderMarketplaceJson(MARKETPLACE)],
+    [CLAUDE_PLUGIN_JSON_PATH, renderClaudePluginJson(CLAUDE_DIRECTORY)],
+    [CLAUDE_PLUGIN_README_PATH, renderClaudePluginReadme(MARKETPLACE, SKILLS)],
     [CURSOR_PLUGIN_JSON_PATH, renderCursorPluginJson(MARKETPLACE)],
     [CURSOR_MARKETPLACE_JSON_PATH, renderCursorMarketplaceJson(MARKETPLACE)],
     [OPENAI_PLUGIN_JSON_PATH, renderOpenAiPluginJson(OPENAI_DIRECTORY)],
@@ -113,12 +131,20 @@ function renderedAgentsMd(): string {
   return spliceAgentsMdSection(current, renderAgentsMdSnippet(SKILLS, PRO_LISTINGS));
 }
 
+function iconMatchesLogo(): boolean {
+  return (
+    existsSync(PLUGIN_ICON_FILE) &&
+    readFileSync(PLUGIN_ICON_FILE).equals(readFileSync(OPENAI_LOGO_PATH))
+  );
+}
+
 function checkAll(): string[] {
   const drifted: string[] = [];
   for (const [path, expected] of allRenderedFiles()) {
     const actual = existsSync(path) ? readFileSync(path, "utf-8") : undefined;
     if (actual !== expected) drifted.push(path);
   }
+  if (!iconMatchesLogo()) drifted.push(PLUGIN_ICON_FILE);
   const expectedAgentsMd = renderedAgentsMd();
   if (readFileSync("AGENTS.md", "utf-8") !== expectedAgentsMd) drifted.push("AGENTS.md");
   return drifted;
@@ -131,6 +157,8 @@ function fixAll(): string[] {
     writeFileSync(path, content);
     written.push(path);
   }
+  copyFileSync(OPENAI_LOGO_PATH, PLUGIN_ICON_FILE);
+  written.push(PLUGIN_ICON_FILE);
   writeFileSync("AGENTS.md", renderedAgentsMd());
   written.push("AGENTS.md");
   return written;

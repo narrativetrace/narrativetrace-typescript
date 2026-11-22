@@ -2,8 +2,8 @@
 
 The library the `narrativetrace` command line is a launcher over: the doctor's read-only project
 checks, the framework table they measure a project against, and the installer that copies
-NarrativeTrace's agent skills into a project. Licensed Apache 2.0 — this package is part of the
-open, standards surface, distinct from the Business Source License 1.1 runtime packages published
+NarrativeTrace's agent skills into a project. Licensed Apache 2.0 — like `@narrativetrace/cli`
+and `@narrativetrace/skills`, and unlike the Business Source License 1.1 runtime packages published
 from this repository.
 
 Nothing here is a command. `@narrativetrace/cli` owns argument parsing, exit codes and the

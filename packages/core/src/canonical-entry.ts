@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
+import { errorTypeName, isErrorInstance } from "./error-display.js";
 import { ExceptionMessage } from "./exception-message.js";
 import type { SpanContext } from "./span-context.js";
 import type { TraceId } from "./span-id-generator.js";
@@ -123,7 +124,7 @@ function mapEnter(event: EnterEvent): CanonicalEntry {
 }
 
 function errorType(error: unknown): string {
-  return error instanceof Error ? error.constructor.name : typeof error;
+  return isErrorInstance(error) ? errorTypeName(error) : typeof error;
 }
 
 function threwFields(error: unknown): Partial<CanonicalEntry> {

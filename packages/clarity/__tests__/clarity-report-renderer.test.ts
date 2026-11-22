@@ -136,6 +136,6 @@ describe("Markdown table-cell escaping in the clarity reports", () => {
     const report = renderClaritySuiteReport([{ scenario: hostile, result: hostileResult }]);
     expect(report).toContain("| Evil\\| name | 0.35 |");
     expect(report).toContain("### Evil| name");
-    expect(report).toContain("| HIGH | method-name | `Foo.bar\\| baz` | Rename\\| it |");
+    expect(report).toContain("| HIGH | method-name | `Foo.bar%7C baz` | Rename\\| it |");
   });
 });

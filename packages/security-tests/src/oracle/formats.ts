@@ -100,12 +100,15 @@ function frontmatterBlock(emitter: string, markdown: string): string {
   return markdown.slice("---\n".length, end);
 }
 
-/** Reads the YAML frontmatter block of a Markdown document with a real YAML parser. */
+/**
+ * Reads the YAML frontmatter block of a Markdown document with a real YAML parser, under the
+ * YAML 1.1 schema — the strictest reader (`yes`, `0x1f`, `1_000`, dates all resolve to non-strings).
+ */
 export function frontmatterOf(emitter: string, markdown: string): Record<string, unknown> {
   const block = frontmatterBlock(emitter, markdown);
   let parsed: unknown;
   try {
-    parsed = parseYaml(block);
+    parsed = parseYaml(block, { schema: "yaml-1.1" });
   } catch (error) {
     throw new Error(
       `${emitter} produced frontmatter no YAML parser accepts: ${(error as Error).message}`,
@@ -178,12 +181,17 @@ export function frontmatterFenceCount(markdown: string): number {
 }
 
 /**
- * How many ATX heading lines a Markdown document carries.
+ * How many headings a Markdown document carries: ATX lines (`# h`) plus setext headings, a
+ * non-blank line directly followed by a line of only `=` or only `-`.
  *
  * A heading is document structure the renderer alone may write; a value or a scenario that adds
  * one has forged the document's outline — an unescaped scenario in the Markdown body header used
  * to do exactly that (see markdown-renderer.ts's documentHeader).
  */
 export function headingCount(markdown: string): number {
-  return markdown.split("\n").filter((line) => /^#{1,6} .*/.test(line)).length;
+  const lines = markdown.split("\n");
+  const underline = /^ {0,3}(?:=+|-+)[ \t]*\r?$/;
+  const atx = lines.filter((line) => /^#{1,6} .*/.test(line)).length;
+  const setext = lines.filter((line, i) => i > 0 && underline.test(line) && lines[i - 1]?.trim());
+  return atx + setext.length;
 }

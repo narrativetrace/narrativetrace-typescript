@@ -52,3 +52,32 @@ describe("a number's own text passes the shape scan", () => {
     expect(renderValue(4.111111111111111e30)).toBe("4.111111111111111e+30");
   });
 });
+
+// B-258: the scan floor is the shortest bare-digit secret a matcher recognises, not the card length.
+describe("an 11-digit national id held as a number is shape-scanned", () => {
+  const CPF = "52998224725";
+
+  test.each([
+    ["number", Number(CPF)],
+    ["bigint", BigInt(CPF)],
+  ])("a %s holding a checksum-valid CPF renders as the marker on the flat path", (_k, v) => {
+    expect(renderValue(v)).toBe(MARKER);
+  });
+
+  test.each([
+    ["number", Number(CPF)],
+    ["bigint", BigInt(CPF)],
+  ])("a %s holding a checksum-valid CPF never shows the digits on the structured path", (_k, v) => {
+    const out = JSON.stringify(renderStructured(v));
+    expect(out).not.toContain(CPF);
+    expect(out).toContain(MARKER);
+  });
+
+  test("a checksum-invalid or short number of that length stays visible", () => {
+    expect(renderValue(12345678901)).toBe("12345678901");
+    expect(renderValue(52998224726)).toBe("52998224726");
+    expect(renderValue(42)).toBe("42");
+    expect(renderValue(20261110)).toBe("20261110");
+    expect(renderStructured(52998224726)).toEqual({ kind: "number", value: 52998224726 });
+  });
+});

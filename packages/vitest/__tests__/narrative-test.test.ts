@@ -945,6 +945,15 @@ describe("createNarrativeTest(...).each", () => {
     expect(readFileSync(pathOne, "utf-8")).toContain("Catalog.find(item)");
   });
 
+  // A parameterized case cannot repeat here: the registration callable takes (name, fn) and no
+  // per-test options, and Vitest has no suite-wide repeat setting, so one row is always exactly one
+  // invocation. Each row's identity is therefore unique — two rows write exactly two artifact sets.
+  test("one row is one invocation: two rows write exactly two .nt files and no repeat option exists", () => {
+    const written = readdirSync(structuralDir).filter((file) => file.endsWith(".nt"));
+    expect(written).toHaveLength(2);
+    expect(eachTest.each(["a"]).length).toBe(2);
+  });
+
   test("titles the structural header <humanized name> #<index>, never the interpolated label", () => {
     const identity = artifactIdentityOfInvocation(
       "narrative-test",

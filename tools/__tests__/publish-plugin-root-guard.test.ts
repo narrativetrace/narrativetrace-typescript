@@ -2,13 +2,32 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkPluginRoot } from "../publish-plugin-root-guard.js";
+import { parseRestoreExceptions, restoreExceptions } from "../publish-restore-exceptions.js";
 
 const REPO_ROOT = join(import.meta.dirname, "..", "..");
+
+/** A staged plugin root holding exactly what the directory needs: skills, manifest, icon, README. */
+function stagePluginRoot(stage: string): void {
+  mkdirSync(join(stage, ".claude", "skills", "doctor"), { recursive: true });
+  mkdirSync(join(stage, ".claude", ".claude-plugin"), { recursive: true });
+  writeFileSync(join(stage, ".claude", ".claude-plugin", "plugin.json"), "{}");
+  writeFileSync(join(stage, ".claude", ".claude-plugin", "icon.png"), "png");
+  writeFileSync(join(stage, ".claude", "README.md"), "# readme");
+  writeFileSync(join(stage, ".claude", "skills", "doctor", "SKILL.md"), "# skill");
+}
 
 describe("checkPluginRoot", () => {
   let stage: string;
@@ -21,13 +40,24 @@ describe("checkPluginRoot", () => {
     rmSync(stage, { recursive: true, force: true });
   });
 
-  it("is ok when the staged .claude/ holds only skills/", () => {
-    mkdirSync(join(stage, ".claude", "skills", "doctor"), { recursive: true });
-    expect(checkPluginRoot(stage)).toEqual({ ok: true, strays: [] });
+  it("is ok when the staged .claude/ holds skills/, the manifest, the icon and the README", () => {
+    stagePluginRoot(stage);
+
+    expect(checkPluginRoot(stage)).toEqual({
+      ok: true,
+      strays: [],
+      missing: [],
+      files: [
+        ".claude/.claude-plugin/icon.png",
+        ".claude/.claude-plugin/plugin.json",
+        ".claude/README.md",
+        ".claude/skills/doctor/SKILL.md",
+      ],
+    });
   });
 
-  it("names a stray directory under .claude/ that is not skills/", () => {
-    mkdirSync(join(stage, ".claude", "skills"), { recursive: true });
+  it("names a stray directory under .claude/ that is not skills/ or .claude-plugin/", () => {
+    stagePluginRoot(stage);
     mkdirSync(join(stage, ".claude", "commands"), { recursive: true });
 
     const result = checkPluginRoot(stage);
@@ -37,22 +67,61 @@ describe("checkPluginRoot", () => {
   });
 
   it("names a stray FILE under .claude/ too, not only directories", () => {
-    mkdirSync(join(stage, ".claude", "skills"), { recursive: true });
+    stagePluginRoot(stage);
     writeFileSync(join(stage, ".claude", "settings.local.json"), "{}");
 
     const result = checkPluginRoot(stage);
 
+    expect(result.ok).toBe(false);
     expect(result.strays).toEqual([".claude/settings.local.json"]);
   });
 
   it("names every stray, not just the first", () => {
-    mkdirSync(join(stage, ".claude", "skills"), { recursive: true });
+    stagePluginRoot(stage);
     mkdirSync(join(stage, ".claude", "commands"), { recursive: true });
     mkdirSync(join(stage, ".claude", "agents"), { recursive: true });
 
     const result = checkPluginRoot(stage);
 
     expect(new Set(result.strays)).toEqual(new Set([".claude/commands", ".claude/agents"]));
+  });
+
+  it("names a stray beside the manifest inside .claude-plugin/", () => {
+    stagePluginRoot(stage);
+    writeFileSync(join(stage, ".claude", ".claude-plugin", "hooks.json"), "{}");
+
+    const result = checkPluginRoot(stage);
+
+    expect(result.ok).toBe(false);
+    expect(result.strays).toEqual([".claude/.claude-plugin/hooks.json"]);
+  });
+
+  it.each([
+    [".claude-plugin/plugin.json"],
+    [".claude-plugin/icon.png"],
+    ["README.md"],
+  ])("fails when the staged plugin root lacks %s", (required) => {
+    stagePluginRoot(stage);
+    rmSync(join(stage, ".claude", required));
+
+    const result = checkPluginRoot(stage);
+
+    expect(result.ok).toBe(false);
+    expect(result.missing).toEqual([`.claude/${required}`]);
+    expect(result.strays).toEqual([]);
+  });
+
+  it("fails naming all three when the plugin root holds only skills/", () => {
+    mkdirSync(join(stage, ".claude", "skills", "doctor"), { recursive: true });
+
+    const result = checkPluginRoot(stage);
+
+    expect(result.ok).toBe(false);
+    expect(result.missing).toEqual([
+      ".claude/.claude-plugin/plugin.json",
+      ".claude/.claude-plugin/icon.png",
+      ".claude/README.md",
+    ]);
   });
 
   it("errors when the plugin root is missing entirely from the snapshot", () => {
@@ -66,6 +135,52 @@ describe("checkPluginRoot", () => {
     writeFileSync(join(stage, ".claude"), "not a directory");
 
     expect(checkPluginRoot(stage).error).toBeDefined();
+  });
+});
+
+describe("the real .publishignore and restore exceptions carry the plugin's own files", () => {
+  let stage: string;
+  let pristine: string;
+
+  beforeEach(() => {
+    stage = mkdtempSync(join(tmpdir(), "publishignore-restore-"));
+    pristine = mkdtempSync(join(tmpdir(), "publishignore-pristine-"));
+  });
+
+  afterEach(() => {
+    rmSync(stage, { recursive: true, force: true });
+    rmSync(pristine, { recursive: true, force: true });
+  });
+
+  it("restores the manifest, icon and README after the whole-folder strip, and nothing private", (ctx) => {
+    if (!existsSync(join(REPO_ROOT, ".publishignore"))) {
+      ctx.skip("precondition absent: .publishignore is stripped from the public snapshot");
+    }
+    stagePluginRoot(pristine);
+    writeFileSync(join(pristine, ".claude", "settings.local.json"), "{}");
+    cpSync(pristine, stage, { recursive: true });
+
+    execFileSync("bash", [
+      "-c",
+      `cd "$1" && while IFS= read -r pattern; do
+         case "$pattern" in ''|'#'*) continue ;; esac
+         case "$pattern" in '!'*) continue ;; esac
+         rm -rf $pattern 2>/dev/null || true
+       done < "$2"`,
+      "--",
+      stage,
+      join(REPO_ROOT, ".publishignore"),
+    ]);
+    expect(existsSync(join(stage, ".claude"))).toBe(false);
+
+    const exceptions = parseRestoreExceptions(
+      readFileSync(join(REPO_ROOT, ".publishignore"), "utf-8"),
+    );
+    const { missing } = restoreExceptions(stage, pristine, exceptions);
+
+    expect(missing).toEqual([]);
+    expect(checkPluginRoot(stage)).toMatchObject({ ok: true, strays: [], missing: [] });
+    expect(existsSync(join(stage, ".claude", "settings.local.json"))).toBe(false);
   });
 });
 

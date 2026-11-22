@@ -84,7 +84,8 @@ function rutVerifier(body: string): string {
   return rest === 10 ? "k" : String(rest);
 }
 
-const CPF_PATTERN = /^(?:\d{3}\.\d{3}\.\d{3}-\d{2}|\d{11})$/;
+const CPF_DIGITS = 11;
+const CPF_PATTERN = new RegExp(`^(?:\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2}|\\d{${CPF_DIGITS}})$`);
 
 /** Brazil: 11 digits, bare or `NNN.NNN.NNN-NN`, two mod-11 check digits. */
 function isCpfShaped(value: string): boolean {
@@ -106,7 +107,8 @@ function cpfCheckDigit(digits: string, length: number): number {
   return checkDigitFromRemainder(sum);
 }
 
-const CNPJ_PATTERN = /^(?:\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|\d{14})$/;
+const CNPJ_DIGITS = 14;
+const CNPJ_PATTERN = new RegExp(`^(?:\\d{2}\\.\\d{3}\\.\\d{3}/\\d{4}-\\d{2}|\\d{${CNPJ_DIGITS}})$`);
 
 /** Brazil: 14 digits, bare or `NN.NNN.NNN/NNNN-NN`, two mod-11 check digits. */
 function isCnpjShaped(value: string): boolean {
@@ -149,6 +151,8 @@ function isSpanishIdShaped(value: string): boolean {
   return DNI_LETTERS.charAt(Number(number) % 23) === upper.slice(-1);
 }
 
+/** A NIR is 13 body characters plus its 2-digit key. */
+const NIR_LENGTH = 15;
 const NIR_PATTERN = /^[1-478]\d{4}(?:\d{2}|2[AB])\d{8}$/i;
 
 /** France: 13-character body plus a 2-digit mod-97 key. Only the department (positions 6-7) may
@@ -161,6 +165,8 @@ function isFrenchNirShaped(value: string): boolean {
   return key === 97 - (Number(body) % 97);
 }
 
+/** A Chinese resident id is 17 digits plus one check character. */
+const CHINESE_ID_LENGTH = 18;
 const CHINESE_ID_PATTERN = /^\d{17}[0-9Xx]$/;
 const CHINESE_WEIGHTS = [7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2] as const;
 
@@ -220,6 +226,21 @@ function isUsSsnShaped(value: string): boolean {
   if (area === "000" || area === "666" || area.startsWith("9")) return false;
   return group !== "00" && serial !== "0000";
 }
+
+/**
+ * The fewest characters in which any matcher above accepts an unpunctuated run of digits: the
+ * shortest of the CPF, CNPJ, NIR and Chinese id lengths. The RUT, SSN, DNI and NIE need a
+ * separator or a letter, so a number's digit text can never be one.
+ *
+ * @llmNote The numeric scan floor derives from this, so a new bare-digit matcher must add its
+ * length here or numbers of that length are published unscanned.
+ */
+export const SHORTEST_BARE_DIGIT_ID_LENGTH = Math.min(
+  CPF_DIGITS,
+  CNPJ_DIGITS,
+  NIR_LENGTH,
+  CHINESE_ID_LENGTH,
+);
 
 /**
  * Whether `value` is a national identity number that passes its own checksum — or, for the US

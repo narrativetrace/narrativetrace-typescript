@@ -1,4 +1,4 @@
-<!-- source: documentation/agent-skills.md blob 4a4bb5f01a04 | translated: 2026-10-15 | reviewed: - -->
+<!-- source: documentation/agent-skills.md blob ee9d513afb8b | translated: 2026-11-19 | reviewed: - -->
 # Habilidades de agente
 
 [English](../agent-skills.md) | **Español** | [Português](../pt-BR/habilidades-de-agente.md) | [简体中文](../zh-CN/智能体技能.md)
@@ -122,7 +122,7 @@ Una previsualización `--dry-run --json` contra un proyecto vacío luce así:
 
 ```json
 {
-  "carrier": "@narrativetrace/skills@0.5.1",
+  "carrier": "@narrativetrace/skills@0.5.2",
   "actions": [
     {
       "kind": "create",
@@ -284,22 +284,14 @@ Ninguna habilidad se edita a mano jamás.
 `packages/skills-catalogue/src/catalogue/narrativetrace-explain.ts` son las siete fuentes de verdad
 (la sección de lectura que comparten las tres últimas, y la puerta de aprobación y la fijación que
 comparten verify y debug, se escriben una sola vez, a su lado);
-`pnpm run skills-render` regenera las páginas `.claude/skills/` y `.agents/skills/` de cada
-habilidad, y la sección de este mismo `AGENTS.md`, a partir de ellas, y `pnpm run skills-check`
+`pnpm run skills-render` regenera, a partir de ellas, las páginas `.claude/skills/` y `.agents/skills/` de cada habilidad, la sección de este mismo `AGENTS.md` y los archivos propios del plugin de Claude (`.claude/.claude-plugin/plugin.json`, `icon.png` y `.claude/README.md`), y `pnpm run skills-check`
 (integrado en `pnpm
 run check`) rompe la build en cuanto cualquier página generada se desvía de la fuente tipada. Cada
 bloque de código que muestra una página generada se embebe desde código fuente real y probado a
 través de la misma convención de marcadores `<!-- snippet: -->` que usan los demás documentos de
 este repositorio — nunca un ejemplo escrito a mano. Un lint de Nivel A mantiene fuera de las
 páginas las citas a notas de planificación privadas: las frases de justificación se publican, la
-cita que nombra la nota no. Un segundo lint vigila el único fragmento de frontmatter cuya ausencia
-es una virtud: una habilidad cuyos pasos pueden hacer algo público — hoy, `narrativetrace-feedback`
-— no debe declarar `allowed-tools`, porque ese campo preaprueba sus herramientas listadas durante el
-turno que carga la habilidad, y una habilidad de informes que preaprobara su propio comando de
-informe haría que el arnés dejara de preguntar justo donde preguntar es el punto. Un tercer lint mantiene
-la misma línea para las dos habilidades que promueven una línea base de aprobación
-(`narrativetrace-verify`, `narrativetrace-debug`): una habilidad que ejecuta el comando de
-aprobación no declara ninguna herramienta permitida.
+cita que nombra la nota no. Las páginas de Claude generadas no llevan ninguna línea `allowed-tools`, porque el directorio de plugins acepta esa clave más allá de las herramientas de solo lectura únicamente de publicadores verificados: el usuario recibe el aviso de permiso normal de Claude Code la primera vez que una habilidad ejecuta `pnpm`, `npx`, `node` o `git`. Un segundo lint sigue vigilando el conjunto de comandos que declara cada habilidad: una habilidad cuyos pasos pueden hacer algo público — hoy, `narrativetrace-feedback` — no debe declarar ninguna herramienta que preapruebe su propio comando de informe, de modo que un sabor que algún día vuelva a emitir la clave no pueda hacer que el arnés deje de preguntar justo donde preguntar es el punto. Un tercer lint mantiene la misma línea para las dos habilidades que promueven una línea base de aprobación (`narrativetrace-verify`, `narrativetrace-debug`): una habilidad que ejecuta el comando de aprobación no declara ninguna herramienta. Un cuarto lint rompe la build ante una versión fija de NarrativeTrace en cualquier habilidad: las habilidades instalan sin versión, así que el gestor de paquetes resuelve la última versión publicada en el registro de npm.
 
 ## Context7
 

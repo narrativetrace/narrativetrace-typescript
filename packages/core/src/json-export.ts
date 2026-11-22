@@ -2,6 +2,7 @@
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
 import { SCHEMA_VERSION, serviceNameOrUnknown } from "./canonical-entry.js";
+import { errorTypeName, isErrorInstance } from "./error-display.js";
 import { ExceptionMessage } from "./exception-message.js";
 import { displayParamValue } from "./parameter-capture.js";
 import { type ScenarioResult, scenarioResult } from "./scenario-result.js";
@@ -318,8 +319,8 @@ function threwEventFields(error: unknown, errorContext: string | null): Partial<
   const context = errorContext ? { errorContext } : {};
   const message = ExceptionMessage.of(error);
   const present = message === null ? {} : { errorMessage: message };
-  if (error instanceof Error) {
-    return { outcome: "threw", errorType: error.constructor.name, ...present, ...context };
+  if (isErrorInstance(error)) {
+    return { outcome: "threw", errorType: errorTypeName(error), ...present, ...context };
   }
   return { outcome: "threw", ...present, ...context };
 }

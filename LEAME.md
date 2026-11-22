@@ -1,4 +1,4 @@
-<!-- source: README.md blob 93563ee498ca | translated: 2026-10-19 | reviewed: - -->
+<!-- source: README.md blob 881d610d1dac | translated: 2026-11-20 | reviewed: - -->
 # NarrativeTrace
 
 [English](README.md) | **Español** | [Português](LEIAME.md) | [简体中文](自述文件.md)
@@ -617,17 +617,17 @@ patrón de nombre.
 
 ## Licencia
 
-La API y el formato de salida de NarrativeTrace son estándares abiertos (Apache 2.0). Su runtime es
-gratuito y de código fuente disponible (BSL 1.1, convirtiéndose en Apache 2.0 cuatro años después de
-cada release). Pro es comercial.
+El formato de salida de NarrativeTrace es un estándar abierto: sus esquemas JSON son Apache 2.0. Su
+runtime, incluida la API de decoradores, es gratuito y de código fuente disponible (BSL 1.1,
+convirtiéndose en Apache 2.0 cuatro años después de cada release). Pro es comercial.
 
 Lo que eso significa para los paquetes de este repositorio:
 
 | Parte | Licencia |
 |---|---|
-| El runtime — cada otro paquete `@narrativetrace/*` distribuido desde este repositorio | [BSL 1.1](LICENSE) (SPDX `BUSL-1.1`), convirtiéndose en Apache 2.0 cuatro años después de cada release |
+| El runtime — cada otro paquete `@narrativetrace/*` distribuido desde este repositorio, incluidas la API de decoradores (`@narrativetrace/proxy`) y la puntuación de claridad (`@narrativetrace/clarity`) | [BSL 1.1](LICENSE) (SPDX `BUSL-1.1`), convirtiéndose en Apache 2.0 cuatro años después de cada release |
 | `@narrativetrace/cli`, `@narrativetrace/skills`, `@narrativetrace/tooling`, y las páginas de habilidades generadas y el fichero de marketplace (`.claude/skills/**`, `.agents/skills/**`, `.claude-plugin/marketplace.json`) | [Apache 2.0](LICENSE-APACHE), ver [NOTICE](NOTICE) |
-| La API de anotaciones/decoradores, la especificación del formato de salida y la rúbrica de claridad | [Apache 2.0](LICENSE-APACHE) (la separación en paquete propio está pendiente — ver más abajo) |
+| Los archivos de esquema JSON (`schema/*.schema.json`) | [Apache 2.0](LICENSE-APACHE), ver [schema/README.md](schema/README.md) |
 | La prosa de la documentación | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/) |
 
 El Additional Use Grant permite el uso en producción para cualquier propósito, incluso en productos y
@@ -642,9 +642,9 @@ NarrativeTrace es una marca de Empower Agile. La licencia no otorga ningún dere
 
 ### La licencia, en palabras sencillas
 
-Todo lo que hay en este repositorio se publica bajo Business Source License 1.1 hoy — las partes
-con licencia Apache (la API de anotaciones/decoradores, la especificación del formato de salida, la
-rúbrica de claridad) todavía no se han separado en un paquete propio.
+La CLI, las skills y las herramientas (`@narrativetrace/cli`, `@narrativetrace/skills`,
+`@narrativetrace/tooling`) son Apache 2.0. Todo lo demás de este repositorio se publica bajo Business
+Source License 1.1 hoy.
 
 <!-- legal:plain-words:begin -->
 **Gratis para ejecutar.** El runtime es de código disponible bajo la Business
@@ -662,3 +662,31 @@ después de publicarse; la fecha exacta se imprime en el LICENSE de esa versión
 *Este resumen es una cortesía, no una licencia. El archivo LICENSE es el único
 texto vinculante; donde ambos difieran, prevalece el LICENSE.*
 <!-- legal:plain-words:end -->
+
+NarrativeTrace se ofrece tal cual: sin garantía de ningún tipo, ni de que sirva para tu propósito. Úsalo bajo tu propia responsabilidad.
+
+Las licencias lo establecen de manera formal, y su texto, en inglés, es el que vale.
+
+El runtime y sus integraciones, bajo la Business Source License 1.1 ([LICENSE](LICENSE)):
+
+> TO THE EXTENT PERMITTED BY APPLICABLE LAW, THE LICENSED WORK IS PROVIDED ON
+> AN “AS IS” BASIS. LICENSOR HEREBY DISCLAIMS ALL WARRANTIES AND CONDITIONS,
+> EXPRESS OR IMPLIED, INCLUDING (WITHOUT LIMITATION) WARRANTIES OF
+> MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, NON-INFRINGEMENT, AND
+> TITLE.
+
+Las skills, la CLI y las herramientas, bajo Apache 2.0 ([LICENSE-APACHE](LICENSE-APACHE)), sección 7:
+
+> 7. Disclaimer of Warranty. Unless required by applicable law or
+> agreed to in writing, Licensor provides the Work (and each
+> Contributor provides its Contributions) on an "AS IS" BASIS,
+> WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+> implied, including, without limitation, any warranties or conditions
+> of TITLE, NON-INFRINGEMENT, MERCHANTABILITY, or FITNESS FOR A
+> PARTICULAR PURPOSE. You are solely responsible for determining the
+> appropriateness of using or redistributing the Work and assume any
+> risks associated with Your exercise of permissions under this License.
+
+La sección 8, "Limitation of Liability", del mismo archivo (solo en las partes con licencia Apache) limita aún más la responsabilidad.
+
+La documentación está bajo [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/), cuyo propio texto también excluye garantías.

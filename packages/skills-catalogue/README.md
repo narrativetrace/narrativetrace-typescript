@@ -26,7 +26,7 @@ src/
 └── render/
     ├── body.ts            # Skill -> Markdown body, shared by every platform's SKILL.md
     ├── claude.ts          # Skill -> SKILL.md (Claude plugin frontmatter: name/description/
-    │                       #   when_to_use/allowed-tools)
+    │                       #   when_to_use; no allowed-tools line)
     ├── agents-skills.ts    # Skill -> SKILL.md (Codex's `.agents/skills/` layout — frontmatter is
     │                       #   a strict subset: name/description only)
     └── agents-md.ts        # Skill[] -> the AGENTS.md snippet

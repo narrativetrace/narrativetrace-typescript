@@ -10,10 +10,11 @@ import {
 } from "../src/markdown-renderer.js";
 import { methodSignature } from "../src/method-signature.js";
 import { parameterCapture } from "../src/parameter-capture.js";
+import type { SpanContext } from "../src/span-context.js";
 import { humanName } from "../src/trace-namer.js";
 import { traceNode } from "../src/trace-node.js";
 import { incomplete, returned, threw } from "../src/trace-outcome.js";
-import { traceTree } from "../src/trace-tree.js";
+import { type TraceTree, traceTree } from "../src/trace-tree.js";
 
 describe("renderMarkdownBody", () => {
   test("renders only the node body, with no frontmatter fences", () => {
@@ -127,6 +128,24 @@ describe("renderMarkdownDocument body header", () => {
     );
   });
 
+  // ADV-2026-10-30-2 — INVARIANT: no body sink appends a caller-supplied value raw; `&`/`<`/`>`
+  // are HTML-escaped so a value cannot inject active markup. The `## Trace:` title is the one
+  // body sink that appends the entry point's class and method names with no MarkdownEscape.text,
+  // one line above the `**Scenario:**` sink that escapes the identical bytes. A class name is a
+  // writable string property (see errorTypeName's remarks), and a replayed or deserialized tree
+  // carries whatever its source put there.
+  test("ADV-2026-10-30-2: escapes raw HTML in the entry point's names in the title", () => {
+    const hostile = "<img src=x onerror=alert(1)>";
+    const root = traceNode(methodSignature(hostile, `place${hostile}`, []), returned('"OK"'), []);
+    const doc = renderMarkdownDocument(traceTree([root]), {
+      scenario: hostile,
+      result: "PASSED",
+    });
+    const title = doc.split("\n").find((line) => line.startsWith("## Trace:")) as string;
+
+    expect(title).not.toContain("<img");
+  });
+
   // The `**Duration:**` header is prose (the same sink the per-node `— Nms` marker is), so it
   // gets the same rounding; the YAML frontmatter's `duration_ms` field a few lines above it is a
   // deliberately different, machine-readable sink and is left the precise unrounded number
@@ -145,6 +164,169 @@ describe("renderMarkdownDocument body header", () => {
 
     expect(doc).toContain("duration_ms: 0.5849169999999901");
     expect(doc).toContain("**Duration:** 0.58ms | **Result:** PASSED");
+  });
+});
+
+describe("renderMarkdownDocument — a tree with no root", () => {
+  // entryPointLines, traceNameLines and documentHeader each answer [] when roots is empty, and
+  // nothing else in the document reads a root — so the whole artifact collapses to the two keys
+  // that are computed from the tree as a whole. Pins that collapse exactly: an empty tree is the
+  // shape a suite with no captured call hands every emitter, and it must still be a document.
+  test("renders the frontmatter alone — no entry point, no identity, no header, no body", () => {
+    const doc = renderMarkdownDocument(traceTree([]), {
+      scenario: "Nothing ran",
+      result: "PASSED",
+    });
+
+    expect(doc.split("\n")).toStrictEqual([
+      "---",
+      "type: trace",
+      "scenario: Nothing ran",
+      "method_count: 0",
+      "error_count: 0",
+      "---",
+    ]);
+  });
+
+  // A tree is only ever handed no traceId when it is empty (traceTree assigns one otherwise), so
+  // the title's phrase prefix is unreachable through the constructor — but the renderer accepts
+  // any TraceTree, including a replayed or deserialized one, and must not print a bare separator.
+  test("a hand-built tree carrying roots but no traceId gets a title with no phrase prefix", () => {
+    const root = traceNode(methodSignature("OrderService", "placeOrder", []), returned('"OK"'), []);
+    const tree: TraceTree = { roots: [root], isEmpty: false };
+
+    const doc = renderMarkdownDocument(tree, { scenario: "Places order", result: "PASSED" });
+
+    expect(doc).toContain("## Trace: OrderService.placeOrder");
+    expect(doc).not.toContain("trace_name:");
+  });
+});
+
+// yamlSafe quotes on an allow-list, and isYamlUnsafeCodePoint draws three ranges plus two
+// noncharacters. Each case below is one edge of one of those ranges that no test reaches today —
+// the character that must be escaped, and its immediate neighbour that must not be — so a widened
+// or narrowed range fails here rather than reaching a YAML reader as a raw control character. The
+// lone high surrogate and the supplementary pair are already pinned above and are not repeated.
+describe("renderMarkdown frontmatter — the YAML-printable boundary", () => {
+  const oneNode = (): TraceTree =>
+    traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
+
+  const scenarioLine = (code: number): string => {
+    const doc = renderMarkdown(oneNode(), {
+      scenarioName: `a${String.fromCodePoint(code)}b`,
+    });
+    return doc.split("\n").find((line) => line.startsWith("scenario:")) as string;
+  };
+
+  test.each([
+    ["the last C0 control", 0x1f, "\\u001f"],
+    ["the first C1 control", 0x7f, "\\u007f"],
+    ["the last C1 control", 0x9f, "\\u009f"],
+    ["a lone low surrogate", 0xdfff, "\\udfff"],
+    ["the U+FFFE noncharacter", 0xfffe, "\\ufffe"],
+    ["the U+FFFF noncharacter", 0xffff, "\\uffff"],
+  ])("quotes the scenario and escapes %s", (_name, code, escaped) => {
+    expect(scenarioLine(code)).toBe(`scenario: "a${escaped}b"`);
+  });
+
+  test.each([
+    ["the space one past the C0 range", 0x20],
+    ["the printable one before the C1 range", 0x7e],
+    ["the no-break space one past the C1 range", 0xa0],
+    ["the replacement character, one before U+FFFE", 0xfffd],
+  ])("leaves %s in a plain, unquoted scalar", (_name, code) => {
+    expect(scenarioLine(code)).toBe(`scenario: a${String.fromCodePoint(code)}b`);
+  });
+});
+
+// A bare frontmatter value that a YAML 1.1 reader resolves as a boolean, null, number or
+// timestamp would be retyped on the way back in, so yamlSafe quotes every such spelling and
+// leaves near-misses that stay plain strings alone.
+describe("renderMarkdown frontmatter — values a YAML reader would retype", () => {
+  const scenarioLine = (scenarioName: string): string => {
+    const tree = traceTree([traceNode(methodSignature("S", "m", []), returned('"OK"'), [])]);
+    return renderMarkdown(tree, { scenarioName })
+      .split("\n")
+      .find((line) => line.startsWith("scenario:")) as string;
+  };
+
+  test.each([
+    "true",
+    "False",
+    "YES",
+    "no",
+    "On",
+    "OFF",
+    "y",
+    "N",
+    "null",
+    "NULL",
+    "~",
+    "2026-11-09",
+    "2026-1-9",
+    "2026-11-09T10:00:00Z",
+    "2026-11-09 10:00:00",
+    "42",
+    "-42",
+    "+42",
+    "1_000",
+    "007",
+    "0x1f",
+    "0X1F",
+    "0b101",
+    "-0x1f",
+    "1.50",
+    "-1.5",
+    ".5",
+    "1.",
+    "1_0.0_1",
+    "1.5e+3",
+    "1e3",
+    "6.8523015e+5",
+    ".inf",
+    "-.INF",
+    "+.inf",
+    ".nan",
+    ".NaN",
+  ])("quotes the scenario %s", (value) => {
+    expect(scenarioLine(value)).toBe(`scenario: "${value}"`);
+  });
+
+  test.each([
+    "yes please",
+    "nope",
+    "nullable",
+    "2026-11",
+    "2026-11-09x",
+    "42a",
+    "0x",
+    "0b2",
+    "1.5.2",
+    "v1.50",
+    ".infinity",
+    "inf",
+    "nan",
+    "e3",
+    "1_x",
+    "ab-12",
+  ])("leaves the near-miss scenario %s unquoted", (value) => {
+    expect(scenarioLine(value)).toBe(`scenario: ${value}`);
+  });
+
+  test("quotes an all-digit trace id so it stays a string", () => {
+    const traceId = "12345678901234567890123456789012";
+    const root = traceNode(methodSignature("S", "m", []), returned('"OK"'), [], 0, 0, undefined, {
+      traceId,
+      spanId: "1234567890123456",
+    } as SpanContext);
+    const out = renderMarkdown(traceTree([root]));
+    expect(out).toContain(`trace_id: "${traceId}"`);
+  });
+
+  test("decides a very long digit run in linear time", () => {
+    const started = performance.now();
+    scenarioLine(`${"1_".repeat(50_000)}x`);
+    expect(performance.now() - started).toBeLessThan(500);
   });
 });
 
@@ -778,5 +960,33 @@ describe("renderMarkdownDocument header with a hostile scenario (B-226 pin)", ()
 
   test("a line break in the scenario cannot open a heading of its own", () => {
     expect(doc).not.toMatch(/^## Forged heading/m);
+  });
+});
+
+// ADV-2026-11-03-1 — INVARIANT: every emitter's output is well-formed for every input; a hostile
+// value degrades, it never propagates. A thrown value is held LIVE in TraceOutcome, so
+// `formatError` is the one body sink that reads an application object at emit time: the type name
+// via errorTypeName (`error instanceof Error`, then `error.constructor`), both of which an
+// application object can make throw. The message axis beside it is already guarded
+// (ExceptionMessage.of answers `<error>`), so this is the unguarded half of one line.
+describe("ADV-2026-11-03-1: a hostile thrown value cannot stop the document", () => {
+  function treeThatThrew(error: unknown): TraceTree {
+    return traceTree([traceNode(methodSignature("Payments", "charge", []), threw(error), [])]);
+  }
+
+  test("a revoked proxy as the thrown value still renders a document", () => {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    expect(() => renderMarkdown(treeThatThrew(proxy))).not.toThrow();
+  });
+
+  test("a thrown Error whose own constructor accessor throws still renders a document", () => {
+    const hostile = new Error("declined");
+    Object.defineProperty(hostile, "constructor", {
+      get() {
+        throw new Error("boom");
+      },
+    });
+    expect(() => renderMarkdown(treeThatThrew(hostile))).not.toThrow();
   });
 });

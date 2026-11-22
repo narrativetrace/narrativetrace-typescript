@@ -154,7 +154,10 @@ describe("size budget", () => {
   // budget catches accidental growth (a Node package or a large dependency slipping into
   // `noExternal`) before it reaches a page that loads this on every visit — a few KiB of
   // headroom stays tight enough for that, since a real accidental dependency adds far more.
-  const BUDGET_BYTES = 100 * 1024;
+  // The classic bundle measures 102 943 B, the budget is that rounded up to 256 B: the frontmatter
+  // writer's non-string value patterns (booleans, nulls, numbers, timestamps) and the derived
+  // numeric scan floor live in it.
+  const BUDGET_BYTES = 103_168;
 
   test.each([
     ["ES module", ESM_BUNDLE],

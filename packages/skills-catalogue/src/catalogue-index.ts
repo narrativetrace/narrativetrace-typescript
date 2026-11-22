@@ -9,6 +9,7 @@ import { NARRATIVETRACE_EXPLAIN } from "./catalogue/narrativetrace-explain.js";
 import { NARRATIVETRACE_FEEDBACK } from "./catalogue/narrativetrace-feedback.js";
 import { NARRATIVETRACE_VERIFY } from "./catalogue/narrativetrace-verify.js";
 import { PRO_LISTINGS } from "./catalogue/pro-listings.js";
+import type { ClaudeListing } from "./claude-listing.js";
 import type { MarketplaceListing } from "./marketplace-listing.js";
 import { type OpenAiListingFields, openAiListing } from "./openai-listing.js";
 import type { ProListing } from "./pro-listing.js";
@@ -43,6 +44,7 @@ export const MARKETPLACE: MarketplaceListing = {
   pluginSource: "./.claude",
   license: "Apache-2.0",
   homepage: "https://narrativetrace.ai",
+  repository: "https://github.com/narrativetrace/narrativetrace-typescript",
   keywords: ["narrativetrace", "typescript", "tracing", "observability", "agent-skills"],
 };
 
@@ -68,6 +70,19 @@ export const OPENAI_DIRECTORY: OpenAiListingFields = openAiListing({
   brandColor: "#00845a",
   websiteUrl: MARKETPLACE.homepage,
 });
+
+/**
+ * How this repository presents {@link MARKETPLACE} to Anthropic's plugin directory: the same
+ * listing, titled with the display name the OpenAI listing uses, plus the support, privacy and
+ * documentation links the directory shows.
+ */
+export const CLAUDE_DIRECTORY: ClaudeListing = {
+  base: MARKETPLACE,
+  displayName: OPENAI_DIRECTORY.displayName,
+  supportUrl: `${MARKETPLACE.repository}/issues`,
+  privacyPolicyUrl: "https://narrativetrace.ai/privacy",
+  documentationUrl: `${MARKETPLACE.repository}/tree/main/documentation`,
+};
 
 export function findSkill(canonicalName: string): Skill | undefined {
   return SKILLS.find((skill) => skill.canonicalName === canonicalName);

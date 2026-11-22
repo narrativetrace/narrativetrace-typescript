@@ -11,8 +11,8 @@ record, not repeated here.
 
 - **Free** — shipped in this repository, free and source-available under
   [BSL 1.1](../LICENSE) (SPDX `BUSL-1.1`), converting to Apache 2.0 four
-  years after each release. The annotation/decorator API, the output-format
-  spec and the clarity rubric are Apache 2.0 open standards.
+  years after each release. The output format's JSON schemas (`schema/`) are Apache 2.0; the decorator API
+  and clarity scoring are part of the BSL runtime.
 - **Pro** — shipped in the commercial tier.
 - **In development** — actively being built; the design is settled.
 - **Planned** — specified, not yet started; may change.

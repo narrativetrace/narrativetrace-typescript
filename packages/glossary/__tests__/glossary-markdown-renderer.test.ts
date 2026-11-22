@@ -77,6 +77,26 @@ ${TABLE_HEADER}| open overdraft account | harvested |  |  |  |
     expect(lines).toContain("\\| nor a row");
   });
 
+  test.each([
+    ["a setext equals underline", "x\n==="],
+    ["a setext dash underline", "x\n---"],
+    ["an indented heading", "  ## forged"],
+  ])("adds no heading when a description carries %s", (_name, description) => {
+    const model = glossary(
+      1,
+      new Map([["billing", boundedContext("billing", [], description)]]),
+      [],
+    );
+
+    const lines = renderGlossaryMarkdown(model).split("\n");
+
+    expect(lines.filter((line) => /^ {0,3}#{1,6}( |$)/.test(line))).toStrictEqual([
+      "# Domain Glossary",
+      "## billing",
+    ]);
+    expect(lines.filter((line) => /^ {0,3}(=+|-+)\s*$/.test(line))).toStrictEqual([]);
+  });
+
   test("leaves an ordinary multi-line description as written", () => {
     const description = "Charging, invoicing.\nFunds held in escrow.";
     const model = glossary(

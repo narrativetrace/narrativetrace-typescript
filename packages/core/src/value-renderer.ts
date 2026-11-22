@@ -4,6 +4,7 @@
 import { ControlEscape } from "./control-escape.js";
 import { declaredElements, elementOrigin, platformMembers } from "./element-origin.js";
 import { errorTypeName } from "./error-display.js";
+import { INACCESSIBLE, readOwnField } from "./field-read.js";
 import { isThenable } from "./is-thenable.js";
 import { notTracedFields, numberText, RedactionPolicy } from "./redaction-policy.js";
 import { clampLimits } from "./render-limits.js";
@@ -21,17 +22,6 @@ import { withRenderingGuard } from "./rendering-guard.js";
 function errorMarker(thrown: unknown): string {
   return `<error: ${errorTypeName(thrown)}>`;
 }
-
-/**
- * Rendered form of an own-enumerable member that IS an accessor (a getter, defined via
- * `Object.defineProperty`/`class { get x() {} }` promoted to an own property) rather than a data
- * property holding a value directly. Introspection reads a value's own STATE, so an accessor is
- * never invoked, not even as a fallback when nothing else can supply the value — this is the
- * honest answer for a member that was never actually unreadable, only deliberately not read, and
- * is deliberately distinct from {@link errorMarker}, which is reserved for a member that a *read*
- * (not an invocation) genuinely failed on.
- */
-const INACCESSIBLE = "<inaccessible>";
 
 /**
  * Truncation and redaction budgets for {@link renderValue}. Omitted fields fall back to conservative
@@ -243,7 +233,7 @@ function renderSymbol(value: symbol, opts: Required<RenderOptions>): string {
 }
 
 function typeName(value: object): string {
-  return value.constructor?.name ?? "Object";
+  return errorTypeName(value);
 }
 
 // A `narrativeSummary()` method (no args) supplies a curated one-line summary that is preferred
@@ -594,11 +584,10 @@ function renderFieldValue(
   opts: Required<RenderOptions>,
   walk: RenderWalk,
 ): string {
-  const descriptor = Object.getOwnPropertyDescriptor(value, key);
-  if (descriptor === undefined) return render(undefined, opts, walk);
-  if (!("value" in descriptor)) return INACCESSIBLE;
+  const field = readOwnField(value, key);
+  if (!field.accessible) return INACCESSIBLE;
   try {
-    return render(descriptor.value, opts, walk);
+    return render(field.value, opts, walk);
   } catch (err) {
     return errorMarker(err);
   }

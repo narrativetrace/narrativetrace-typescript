@@ -1,4 +1,4 @@
-<!-- source: documentation/feature-guide.md blob fc9eb3e90ed9 | translated: 2026-09-16 | reviewed: - -->
+<!-- source: documentation/feature-guide.md blob 7f29216c0699 | translated: 2026-11-20 | reviewed: - -->
 # NarrativeTrace TypeScript — Guia de funcionalidades
 
 [English](../feature-guide.md) | [Español](../es/guia-de-funcionalidades.md) | **Português** | [简体中文](../zh-CN/功能指南.md)
@@ -16,9 +16,9 @@ de engenharia interno, não repetido aqui.
 - **Gratuito** — lançado neste repositório, gratuito e com
   código-fonte disponível sob [BSL 1.1](../../LICENSE) (SPDX
   `BUSL-1.1`), convertendo para Apache 2.0 quatro anos após cada
-  lançamento. A API de anotações/decoradores, a especificação do
-  formato de saída e a rubrica de clareza são padrões abertos Apache
-  2.0.
+  lançamento. Os esquemas JSON do formato de saída
+  (`schema/`) são Apache 2.0; a API de decoradores e a pontuação de
+  clareza fazem parte do runtime BSL.
 - **Pro** — lançado no tier comercial.
 - **Em desenvolvimento** — em construção ativa; o design está definido.
 - **Planejado** — especificado, ainda não iniciado; pode mudar.

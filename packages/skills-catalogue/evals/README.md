@@ -331,7 +331,7 @@ than a verdict: a red row saying "the registry path does not work" when the vend
 unreachable or logged out is worse than no row at all.
 
 `grade-the-registry.sh <registry> <Service>` grades the three things only a registry case can be
-asked, cheapest failure first — no vendor page written THROUGH a link (keyed on `allowed-tools`, the
+asked, cheapest failure first — no vendor page written THROUGH a link (keyed on `when_to_use`, the
 one line the two flavours differ by), the installer refusing nothing so no `--force` is needed (read
 out of a real `init --dry-run --json` PLAN, never an exit code a dry run always leaves at zero), and
 the registry's own files still the registry's (its lock file, its pages, and the third location the

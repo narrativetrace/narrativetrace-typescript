@@ -16,11 +16,12 @@ function longestBacktickRun(s: string): number {
 }
 
 /**
- * A line start Markdown reads as structure: a heading run, a numbered item, or a fence, list
- * marker, setext underline or table pipe.
+ * A line start Markdown reads as structure (indented by at most three spaces; four or more is an
+ * indented code block and stays text): a heading run, a numbered item, or a fence, list
+ * marker, setext underline, table pipe, blockquote marker or `*` / `_` thematic break.
  */
 const LINE_START_HAZARD =
-  /^([ \t]*)(?:(#+)|(\d+)(?=[.)](?:[ \t]|$))|(?=```|~~~|[-*+](?:[ \t]|$)|(?:-+|=+)[ \t]*$|\|))/gm;
+  /^( {0,3})(?:(#+)|(\d+)(?=[.)](?:[ \t]|$))|(?=```|~~~|[-*+](?:[ \t]|$)|(?:-+|=+)[ \t]*$|\||>|([*_])(?:[ \t]*\4){2,}[ \t]*$))/gm;
 
 /**
  * Escaping for embedding untrusted values into Markdown. `text` HTML-escapes `& < >` so a
@@ -60,11 +61,12 @@ export const MarkdownEscape = {
   },
 
   cell(text: string): string {
-    return MarkdownEscape.collapseLineBreaks(text.replaceAll("|", "\\|"));
+    return MarkdownEscape.collapseLineBreaks(text.replace(/[\\|]/g, "\\$&"));
   },
 
   codeSpanCell(content: string): string {
-    return MarkdownEscape.code(MarkdownEscape.cell(content));
+    const encoded = content.replace(/[|`]/g, (c) => (c === "|" ? "%7C" : "%60"));
+    return MarkdownEscape.code(MarkdownEscape.collapseLineBreaks(encoded));
   },
 
   code(content: string): string {

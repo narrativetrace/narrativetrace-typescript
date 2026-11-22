@@ -49,7 +49,7 @@ export type MarkdownDocumentMetadata = {
 function traceNameLines(tree: TraceTree): string[] {
   const traceId = tree.roots[0]?.spanContext?.traceId;
   if (!traceId) return [];
-  return [`trace_id: ${traceId}`, `trace_name: ${humanName(traceId as TraceId)}`];
+  return [`trace_id: ${yamlSafe(traceId)}`, `trace_name: ${humanName(traceId as TraceId)}`];
 }
 
 // YAML's own printable set is narrower than "not a control character": C0/C1 controls, lone
@@ -84,12 +84,47 @@ function containsSupplementaryCodePoint(value: string): boolean {
 
 const YAML_LEADING_INDICATOR = /^[-?:,[\]{}#&*!|>'"%@`]/;
 
-// A plain YAML scalar cannot start with a flow/block indicator, hold ": "/"#"/a quote/a
+const YAML_BARE_KEYWORDS = new Set([
+  "true",
+  "false",
+  "yes",
+  "no",
+  "on",
+  "off",
+  "y",
+  "n",
+  "null",
+  "~",
+]);
+
+// Each alternative starts with a different character class, so none can overlap and no input makes
+// the engine backtrack: a scalar is decided in one left-to-right pass.
+const YAML_INTEGER = /^[-+]?(?:0[bB][01_]+|0[xX][0-9a-fA-F_]+|[0-9][0-9_]*)$/;
+const YAML_FLOAT = /^[-+]?(?:[0-9][0-9_]*)?\.[0-9_]*(?:[eE][-+]?[0-9]+)?$/;
+const YAML_EXPONENT = /^[-+]?[0-9][0-9_]*[eE][-+]?[0-9]+$/;
+const YAML_INFINITY_OR_NAN = /^(?:[-+]?\.inf|\.nan)$/i;
+const YAML_TIMESTAMP = /^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}(?:[Tt ].*)?$/;
+
+// Bare, these resolve to a boolean, null, number or timestamp in a YAML 1.1 reader — the frontmatter
+// is read back by tools that must see the string that was written, never a retyped value.
+function resolvesAsNonString(value: string): boolean {
+  return (
+    YAML_BARE_KEYWORDS.has(value.toLowerCase()) ||
+    YAML_INTEGER.test(value) ||
+    YAML_FLOAT.test(value) ||
+    YAML_EXPONENT.test(value) ||
+    YAML_INFINITY_OR_NAN.test(value) ||
+    YAML_TIMESTAMP.test(value)
+  );
+}
+
+// A plain YAML scalar cannot start with a flow/block indicator, resolve as a non-string, hold ": "/"#"/a quote/a
 // backslash, carry a literal control character, or be empty/have leading-or-trailing whitespace —
 // an allow-list, not the deny-list this used to be — the same fix every runtime carries.
 function needsYamlQuoting(value: string): boolean {
   if (value.length === 0 || value !== value.trim()) return true;
   if (YAML_LEADING_INDICATOR.test(value) || /[:#"\\]/.test(value)) return true;
+  if (resolvesAsNonString(value)) return true;
   return containsYamlUnsafeCodePoint(value) || containsSupplementaryCodePoint(value);
 }
 
@@ -199,8 +234,8 @@ function tracePhrasePrefix(tree: TraceTree): string {
 function documentHeader(tree: TraceTree, metadata: MarkdownDocumentMetadata): string[] {
   const root = tree.roots[0];
   if (!root) return [];
-  const className = ControlEscape.sanitize(root.signature.className);
-  const methodName = ControlEscape.sanitize(root.signature.methodName);
+  const className = MarkdownEscape.text(ControlEscape.sanitize(root.signature.className));
+  const methodName = MarkdownEscape.text(ControlEscape.sanitize(root.signature.methodName));
   return [
     "",
     `## Trace: ${tracePhrasePrefix(tree)}${className}.${methodName}`,
@@ -356,8 +391,8 @@ function waitAnalysis(members: readonly TraceNode[]): string {
   }
   const waitMs = slowest.durationMs - fastest.durationMs;
   if (waitMs <= 0) return "";
-  const slow = ControlEscape.sanitize(slowest.signature.className);
-  const fast = ControlEscape.sanitize(fastest.signature.className);
+  const slow = MarkdownEscape.text(ControlEscape.sanitize(slowest.signature.className));
+  const fast = MarkdownEscape.text(ControlEscape.sanitize(fastest.signature.className));
   return ` (waited ${formatDurationMs(waitMs)} for ${slow} after ${fast})`;
 }
 

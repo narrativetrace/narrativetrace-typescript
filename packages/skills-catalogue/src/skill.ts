@@ -129,7 +129,10 @@ export interface Skill {
   readonly never: readonly ReasonedRule[];
   /** Reference text rendered after the steps, before the rules — see {@link SkillSection}. */
   readonly references?: readonly SkillSection[];
-  /** Emitted into `allowed-tools` (skill-design.md §2) — the command vocabulary this skill uses. */
+  /**
+   * The commands this skill runs, as bare vocabulary entries: data for the lints and the plugin
+   * README. No rendered page turns it into an `allowed-tools` line.
+   */
   readonly allowedTools: readonly string[];
 }
 
@@ -157,37 +160,21 @@ export function vocabularyViolations(skill: Skill): readonly string[] {
 }
 
 /**
- * The Claude-flavour `allowed-tools` spelling of one vocabulary command: the `Bash(<command> *)`
- * tool pattern (e.g. `git` -> `Bash(git *)`).
- *
- * Verified against Claude Code's documented syntax: a permission rule is spelled `Tool` or
- * `Tool(specifier)`, and `allowed-tools` lists TOOLS, not commands — so a bare `git` there names a
- * tool that does not exist and pre-approves nothing at all, while the tool the steps actually use
- * (`Bash`) stays unlisted. The trailing `" *"` is load-bearing twice over: a rule's wildcard must
- * sit after the subcommand (the words before it are what limit the rule), and a trailing `" *"`
- * also matches the bare command, which is what lets `Bash(./gradlew *)` cover a plain `./gradlew`.
- *
- * The ONLY place a platform spelling of the vocabulary is written: a hand-written `Bash(git *)` in
- * the catalogue would render as `Bash(Bash(git *) *)` — a rule matching nothing — caught by
- * {@link allowedToolsViolations}.
- */
-export function claudeToolPattern(command: string): string {
-  return `Bash(${command} *)`;
-}
-
-/**
  * Every declared `allowedTools` entry that is not a bare command of the closed vocabulary: an
- * entry outside {@link COMMAND_VOCABULARY}, or one already written in a platform's own rendered
- * spelling (a `Bash(...)` tool pattern). Pins the split {@link claudeToolPattern} and the Claude
- * renderer depend on: the catalogue declares commands, the renderer spells them, and neither side
- * may quietly become the other.
+ * entry outside {@link COMMAND_VOCABULARY}, or one already written in a platform's own tool-pattern
+ * spelling (a `Bash(...)` pattern).
+ *
+ * A catalogue entry is the COMMAND, as data about what the skill runs. No renderer turns it into
+ * frontmatter any more (the directory accepts `allowed-tools` beyond read-only tools only from
+ * Verified organizations), so this keeps the declared set one vocabulary: a platform spelling in
+ * the catalogue would be a second, unreadable one.
  */
 export function allowedToolsViolations(skill: Skill): readonly string[] {
   const violations: string[] = [];
   for (const tool of skill.allowedTools) {
     if (tool.includes("(")) {
       violations.push(
-        `${skill.canonicalName}: allowed tool "${tool}" is a rendered platform spelling — declare the bare command and let the renderer spell it`,
+        `${skill.canonicalName}: allowed tool "${tool}" is a platform tool-pattern spelling — declare the bare command`,
       );
     } else if (!(COMMAND_VOCABULARY as readonly string[]).includes(tool)) {
       violations.push(`${skill.canonicalName}: allowed tool "${tool}" is outside the vocabulary`);

@@ -14,7 +14,10 @@
 #   1. No vendor page was written THROUGH a symbolic link. `npx skills add` makes
 #      .claude/skills/<name> a link to .agents/skills/<name>, so writing the vendor flavour through
 #      it would destroy the open-standard page it had just adopted. The invariant is keyed on the
-#      one line the two flavours differ by: `allowed-tools` is in the vendor page and in no other.
+#      one line the two flavours differ by: `when_to_use` is in the vendor page and in no other.
+#      (It was `allowed-tools` until the plugin directory refused that key, 2026-11-19. Only some
+#      skills may carry `when_to_use`, so the vendor-page half of the check reads the doctor's page,
+#      which always does.)
 #   2. The installer refused nothing, so no `--force` was needed. A registry's pages are our own
 #      rendered pages, so an identical one is adopted rather than refused — and the refusal a
 #      pre-adoption installer produced is exactly what a reader would have reached for --force over.
@@ -44,8 +47,8 @@ fi
 # ------------------------------------------------------------------------------------------------
 for page in .agents/skills/*/SKILL.md; do
   [ -f "$page" ] || continue
-  if grep -q "^allowed-tools:" "$page"; then
-    echo "$page carries the VENDOR flavour's allowed-tools line — the open-standard page was" >&2
+  if grep -q "^when_to_use:" "$page"; then
+    echo "$page carries the VENDOR flavour's when_to_use line — the open-standard page was" >&2
     echo "overwritten, which is what writing through .claude/skills's symbolic link does" >&2
     exit 1
   fi
@@ -63,9 +66,9 @@ for entry in .claude/skills/*; do
         echo "registry pointed it at — something replaced a link the installer must refuse" >&2
         exit 1 ;;
     esac
-  elif ! grep -q "^allowed-tools:" "$entry/SKILL.md"; then
+  elif [ "$(basename "$entry")" = "narrativetrace-doctor" ] && ! grep -q "^when_to_use:" "$entry/SKILL.md"; then
     echo "$entry/SKILL.md is a real page in the vendor's own directory but carries no" >&2
-    echo "allowed-tools line — the wrong flavour was installed there" >&2
+    echo "when_to_use line — the wrong flavour was installed there" >&2
     exit 1
   else
     echo "no write-through: $entry holds the vendor flavour, as a real directory of its own"

@@ -32,6 +32,12 @@ describe("NOTICE", () => {
     expect(NOTICE_TEXT).toContain(".claude-plugin/marketplace.json");
   });
 
+  it("names the plugin's own manifest, icon and README", () => {
+    expect(NOTICE_TEXT).toContain(".claude/.claude-plugin/plugin.json");
+    expect(NOTICE_TEXT).toContain(".claude/.claude-plugin/icon.png");
+    expect(NOTICE_TEXT).toContain(".claude/README.md");
+  });
+
   it("names the OpenAI plugin directory's package root as Apache", () => {
     const rootIndex = NOTICE_TEXT.indexOf("packages/skills-catalogue/openai-plugin/");
     expect(rootIndex).toBeGreaterThan(-1);
@@ -46,5 +52,13 @@ describe("NOTICE", () => {
 
   it("states every other published package is BSL, not silently unlicensed", () => {
     expect(NOTICE_TEXT).toContain("Business Source License 1.1");
+  });
+
+  it("claims Apache only for the JSON schemas, never for the decorator API or clarity scoring", () => {
+    const flat = NOTICE_TEXT.replace(/\s+/g, " ");
+    expect(flat).toContain("its JSON schemas are Apache 2.0");
+    expect(flat).toContain("Its runtime, the decorator API included, is free and source-available");
+    expect(flat).not.toMatch(/API and output format are open standards/);
+    expect(flat).not.toMatch(/same reason the annotation\/decorator API is/);
   });
 });

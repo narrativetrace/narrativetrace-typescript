@@ -84,9 +84,9 @@ describe("add-narrativetrace-clarity", () => {
     expect(never).toMatch(/import the reporter from the package root/);
   });
 
-  it("renders the Claude flavour with allowed-tools and the agents flavour without", () => {
-    const claude = renderClaudeSkill(ADD_NARRATIVETRACE_CLARITY, () => "");
-    expect(claude).toContain("allowed-tools: Bash(pnpm *), Bash(npx *), Bash(node *), Bash(git *)");
+  it("declares its commands as data but renders no allowed-tools line in either flavour", () => {
+    expect(ADD_NARRATIVETRACE_CLARITY.allowedTools).toEqual(["pnpm", "npx", "node", "git"]);
+    expect(renderClaudeSkill(ADD_NARRATIVETRACE_CLARITY, () => "")).not.toContain("allowed-tools");
     expect(renderAgentsSkill(ADD_NARRATIVETRACE_CLARITY, () => "")).not.toContain("allowed-tools");
   });
 });

@@ -20,6 +20,7 @@ import {
   citationViolations,
   descriptionFitsBudget,
   listingsDisagreeingWithFeatureGuide,
+  pinnedNarrativeTraceVersions,
   promotionNotPreApproved,
   publishingNotPreApproved,
   stepsWithoutVerify,
@@ -330,6 +331,68 @@ describe("publishingNotPreApproved (synthetic fixtures)", () => {
   });
 });
 
+describe("pinnedNarrativeTraceVersions (synthetic fixtures)", () => {
+  function pinHits(code: string): readonly string[] {
+    const skill: Skill = {
+      canonicalName: "narrativetrace-x",
+      skillClass: "mechanical",
+      description: "d",
+      fixture: "examples/sixty-seconds",
+      allowedTools: [],
+      steps: [{ title: "s", body: { kind: "code", language: "json", code }, verify: "v" }],
+      always: [],
+      never: [],
+    };
+    return pinnedNarrativeTraceVersions([skill]);
+  }
+
+  it("flags a package named with a literal version on an install line", () => {
+    expect(pinHits("pnpm add @narrativetrace/core-node@1.2.3")).toEqual([
+      'narrativetrace-x: pins a NarrativeTrace version in "@narrativetrace/core-node@1.2.3" — name the package without a version',
+    ]);
+    expect(pinHits("npm install @narrativetrace/proxy@^0.5.0")).toHaveLength(1);
+    expect(pinHits("pnpm add @narrativetrace/vitest@~0.5")).toHaveLength(1);
+  });
+
+  it("flags a dependency entry that carries a literal version", () => {
+    expect(pinHits('"@narrativetrace/clarity": "0.5.2"')).toHaveLength(1);
+    expect(pinHits('"@narrativetrace/cli": "^0.5.2"')).toHaveLength(1);
+  });
+
+  it("accepts the latest tag and a bare package name", () => {
+    expect(pinHits("pnpm add @narrativetrace/core-node@latest")).toEqual([]);
+    expect(pinHits('"@narrativetrace/clarity": "latest"')).toEqual([]);
+    expect(pinHits("pnpm add @narrativetrace/core-node @narrativetrace/proxy")).toEqual([]);
+  });
+
+  it("tells a NarrativeTrace version from a project's own placeholder version and other packages", () => {
+    expect(pinHits('{ "name": "demo", "version": "0.0.0" }')).toEqual([]);
+    expect(pinHits('"vitest": "^3.2.0"')).toEqual([]);
+    expect(pinHits("pnpm add pino@9.4.0")).toEqual([]);
+    expect(pinHits('serviceVersion: "1.4.2"')).toEqual([]);
+  });
+
+  it("reads a skill's description and command steps as well as its code", () => {
+    const skill: Skill = {
+      canonicalName: "narrativetrace-x",
+      skillClass: "mechanical",
+      description: "Pins @narrativetrace/core-node@1.0.0 in its description.",
+      fixture: "examples/sixty-seconds",
+      allowedTools: [],
+      steps: [
+        {
+          title: "s",
+          body: { kind: "commands", commands: ["pnpm add @narrativetrace/proxy@2.0.0"] },
+          verify: "v",
+        },
+      ],
+      always: [],
+      never: [],
+    };
+    expect(pinnedNarrativeTraceVersions([skill])).toHaveLength(2);
+  });
+});
+
 describe("catalogue index", () => {
   it("is non-empty", () => {
     expect(SKILLS.length).toBeGreaterThan(0);
@@ -342,6 +405,13 @@ describe("catalogue index", () => {
 
   it.each(SKILLS)("$canonicalName: description fits the per-skill budget", (skill) => {
     expect(descriptionFitsBudget(skill)).toBe(true);
+  });
+
+  // The TypeScript skills pin no NarrativeTrace version by design: the package manager resolves the
+  // newest release from the npm registry (owner ruling 2026-11-19), so a release that leaves the
+  // skills alone leaves their pages byte-identical and a page never names an unpublished number.
+  it("no skill pins a NarrativeTrace version", () => {
+    expect(pinnedNarrativeTraceVersions(SKILLS)).toEqual([]);
   });
 
   it("catalogue-wide description budget stays under the silent-drop cliff", () => {

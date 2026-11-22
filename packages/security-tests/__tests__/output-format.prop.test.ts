@@ -53,10 +53,17 @@ function assertWellFormed(outputs: Record<string, string>): void {
   assertFrontmatterWellFormed(outputs);
 }
 
+// The keys this runtime emits as numbers on purpose; every other frontmatter value is a string.
+const NUMERIC_FRONTMATTER_KEYS = new Set(["duration_ms", "method_count", "error_count"]);
+
 function assertFrontmatterWellFormed(outputs: Record<string, string>): void {
   for (const key of ["renderer:markdown", "renderer:markdown-document"]) {
-    const keys = new Set(Object.keys(frontmatterOf(key, outputs[key] as string)));
-    expect(keys, key).toEqual(FRONTMATTER_KEYS);
+    const frontmatter = frontmatterOf(key, outputs[key] as string);
+    expect(new Set(Object.keys(frontmatter)), key).toEqual(FRONTMATTER_KEYS);
+    for (const [name, value] of Object.entries(frontmatter)) {
+      const expected = NUMERIC_FRONTMATTER_KEYS.has(name) ? "number" : "string";
+      expect(typeof value, `${key} frontmatter ${name}`).toBe(expected);
+    }
   }
 }
 
@@ -105,6 +112,24 @@ describe("output format well-formedness", () => {
       assertWellFormed(renderers(treeWithHostileMetadata(hostile.value)));
     }
   }, 30_000);
+
+  // A scenario spelled like a boolean, null, number or timestamp must come back from a YAML 1.1
+  // reader as the string that was written, never retyped.
+  test.each([
+    "2026-11-09",
+    "yes",
+    "null",
+    "42",
+    "0x1f",
+    "1_000",
+    "1.50",
+    ".inf",
+    "~",
+    "On",
+    "1e3",
+  ])("the scenario %s stays a string in the frontmatter", (scenario) => {
+    assertWellFormed(renderers(treeOf('"a"', '"b"'), scenario));
+  });
 
   test("every corpus string keeps every format bounded", () => {
     for (const hostile of hostileStrings()) {

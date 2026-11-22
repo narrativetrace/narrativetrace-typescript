@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 // Licensed under the Business Source License 1.1 (see LICENSE); Change Date: four years from publication; Change License: Apache-2.0
 // Copyright (c) 2026 Empower Agile
-import { claudeToolPattern, type Skill } from "../skill.js";
+import type { Skill } from "../skill.js";
 import { renderSkillBody } from "./body.js";
 
 /**
@@ -14,11 +14,17 @@ import { renderSkillBody } from "./body.js";
  * is shared with every other platform's SKILL.md (`render/body.ts`) — only this frontmatter is
  * Claude-specific.
  *
- * `allowed-tools` carries TOOL PATTERNS ({@link claudeToolPattern}), never bare command names: the
- * field lists tools, and a permission rule is spelled `Tool` or `Tool(specifier)`, so a bare `git`
- * there names a tool that does not exist and pre-approves nothing at all. Pinned by
- * `allowedToolsViolations` in `../lints.js` — the catalogue declares commands, this renderer spells
- * them, and neither side may quietly become the other.
+ * No `allowed-tools` line, ever. Anthropic's plugin directory accepts `allowed-tools` beyond the
+ * read-only tools (Read, Grep, Glob, LS) only from Verified organizations, and this publisher is
+ * not one (the portal's validation blocks a submission on exactly this line). So the page never
+ * pre-approves a command: a user gets Claude Code's normal permission prompt the first time a skill
+ * runs `pnpm`, `npx`, `node` or `git`.
+ *
+ * A skill's declared `allowedTools` stay in the model as the closed set of commands it runs, which
+ * `allowedToolsViolations` and the lints that keep a publishing or promoting skill from ever
+ * declaring its own command still read, and which the plugin README discloses. They are data about
+ * the skill, not a rendering: nothing here turns them into frontmatter, and
+ * `__tests__/claude-pages-no-allowed-tools.test.ts` fails if a committed page carries the key.
  */
 export function renderClaudeSkill(skill: Skill, resolveSnippet: (path: string) => string): string {
   return [renderFrontmatter(skill), "", renderSkillBody(skill, resolveSnippet)].join("\n");
@@ -31,11 +37,6 @@ function renderFrontmatter(skill: Skill): string {
     `description: ${JSON.stringify(skill.description)}`,
   ];
   if (skill.whenToUse) lines.push(`when_to_use: ${JSON.stringify(skill.whenToUse)}`);
-  // The LINE is omitted, never emitted empty: a skill that declares no tool pre-approves nothing,
-  // and that absence is a safety property (see `publishingNotPreApproved`).
-  if (skill.allowedTools.length > 0) {
-    lines.push(`allowed-tools: ${skill.allowedTools.map(claudeToolPattern).join(", ")}`);
-  }
   lines.push("---");
   return lines.join("\n");
 }

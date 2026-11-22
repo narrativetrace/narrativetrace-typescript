@@ -17,6 +17,7 @@ const BASE: MarketplaceListing = {
   pluginSource: "./.claude",
   license: "Apache-2.0",
   homepage: "https://narrativetrace.ai",
+  repository: "https://github.com/narrativetrace/narrativetrace-x",
   keywords: ["tracing", "agent-skills"],
 };
 

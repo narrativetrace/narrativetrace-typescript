@@ -128,10 +128,9 @@ describe("renderStructured", () => {
     });
   });
 
-  // Security fuzz suite finding: a throwing own-enumerable accessor escaped renderStructured
-  // (no catch around field introspection, unlike renderValue's same-shaped `renderObject`), so
-  // "the result ... never throws" (this function's own doc comment) did not hold.
-  test("a throwing accessor degrades to the type name instead of propagating", () => {
+  // A throwing own-enumerable accessor never runs: its field is the inaccessible marker and the
+  // value as a whole still renders, so "the result ... never throws" holds.
+  test("a throwing accessor is never run and its field is the inaccessible marker", () => {
     class Hostile {
       constructor() {
         Object.defineProperty(this, "detail", {
@@ -144,7 +143,11 @@ describe("renderStructured", () => {
     }
 
     expect(() => renderStructured(new Hostile())).not.toThrow();
-    expect(renderStructured(new Hostile())).toEqual({ kind: "other", text: "Hostile" });
+    expect(renderStructured(new Hostile())).toEqual({
+      kind: "object",
+      typeName: "Hostile",
+      fields: { detail: { kind: "other", text: "<inaccessible>" } },
+    });
   });
 
   // Bug-hunt no-poison contract: thenable detection reads `.then`, which invokes the getter
@@ -187,7 +190,7 @@ describe("renderStructured never re-enters tracing", () => {
     expect(summaryCalls).toBe(0);
   });
 
-  test("the rendering guard never reports active during a structured render", () => {
+  test("an own getter is never run by a structured render, so it observes no guard at all", () => {
     let observedDuringRender: boolean | undefined;
     // An object-literal getter is own-enumerable (unlike a class getter, which lives on the
     // prototype) — the one accessor shape structuredFields' `Object.keys` walk actually visits.
@@ -198,7 +201,7 @@ describe("renderStructured never re-enters tracing", () => {
       },
     };
     renderStructured(probed);
-    expect(observedDuringRender).toBe(false);
+    expect(observedDuringRender).toBeUndefined();
   });
 });
 
@@ -415,5 +418,43 @@ describe("renderStructured reads a platform collection subclass's own state", ()
     expect(renderValue(list)).toBe('["a"]');
     expect(renderValue(new S(["b"]))).toBe('["b"]');
     expect(renderValue(new M([["k", "c"]]))).toBe('{k="c"}');
+  });
+});
+
+// ADV-2026-11-03-2 — INVARIANT: renderStructured's own contract — "the result is always finite and
+// never throws" (its TSDoc) — and the parity rule between the two renderers: every behaviour of
+// the flat path must hold on the structured path. `objectTypeName` (rendered-value.ts:331) reads
+// `value.constructor?.name` with no guard, while the flat path's twin read sits inside a guard and
+// degrades to the typed error marker. A value whose `constructor` cannot be read is not exotic: a
+// revoked `Proxy` is the shape any revocable-proxy handle takes after its owner releases it, and
+// every capture site hands renderStructured the live object (trace-object.ts's buildCaptures).
+describe("ADV-2026-11-03-2: a constructor that cannot be read degrades, as the flat path's does", () => {
+  function revokedProxy(): object {
+    const { proxy, revoke } = Proxy.revocable({}, {});
+    revoke();
+    return proxy;
+  }
+
+  function throwingConstructor(): object {
+    const value = {};
+    Object.defineProperty(value, "constructor", {
+      get() {
+        throw new Error("boom");
+      },
+    });
+    return value;
+  }
+
+  test("a revoked proxy renders structurally, exactly as it renders flat", () => {
+    expect(renderValue(revokedProxy())).toBe("<error: TypeError>");
+    expect(renderStructured(revokedProxy())).toEqual({ kind: "other", text: "<error: TypeError>" });
+  });
+
+  test("a value whose own constructor accessor throws renders structurally too", () => {
+    expect(renderValue(throwingConstructor())).toBe("<error: Error>");
+    expect(renderStructured(throwingConstructor())).toEqual({
+      kind: "other",
+      text: "<error: Error>",
+    });
   });
 });
